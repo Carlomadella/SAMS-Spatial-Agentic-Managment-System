@@ -38,6 +38,9 @@ interface State {
   rightOpen: boolean;
   bottomOpen: boolean;
 
+  /** whether the optional managed-agents runtime is connected */
+  backendOnline: boolean;
+
   // --- actions: agents ---
   addAgent: (color?: AgentColor) => string;
   removeAgent: (id: string) => void;
@@ -64,6 +67,17 @@ interface State {
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleBottom: () => void;
+
+  // --- actions: runtime (managed agents) ---
+  setBackendOnline: (online: boolean) => void;
+  applyRemote: (e: {
+    agentId: string;
+    agentName?: string;
+    status?: AgentStatus;
+    progress?: number;
+    level?: LogLevel;
+    message?: string;
+  }) => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -104,6 +118,7 @@ export const useStore = create<State>()((set, get) => ({
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
+  backendOnline: false,
 
   log: (e) =>
     set((s) => ({
@@ -245,6 +260,44 @@ export const useStore = create<State>()((set, get) => ({
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
+
+  setBackendOnline: (online) => set({ backendOnline: online }),
+
+  applyRemote: (e) =>
+    set((s) => {
+      const agent = s.agents.find((a) => a.id === e.agentId);
+      const agents =
+        agent && (e.status || e.progress != null)
+          ? s.agents.map((a) => {
+              if (a.id !== e.agentId) return a;
+              const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
+              const task =
+                progress != null
+                  ? a.task
+                    ? { ...a.task, progress }
+                    : { title: e.message ?? "Runtime task", branch: "", progress }
+                  : a.task;
+              return { ...a, status: e.status ?? a.status, task };
+            })
+          : s.agents;
+
+      const events = e.message
+        ? [
+            ...s.events,
+            {
+              id: uid("evt"),
+              ts: Date.now(),
+              agentId: e.agentId,
+              agentName: e.agentName ?? agent?.name ?? "runtime",
+              color: agent?.color ?? null,
+              level: e.level ?? "INFO",
+              message: e.message,
+            },
+          ].slice(-300)
+        : s.events;
+
+      return { agents, events };
+    }),
 }));
 
 // Stable selector helpers ----------------------------------------------------

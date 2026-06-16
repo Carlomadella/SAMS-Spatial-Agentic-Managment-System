@@ -9,6 +9,7 @@ import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { OfficeScene } from "./scene/OfficeScene";
 import { useStore } from "./store/useStore";
+import { connectBackend } from "./lib/backend";
 
 function StageHint() {
   return (
@@ -42,6 +43,9 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [setCommandOpen]);
+
+  // Connect to the optional managed-agents runtime (no-op if not configured).
+  useEffect(() => connectBackend(), []);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">

@@ -83,12 +83,29 @@ src/
   types.ts      domain model
 ```
 
+## Live mode — real agents (Claude Managed Agents)
+
+SAMS can drive **real** AI agents that work on a GitHub repo. The optional
+runtime in [`server/`](./server) connects each colored agent to a Claude Managed
+Agents session: assign a task in the inspector and the agent mounts the repo,
+does the work in a sandbox, pushes a branch, and opens a pull request — streaming
+status/progress/logs back into the 3D scene.
+
+```bash
+cd server && npm install && cp .env.example .env   # add your Anthropic + GitHub keys
+npm run setup                                        # create the agent (once) → paste IDs into .env
+npm run dev                                          # runtime on :8787
+# then, in the repo root:
+echo "VITE_SAMS_BACKEND_URL=http://localhost:8787" > .env.local && npm run dev
+```
+
+When `VITE_SAMS_BACKEND_URL` is unset, SAMS stays a pure manual sandbox. See
+[`server/README.md`](./server/README.md) for the full guide.
+
 ## Roadmap ideas
 
 - **Live simulation mode** — agents that pick up tasks and progress on their own.
-- **Real agent integration** — the store already isolates the data layer, so an
-  agent's task/status/progress could be driven by a real backend (e.g. the
-  Claude API) instead of manual input.
+- Multi-repo targets, per-agent role/model presets, PR review from the gate panel.
 - Persistence (save/load workspaces), multi-room layouts, drag-to-move,
   richer character models, and a true resizable panel system.
 
