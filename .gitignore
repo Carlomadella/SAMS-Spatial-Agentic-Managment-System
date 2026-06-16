@@ -33,6 +33,9 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
+# runtime (server) — local secrets/state, never commit
+.sams-runtime.json
+
 # misc
 coverage
 .cache

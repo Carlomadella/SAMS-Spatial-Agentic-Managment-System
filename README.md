@@ -83,12 +83,37 @@ src/
   types.ts      domain model
 ```
 
+## Live mode — real agents (Claude Managed Agents)
+
+SAMS can drive **real** AI agents: assign a task in plain language and the agent
+mounts your GitHub repo, does the work in a sandbox, pushes a branch, and opens a
+pull request — streaming status/progress/logs into the 3D scene. Everything is
+driven from the app; the only terminal command is a single start:
+
+```bash
+npm run bootstrap   # install web + runtime deps (once)
+npm start           # launch the app AND the runtime together
+```
+
+Then, **inside the app** (no terminal, no files to edit):
+
+1. Click the ⚙ button in the top bar to open **Runtime settings**.
+2. Paste your **Anthropic API key** and a **GitHub token** (fine-grained,
+   *Contents: Read and write*), set the **repository**, and **Save**.
+3. Click **Provisiona agenti** (creates the managed agent once).
+4. Select an agent, type a task in human language in the inspector, and hit
+   **Assign task (live)**. Watch the Event Log and the PR appear.
+
+**Reusable for any repo:** just change the **Repository** field in settings — the
+agents are repo-agnostic. Keys and provisioned IDs are stored locally in
+`server/.sams-runtime.json` (git-ignored). The app talks to the runtime at
+`http://localhost:8787` by default (override with `VITE_SAMS_BACKEND_URL`). Full
+guide: [`server/README.md`](./server/README.md).
+
 ## Roadmap ideas
 
 - **Live simulation mode** — agents that pick up tasks and progress on their own.
-- **Real agent integration** — the store already isolates the data layer, so an
-  agent's task/status/progress could be driven by a real backend (e.g. the
-  Claude API) instead of manual input.
+- Multi-repo targets, per-agent role/model presets, PR review from the gate panel.
 - Persistence (save/load workspaces), multi-room layouts, drag-to-move,
   richer character models, and a true resizable panel system.
 

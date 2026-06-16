@@ -5,6 +5,7 @@ import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
+import { assignRemote, backendEnabled } from "../lib/backend";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -18,6 +19,7 @@ export function AgentInspector() {
   const clearTask = useStore((s) => s.clearTask);
   const sendToZone = useStore((s) => s.sendToZone);
   const removeAgent = useStore((s) => s.removeAgent);
+  const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
@@ -119,13 +121,26 @@ export function AgentInspector() {
             <button
               disabled={!title.trim()}
               onClick={() => {
-                assignTask(agent.id, title.trim(), branch.trim());
+                const t = title.trim();
+                const b = branch.trim();
+                assignTask(agent.id, t, b);
+                if (backendEnabled) {
+                  assignRemote(agent.id, agent.name, t, b).catch((err: Error) =>
+                    log({
+                      agentId: agent.id,
+                      agentName: agent.name,
+                      color: agent.color,
+                      level: "ERROR",
+                      message: `Runtime: ${err.message}`,
+                    }),
+                  );
+                }
                 setTitle("");
                 setBranch("");
               }}
               className="btn btn-primary w-full"
             >
-              <Send size={13} /> Assign task
+              <Send size={13} /> {backendEnabled ? "Assign task (live)" : "Assign task"}
             </button>
           </div>
         )}

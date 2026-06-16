@@ -34,9 +34,13 @@ interface State {
   activity: ActivityView;
   bottomTab: BottomTab;
   commandOpen: boolean;
+  settingsOpen: boolean;
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
+
+  /** whether the optional managed-agents runtime is connected */
+  backendOnline: boolean;
 
   // --- actions: agents ---
   addAgent: (color?: AgentColor) => string;
@@ -61,9 +65,21 @@ interface State {
   setActivity: (a: ActivityView) => void;
   setBottomTab: (t: BottomTab) => void;
   setCommandOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleBottom: () => void;
+
+  // --- actions: runtime (managed agents) ---
+  setBackendOnline: (online: boolean) => void;
+  applyRemote: (e: {
+    agentId: string;
+    agentName?: string;
+    status?: AgentStatus;
+    progress?: number;
+    level?: LogLevel;
+    message?: string;
+  }) => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -101,9 +117,11 @@ export const useStore = create<State>()((set, get) => ({
   activity: "explorer",
   bottomTab: "eventlog",
   commandOpen: false,
+  settingsOpen: false,
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
+  backendOnline: false,
 
   log: (e) =>
     set((s) => ({
@@ -242,9 +260,48 @@ export const useStore = create<State>()((set, get) => ({
   setActivity: (a) => set({ activity: a }),
   setBottomTab: (t) => set({ bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
+
+  setBackendOnline: (online) => set({ backendOnline: online }),
+
+  applyRemote: (e) =>
+    set((s) => {
+      const agent = s.agents.find((a) => a.id === e.agentId);
+      const agents =
+        agent && (e.status || e.progress != null)
+          ? s.agents.map((a) => {
+              if (a.id !== e.agentId) return a;
+              const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
+              const task =
+                progress != null
+                  ? a.task
+                    ? { ...a.task, progress }
+                    : { title: e.message ?? "Runtime task", branch: "", progress }
+                  : a.task;
+              return { ...a, status: e.status ?? a.status, task };
+            })
+          : s.agents;
+
+      const events = e.message
+        ? [
+            ...s.events,
+            {
+              id: uid("evt"),
+              ts: Date.now(),
+              agentId: e.agentId,
+              agentName: e.agentName ?? agent?.name ?? "runtime",
+              color: agent?.color ?? null,
+              level: e.level ?? "INFO",
+              message: e.message,
+            },
+          ].slice(-300)
+        : s.events;
+
+      return { agents, events };
+    }),
 }));
 
 // Stable selector helpers ----------------------------------------------------

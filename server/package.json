@@ -1,0 +1,26 @@
+{
+  "name": "sams-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SAMS runtime — drives Claude Managed Agents that work on a GitHub repo and stream progress back to the SAMS UI.",
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
