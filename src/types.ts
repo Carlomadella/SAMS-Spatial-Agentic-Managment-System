@@ -1,0 +1,112 @@
+// ---------------------------------------------------------------------------
+// SAMS — domain model
+// ---------------------------------------------------------------------------
+
+/** The six "Sims-like" agent colors. The key doubles as a stable palette id. */
+export type AgentColor =
+  | "blue"
+  | "green"
+  | "orange"
+  | "purple"
+  | "red"
+  | "yellow";
+
+export const AGENT_COLORS: AgentColor[] = [
+  "blue",
+  "green",
+  "orange",
+  "purple",
+  "red",
+  "yellow",
+];
+
+/** Hex values mirror tailwind.config `agent.*`. Kept here for the 3D scene. */
+export const AGENT_HEX: Record<AgentColor, string> = {
+  blue: "#3b82f6",
+  green: "#22c55e",
+  orange: "#f97316",
+  purple: "#a855f7",
+  red: "#ef4444",
+  yellow: "#eab308",
+};
+
+export type AgentStatus =
+  | "idle"
+  | "working"
+  | "review"
+  | "blocked"
+  | "done";
+
+export type LogLevel = "INFO" | "SUCCESS" | "WARN" | "ERROR" | "IDLE";
+
+export type EnvironmentName = "dev" | "staging" | "prod";
+
+/** A point on the floor plane, in world units (x = east/west, z = north/south). */
+export type Vec2 = [number, number];
+
+export interface Task {
+  title: string;
+  branch: string;
+  /** 0..100 */
+  progress: number;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  color: AgentColor;
+  /** Free-text flavor — which model / role this agent represents. */
+  model: string;
+  role: string;
+  status: AgentStatus;
+  /** Committed floor position. */
+  position: Vec2;
+  /** Where the agent is walking to, if anywhere. */
+  target: Vec2 | null;
+  task: Task | null;
+}
+
+export interface LogEvent {
+  id: string;
+  /** epoch ms */
+  ts: number;
+  agentId: string | null;
+  agentName: string;
+  color: AgentColor | null;
+  level: LogLevel;
+  message: string;
+}
+
+/** A fixed point of interest in the office the user can dispatch agents to. */
+export interface Zone {
+  id: string;
+  label: string;
+  sublabel: string;
+  position: Vec2;
+}
+
+// --- Explorer file tree -----------------------------------------------------
+
+export type FileBadge = "M" | "U" | "A" | null;
+
+export interface FileNode {
+  id: string;
+  name: string;
+  kind: "folder" | "file";
+  /** git-style status badge shown on the right (M = modified, U = untracked). */
+  badge?: FileBadge;
+  /** when set, clicking the node selects this agent */
+  agentId?: string;
+  children?: FileNode[];
+}
+
+// --- UI state ---------------------------------------------------------------
+
+export type ActivityView =
+  | "explorer"
+  | "search"
+  | "scm"
+  | "cad"
+  | "extensions";
+
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems";
