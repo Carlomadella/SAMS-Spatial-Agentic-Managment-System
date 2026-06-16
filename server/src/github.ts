@@ -1,4 +1,4 @@
-import { config } from "./config";
+import { getSettings } from "./config";
 
 interface PullRequest {
   html_url: string;
@@ -11,11 +11,12 @@ export async function createPullRequest(args: {
   title: string;
   body: string;
 }): Promise<PullRequest> {
-  const [owner, repo] = config.githubRepo.split("/");
+  const s = getSettings();
+  const [owner, repo] = s.githubRepo.split("/");
   const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${config.githubToken}`,
+      Authorization: `Bearer ${s.githubToken}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
@@ -24,7 +25,7 @@ export async function createPullRequest(args: {
     body: JSON.stringify({
       title: args.title,
       head: args.branch,
-      base: config.baseBranch,
+      base: s.baseBranch,
       body: args.body,
     }),
   });

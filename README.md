@@ -85,22 +85,30 @@ src/
 
 ## Live mode — real agents (Claude Managed Agents)
 
-SAMS can drive **real** AI agents that work on a GitHub repo. The optional
-runtime in [`server/`](./server) connects each colored agent to a Claude Managed
-Agents session: assign a task in the inspector and the agent mounts the repo,
-does the work in a sandbox, pushes a branch, and opens a pull request — streaming
-status/progress/logs back into the 3D scene.
+SAMS can drive **real** AI agents: assign a task in plain language and the agent
+mounts your GitHub repo, does the work in a sandbox, pushes a branch, and opens a
+pull request — streaming status/progress/logs into the 3D scene. Everything is
+driven from the app; the only terminal command is a single start:
 
 ```bash
-cd server && npm install && cp .env.example .env   # add your Anthropic + GitHub keys
-npm run setup                                        # create the agent (once) → paste IDs into .env
-npm run dev                                          # runtime on :8787
-# then, in the repo root:
-echo "VITE_SAMS_BACKEND_URL=http://localhost:8787" > .env.local && npm run dev
+npm run bootstrap   # install web + runtime deps (once)
+npm start           # launch the app AND the runtime together
 ```
 
-When `VITE_SAMS_BACKEND_URL` is unset, SAMS stays a pure manual sandbox. See
-[`server/README.md`](./server/README.md) for the full guide.
+Then, **inside the app** (no terminal, no files to edit):
+
+1. Click the ⚙ button in the top bar to open **Runtime settings**.
+2. Paste your **Anthropic API key** and a **GitHub token** (fine-grained,
+   *Contents: Read and write*), set the **repository**, and **Save**.
+3. Click **Provisiona agenti** (creates the managed agent once).
+4. Select an agent, type a task in human language in the inspector, and hit
+   **Assign task (live)**. Watch the Event Log and the PR appear.
+
+**Reusable for any repo:** just change the **Repository** field in settings — the
+agents are repo-agnostic. Keys and provisioned IDs are stored locally in
+`server/.sams-runtime.json` (git-ignored). The app talks to the runtime at
+`http://localhost:8787` by default (override with `VITE_SAMS_BACKEND_URL`). Full
+guide: [`server/README.md`](./server/README.md).
 
 ## Roadmap ideas
 

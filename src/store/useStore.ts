@@ -34,6 +34,7 @@ interface State {
   activity: ActivityView;
   bottomTab: BottomTab;
   commandOpen: boolean;
+  settingsOpen: boolean;
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
@@ -64,6 +65,7 @@ interface State {
   setActivity: (a: ActivityView) => void;
   setBottomTab: (t: BottomTab) => void;
   setCommandOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleBottom: () => void;
@@ -115,6 +117,7 @@ export const useStore = create<State>()((set, get) => ({
   activity: "explorer",
   bottomTab: "eventlog",
   commandOpen: false,
+  settingsOpen: false,
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
@@ -257,6 +260,7 @@ export const useStore = create<State>()((set, get) => ({
   setActivity: (a) => set({ activity: a }),
   setBottomTab: (t) => set({ bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),

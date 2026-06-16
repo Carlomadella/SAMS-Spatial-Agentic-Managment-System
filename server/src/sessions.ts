@@ -1,5 +1,5 @@
-import { anthropic } from "./anthropic";
-import { config } from "./config";
+import { getClient } from "./anthropic";
+import { getSettings } from "./config";
 import { createPullRequest } from "./github";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -28,6 +28,9 @@ function truncate(s: string, n: number): string {
  * agent's progress back through `emit`, then open a pull request.
  */
 export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
+  const s = getSettings();
+  const client = getClient();
+
   const agentId = body.agentId;
   const agentName = body.agentName || body.agentId;
   const title = body.title;
@@ -35,25 +38,25 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
 
   emit({ agentId, agentName, status: "working", progress: 4, level: "INFO", message: `Avvio sessione · branch ${branch}` });
 
-  const session = await anthropic.beta.sessions.create({
-    agent: config.agentId,
-    environment_id: config.environmentId,
+  const session = await client.beta.sessions.create({
+    agent: s.agentId,
+    environment_id: s.environmentId,
     title: `${agentName}: ${truncate(title, 60)}`,
     resources: [
       {
         type: "github_repository",
-        url: `https://github.com/${config.githubRepo}`,
-        authorization_token: config.githubToken,
-        checkout: { type: "branch", name: config.baseBranch },
+        url: `https://github.com/${s.githubRepo}`,
+        authorization_token: s.githubToken,
+        checkout: { type: "branch", name: s.baseBranch },
       },
     ],
   });
 
-  emit({ agentId, agentName, level: "INFO", message: `Session ${session.id} creata su ${config.githubRepo}` });
+  emit({ agentId, agentName, level: "INFO", message: `Session ${session.id} creata su ${s.githubRepo}` });
 
   // Stream-first, then send the kickoff message (so we don't miss early events).
-  const stream = await anthropic.beta.sessions.events.stream(session.id);
-  await anthropic.beta.sessions.events.send(session.id, {
+  const stream = await client.beta.sessions.events.stream(session.id);
+  await client.beta.sessions.events.send(session.id, {
     events: [
       {
         type: "user.message",
@@ -62,7 +65,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
             type: "text",
             text:
               `Task: ${title}\n\n` +
-              `Work on branch: ${branch} (create it from ${config.baseBranch} if it doesn't exist).\n` +
+              `Work on branch: ${branch} (create it from ${s.baseBranch} if it doesn't exist).\n` +
               `When finished, commit your changes and push with: git push -u origin ${branch}\n` +
               `Then give a short summary of what changed.`,
           },
@@ -116,12 +119,12 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
 
   emit({ agentId, agentName, progress: 100, status: "review", level: "SUCCESS", message: "Lavoro completato" });
 
-  if (config.openPRs && config.githubToken) {
+  if (s.openPRs && s.githubToken) {
     try {
       const pr = await createPullRequest({
         branch,
         title,
-        body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${title}\n\n_Branch \`${branch}\` → \`${config.baseBranch}\`._`,
+        body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${title}\n\n_Branch \`${branch}\` → \`${s.baseBranch}\`._`,
       });
       emit({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
     } catch (err) {

@@ -6,6 +6,8 @@
   "description": "SAMS — Spatial Agentic Management System. A 'Sims-like' 3D workspace for managing AI agents.",
   "scripts": {
     "dev": "vite",
+    "start": "node scripts/dev-all.mjs",
+    "bootstrap": "npm install && npm install --prefix server",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",

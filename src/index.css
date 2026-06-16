@@ -57,4 +57,9 @@
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium;
   }
+
+  .settings-input {
+    @apply w-full rounded-md border border-line bg-ink-800 px-2.5 py-1.5 text-[13px]
+           text-slate-100 outline-none placeholder:text-mut focus:border-brand/50;
+  }
 }

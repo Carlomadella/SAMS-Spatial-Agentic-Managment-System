@@ -20,36 +20,47 @@ SAMS UI ──POST /api/assign──▶  runtime  ──▶  Claude Managed Agen
   requests: Read and write* for PRs) on the target repo
   (`Carlomadella/Tutto-sulla-programmazione`).
 
-## Setup
+## Setup (all from the app — recommended)
+
+From the **repo root** (one terminal command):
 
 ```bash
-cd server
-npm install
-cp .env.example .env          # then fill ANTHROPIC_API_KEY + GITHUB_TOKEN
-
-npm run setup                 # creates the Agent + Environment (once)
-# → copy the printed SAMS_AGENT_ID and SAMS_ENVIRONMENT_ID into .env
-
-npm run dev                   # starts the runtime on http://localhost:8787
+npm run bootstrap   # install web + runtime deps (once)
+npm start           # launches the web app AND the runtime together
 ```
 
-Then point the SAMS UI at it — in the **repo root**:
+Then do everything in the UI — no files to edit:
+
+1. Click ⚙ **Runtime settings** in the top bar.
+2. Paste your **Anthropic API key** + **GitHub token**, set the **repository**,
+   and **Save**.
+3. Click **Provisiona agenti** (creates the managed agent + environment once).
+4. Select an agent, type a task in human language, hit **Assign task (live)**.
+
+Settings/IDs persist to `server/.sams-runtime.json` (git-ignored). The app
+reaches the runtime at `http://localhost:8787` by default.
+
+### CLI alternative (optional)
+
+Prefer the terminal? Put `ANTHROPIC_API_KEY` + `GITHUB_TOKEN` in `server/.env`
+(see `.env.example`), then:
 
 ```bash
-echo "VITE_SAMS_BACKEND_URL=http://localhost:8787" > .env.local
-npm run dev                   # the UI; status bar should read "Runtime: live"
+cd server && npm install
+npm run setup       # creates the Agent + Environment, saves the IDs
+npm run dev         # runtime on :8787
 ```
-
-Select an agent, write a task + branch in the inspector, and hit **Assign task
-(live)**. Watch the Event Log fill in and a PR appear on the repo.
 
 ## Endpoints
 
-| Method | Path           | Purpose                                              |
-| ------ | -------------- | --------------------------------------------------- |
-| `GET`  | `/api/health`  | `{ ok, configured, repo }`                          |
-| `GET`  | `/api/events`  | SSE stream of `WireEvent`s (status/progress/log)    |
-| `POST` | `/api/assign`  | `{ agentId, agentName, title, branch? }` → run task |
+| Method | Path            | Purpose                                              |
+| ------ | --------------- | --------------------------------------------------- |
+| `GET`  | `/api/health`   | health + sanitized status                           |
+| `GET`  | `/api/status`   | which keys are set, provisioned?, repo, model       |
+| `POST` | `/api/settings` | save keys/repo/model (entered in the app)           |
+| `POST` | `/api/provision`| create (or re-create) the Agent + Environment       |
+| `GET`  | `/api/events`   | SSE stream of `WireEvent`s (status/progress/log)    |
+| `POST` | `/api/assign`   | `{ agentId, agentName, title, branch? }` → run task |
 
 ## Env vars
 

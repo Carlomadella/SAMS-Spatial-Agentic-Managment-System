@@ -7,6 +7,7 @@ import {
   PanelRight,
   Plus,
   Search,
+  Settings,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
@@ -38,6 +39,7 @@ function IconBtn({
 
 export function TitleBar() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const addAgent = useStore((s) => s.addAgent);
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
@@ -85,6 +87,9 @@ export function TitleBar() {
         <button onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
           <Plus size={14} /> Agent
         </button>
+        <IconBtn title="Runtime settings" onClick={() => setSettingsOpen(true)}>
+          <Settings size={16} />
+        </IconBtn>
         <IconBtn title="Toggle Explorer" onClick={toggleLeft} active={leftOpen}>
           <PanelLeft size={16} />
         </IconBtn>

@@ -7,6 +7,7 @@ import { RightPanel } from "./components/RightPanel";
 import { BottomPanel } from "./components/BottomPanel";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
+import { SettingsModal } from "./components/SettingsModal";
 import { OfficeScene } from "./scene/OfficeScene";
 import { useStore } from "./store/useStore";
 import { connectBackend } from "./lib/backend";
@@ -68,6 +69,7 @@ export default function App() {
 
       <StatusBar />
       <CommandPalette />
+      <SettingsModal />
     </div>
   );
 }
