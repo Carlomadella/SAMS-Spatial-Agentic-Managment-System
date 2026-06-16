@@ -21,6 +21,16 @@
     overflow: hidden;
   }
 
+  /* clean, consistent keyboard focus across the app */
+  :focus-visible {
+    outline: 2px solid #4f8cff;
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  button:focus:not(:focus-visible) {
+    outline: none;
+  }
+
   /* slim, IDE-style scrollbars */
   ::-webkit-scrollbar {
     width: 10px;

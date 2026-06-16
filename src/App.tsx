@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Hand, Move3d, MousePointerClick } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Hand, HelpCircle, Move3d, MousePointerClick, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -13,10 +13,37 @@ import { useStore } from "./store/useStore";
 import { connectBackend } from "./lib/backend";
 
 function StageHint() {
+  const [open, setOpen] = useState(() => localStorage.getItem("sams.hint") !== "off");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => {
+          setOpen(true);
+          localStorage.removeItem("sams.hint");
+        }}
+        title="Show tips"
+        className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
+      >
+        <HelpCircle size={15} />
+      </button>
+    );
+  }
+
   return (
-    <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg border border-slate-300/60 bg-white/80 px-3 py-2 text-[11px] text-slate-600 shadow-sm backdrop-blur">
+    <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg border border-slate-300/60 bg-white/85 px-3 py-2 pr-8 text-[11px] text-slate-600 shadow-sm backdrop-blur">
+      <button
+        onClick={() => {
+          setOpen(false);
+          localStorage.setItem("sams.hint", "off");
+        }}
+        title="Dismiss"
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700"
+      >
+        <X size={12} />
+      </button>
       <span className="flex items-center gap-1.5">
-        <MousePointerClick size={13} /> Click an agent to select & command it
+        <MousePointerClick size={13} /> Click an agent to select &amp; command it
       </span>
       <span className="flex items-center gap-1.5">
         <Hand size={13} /> Click the floor to send it walking

@@ -49,26 +49,21 @@ export function TitleBar() {
   const toggleBottom = useStore((s) => s.toggleBottom);
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-ink-900 px-3">
-      {/* window dots */}
-      <div className="flex items-center gap-2 pl-1 pr-2">
-        <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-        <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-        <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-      </div>
-
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-ink-900 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
       {/* brand */}
-      <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-600 shadow-glow">
+      <div className="flex items-center gap-2.5 pl-0.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-600 shadow-glow ring-1 ring-white/10">
           <Bot size={16} className="text-white" />
         </div>
-        <div className="leading-none">
-          <div className="text-[13px] font-bold tracking-tight text-white">SAMS</div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[13px] font-bold tracking-tight text-white">SAMS</span>
+          <span className="hidden text-[12px] text-mut sm:inline">
+            Spatial Agentic Management System
+          </span>
         </div>
-        <span className="hidden text-[12px] text-mut md:inline">
-          Spatial Agentic Management System
-        </span>
       </div>
+
+      <div className="h-5 w-px bg-line" aria-hidden />
 
       {/* command search */}
       <button
