@@ -2,18 +2,26 @@ import fs from "node:fs";
 import path from "node:path";
 import "dotenv/config";
 
+export type Provider = "gemini" | "claude";
+
 /**
  * Runtime settings. Defaults come from the environment (.env), but the SAMS UI
  * can override them at runtime via /api/settings — those overrides are persisted
  * to a local, git-ignored JSON file so they survive restarts.
  */
 export interface Settings {
+  provider: Provider;
+  // engine keys
+  geminiApiKey: string;
   anthropicApiKey: string;
+  // github
   githubToken: string;
   githubRepo: string;
   baseBranch: string;
+  // claude managed-agents resources (provider="claude" only)
   agentId: string;
   environmentId: string;
+  // misc
   model: string;
   openPRs: boolean;
   notionToken: string;
@@ -25,13 +33,15 @@ const STORE_FILE = path.join(process.cwd(), ".sams-runtime.json");
 
 function fromEnv(): Settings {
   return {
+    provider: (process.env.SAMS_PROVIDER as Provider) || "gemini",
+    geminiApiKey: process.env.GEMINI_API_KEY ?? "",
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
     githubToken: process.env.GITHUB_TOKEN ?? "",
     githubRepo: process.env.GITHUB_REPO ?? "Carlomadella/Tutto-sulla-programmazione",
     baseBranch: process.env.GITHUB_BASE_BRANCH ?? "main",
     agentId: process.env.SAMS_AGENT_ID ?? "",
     environmentId: process.env.SAMS_ENVIRONMENT_ID ?? "",
-    model: process.env.SAMS_MODEL ?? "claude-opus-4-8",
+    model: process.env.SAMS_MODEL ?? "gemini-2.5-flash",
     openPRs: (process.env.SAMS_OPEN_PRS ?? "true") !== "false",
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
@@ -53,7 +63,9 @@ let current: Settings = load();
 
 function persist(): void {
   const s = current;
-  const data = {
+  const data: Omit<Settings, "port"> = {
+    provider: s.provider,
+    geminiApiKey: s.geminiApiKey,
     anthropicApiKey: s.anthropicApiKey,
     githubToken: s.githubToken,
     githubRepo: s.githubRepo,
@@ -76,6 +88,8 @@ export function getSettings(): Settings {
 export type SettingsPatch = Partial<
   Pick<
     Settings,
+    | "provider"
+    | "geminiApiKey"
     | "anthropicApiKey"
     | "githubToken"
     | "githubRepo"
@@ -93,7 +107,7 @@ export function updateSettings(patch: SettingsPatch): Settings {
   return current;
 }
 
-/** Store the provisioned Agent + Environment IDs. */
+/** Store the provisioned Agent + Environment IDs (Claude provider only). */
 export function setProvision(ids: { agentId: string; environmentId: string }): Settings {
   current = { ...current, agentId: ids.agentId, environmentId: ids.environmentId };
   persist();
@@ -101,11 +115,14 @@ export function setProvision(ids: { agentId: string; environmentId: string }): S
 }
 
 export function isConfigured(): boolean {
-  return getSettings().anthropicApiKey.length > 0;
+  const s = getSettings();
+  return s.provider === "gemini" ? s.geminiApiKey.length > 0 : s.anthropicApiKey.length > 0;
 }
 
 export function isProvisioned(): boolean {
   const s = getSettings();
+  // Gemini is a self-hosted loop — no provisioning step.
+  if (s.provider === "gemini") return true;
   return s.agentId.length > 0 && s.environmentId.length > 0;
 }
 
@@ -117,6 +134,8 @@ export function isReady(): boolean {
 export function publicStatus() {
   const s = getSettings();
   return {
+    provider: s.provider,
+    hasGeminiKey: s.geminiApiKey.length > 0,
     hasAnthropicKey: s.anthropicApiKey.length > 0,
     hasGithubToken: s.githubToken.length > 0,
     provisioned: isProvisioned(),
@@ -127,6 +146,6 @@ export function publicStatus() {
     openPRs: s.openPRs,
     hasNotionToken: s.notionToken.length > 0,
     notionPageId: s.notionPageId,
-    notionReady: s.notionToken.length > 0 && s.notionPageId.length > 0,
+    notionReady: s.notionToken.length > 0,
   };
 }

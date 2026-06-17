@@ -13,12 +13,20 @@ SAMS UI ──POST /api/assign──▶  runtime  ──▶  Claude Managed Agen
                                    └──▶  GitHub: open Pull Request
 ```
 
+## Engines
+
+- **Gemini (Google, free tier)** — default. Free key at
+  <https://aistudio.google.com/apikey>. Self-hosted agent loop (function calling)
+  that drives the GitHub Contents API + Notion API. No provisioning.
+- **Claude (Anthropic, paid)** — Managed Agents (sandbox); needs API credits and
+  a one-time *Provisiona agenti*.
+
 ## Prerequisites
 
-- An **Anthropic API key** with Managed Agents access.
+- An **engine key**: a **Gemini** key (free) or an **Anthropic** key (paid).
 - A **GitHub fine-grained PAT** with *Contents: Read and write* (add *Pull
-  requests: Read and write* for PRs) on the target repo
-  (`Carlomadella/Tutto-sulla-programmazione`).
+  requests: Read and write* for PRs) on the target repo.
+- *(optional)* a **Notion** integration token to read/write KB pages.
 
 ## Setup (all from the app — recommended)
 
@@ -32,9 +40,9 @@ npm start           # launches the web app AND the runtime together
 Then do everything in the UI — no files to edit:
 
 1. Click ⚙ **Runtime settings** in the top bar.
-2. Paste your **Anthropic API key** + **GitHub token**, set the **repository**,
-   and **Save**.
-3. Click **Provisiona agenti** (creates the managed agent + environment once).
+2. Pick the **engine** (Gemini = free), paste the engine key + **GitHub token**,
+   set the **repository**, optional **Notion** token, and **Save**.
+3. **Claude** only: click **Provisiona agenti**. **Gemini** is ready after Save.
 4. Select an agent, type a task in human language, hit **Assign task (live)**.
 
 Settings/IDs persist to `server/.sams-runtime.json` (git-ignored). The app

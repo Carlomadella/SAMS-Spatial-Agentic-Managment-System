@@ -18,7 +18,11 @@ export interface RemoteUpdate {
   message?: string;
 }
 
+export type Provider = "gemini" | "claude";
+
 export interface RuntimeStatus {
+  provider: Provider;
+  hasGeminiKey: boolean;
   hasAnthropicKey: boolean;
   hasGithubToken: boolean;
   provisioned: boolean;
@@ -33,6 +37,8 @@ export interface RuntimeStatus {
 }
 
 export interface SettingsInput {
+  provider?: Provider;
+  geminiApiKey?: string;
   anthropicApiKey?: string;
   githubToken?: string;
   githubRepo?: string;

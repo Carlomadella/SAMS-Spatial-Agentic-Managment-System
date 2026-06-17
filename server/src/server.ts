@@ -3,6 +3,7 @@ import cors from "cors";
 import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
+import { runGeminiTask } from "./agent";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -30,6 +31,8 @@ app.get("/api/status", (_req: Request, res: Response) => {
 app.post("/api/settings", (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
+  if (body.provider === "gemini" || body.provider === "claude") patch.provider = body.provider;
+  if (typeof body.geminiApiKey === "string" && body.geminiApiKey.trim()) patch.geminiApiKey = body.geminiApiKey.trim();
   if (typeof body.anthropicApiKey === "string" && body.anthropicApiKey.trim()) patch.anthropicApiKey = body.anthropicApiKey.trim();
   if (typeof body.githubToken === "string" && body.githubToken.trim()) patch.githubToken = body.githubToken.trim();
   if (typeof body.githubRepo === "string" && body.githubRepo.trim()) patch.githubRepo = body.githubRepo.trim();
@@ -42,8 +45,12 @@ app.post("/api/settings", (req: Request, res: Response) => {
   res.json(publicStatus());
 });
 
-/** Create (or re-create) the managed Agent + Environment. */
+/** Create (or re-create) the managed Agent + Environment (Claude provider only). */
 app.post("/api/provision", async (_req: Request, res: Response) => {
+  if (getSettings().provider !== "claude") {
+    res.json({ ...publicStatus(), note: "Gemini non richiede provisioning" });
+    return;
+  }
   try {
     const ids = await provision();
     res.json({ ...publicStatus(), ...ids });
@@ -81,7 +88,8 @@ app.post("/api/assign", (req: Request, res: Response) => {
   }
   res.json({ ok: true });
 
-  runTask(body, broadcast).catch((err: unknown) => {
+  const runner = getSettings().provider === "gemini" ? runGeminiTask : runTask;
+  runner(body, broadcast).catch((err: unknown) => {
     broadcast({
       agentId: body.agentId,
       agentName: body.agentName || body.agentId,

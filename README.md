@@ -98,11 +98,17 @@ npm start           # launch the app AND the runtime together
 Then, **inside the app** (no terminal, no files to edit):
 
 1. Click the ⚙ button in the top bar to open **Runtime settings**.
-2. Paste your **Anthropic API key** and a **GitHub token** (fine-grained,
-   *Contents: Read and write*), set the **repository**, and **Save**.
-3. Click **Provisiona agenti** (creates the managed agent once).
+2. Choose the **engine**:
+   - **Gemini (Google, free tier)** — default. Get a free key at
+     <https://aistudio.google.com/apikey>. No provisioning needed.
+   - **Claude (Anthropic, paid)** — needs API credits; click *Provisiona agenti*.
+3. Paste the engine key + a **GitHub token** (fine-grained, *Contents: Read and
+   write*), set the **repository**, optionally a **Notion** token, then **Save**.
 4. Select an agent, type a task in human language in the inspector, and hit
    **Assign task (live)**. Watch the Event Log and the PR appear.
+
+With **Gemini**, agents can also write content into a **Notion page by title**
+(e.g. *"red-agent: aggiungi un esempio di async/await nella pagina JAVASCRIPT"*).
 
 **Reusable for any repo:** just change the **Repository** field in settings — the
 agents are repo-agnostic. Keys and provisioned IDs are stored locally in
