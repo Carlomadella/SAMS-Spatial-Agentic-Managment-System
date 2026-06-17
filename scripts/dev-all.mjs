@@ -1,25 +1,26 @@
 // Starts the SAMS web app and the managed-agents runtime together.
-// Auto-installs missing dependencies so `npm start` "just works".
-// Usage: npm start
+// Always ensures dependencies are installed first, so `npm start` keeps working
+// after a `git pull` adds new packages. Usage: npm start
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import path from "node:path";
 
 const shell = process.platform === "win32";
-const root = process.cwd();
 
-function ensureDeps(label, dir, prefixArgs) {
-  if (existsSync(path.join(dir, "node_modules"))) return;
-  console.log(`📦 Installing ${label} dependencies (first run)…`);
-  const r = spawnSync("npm", [...prefixArgs, "install"], { stdio: "inherit", shell });
+function installDeps(label, prefixArgs) {
+  console.log(`📦 Ensuring ${label} dependencies…`);
+  const r = spawnSync("npm", [...prefixArgs, "install", "--no-fund", "--no-audit"], {
+    stdio: "inherit",
+    shell,
+  });
   if (r.status !== 0) {
     console.error(`❌ Failed to install ${label} dependencies.`);
     process.exit(1);
   }
 }
 
-ensureDeps("web", root, []);
-ensureDeps("runtime", path.join(root, "server"), ["--prefix", "server"]);
+// `npm install` is a fast no-op when nothing changed, but it DOES pick up new
+// dependencies after a pull — which is exactly what was missing before.
+installDeps("web", []);
+installDeps("runtime", ["--prefix", "server"]);
 
 const procs = [
   { name: "web", cmd: "npm", args: ["run", "dev"] },
