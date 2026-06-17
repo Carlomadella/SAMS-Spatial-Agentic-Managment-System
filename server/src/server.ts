@@ -1,5 +1,4 @@
 import express, { type Request, type Response } from "express";
-import cors from "cors";
 import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -7,7 +6,18 @@ import { runGeminiTask } from "./agent";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
-app.use(cors());
+
+// Explicit, permissive CORS for the local UI (covers SSE + preflight).
+app.use((req: Request, res: Response, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 app.use(express.json());
 
 /** Connected SSE clients (the SAMS browser UIs). */
@@ -69,7 +79,14 @@ app.get("/api/events", (req: Request, res: Response) => {
   res.write(": connected\n\n");
   clients.add(res);
 
-  const heartbeat = setInterval(() => res.write(": ping\n\n"), 25000);
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {
+      clearInterval(heartbeat);
+      clients.delete(res);
+    }
+  }, 25000);
   req.on("close", () => {
     clearInterval(heartbeat);
     clients.delete(res);
