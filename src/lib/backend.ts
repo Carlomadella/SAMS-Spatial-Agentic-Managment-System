@@ -1,13 +1,13 @@
 import type { AgentStatus, LogLevel } from "../types";
 import { useStore } from "../store/useStore";
 
-// The runtime backend (SAMS ↔ Claude Managed Agents). Defaults to the local
-// runtime so everything works from the app without editing any config; override
-// with VITE_SAMS_BACKEND_URL if you host it elsewhere.
-const BASE =
-  ((import.meta.env.VITE_SAMS_BACKEND_URL as string | undefined) || "http://localhost:8787").replace(/\/$/, "");
+// The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
+// (`/api/...`), which Vite proxies to the local runtime — so the browser never
+// makes a cross-origin request and CORS can't get in the way. Override with an
+// absolute VITE_SAMS_BACKEND_URL only if you host the runtime elsewhere.
+const BASE = ((import.meta.env.VITE_SAMS_BACKEND_URL as string | undefined) ?? "").replace(/\/$/, "");
 
-export const backendEnabled = BASE.length > 0;
+export const backendEnabled = true;
 
 export interface RemoteUpdate {
   agentId: string;
