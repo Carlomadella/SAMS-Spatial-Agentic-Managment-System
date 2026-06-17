@@ -1,6 +1,7 @@
 import { getClient } from "./anthropic";
 import { getSettings } from "./config";
 import { createPullRequest } from "./github";
+import { appendTaskLog, notionConfigured } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
 
 function slugify(s: string): string {
@@ -119,6 +120,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
 
   emit({ agentId, agentName, progress: 100, status: "review", level: "SUCCESS", message: "Lavoro completato" });
 
+  let prUrl: string | undefined;
   if (s.openPRs && s.githubToken) {
     try {
       const pr = await createPullRequest({
@@ -126,9 +128,19 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
         title,
         body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${title}\n\n_Branch \`${branch}\` → \`${s.baseBranch}\`._`,
       });
+      prUrl = pr.html_url;
       emit({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
     } catch (err) {
       emit({ agentId, agentName, level: "WARN", message: `PR non creata: ${(err as Error).message}` });
+    }
+  }
+
+  if (notionConfigured()) {
+    try {
+      await appendTaskLog({ agentName, title, branch, repo: s.githubRepo, prUrl });
+      emit({ agentId, agentName, level: "SUCCESS", message: "Notion: changelog aggiornato" });
+    } catch (err) {
+      emit({ agentId, agentName, level: "WARN", message: `Notion non aggiornato: ${(err as Error).message}` });
     }
   }
 }

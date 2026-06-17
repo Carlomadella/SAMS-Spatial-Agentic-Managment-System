@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertCircle, Check, Github, KeyRound, Loader2, Rocket, X } from "lucide-react";
+import { AlertCircle, Check, FileText, Github, KeyRound, Loader2, Rocket, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 import {
   fetchStatus,
@@ -37,6 +37,8 @@ export function SettingsModal() {
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("main");
   const [model, setModel] = useState(MODELS[0]);
+  const [notionToken, setNotionToken] = useState("");
+  const [notionPageId, setNotionPageId] = useState("");
   const [busy, setBusy] = useState<"" | "save" | "provision">("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -56,6 +58,7 @@ export function SettingsModal() {
       setRepo(st.repo);
       setBranch(st.baseBranch);
       setModel(st.model);
+      setNotionPageId(st.notionPageId);
     })();
     return () => {
       alive = false;
@@ -68,13 +71,15 @@ export function SettingsModal() {
     setBusy("save");
     setMsg(null);
     try {
-      const patch: SettingsInput = { githubRepo: repo, baseBranch: branch, model };
+      const patch: SettingsInput = { githubRepo: repo, baseBranch: branch, model, notionPageId };
       if (anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
       if (githubToken.trim()) patch.githubToken = githubToken.trim();
+      if (notionToken.trim()) patch.notionToken = notionToken.trim();
       const st = await saveSettings(patch);
       setStatus(st);
       setAnthropicKey("");
       setGithubToken("");
+      setNotionToken("");
       setMsg({ kind: "ok", text: "Impostazioni salvate." });
     } catch (e) {
       setMsg({ kind: "err", text: (e as Error).message });
@@ -123,6 +128,7 @@ export function SettingsModal() {
           <Chip ok={!!status?.hasAnthropicKey} label="Anthropic key" />
           <Chip ok={!!status?.hasGithubToken} label="GitHub token" />
           <Chip ok={!!status?.provisioned} label="Agenti pronti" />
+          <Chip ok={!!status?.notionReady} label="Notion" />
         </div>
 
         {/* form */}
@@ -165,6 +171,35 @@ export function SettingsModal() {
               ))}
             </select>
           </Field>
+
+          <div className="border-t border-line pt-3">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-mut">
+              Notion (opzionale)
+            </div>
+            <div className="space-y-3">
+              <Field label="Notion integration token" icon={KeyRound}>
+                <input
+                  type="password"
+                  value={notionToken}
+                  onChange={(e) => setNotionToken(e.target.value)}
+                  placeholder={status?.hasNotionToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "ntn_… / secret_…"}
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Pagina Notion (URL o ID) per il log dei task" icon={FileText}>
+                <input
+                  value={notionPageId}
+                  onChange={(e) => setNotionPageId(e.target.value)}
+                  placeholder="https://notion.so/…  oppure  ID"
+                  className="settings-input"
+                />
+              </Field>
+              <p className="text-[11px] leading-relaxed text-mut">
+                Crea un'integrazione su notion.so/my-integrations e <strong>condividi quella pagina</strong> con
+                essa. Ogni task completato verrà registrato lì.
+              </p>
+            </div>
+          </div>
 
           {msg && (
             <div

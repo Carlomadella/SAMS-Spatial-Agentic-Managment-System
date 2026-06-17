@@ -16,6 +16,8 @@ export interface Settings {
   environmentId: string;
   model: string;
   openPRs: boolean;
+  notionToken: string;
+  notionPageId: string;
   port: number;
 }
 
@@ -31,6 +33,8 @@ function fromEnv(): Settings {
     environmentId: process.env.SAMS_ENVIRONMENT_ID ?? "",
     model: process.env.SAMS_MODEL ?? "claude-opus-4-8",
     openPRs: (process.env.SAMS_OPEN_PRS ?? "true") !== "false",
+    notionToken: process.env.NOTION_TOKEN ?? "",
+    notionPageId: process.env.NOTION_PAGE_ID ?? "",
     port: Number(process.env.PORT ?? 8787),
   };
 }
@@ -58,6 +62,8 @@ function persist(): void {
     environmentId: s.environmentId,
     model: s.model,
     openPRs: s.openPRs,
+    notionToken: s.notionToken,
+    notionPageId: s.notionPageId,
   };
   fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), "utf8");
 }
@@ -68,7 +74,17 @@ export function getSettings(): Settings {
 
 /** Fields the UI is allowed to change. */
 export type SettingsPatch = Partial<
-  Pick<Settings, "anthropicApiKey" | "githubToken" | "githubRepo" | "baseBranch" | "model" | "openPRs">
+  Pick<
+    Settings,
+    | "anthropicApiKey"
+    | "githubToken"
+    | "githubRepo"
+    | "baseBranch"
+    | "model"
+    | "openPRs"
+    | "notionToken"
+    | "notionPageId"
+  >
 >;
 
 export function updateSettings(patch: SettingsPatch): Settings {
@@ -109,5 +125,8 @@ export function publicStatus() {
     baseBranch: s.baseBranch,
     model: s.model,
     openPRs: s.openPRs,
+    hasNotionToken: s.notionToken.length > 0,
+    notionPageId: s.notionPageId,
+    notionReady: s.notionToken.length > 0 && s.notionPageId.length > 0,
   };
 }

@@ -68,6 +68,17 @@ See `.env.example`. Key ones: `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`
 `GITHUB_BASE_BRANCH`, `SAMS_AGENT_ID`, `SAMS_ENVIRONMENT_ID`, `SAMS_OPEN_PRS`,
 `SAMS_MODEL` (default `claude-opus-4-8`), `PORT`.
 
+## Notion (optional)
+
+Log every completed task to a Notion page. In **⚙ Runtime settings** fill the
+**Notion** fields (or set `NOTION_TOKEN` / `NOTION_PAGE_ID` in `.env`):
+
+1. Create an internal integration at <https://www.notion.so/my-integrations> and
+   copy its secret (`ntn_…` / `secret_…`).
+2. **Share** the target page with that integration (page **•••** → Connections).
+3. Paste the token + the page URL/ID. When set, each finished task appends a
+   bulleted entry (agent · task · repo@branch · PR link) to that page.
+
 ## How it maps to the UI
 
 | Managed-agents event        | SAMS effect                          |

@@ -27,6 +27,9 @@ export interface RuntimeStatus {
   baseBranch: string;
   model: string;
   openPRs: boolean;
+  hasNotionToken: boolean;
+  notionPageId: string;
+  notionReady: boolean;
 }
 
 export interface SettingsInput {
@@ -36,6 +39,8 @@ export interface SettingsInput {
   baseBranch?: string;
   model?: string;
   openPRs?: boolean;
+  notionToken?: string;
+  notionPageId?: string;
 }
 
 /** Read the runtime status (which keys are set, whether agents are provisioned). */

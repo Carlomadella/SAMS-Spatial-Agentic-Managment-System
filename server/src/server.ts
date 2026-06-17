@@ -36,6 +36,8 @@ app.post("/api/settings", (req: Request, res: Response) => {
   if (typeof body.baseBranch === "string" && body.baseBranch.trim()) patch.baseBranch = body.baseBranch.trim();
   if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
   if (typeof body.openPRs === "boolean") patch.openPRs = body.openPRs;
+  if (typeof body.notionToken === "string" && body.notionToken.trim()) patch.notionToken = body.notionToken.trim();
+  if (typeof body.notionPageId === "string") patch.notionPageId = body.notionPageId.trim();
   updateSettings(patch);
   res.json(publicStatus());
 });
@@ -55,6 +57,7 @@ app.get("/api/events", (req: Request, res: Response) => {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
+    "Access-Control-Allow-Origin": "*",
   });
   res.write(": connected\n\n");
   clients.add(res);
