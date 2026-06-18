@@ -139,14 +139,34 @@ function titleOf(page: Record<string, unknown>): string {
   return "";
 }
 
-/** Find a page by (fuzzy) title. Returns its id and resolved title. */
-export async function findPageByTitle(title: string): Promise<{ id: string; title: string }> {
+async function searchPages(query: string): Promise<Array<Record<string, unknown>>> {
   const data = (await notion(`/search`, {
     method: "POST",
-    body: JSON.stringify({ query: title, filter: { value: "page", property: "object" }, page_size: 25 }),
+    body: JSON.stringify({ query, filter: { value: "page", property: "object" }, page_size: 25 }),
   })) as { results?: Array<Record<string, unknown>> };
-  const results = data.results ?? [];
-  if (results.length === 0) throw new Error(`nessuna pagina trovata per "${title}"`);
+  return data.results ?? [];
+}
+
+/** Find a page by (fuzzy) title. Returns its id and resolved title. */
+export async function findPageByTitle(title: string): Promise<{ id: string; title: string }> {
+  const results = await searchPages(title);
+  if (results.length === 0) {
+    // The page wasn't found. Notion's /search only returns pages shared with the
+    // integration, so the most likely cause is a missing connection. Do a broad
+    // search to tell the two cases apart and make the error self-explanatory.
+    const accessible = await searchPages("");
+    if (accessible.length === 0) {
+      throw new Error(
+        `nessuna pagina condivisa con l'integrazione — connetti le pagine in Notion (••• → Connessioni)`,
+      );
+    }
+    const names = accessible
+      .map((p) => titleOf(p).trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 15)
+      .join(", ");
+    throw new Error(`pagina "${title}" non trovata. Pagine accessibili: ${names || "(senza titolo)"}`);
+  }
   const want = title.trim().toLowerCase();
   const exact = results.find((p) => titleOf(p).trim().toLowerCase() === want);
   const chosen = exact ?? results.find((p) => titleOf(p).toLowerCase().includes(want)) ?? results[0];

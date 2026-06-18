@@ -1,6 +1,6 @@
 import { Suspense, useRef } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
+import { ContactShadows, Grid, Html, OrbitControls, RoundedBox, SoftShadows } from "@react-three/drei";
 import {
   Desk,
   KanbanWall,
@@ -133,11 +133,16 @@ function SceneContents() {
 
   return (
     <>
-      <hemisphereLight args={["#ffffff", "#c9d3e3", 0.65]} />
-      <ambientLight intensity={0.55} />
+      {/* percentage-closer soft shadows for gentler, more natural contact */}
+      <SoftShadows size={26} samples={16} focus={0.9} />
+
+      <hemisphereLight args={["#ffffff", "#c4d0e3", 0.55]} />
+      <ambientLight intensity={0.42} />
+      {/* warm key light (casts shadows) */}
       <directionalLight
         position={[9, 15, 7]}
-        intensity={1.25}
+        intensity={1.35}
+        color="#fff3e2"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={1}
@@ -148,8 +153,23 @@ function SceneContents() {
         shadow-camera-bottom={-18}
         shadow-bias={-0.0004}
       />
+      {/* cool fill from the opposite side to lift the shadows */}
+      <directionalLight position={[-8, 9, -6]} intensity={0.32} color="#cfe0ff" />
+      {/* subtle rim to separate furniture from the back wall */}
+      <directionalLight position={[0, 8, -12]} intensity={0.22} color="#ffffff" />
 
       <Floor />
+
+      {/* soft ambient occlusion-style grounding under the whole diorama */}
+      <ContactShadows
+        position={[0, 0.02, 0]}
+        scale={ROOM_WIDTH + 6}
+        resolution={1024}
+        far={6}
+        blur={2.6}
+        opacity={0.32}
+        color="#1f2a44"
+      />
 
       {/* furniture, placed against the back / left of the room */}
       <Vault position={[-6.4, 0, -4.6]} rotation={[0, 0.2, 0]} />
