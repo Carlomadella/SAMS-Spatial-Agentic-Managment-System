@@ -1,5 +1,5 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
-import { getGemini, geminiModel } from "./gemini";
+import { geminiModel, generateWithRetry } from "./gemini";
 import { getSettings } from "./config";
 import { createBranch, createPullRequest, listFiles, readFile, writeFile } from "./github";
 import { appendTaskLog, appendToPageByTitle, notionConfigured } from "./notion";
@@ -105,14 +105,17 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   let progress = 10;
 
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
-  const ai = getGemini();
 
   for (let step = 0; step < 14; step++) {
-    const resp = await ai.models.generateContent({
-      model: geminiModel(),
-      contents,
-      config: { systemInstruction: system, tools: [{ functionDeclarations: decls }], temperature: 0.4 },
-    });
+    const resp = await generateWithRetry(
+      {
+        model: geminiModel(),
+        contents,
+        config: { systemInstruction: system, tools: [{ functionDeclarations: decls }], temperature: 0.4 },
+      },
+      (n, waitMs) =>
+        emit({ agentId, agentName, level: "WARN", message: `Gemini occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
+    );
 
     const calls = resp.functionCalls ?? [];
     if (calls.length === 0) {
