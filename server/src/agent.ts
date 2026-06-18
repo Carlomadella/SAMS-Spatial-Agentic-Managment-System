@@ -24,7 +24,9 @@ function str(v: unknown): string {
 /**
  * Self-hosted agent loop powered by Gemini (free tier). The model reasons and
  * calls tools (GitHub Contents API + Notion API); the runtime executes them and
- * streams progress back to the SAMS UI. No local git, no sandbox — all HTTP.
+ * streams progress to the SAMS UI. GitHub is lazy: reads hit the base branch and
+ * the work branch is created only on the first write — so a Notion-only task
+ * never touches GitHub.
  */
 export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
   const s = getSettings();
@@ -36,15 +38,11 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const notionEnabled = notionConfigured();
   const branch = body.branch?.trim() || makeBranch(agentName, title);
 
-  emit({ agentId, agentName, status: "working", progress: 4, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
+  emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
-  if (repoEnabled) {
-    try {
-      await createBranch(branch, s.baseBranch);
-      emit({ agentId, agentName, level: "INFO", message: `Branch ${branch} pronto su ${s.githubRepo}` });
-    } catch (err) {
-      emit({ agentId, agentName, level: "WARN", message: `Branch non creato: ${(err as Error).message}` });
-    }
+  if (!repoEnabled && !notionEnabled) {
+    emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });
+    return;
   }
 
   // --- tool declarations (only what's configured) ---------------------------
@@ -53,20 +51,20 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     decls.push(
       {
         name: "gh_list_files",
-        description: "Elenca i file in una cartella del repository.",
+        description: `Elenca i file in una cartella del repository (legge da '${s.baseBranch}').`,
         parametersJsonSchema: { type: "object", properties: { path: { type: "string", description: "cartella, vuoto = root" } } },
       },
       {
         name: "gh_read_file",
-        description: "Leggi il contenuto di un file del repository.",
+        description: `Leggi un file del repository (legge da '${s.baseBranch}').`,
         parametersJsonSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
       },
       {
         name: "gh_write_file",
-        description: "Crea o sovrascrivi un file nel repository (commit sul branch di lavoro).",
+        description: "Crea o aggiorna un file nel repository (commit su un branch dedicato, poi PR).",
         parametersJsonSchema: {
           type: "object",
-          properties: { path: { type: "string" }, content: { type: "string" }, message: { type: "string", description: "messaggio di commit" } },
+          properties: { path: { type: "string" }, content: { type: "string" }, message: { type: "string" } },
           required: ["path", "content"],
         },
       },
@@ -75,30 +73,36 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   if (notionEnabled) {
     decls.push({
       name: "notion_write",
-      description: "Aggiungi contenuto (markdown, anche blocchi di codice ```lang) a una pagina Notion individuata per titolo.",
+      description: "Aggiungi contenuto (markdown, anche blocchi ```lang) a una pagina Notion trovata per titolo.",
       parametersJsonSchema: {
         type: "object",
-        properties: { page_title: { type: "string" }, content: { type: "string", description: "markdown da inserire" } },
+        properties: { page_title: { type: "string" }, content: { type: "string" } },
         required: ["page_title", "content"],
       },
     });
   }
   decls.push({
     name: "done",
-    description: "Chiama quando il task è completato.",
+    description: "Chiama quando il task è completato (o se non puoi completarlo).",
     parametersJsonSchema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
   });
 
   const system =
-    `Sei "${agentName}", un agente operativo della knowledge base/progetto dell'utente. ` +
-    `Esegui il task in modo mirato e di alta qualità, scrivendo in italiano (se non diversamente indicato). ` +
-    (repoEnabled ? `Per il codice usa gli strumenti gh_* (branch di lavoro: ${branch}). ` : ``) +
-    (notionEnabled ? `Per scrivere su Notion usa notion_write (trova la pagina per titolo). ` : ``) +
-    `Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+    `Sei "${agentName}", un agente operativo. Esegui il task in modo mirato e di alta qualità, scrivendo in italiano. ` +
+    (notionEnabled
+      ? `Per scrivere su Notion usa SOLO lo strumento notion_write (trova la pagina per titolo). `
+      : `Notion non è configurato: non puoi scrivere su Notion. `) +
+    (repoEnabled
+      ? `Per i file di codice del repository usa gli strumenti gh_*. `
+      : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
+    `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
+    `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
 
   let wroteFiles = false;
+  let notionWrote = false;
+  let branchReady = false;
   let doneSummary = "";
-  let progress = 8;
+  let progress = 10;
 
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
   const ai = getGemini();
@@ -127,23 +131,28 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       let result = "ok";
       try {
         if (name === "gh_list_files") {
-          result = (await listFiles(str(args.path), branch)).join("\n") || "(vuoto)";
+          result = (await listFiles(str(args.path), s.baseBranch)).join("\n") || "(vuoto)";
           emit({ agentId, agentName, progress, level: "INFO", message: `ls ${str(args.path) || "/"}` });
         } else if (name === "gh_read_file") {
-          result = truncate(await readFile(str(args.path), branch), 8000);
+          result = truncate(await readFile(str(args.path), s.baseBranch), 8000);
           emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}` });
         } else if (name === "gh_write_file") {
+          if (!branchReady) {
+            await createBranch(branch, s.baseBranch);
+            branchReady = true;
+            emit({ agentId, agentName, level: "INFO", message: `Branch ${branch} creato` });
+          }
           await writeFile(str(args.path), str(args.content), branch, str(args.message) || `SAMS: ${truncate(title, 60)}`);
           wroteFiles = true;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${str(args.path)}` });
         } else if (name === "notion_write") {
           const resolved = await appendToPageByTitle(str(args.page_title), str(args.content));
-          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+          notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
         } else if (name === "done") {
           doneSummary = str(args.summary);
           finished = true;
-          result = "ok";
         } else {
           result = `strumento sconosciuto: ${name}`;
         }
@@ -158,8 +167,17 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     if (finished) break;
   }
 
-  if (doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(doneSummary, 180) });
-  emit({ agentId, agentName, progress: 100, status: "review", level: "SUCCESS", message: "Lavoro completato" });
+  if (doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(doneSummary, 200) });
+
+  const didSomething = wroteFiles || notionWrote;
+  emit({
+    agentId,
+    agentName,
+    progress: 100,
+    status: didSomething ? "review" : "idle",
+    level: didSomething ? "SUCCESS" : "WARN",
+    message: didSomething ? "Lavoro completato" : "Concluso senza modifiche — controlla strumenti/istruzioni",
+  });
 
   if (repoEnabled && wroteFiles && s.openPRs) {
     try {
@@ -174,7 +192,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     }
   }
 
-  if (notionEnabled && s.notionPageId) {
+  if (didSomething && notionEnabled && s.notionPageId) {
     try {
       await appendTaskLog({ agentName, title, branch, repo: s.githubRepo });
     } catch {
