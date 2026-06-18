@@ -9,6 +9,7 @@ import {
   type EnvironmentName,
   type LogEvent,
   type LogLevel,
+  type Toast,
   type Vec2,
 } from "../types";
 import { SEED_AGENTS, seedEvents } from "../data/seed";
@@ -41,6 +42,10 @@ interface State {
 
   /** whether the optional managed-agents runtime is connected */
   backendOnline: boolean;
+  /** whether the runtime has its keys set (ready to run tasks) */
+  runtimeReady: boolean;
+  /** transient on-screen notifications */
+  toasts: Toast[];
 
   // --- actions: agents ---
   addAgent: (color?: AgentColor) => string;
@@ -72,6 +77,9 @@ interface State {
 
   // --- actions: runtime (managed agents) ---
   setBackendOnline: (online: boolean) => void;
+  setRuntimeReady: (ready: boolean) => void;
+  pushToast: (level: LogLevel, message: string) => void;
+  dismissToast: (id: string) => void;
   applyRemote: (e: {
     agentId: string;
     agentName?: string;
@@ -122,6 +130,8 @@ export const useStore = create<State>()((set, get) => ({
   rightOpen: true,
   bottomOpen: true,
   backendOnline: false,
+  runtimeReady: false,
+  toasts: [],
 
   log: (e) =>
     set((s) => ({
@@ -266,8 +276,16 @@ export const useStore = create<State>()((set, get) => ({
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
 
   setBackendOnline: (online) => set({ backendOnline: online }),
+  setRuntimeReady: (ready) => set({ runtimeReady: ready }),
 
-  applyRemote: (e) =>
+  pushToast: (level, message) => {
+    const id = uid("toast");
+    set((s) => ({ toasts: [...s.toasts, { id, level, message }].slice(-4) }));
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 7000);
+  },
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
+  applyRemote: (e) => {
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
@@ -301,7 +319,15 @@ export const useStore = create<State>()((set, get) => ({
         : s.events;
 
       return { agents, events };
-    }),
+    });
+
+    // surface notable outcomes as toasts
+    if (e.message) {
+      if (e.level === "ERROR") get().pushToast("ERROR", e.message);
+      else if (e.level === "SUCCESS" && /\bPR\b|pull request|notion|https?:\/\//i.test(e.message))
+        get().pushToast("SUCCESS", e.message);
+    }
+  },
 }));
 
 // Stable selector helpers ----------------------------------------------------

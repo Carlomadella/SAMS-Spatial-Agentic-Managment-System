@@ -39,6 +39,13 @@ export type AgentStatus =
 
 export type LogLevel = "INFO" | "SUCCESS" | "WARN" | "ERROR" | "IDLE";
 
+/** Transient on-screen notification. */
+export interface Toast {
+  id: string;
+  level: LogLevel;
+  message: string;
+}
+
 export type EnvironmentName = "dev" | "staging" | "prod";
 
 /** A point on the floor plane, in world units (x = east/west, z = north/south). */

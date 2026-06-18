@@ -34,11 +34,8 @@ export function StatusBar() {
         <span className="flex items-center gap-1">
           <Users size={12} /> {agents.length} agents
         </span>
-        <span
-          className="flex items-center gap-1"
-          title={backendEnabled ? "Managed-agents runtime" : "Set VITE_SAMS_BACKEND_URL to go live"}
-        >
-          <Radio size={12} /> {runtime}
+        <span className="flex items-center gap-1" title="Agent runtime">
+          <Radio size={12} className={backendOnline ? "text-emerald-200" : "text-amber-200"} /> {runtime}
         </span>
         <span className="hidden sm:inline">UTF-8</span>
         <span className="hidden sm:inline">LF</span>
