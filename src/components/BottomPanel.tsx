@@ -79,7 +79,7 @@ export function BottomPanel() {
   );
 
   return (
-    <div className="flex h-60 shrink-0 flex-col border-t border-line bg-ink-900">
+    <div className="flex h-60 shrink-0 flex-col border-t border-line bg-gradient-to-b from-ink-850 to-ink-900">
       {/* tab bar */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-line pr-2">
         <div className="flex h-full items-stretch">
@@ -89,7 +89,7 @@ export function BottomPanel() {
               onClick={() => setBottomTab(t.id)}
               className={cn(
                 "relative flex items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide transition-colors",
-                bottomTab === t.id ? "text-white" : "text-mut hover:text-slate-300",
+                bottomTab === t.id ? "bg-white/[0.04] text-white" : "text-mut hover:bg-white/[0.02] hover:text-slate-300",
               )}
             >
               {t.label}

@@ -110,7 +110,7 @@ function ExtensionsView() {
 export function LeftPanel() {
   const activity = useStore((s) => s.activity);
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-ink-900/60">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-gradient-to-b from-ink-850/70 to-ink-900/70 backdrop-blur-sm">
       {activity === "explorer" && <Explorer />}
       {activity === "search" && <SearchView />}
       {activity === "scm" && <ScmView />}

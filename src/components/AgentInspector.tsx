@@ -83,7 +83,7 @@ export function AgentInspector() {
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
                 <div
-                  className="h-full rounded-full bg-brand transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-brand to-brand-soft shadow-[0_0_8px_rgba(79,140,255,0.6)] transition-all"
                   style={{ width: `${agent.task.progress}%` }}
                 />
               </div>

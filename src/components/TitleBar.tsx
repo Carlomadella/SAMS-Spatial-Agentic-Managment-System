@@ -49,7 +49,7 @@ export function TitleBar() {
   const toggleBottom = useStore((s) => s.toggleBottom);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-ink-900 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-gradient-to-b from-ink-850 to-ink-900 px-3 shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
       {/* brand */}
       <div className="flex items-center gap-2.5 pl-0.5">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-600 shadow-glow ring-1 ring-white/10">

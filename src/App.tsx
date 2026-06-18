@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Hand, HelpCircle, Move3d, MousePointerClick, X } from "lucide-react";
+import { Hand, HelpCircle, Move3d, MousePointerClick, PanelBottom, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -55,6 +55,23 @@ function StageHint() {
   );
 }
 
+/** Floating affordance to reopen the bottom panel (Event Log) once it's hidden. */
+function ReopenPanelButton() {
+  const bottomOpen = useStore((s) => s.bottomOpen);
+  const setBottomTab = useStore((s) => s.setBottomTab);
+  if (bottomOpen) return null;
+  return (
+    <button
+      onClick={() => setBottomTab("eventlog")}
+      title="Show the Event Log panel"
+      className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-line bg-ink-800/90 px-3 py-1.5 text-[11px] font-medium text-slate-200 shadow-panel backdrop-blur transition-all hover:border-brand/50 hover:bg-ink-700 hover:text-white active:scale-[0.97]"
+    >
+      <PanelBottom size={14} className="text-brand-soft" />
+      Event Log
+    </button>
+  );
+}
+
 export default function App() {
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
@@ -87,6 +104,7 @@ export default function App() {
           <div className="relative min-h-0 flex-1">
             <OfficeScene />
             <StageHint />
+            <ReopenPanelButton />
           </div>
           {bottomOpen && <BottomPanel />}
         </main>
