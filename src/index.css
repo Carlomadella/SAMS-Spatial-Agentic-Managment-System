@@ -26,6 +26,12 @@
     background-attachment: fixed;
   }
 
+  /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */
+  .habbo-canvas canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
   /* clean, consistent keyboard focus across the app */
   :focus-visible {
     outline: 2px solid #4f8cff;
