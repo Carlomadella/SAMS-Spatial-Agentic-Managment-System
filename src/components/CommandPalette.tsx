@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Boxes,
+  Maximize2,
   MapPin,
   MousePointer2,
   Plus,
@@ -85,6 +86,7 @@ export function CommandPalette() {
     });
 
     list.push({ id: "cad", label: "Open Spatial CAD · Zones", icon: Boxes, keywords: "zones cad layout", run: () => s.setActivity("cad") });
+    list.push({ id: "focus", label: "Toggle focus mode (hide/show panels)", icon: Maximize2, keywords: "focus zen panels hide", run: () => s.toggleFocus() });
     list.push({ id: "clear", label: "Clear event log", icon: Trash2, keywords: "log clear", run: () => s.clearEvents() });
     list.push({ id: "reset", label: "Reset workspace", icon: RotateCcw, keywords: "reset restore", run: () => s.resetWorld() });
 

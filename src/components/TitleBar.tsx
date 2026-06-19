@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 import {
   Bot,
   Command,
+  Moon,
   PanelBottom,
   PanelLeft,
   PanelRight,
   Plus,
   Search,
   Settings,
+  Sun,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
@@ -40,6 +42,8 @@ function IconBtn({
 export function TitleBar() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const theme = useStore((s) => s.theme);
+  const toggleTheme = useStore((s) => s.toggleTheme);
   const addAgent = useStore((s) => s.addAgent);
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
@@ -82,6 +86,9 @@ export function TitleBar() {
         <button onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
           <Plus size={14} /> Agent
         </button>
+        <IconBtn title={theme === "dark" ? "Light theme" : "Dark theme"} onClick={toggleTheme}>
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </IconBtn>
         <IconBtn title="Runtime settings" onClick={() => setSettingsOpen(true)}>
           <Settings size={16} />
         </IconBtn>

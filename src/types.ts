@@ -39,6 +39,13 @@ export type AgentStatus =
 
 export type LogLevel = "INFO" | "SUCCESS" | "WARN" | "ERROR" | "IDLE";
 
+/** Transient on-screen notification. */
+export interface Toast {
+  id: string;
+  level: LogLevel;
+  message: string;
+}
+
 export type EnvironmentName = "dev" | "staging" | "prod";
 
 /** A point on the floor plane, in world units (x = east/west, z = north/south). */
@@ -49,6 +56,22 @@ export interface Task {
   branch: string;
   /** 0..100 */
   progress: number;
+}
+
+/** A historical record of an assigned task (for the Tasks panel). */
+export interface TaskRecord {
+  id: string;
+  agentId: string;
+  agentName: string;
+  color: AgentColor | null;
+  title: string;
+  branch: string;
+  status: AgentStatus;
+  /** 0..100 */
+  progress: number;
+  /** a result link (PR or Notion), if any */
+  url?: string;
+  createdAt: number;
 }
 
 export interface Agent {
@@ -109,4 +132,4 @@ export type ActivityView =
   | "cad"
   | "extensions";
 
-export type BottomTab = "terminal" | "output" | "eventlog" | "problems";
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks";

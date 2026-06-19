@@ -85,6 +85,7 @@ export function SettingsModal() {
       if (notionToken.trim()) patch.notionToken = notionToken.trim();
       const st = await saveSettings(patch);
       setStatus(st);
+      useStore.getState().setRuntimeReady(st.ready);
       setGeminiKey("");
       setAnthropicKey("");
       setGithubToken("");
@@ -103,6 +104,7 @@ export function SettingsModal() {
     try {
       const st = await provisionAgents();
       setStatus(st);
+      useStore.getState().setRuntimeReady(st.ready);
       setMsg({ kind: "ok", text: "Agenti provisionati e pronti." });
     } catch (e) {
       setMsg({ kind: "err", text: (e as Error).message });

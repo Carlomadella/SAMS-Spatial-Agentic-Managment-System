@@ -60,6 +60,13 @@ export async function fetchStatus(): Promise<RuntimeStatus | null> {
   }
 }
 
+/** Fetch status and reflect `ready` into the store (drives the banner). */
+export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
+  const st = await fetchStatus();
+  useStore.getState().setRuntimeReady(!!st?.ready);
+  return st;
+}
+
 /** Save settings (keys, repo, model…) entered in the app. */
 export async function saveSettings(input: SettingsInput): Promise<RuntimeStatus> {
   const res = await fetch(`${BASE}/api/settings`, {
@@ -117,7 +124,10 @@ let source: EventSource | null = null;
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */
 export function connectBackend(): () => void {
   source = new EventSource(`${BASE}/api/events`);
-  source.onopen = () => useStore.getState().setBackendOnline(true);
+  source.onopen = () => {
+    useStore.getState().setBackendOnline(true);
+    void refreshRuntimeStatus();
+  };
   source.onerror = () => useStore.getState().setBackendOnline(false);
   source.onmessage = (ev) => {
     try {

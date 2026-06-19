@@ -8,6 +8,8 @@ import { BottomPanel } from "./components/BottomPanel";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { RuntimeBanner } from "./components/RuntimeBanner";
+import { Toaster } from "./components/Toaster";
 import { OfficeScene } from "./scene/OfficeScene";
 import { useStore } from "./store/useStore";
 import { connectBackend } from "./lib/backend";
@@ -76,7 +78,17 @@ export default function App() {
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
   const bottomOpen = useStore((s) => s.bottomOpen);
+  const theme = useStore((s) => s.theme);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-light", theme === "light");
+    try {
+      localStorage.setItem("sams.theme", theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -95,6 +107,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <TitleBar />
+      <RuntimeBanner />
 
       <div className="flex min-h-0 flex-1">
         <ActivityBar />
@@ -115,6 +128,7 @@ export default function App() {
       <StatusBar />
       <CommandPalette />
       <SettingsModal />
+      <Toaster />
     </div>
   );
 }

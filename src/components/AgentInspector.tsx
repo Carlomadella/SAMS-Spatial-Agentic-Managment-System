@@ -9,6 +9,13 @@ import { assignRemote, backendEnabled } from "../lib/backend";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
+const TASK_SUGGESTIONS = [
+  "Scrivi nella pagina Notion …",
+  "Aggiungi una lezione su …",
+  "Genera 5 esercizi su …",
+  "Aggiorna il README",
+];
+
 export function AgentInspector() {
   const agent = useSelectedAgent();
   const agents = useStore((s) => s.agents);
@@ -106,6 +113,18 @@ export function AgentInspector() {
         ) : (
           <div className="space-y-2">
             <div className="text-[11px] font-medium text-mut">Assign a task</div>
+            <div className="flex flex-wrap gap-1">
+              {TASK_SUGGESTIONS.map((sg) => (
+                <button
+                  key={sg}
+                  type="button"
+                  onClick={() => setTitle(sg)}
+                  className="rounded-full border border-line bg-ink-850 px-2 py-0.5 text-[10px] text-mut transition-colors hover:border-brand/40 hover:text-slate-200"
+                >
+                  {sg}
+                </button>
+              ))}
+            </div>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}

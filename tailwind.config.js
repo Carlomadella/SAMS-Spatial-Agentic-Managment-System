@@ -25,18 +25,18 @@ export default {
         ],
       },
       colors: {
-        // IDE chrome (dark, VS Code-ish but cleaner)
+        // IDE chrome — driven by CSS variables so the theme can flip (see index.css)
         ink: {
-          950: "#0a0c12",
-          900: "#0d1017",
-          850: "#11151f",
-          800: "#151a26",
-          700: "#1b2230",
-          600: "#232c3d",
-          500: "#2e3950",
+          950: "rgb(var(--c-ink-950) / <alpha-value>)",
+          900: "rgb(var(--c-ink-900) / <alpha-value>)",
+          850: "rgb(var(--c-ink-850) / <alpha-value>)",
+          800: "rgb(var(--c-ink-800) / <alpha-value>)",
+          700: "rgb(var(--c-ink-700) / <alpha-value>)",
+          600: "rgb(var(--c-ink-600) / <alpha-value>)",
+          500: "rgb(var(--c-ink-500) / <alpha-value>)",
         },
-        line: "#222b3d",
-        mut: "#8a93a6",
+        line: "rgb(var(--c-line) / <alpha-value>)",
+        mut: "rgb(var(--c-mut) / <alpha-value>)",
         // agent palette (matches the six Sims-like agents)
         agent: {
           blue: "#3b82f6",
