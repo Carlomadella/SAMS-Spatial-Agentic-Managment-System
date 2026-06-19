@@ -117,10 +117,10 @@ function ZoneMarker({ zone }: { zone: Zone }) {
         <ringGeometry args={[0.62, 0.78, 40]} />
         <meshBasicMaterial color="#5b7da8" transparent opacity={0.45} />
       </mesh>
-      <Html position={[0, 0.02, -1.05]} center distanceFactor={13} pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="pointer-events-none select-none whitespace-nowrap rounded-md border border-slate-300/70 bg-white/90 px-2 py-1 text-center shadow-sm">
-          <div className="text-[12px] font-semibold leading-tight text-slate-800">{zone.label}</div>
-          <div className="text-[10px] leading-tight text-slate-500">{zone.sublabel}</div>
+      <Html position={[0, 0.04, -1.2]} center distanceFactor={10} pointerEvents="none" zIndexRange={[15, 0]}>
+        <div className="pointer-events-none select-none whitespace-nowrap rounded-md border border-slate-300/60 bg-white/75 px-1.5 py-0.5 text-center shadow-sm">
+          <div className="text-[11px] font-semibold leading-tight text-slate-700">{zone.label}</div>
+          <div className="text-[9px] leading-tight text-slate-500">{zone.sublabel}</div>
         </div>
       </Html>
     </group>

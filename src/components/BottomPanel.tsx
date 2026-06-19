@@ -3,6 +3,8 @@ import { useStore } from "../store/useStore";
 import type { BottomTab } from "../types";
 import { EventLog } from "./EventLog";
 import { AgentInspector } from "./AgentInspector";
+import { TasksPanel } from "./TasksPanel";
+import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
 
 function TerminalView() {
@@ -66,6 +68,7 @@ const TABS: { id: BottomTab; label: string }[] = [
   { id: "terminal", label: "Terminal" },
   { id: "output", label: "Output" },
   { id: "eventlog", label: "Event Log" },
+  { id: "tasks", label: "Tasks" },
   { id: "problems", label: "Problems" },
 ];
 
@@ -74,12 +77,19 @@ export function BottomPanel() {
   const setBottomTab = useStore((s) => s.setBottomTab);
   const toggleBottom = useStore((s) => s.toggleBottom);
   const clearEvents = useStore((s) => s.clearEvents);
+  const clearTasks = useStore((s) => s.clearTasks);
+  const bottomHeight = useStore((s) => s.bottomHeight);
+  const setBottomHeight = useStore((s) => s.setBottomHeight);
   const problemCount = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
   );
 
   return (
-    <div className="flex h-60 shrink-0 flex-col border-t border-line bg-ink-900">
+    <div
+      className="relative flex shrink-0 flex-col border-t border-line bg-ink-900"
+      style={{ height: bottomHeight }}
+    >
+      <ResizeHandle side="top" onDelta={(d) => setBottomHeight(useStore.getState().bottomHeight - d)} />
       {/* tab bar */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-line pr-2">
         <div className="flex h-full items-stretch">
@@ -105,8 +115,12 @@ export function BottomPanel() {
           ))}
         </div>
         <div className="flex items-center gap-1">
-          {bottomTab === "eventlog" && (
-            <button title="Clear log" onClick={clearEvents} className="btn h-7 w-7 px-0">
+          {(bottomTab === "eventlog" || bottomTab === "tasks") && (
+            <button
+              title="Clear"
+              onClick={bottomTab === "eventlog" ? clearEvents : clearTasks}
+              className="btn h-7 w-7 px-0"
+            >
               <Trash2 size={14} />
             </button>
           )}
@@ -122,6 +136,7 @@ export function BottomPanel() {
           {bottomTab === "terminal" && <TerminalView />}
           {bottomTab === "output" && <OutputView />}
           {bottomTab === "eventlog" && <EventLog />}
+          {bottomTab === "tasks" && <TasksPanel />}
           {bottomTab === "problems" && <ProblemsView />}
         </div>
         <div className="w-80 shrink-0 border-l border-line bg-ink-900/70">

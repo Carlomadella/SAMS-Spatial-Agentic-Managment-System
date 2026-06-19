@@ -9,6 +9,7 @@ import {
   type EnvironmentName,
   type LogEvent,
   type LogLevel,
+  type TaskRecord,
   type Toast,
   type Vec2,
 } from "../types";
@@ -28,6 +29,7 @@ interface State {
   // --- domain ---
   agents: Agent[];
   events: LogEvent[];
+  tasks: TaskRecord[];
   environment: EnvironmentName;
   selectedAgentId: string | null;
 
@@ -36,9 +38,13 @@ interface State {
   bottomTab: BottomTab;
   commandOpen: boolean;
   settingsOpen: boolean;
+  theme: "dark" | "light";
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
+  leftWidth: number;
+  rightWidth: number;
+  bottomHeight: number;
 
   /** whether the optional managed-agents runtime is connected */
   backendOnline: boolean;
@@ -63,6 +69,7 @@ interface State {
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
   clearEvents: () => void;
+  clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
   resetWorld: () => void;
 
@@ -71,9 +78,14 @@ interface State {
   setBottomTab: (t: BottomTab) => void;
   setCommandOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  toggleTheme: () => void;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleBottom: () => void;
+  toggleFocus: () => void;
+  setLeftWidth: (w: number) => void;
+  setRightWidth: (w: number) => void;
+  setBottomHeight: (h: number) => void;
 
   // --- actions: runtime (managed agents) ---
   setBackendOnline: (online: boolean) => void;
@@ -116,9 +128,25 @@ function uniqueName(agents: Agent[], color: AgentColor): string {
   return `${base}-${i}`;
 }
 
+function patchLatestTask(
+  tasks: TaskRecord[],
+  agentId: string,
+  patch: Partial<TaskRecord>,
+): TaskRecord[] {
+  for (let i = tasks.length - 1; i >= 0; i--) {
+    if (tasks[i].agentId === agentId) {
+      const next = tasks.slice();
+      next[i] = { ...next[i], ...patch };
+      return next;
+    }
+  }
+  return tasks;
+}
+
 export const useStore = create<State>()((set, get) => ({
   agents: SEED_AGENTS.map((a) => ({ ...a })),
   events: seedEvents(),
+  tasks: [],
   environment: "staging",
   selectedAgentId: "agent-blue",
 
@@ -126,9 +154,16 @@ export const useStore = create<State>()((set, get) => ({
   bottomTab: "eventlog",
   commandOpen: false,
   settingsOpen: false,
+  theme:
+    typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
+      ? "light"
+      : "dark",
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
+  leftWidth: 256,
+  rightWidth: 296,
+  bottomHeight: 248,
   backendOnline: false,
   runtimeReady: false,
   toasts: [],
@@ -212,12 +247,24 @@ export const useStore = create<State>()((set, get) => ({
   assignTask: (id, title, branch) => {
     const a = get().agents.find((x) => x.id === id);
     if (!a) return;
+    const rec: TaskRecord = {
+      id: uid("task"),
+      agentId: id,
+      agentName: a.name,
+      color: a.color,
+      title,
+      branch: branch || "main",
+      status: "working",
+      progress: 0,
+      createdAt: Date.now(),
+    };
     set((s) => ({
       agents: s.agents.map((x) =>
         x.id === id
           ? { ...x, status: "working", task: { title, branch: branch || "main", progress: 0 } }
           : x,
       ),
+      tasks: [...s.tasks, rec].slice(-100),
     }));
     get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Started task: ${title}` });
   },
@@ -233,6 +280,7 @@ export const useStore = create<State>()((set, get) => ({
           ? { ...x, task: { ...x.task, progress: p }, status: p >= 100 ? "done" : x.status }
           : x,
       ),
+      tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
     }));
     if (willComplete) {
       get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task complete: ${a.task.title}` });
@@ -253,6 +301,7 @@ export const useStore = create<State>()((set, get) => ({
     })),
 
   clearEvents: () => set({ events: [] }),
+  clearTasks: () => set({ tasks: [] }),
 
   setEnvironment: (env) => {
     set({ environment: env });
@@ -271,9 +320,18 @@ export const useStore = create<State>()((set, get) => ({
   setBottomTab: (t) => set({ bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
+  toggleFocus: () =>
+    set((s) => {
+      const anyOpen = s.leftOpen || s.rightOpen || s.bottomOpen;
+      return { leftOpen: !anyOpen, rightOpen: !anyOpen, bottomOpen: !anyOpen };
+    }),
+  setLeftWidth: (w) => set({ leftWidth: clamp(w, 200, 520) }),
+  setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
+  setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
   setBackendOnline: (online) => set({ backendOnline: online }),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
@@ -318,7 +376,17 @@ export const useStore = create<State>()((set, get) => ({
           ].slice(-300)
         : s.events;
 
-      return { agents, events };
+      let tasks = s.tasks;
+      if (agent) {
+        const tp: Partial<TaskRecord> = {};
+        if (e.status) tp.status = e.status;
+        if (e.progress != null) tp.progress = clamp(Math.round(e.progress), 0, 100);
+        const url = e.message?.match(/https?:\/\/\S+/)?.[0];
+        if (url) tp.url = url;
+        if (Object.keys(tp).length > 0) tasks = patchLatestTask(s.tasks, e.agentId, tp);
+      }
+
+      return { agents, events, tasks };
     });
 
     // surface notable outcomes as toasts

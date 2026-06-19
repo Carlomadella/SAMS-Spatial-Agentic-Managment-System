@@ -27,6 +27,9 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const groupRef = useRef<THREE.Group>(null);
   const charRef = useRef<THREE.Group>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const armLRef = useRef<THREE.Group>(null);
+  const armRRef = useRef<THREE.Group>(null);
+  const haloRef = useRef<THREE.Group>(null);
   const cur = useRef(new THREE.Vector3(agent.position[0], 0, agent.position[1]));
 
   const selectAgent = useStore((s) => s.selectAgent);
@@ -75,6 +78,13 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       const s = 1 + Math.sin(t * 4) * 0.05;
       ringRef.current.scale.set(s, s, s);
     }
+
+    // limbs swing while walking; gentle idle sway otherwise
+    const swing = moving ? Math.sin(t * 11) * 0.6 : Math.sin(t * 2.2) * 0.12;
+    if (armLRef.current) armLRef.current.rotation.x = swing;
+    if (armRRef.current) armRRef.current.rotation.x = -swing;
+    // "working" orbiter spins above the head
+    if (haloRef.current) haloRef.current.rotation.y += d * 3;
   });
 
   function onSelect(e: ThreeEvent<PointerEvent>) {
@@ -136,6 +146,19 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           <capsuleGeometry args={[0.32, 0.5, 8, 20]} />
           <meshStandardMaterial color={hex} roughness={0.5} metalness={0.08} />
         </mesh>
+        {/* arms (swing while walking) */}
+        <group ref={armLRef} position={[-0.34, 0.92, 0]}>
+          <mesh position={[0, -0.2, 0]} castShadow>
+            <capsuleGeometry args={[0.1, 0.26, 6, 12]} />
+            <meshStandardMaterial color={hex} roughness={0.5} metalness={0.08} />
+          </mesh>
+        </group>
+        <group ref={armRRef} position={[0.34, 0.92, 0]}>
+          <mesh position={[0, -0.2, 0]} castShadow>
+            <capsuleGeometry args={[0.1, 0.26, 6, 12]} />
+            <meshStandardMaterial color={hex} roughness={0.5} metalness={0.08} />
+          </mesh>
+        </group>
         {/* head */}
         <mesh position={[0, 1.28, 0]} castShadow>
           <sphereGeometry args={[0.3, 28, 28]} />
@@ -164,10 +187,19 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
             toneMapped={false}
           />
         </mesh>
+        {/* "working" orbiter */}
+        {agent.status === "working" && (
+          <group ref={haloRef} position={[0, 1.98, 0]}>
+            <mesh position={[0.2, 0, 0]}>
+              <sphereGeometry args={[0.05, 12, 12]} />
+              <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={1.6} toneMapped={false} />
+            </mesh>
+          </group>
+        )}
       </group>
 
       {/* name label */}
-      <Html position={[0, 2.15, 0]} center distanceFactor={11} zIndexRange={[20, 0]} pointerEvents="none">
+      <Html position={[0, 2.4, 0]} center distanceFactor={11} zIndexRange={[60, 40]} pointerEvents="none">
         <div className="pointer-events-none flex select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-ink-900/90 px-2.5 py-1 text-[12px] font-medium text-slate-100 shadow-panel">
           <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[agent.status] }} />
           {agent.name}

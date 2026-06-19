@@ -61,7 +61,17 @@ export default function App() {
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
   const bottomOpen = useStore((s) => s.bottomOpen);
+  const theme = useStore((s) => s.theme);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-light", theme === "light");
+    try {
+      localStorage.setItem("sams.theme", theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -58,6 +58,22 @@ export interface Task {
   progress: number;
 }
 
+/** A historical record of an assigned task (for the Tasks panel). */
+export interface TaskRecord {
+  id: string;
+  agentId: string;
+  agentName: string;
+  color: AgentColor | null;
+  title: string;
+  branch: string;
+  status: AgentStatus;
+  /** 0..100 */
+  progress: number;
+  /** a result link (PR or Notion), if any */
+  url?: string;
+  createdAt: number;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -116,4 +132,4 @@ export type ActivityView =
   | "cad"
   | "extensions";
 
-export type BottomTab = "terminal" | "output" | "eventlog" | "problems";
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks";

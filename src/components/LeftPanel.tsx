@@ -1,5 +1,6 @@
 import { MapPin, Package, Search } from "lucide-react";
 import { Explorer } from "./Explorer";
+import { ResizeHandle } from "./ResizeHandle";
 import { useStore } from "../store/useStore";
 import { ZONES } from "../data/world";
 
@@ -109,13 +110,19 @@ function ExtensionsView() {
 
 export function LeftPanel() {
   const activity = useStore((s) => s.activity);
+  const leftWidth = useStore((s) => s.leftWidth);
+  const setLeftWidth = useStore((s) => s.setLeftWidth);
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-ink-900/60">
+    <aside
+      className="relative flex shrink-0 flex-col border-r border-line bg-ink-900/60"
+      style={{ width: leftWidth }}
+    >
       {activity === "explorer" && <Explorer />}
       {activity === "search" && <SearchView />}
       {activity === "scm" && <ScmView />}
       {activity === "cad" && <CadView />}
       {activity === "extensions" && <ExtensionsView />}
+      <ResizeHandle side="right" onDelta={(d) => setLeftWidth(useStore.getState().leftWidth + d)} />
     </aside>
   );
 }

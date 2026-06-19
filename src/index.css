@@ -7,7 +7,41 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --c-ink-950: 10 12 18;
+    --c-ink-900: 13 16 23;
+    --c-ink-850: 17 21 31;
+    --c-ink-800: 21 26 38;
+    --c-ink-700: 27 34 48;
+    --c-ink-600: 35 44 61;
+    --c-ink-500: 46 57 80;
+    --c-line: 34 43 61;
+    --c-mut: 138 147 166;
+    --c-text: 226 232 240;
+    --c-text-strong: 255 255 255;
   }
+
+  .theme-light {
+    color-scheme: light;
+    --c-ink-950: 240 243 248;
+    --c-ink-900: 255 255 255;
+    --c-ink-850: 238 241 246;
+    --c-ink-800: 230 234 241;
+    --c-ink-700: 219 225 235;
+    --c-ink-600: 203 211 224;
+    --c-ink-500: 180 190 208;
+    --c-line: 214 221 231;
+    --c-mut: 90 100 119;
+    --c-text: 27 34 48;
+    --c-text-strong: 11 14 20;
+  }
+
+  /* In light mode, re-map the hard-coded light text colors to dark ones.
+     (Safe because no component @apply's these utilities — see below.) */
+  .theme-light .text-white { color: #0b0e14; }
+  .theme-light .text-slate-100 { color: #11151f; }
+  .theme-light .text-slate-200 { color: #1b2230; }
+  .theme-light .text-slate-300 { color: #2e3950; }
+  .theme-light .text-slate-400 { color: #5b667a; }
 
   html,
   body,
@@ -17,7 +51,8 @@
   }
 
   body {
-    @apply bg-ink-950 text-slate-200 font-sans antialiased;
+    @apply bg-ink-950 font-sans antialiased;
+    color: rgb(var(--c-text));
     overflow: hidden;
   }
 
@@ -56,12 +91,20 @@
 
   .btn {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5
-           text-xs font-medium text-slate-300 transition-colors
-           hover:bg-ink-700 hover:text-white disabled:opacity-40 disabled:pointer-events-none;
+           text-xs font-medium transition-colors hover:bg-ink-700
+           disabled:opacity-40 disabled:pointer-events-none;
+    color: rgb(var(--c-text));
+  }
+  .btn:hover {
+    color: rgb(var(--c-text-strong));
   }
 
   .btn-primary {
-    @apply bg-brand text-white hover:bg-brand/90 hover:text-white;
+    @apply bg-brand hover:bg-brand/90;
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    color: #ffffff;
   }
 
   .chip {
@@ -70,6 +113,7 @@
 
   .settings-input {
     @apply w-full rounded-md border border-line bg-ink-800 px-2.5 py-1.5 text-[13px]
-           text-slate-100 outline-none placeholder:text-mut focus:border-brand/50;
+           outline-none placeholder:text-mut focus:border-brand/50;
+    color: rgb(var(--c-text-strong));
   }
 }
