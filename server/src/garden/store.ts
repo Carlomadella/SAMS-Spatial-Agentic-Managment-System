@@ -1,14 +1,13 @@
 import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
-import { config, useMysql } from "./config";
-import type { GardenState } from "./garden";
+import type { GardenState } from "./model";
 
-export interface Store {
+export interface GardenStore {
   get(user: string): Promise<GardenState | null>;
   put(state: GardenState): Promise<void>;
   top(limit: number): Promise<GardenState[]>;
 }
 
-class MemoryStore implements Store {
+class MemoryStore implements GardenStore {
   private m = new Map<string, GardenState>();
   async get(user: string) {
     return this.m.get(user.toLowerCase()) ?? null;
@@ -21,7 +20,7 @@ class MemoryStore implements Store {
   }
 }
 
-class MysqlStore implements Store {
+class MysqlStore implements GardenStore {
   constructor(private pool: Pool) {}
   async get(user: string) {
     const [rows] = await this.pool.query<RowDataPacket[]>("SELECT data FROM gardens WHERE user = ?", [
@@ -46,18 +45,18 @@ class MysqlStore implements Store {
   }
 }
 
-let store: Store = new MemoryStore();
-let kind = "in-memory";
+let store: GardenStore = new MemoryStore();
 
-export async function initStore(): Promise<string> {
-  if (!useMysql) return kind;
+/** Use MySQL when DB_HOST is set, otherwise keep the in-memory store. */
+export async function initGardenStore(): Promise<string> {
+  if (!process.env.DB_HOST) return "in-memory";
   try {
     const pool = mysql.createPool({
-      host: config.db.host,
-      port: config.db.port,
-      user: config.db.user,
-      password: config.db.password,
-      database: config.db.name,
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT ?? 3306),
+      user: process.env.DB_USER ?? "root",
+      password: process.env.DB_PASSWORD ?? "",
+      database: process.env.DB_NAME ?? "sams_garden",
       connectionLimit: 5,
     });
     await pool.query(
@@ -67,13 +66,13 @@ export async function initStore(): Promise<string> {
     );
     await pool.query("SELECT 1");
     store = new MysqlStore(pool);
-    kind = "mysql";
+    return "mysql";
   } catch (e) {
-    console.warn("⚠️  MySQL non disponibile, uso lo store in-memory:", (e as Error).message);
+    console.warn("⚠️  Garden: MySQL non disponibile, uso store in-memory:", (e as Error).message);
+    return "in-memory";
   }
-  return kind;
 }
 
-export function getStore(): Store {
+export function getStore(): GardenStore {
   return store;
 }

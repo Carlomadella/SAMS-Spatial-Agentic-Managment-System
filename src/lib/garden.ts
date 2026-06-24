@@ -1,6 +1,6 @@
-// Client for the Commit Garden API (the separate commit-garden/server, :8088).
-// Override with VITE_GARDEN_API if you host it elsewhere.
-const BASE = ((import.meta.env.VITE_GARDEN_API as string | undefined) || "http://localhost:8088").replace(/\/$/, "");
+// Commit Garden is served by the SAMS runtime itself (same origin, via the Vite
+// proxy → :8787). Override with VITE_GARDEN_API only if hosted elsewhere.
+const BASE = ((import.meta.env.VITE_GARDEN_API as string | undefined) ?? "").replace(/\/$/, "");
 
 export type Stage = "seed" | "sprout" | "sapling" | "bush" | "tree" | "blooming";
 

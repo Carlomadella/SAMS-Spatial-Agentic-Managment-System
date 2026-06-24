@@ -3,6 +3,8 @@ import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch 
 import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
+import { registerGardenRoutes } from "./garden/routes";
+import { initGardenStore } from "./garden/store";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -117,9 +119,13 @@ app.post("/api/assign", (req: Request, res: Response) => {
   });
 });
 
+// Commit Garden lives inside the SAMS runtime (no separate app/port).
+registerGardenRoutes(app);
+
 const { port, githubRepo } = getSettings();
 app.listen(port, () => {
   console.log(`SAMS runtime → http://localhost:${port}`);
   console.log(`  repo:  ${githubRepo}`);
   console.log(`  ready: ${isReady()}`);
+  void initGardenStore().then((k) => console.log(`  garden store: ${k}`));
 });
