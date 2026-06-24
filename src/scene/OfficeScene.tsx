@@ -2,13 +2,21 @@ import { Suspense, useRef } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import {
+  Armchair,
+  Bookshelf,
+  CoffeeTable,
   Desk,
-  KanbanWall,
-  LoungeSofa,
+  FloorLamp,
+  FrontDoor,
   Plant,
-  SecurityGate,
-  Vault,
-  Whiteboard,
+  Rug,
+  SideTable,
+  Sideboard,
+  Sofa,
+  TableLamp,
+  TVUnit,
+  WallArt,
+  Window,
 } from "./Furniture";
 import { Agent3D } from "./Agent3D";
 import { useStore } from "../store/useStore";
@@ -20,8 +28,8 @@ import {
 } from "../data/world";
 import type { Vec2, Zone } from "../types";
 
-const WALL = "#eef2f9";
-const FLOOR = "#e7ecf4";
+const WALL = "#efe7da";
+const FLOOR = "#d8c4a8";
 
 function Floor() {
   const downPos = useRef<{ x: number; y: number } | null>(null);
@@ -71,10 +79,10 @@ function Floor() {
         args={[ROOM_WIDTH, ROOM_DEPTH]}
         cellSize={1}
         cellThickness={0.6}
-        cellColor="#cdd6e4"
+        cellColor="#c9b79a"
         sectionSize={4}
         sectionThickness={1}
-        sectionColor="#b7c2d6"
+        sectionColor="#bda782"
         fadeDistance={42}
         fadeStrength={1.4}
         infiniteGrid={false}
@@ -197,15 +205,28 @@ function SceneContents() {
 
       <Floor />
 
-      {/* furniture, placed against the back / left of the room */}
-      <Vault position={[-6.4, 0, -4.6]} rotation={[0, 0.2, 0]} />
-      <Whiteboard position={[-1.5, 0, -5.4]} />
-      <KanbanWall position={[3.8, 0, -5.4]} />
-      <Desk position={[0, 0, 1.6]} rotation={[0, Math.PI, 0]} />
-      <SecurityGate position={[7.4, 0, 0.4]} rotation={[0, -Math.PI / 2, 0]} />
-      <LoungeSofa position={[-6.6, 0, 2.4]} rotation={[0, 0.7, 0]} />
-      <Plant position={[-7.6, 0, -1.2]} />
-      <Plant position={[6.4, 0, -4.4]} />
+      {/* cozy living-room layout (faces the open corner of the iso diorama) */}
+      <Rug position={[-1.4, 0, 1.8]} />
+      <Sofa position={[-1.4, 0, -0.2]} />
+      <CoffeeTable position={[-1.4, 0, 1.8]} />
+      <Armchair position={[2.4, 0, 1.9]} rotation={[0, -1.1, 0]} />
+      <SideTable position={[-3.6, 0, 0.2]} />
+      <TableLamp position={[-3.6, 0.59, 0.2]} />
+      <FloorLamp position={[1.7, 0, -1.4]} />
+
+      {/* pieces along the back / left walls */}
+      <Sideboard position={[-6.6, 0, -5.45]} />
+      <Bookshelf position={[-2.4, 0, -5.5]} />
+      <TVUnit position={[3.6, 0, -5.5]} />
+      <Window position={[6.9, 1.5, -5.84]} />
+      <WallArt position={[0.3, 1.85, -5.84]} />
+
+      {/* a small work desk tucked in the corner + greenery */}
+      <Desk position={[6.2, 0, 3.4]} rotation={[0, -Math.PI / 2, 0]} />
+      <Plant position={[-7.9, 0, -1.6]} />
+      <Plant position={[5.6, 0, 4.2]} />
+
+      <FrontDoor position={[8.5, 0, 1.2]} rotation={[0, -Math.PI / 2, 0]} />
       <GardenDoor />
 
       {ZONES.map((z) => (
@@ -227,8 +248,8 @@ export function OfficeScene() {
       camera={{ position: [13, 11, 14], fov: 32 }}
       gl={{ antialias: true }}
     >
-      <color attach="background" args={["#eef2f7"]} />
-      <fog attach="fog" args={["#eef2f7", 30, 58]} />
+      <color attach="background" args={["#f3ece0"]} />
+      <fog attach="fog" args={["#f3ece0", 30, 58]} />
       <Suspense fallback={null}>
         <SceneContents />
       </Suspense>

@@ -4,6 +4,10 @@ import react from "@vitejs/plugin-react";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // the three.js/drei scene chunk is legitimately large; raise the warning bar
+    chunkSizeWarningLimit: 1200,
+  },
   server: {
     host: true,
     port: 5173,
