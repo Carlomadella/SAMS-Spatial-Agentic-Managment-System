@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Send,
   Server,
+  Sprout,
   Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -87,6 +88,7 @@ export function CommandPalette() {
 
     list.push({ id: "cad", label: "Open Spatial CAD · Zones", icon: Boxes, keywords: "zones cad layout", run: () => s.setActivity("cad") });
     list.push({ id: "focus", label: "Toggle focus mode (hide/show panels)", icon: Maximize2, keywords: "focus zen panels hide", run: () => s.toggleFocus() });
+    list.push({ id: "garden", label: "Open Commit Garden", icon: Sprout, keywords: "garden plant commit grow", run: () => s.setGardenOpen(true) });
     list.push({ id: "clear", label: "Clear event log", icon: Trash2, keywords: "log clear", run: () => s.clearEvents() });
     list.push({ id: "reset", label: "Reset workspace", icon: RotateCcw, keywords: "reset restore", run: () => s.resetWorld() });
 

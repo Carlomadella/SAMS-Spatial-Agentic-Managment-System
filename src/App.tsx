@@ -8,6 +8,7 @@ import { BottomPanel } from "./components/BottomPanel";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
 import { OfficeScene } from "./scene/OfficeScene";
@@ -128,6 +129,7 @@ export default function App() {
       <StatusBar />
       <CommandPalette />
       <SettingsModal />
+      <GardenView />
       <Toaster />
     </div>
   );

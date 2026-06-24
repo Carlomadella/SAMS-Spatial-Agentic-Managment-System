@@ -1,25 +1,16 @@
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useRef } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { ContactShadows, Html, OrbitControls, RoundedBox, SoftShadows } from "@react-three/drei";
+import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import {
-  Armchair,
-  Bookshelf,
-  CoffeeTable,
   Desk,
-  FloorLamp,
-  FrontDoor,
+  KanbanWall,
+  LoungeSofa,
   Plant,
-  Rug,
-  Sideboard,
-  SideTable,
-  Sofa,
-  TableLamp,
-  TVUnit,
-  WallArt,
-  Window,
+  SecurityGate,
+  Vault,
+  Whiteboard,
 } from "./Furniture";
 import { Agent3D } from "./Agent3D";
-import { tileFloorTexture } from "./textures";
 import { useStore } from "../store/useStore";
 import {
   ROOM,
@@ -29,15 +20,11 @@ import {
 } from "../data/world";
 import type { Vec2, Zone } from "../types";
 
-// flat, bright Habbo-style room palette
-const WALL_TOP = "#d7dee6"; // cool light plaster
-const WALL_LOWER = "#b9c4cf"; // wainscot band
-const WALL_TRIM = "#eef2f6";
-const FLOOR_EDGE = "#b79a63";
+const WALL = "#eef2f9";
+const FLOOR = "#e7ecf4";
 
 function Floor() {
   const downPos = useRef<{ x: number; y: number } | null>(null);
-  const tiles = useMemo(() => tileFloorTexture(), []);
 
   function onDown(e: ThreeEvent<PointerEvent>) {
     downPos.current = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
@@ -56,18 +43,18 @@ function Floor() {
 
   return (
     <group>
-      {/* raised tile platform (the classic Habbo room slab) */}
+      {/* platform slab */}
       <RoundedBox
-        args={[ROOM_WIDTH + 1.6, 0.6, ROOM_DEPTH + 1.6]}
-        radius={0.06}
-        smoothness={2}
-        position={[0, -0.3, 0]}
+        args={[ROOM_WIDTH + 2, 0.5, ROOM_DEPTH + 2]}
+        radius={0.12}
+        smoothness={4}
+        position={[0, -0.25, 0]}
         receiveShadow
       >
-        <meshStandardMaterial color={FLOOR_EDGE} roughness={0.85} />
+        <meshStandardMaterial color={FLOOR} roughness={0.95} />
       </RoundedBox>
 
-      {/* checkerboard tile floor (also receives the move clicks) */}
+      {/* click-catcher floor (also receives the move clicks) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.001, 0]}
@@ -76,36 +63,31 @@ function Floor() {
         onPointerUp={onUp}
       >
         <planeGeometry args={[ROOM_WIDTH, ROOM_DEPTH]} />
-        <meshStandardMaterial map={tiles} roughness={0.85} metalness={0} />
+        <meshStandardMaterial color={FLOOR} roughness={0.95} />
       </mesh>
 
-      {/* --- walls: flat upper plaster + darker wainscot + trim line ------- */}
-      {/* back wall */}
+      <Grid
+        position={[0, 0.004, 0]}
+        args={[ROOM_WIDTH, ROOM_DEPTH]}
+        cellSize={1}
+        cellThickness={0.6}
+        cellColor="#cdd6e4"
+        sectionSize={4}
+        sectionThickness={1}
+        sectionColor="#b7c2d6"
+        fadeDistance={42}
+        fadeStrength={1.4}
+        infiniteGrid={false}
+      />
+
+      {/* walls (back + left form an open L, matching the iso diorama) */}
       <mesh position={[0, ROOM.wallHeight / 2, ROOM.minZ - 0.15]} receiveShadow>
-        <boxGeometry args={[ROOM_WIDTH + 1.6, ROOM.wallHeight, 0.3]} />
-        <meshStandardMaterial color={WALL_TOP} roughness={1} />
+        <boxGeometry args={[ROOM_WIDTH + 2, ROOM.wallHeight, 0.3]} />
+        <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
-      <mesh position={[0, 0.55, ROOM.minZ + 0.01]}>
-        <boxGeometry args={[ROOM_WIDTH + 1.6, 1.1, 0.04]} />
-        <meshStandardMaterial color={WALL_LOWER} roughness={1} />
-      </mesh>
-      <mesh position={[0, 1.12, ROOM.minZ + 0.02]}>
-        <boxGeometry args={[ROOM_WIDTH + 1.6, 0.06, 0.05]} />
-        <meshStandardMaterial color={WALL_TRIM} roughness={0.8} />
-      </mesh>
-
-      {/* left wall */}
       <mesh position={[ROOM.minX - 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 1.6]} />
-        <meshStandardMaterial color={WALL_TOP} roughness={1} />
-      </mesh>
-      <mesh position={[ROOM.minX + 0.01, 0.55, 0]}>
-        <boxGeometry args={[0.04, 1.1, ROOM_DEPTH + 1.6]} />
-        <meshStandardMaterial color={WALL_LOWER} roughness={1} />
-      </mesh>
-      <mesh position={[ROOM.minX + 0.02, 1.12, 0]}>
-        <boxGeometry args={[0.05, 0.06, ROOM_DEPTH + 1.6]} />
-        <meshStandardMaterial color={WALL_TRIM} roughness={0.8} />
+        <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 2]} />
+        <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
     </group>
   );
@@ -122,10 +104,9 @@ function ZoneMarker({ zone }: { zone: Zone }) {
 
   return (
     <group position={[x, 0, z]}>
-      {/* Habbo-style square tile highlight */}
       <mesh
-        rotation={[-Math.PI / 2, 0, Math.PI / 4]}
-        position={[0, 0.03, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.012, 0]}
         onClick={onClick}
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -133,17 +114,59 @@ function ZoneMarker({ zone }: { zone: Zone }) {
         }}
         onPointerOut={() => (document.body.style.cursor = "default")}
       >
-        <planeGeometry args={[1.18, 1.18]} />
-        <meshBasicMaterial color="#3fd0e0" transparent opacity={0.32} />
+        <ringGeometry args={[0.62, 0.78, 40]} />
+        <meshBasicMaterial color="#5b7da8" transparent opacity={0.45} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 4]} position={[0, 0.031, 0]}>
-        <ringGeometry args={[0.78, 0.84, 4]} />
-        <meshBasicMaterial color="#23b8cc" transparent opacity={0.8} />
+      <Html position={[0, 0.04, -1.2]} center distanceFactor={10} pointerEvents="none" zIndexRange={[15, 0]}>
+        <div className="pointer-events-none select-none whitespace-nowrap rounded-md border border-slate-300/60 bg-white/75 px-1.5 py-0.5 text-center shadow-sm">
+          <div className="text-[11px] font-semibold leading-tight text-slate-700">{zone.label}</div>
+          <div className="text-[9px] leading-tight text-slate-500">{zone.sublabel}</div>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+function GardenDoor() {
+  const onOpen = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    useStore.getState().setGardenOpen(true);
+  };
+  return (
+    <group position={[8, 0, ROOM.minZ + 0.16]}>
+      <mesh position={[0, 1.2, 0]} castShadow>
+        <boxGeometry args={[1.5, 2.4, 0.18]} />
+        <meshStandardMaterial color="#2f6d45" roughness={0.6} />
       </mesh>
-      <Html position={[0, 0.02, -1.05]} center distanceFactor={13} pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="pointer-events-none select-none whitespace-nowrap rounded-md border border-cyan-200/70 bg-white/90 px-2 py-1 text-center shadow-sm">
-          <div className="text-[12px] font-semibold leading-tight text-slate-800">{zone.label}</div>
-          <div className="text-[10px] leading-tight text-slate-500">{zone.sublabel}</div>
+      <mesh
+        position={[0, 1.15, 0.12]}
+        onClick={onOpen}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => (document.body.style.cursor = "default")}
+      >
+        <boxGeometry args={[1.16, 2.05, 0.12]} />
+        <meshStandardMaterial color="#5bbf7e" emissive="#2c7d43" emissiveIntensity={0.4} roughness={0.5} toneMapped={false} />
+      </mesh>
+      <mesh position={[0.42, 1.15, 0.2]}>
+        <sphereGeometry args={[0.07, 16, 16]} />
+        <meshStandardMaterial color="#eaf6ef" metalness={0.3} />
+      </mesh>
+      <group position={[1.18, 0, 0.15]}>
+        <mesh position={[0, 0.2, 0]} castShadow>
+          <cylinderGeometry args={[0.16, 0.12, 0.4, 12]} />
+          <meshStandardMaterial color="#c2724a" roughness={0.7} />
+        </mesh>
+        <mesh position={[0, 0.56, 0]} castShadow>
+          <sphereGeometry args={[0.28, 16, 16]} />
+          <meshStandardMaterial color="#3aa657" roughness={0.8} />
+        </mesh>
+      </group>
+      <Html position={[0, 2.78, 0.2]} center distanceFactor={11} zIndexRange={[40, 20]} pointerEvents="none">
+        <div className="pointer-events-none select-none whitespace-nowrap rounded-full border border-emerald-600/30 bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 shadow-sm">
+          🌿 Commit Garden — entra
         </div>
       </Html>
     </group>
@@ -156,64 +179,34 @@ function SceneContents() {
 
   return (
     <>
-      {/* a touch of softness so furniture still grounds, but mostly flat */}
-      <SoftShadows size={18} samples={10} focus={0.8} />
-
-      {/* flat, bright, evenly-lit Habbo room */}
-      <hemisphereLight args={["#ffffff", "#c4cdd8", 0.55]} />
-      <ambientLight intensity={0.85} />
-      {/* single soft key for gentle definition (kept low so it reads flat) */}
+      <hemisphereLight args={["#ffffff", "#c9d3e3", 0.65]} />
+      <ambientLight intensity={0.55} />
       <directionalLight
-        position={[10, 18, 8]}
-        intensity={0.85}
-        color="#ffffff"
+        position={[9, 15, 7]}
+        intensity={1.25}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={1}
-        shadow-camera-far={70}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-far={60}
+        shadow-camera-left={-18}
+        shadow-camera-right={18}
+        shadow-camera-top={18}
+        shadow-camera-bottom={-18}
         shadow-bias={-0.0004}
       />
-      <directionalLight position={[-8, 10, -6]} intensity={0.25} color="#eaf0ff" />
 
       <Floor />
 
-      <ContactShadows
-        position={[0, 0.02, 0]}
-        scale={ROOM_WIDTH + 6}
-        resolution={1024}
-        far={5}
-        blur={2.4}
-        opacity={0.26}
-        color="#2a3550"
-      />
-
-      {/* ---- furnished room ------------------------------------------------- */}
-      <Sideboard position={[-6.4, 0, -5.4]} />
-      <Bookshelf position={[-1.8, 0, -5.5]} />
-      <Window position={[2.4, 1.6, -5.78]} />
-      <TVUnit position={[5.4, 0, -5.45]} />
-
-      <WallArt position={[-8.62, 1.9, -1.6]} rotation={[0, Math.PI / 2, 0]} color="#ef7d52" />
-      <WallArt position={[-8.62, 1.9, 0.4]} rotation={[0, Math.PI / 2, 0]} color="#4fb0c0" />
-
-      <Rug position={[-4.6, 0, 2.2]} size={[6, 4.2]} />
-      <Sofa position={[-6.2, 0, 2.7]} rotation={[0, 0.95, 0]} />
-      <Armchair position={[-2.3, 0, 3.4]} rotation={[0, -2.1, 0]} />
-      <CoffeeTable position={[-4.5, 0, 2.3]} rotation={[0, 0.25, 0]} />
-      <FloorLamp position={[-7.7, 0, 0.9]} />
-      <SideTable position={[-7.6, 0, 4.0]} />
-
-      <Desk position={[1.2, 0, 2.6]} rotation={[0, Math.PI, 0]} />
-      <TableLamp position={[2.4, 0.92, 2.9]} />
-
-      <FrontDoor position={[8.4, 0, 0.4]} rotation={[0, -Math.PI / 2, 0]} />
-
-      <Plant position={[-8.1, 0, -3.6]} />
-      <Plant position={[7.4, 0, 3.6]} />
+      {/* furniture, placed against the back / left of the room */}
+      <Vault position={[-6.4, 0, -4.6]} rotation={[0, 0.2, 0]} />
+      <Whiteboard position={[-1.5, 0, -5.4]} />
+      <KanbanWall position={[3.8, 0, -5.4]} />
+      <Desk position={[0, 0, 1.6]} rotation={[0, Math.PI, 0]} />
+      <SecurityGate position={[7.4, 0, 0.4]} rotation={[0, -Math.PI / 2, 0]} />
+      <LoungeSofa position={[-6.6, 0, 2.4]} rotation={[0, 0.7, 0]} />
+      <Plant position={[-7.6, 0, -1.2]} />
+      <Plant position={[6.4, 0, -4.4]} />
+      <GardenDoor />
 
       {ZONES.map((z) => (
         <ZoneMarker key={z.id} zone={z} />
@@ -230,23 +223,22 @@ export function OfficeScene() {
   return (
     <Canvas
       shadows
-      orthographic
-      dpr={0.62} // low internal resolution → upscaled = chunky pixel-art look
-      className="habbo-canvas"
-      camera={{ position: [18, 14, 18], zoom: 32, near: 0.1, far: 400 }}
-      gl={{ antialias: false }}
+      dpr={[1, 2]}
+      camera={{ position: [13, 11, 14], fov: 32 }}
+      gl={{ antialias: true }}
     >
-      <color attach="background" args={["#aeb8c4"]} />
+      <color attach="background" args={["#eef2f7"]} />
+      <fog attach="fog" args={["#eef2f7", 30, 58]} />
       <Suspense fallback={null}>
         <SceneContents />
       </Suspense>
       <OrbitControls
         target={[0, 0.8, 0]}
         enablePan={false}
-        minZoom={18}
-        maxZoom={80}
-        maxPolarAngle={1.2}
-        minPolarAngle={0.2}
+        minDistance={9}
+        maxDistance={34}
+        maxPolarAngle={1.35}
+        minPolarAngle={0.25}
         enableDamping
         dampingFactor={0.08}
       />

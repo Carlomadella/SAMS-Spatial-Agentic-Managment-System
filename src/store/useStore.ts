@@ -38,6 +38,7 @@ interface State {
   bottomTab: BottomTab;
   commandOpen: boolean;
   settingsOpen: boolean;
+  gardenOpen: boolean;
   theme: "dark" | "light";
   leftOpen: boolean;
   rightOpen: boolean;
@@ -78,6 +79,7 @@ interface State {
   setBottomTab: (t: BottomTab) => void;
   setCommandOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setGardenOpen: (open: boolean) => void;
   toggleTheme: () => void;
   toggleLeft: () => void;
   toggleRight: () => void;
@@ -154,6 +156,7 @@ export const useStore = create<State>()((set, get) => ({
   bottomTab: "eventlog",
   commandOpen: false,
   settingsOpen: false,
+  gardenOpen: false,
   theme:
     typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
       ? "light"
@@ -320,6 +323,7 @@ export const useStore = create<State>()((set, get) => ({
   setBottomTab: (t) => set({ bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setGardenOpen: (open) => set({ gardenOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),

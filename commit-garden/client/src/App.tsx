@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plant } from "./Plant";
-import { getGarden, leaderboard, waterGarden, STAGE_LABEL, type GardenState } from "./api";
+import { getGarden, leaderboard, STAGE_LABEL, type GardenState } from "./api";
 
 const STAGE_EMOJI: Record<string, string> = {
   seed: "🌰",
@@ -41,16 +41,6 @@ export default function App() {
       setGarden(null);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function onWater() {
-    if (!garden) return;
-    try {
-      setGarden(await waterGarden(garden.user));
-      void refreshBoard();
-    } catch (e) {
-      setError((e as Error).message);
     }
   }
 
@@ -115,7 +105,6 @@ export default function App() {
           </p>
           {garden.note && <p className="note">nota: {garden.note}</p>}
           <div className="actions">
-            <button onClick={onWater}>💧 Innaffia</button>
             <button onClick={() => load(garden.user)}>↻ Aggiorna da GitHub</button>
             <a href={`/u/${encodeURIComponent(garden.user)}`} target="_blank" rel="noreferrer">
               🔗 Pagina pubblica

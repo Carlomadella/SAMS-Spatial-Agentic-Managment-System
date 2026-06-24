@@ -56,20 +56,6 @@ app.get("/api/garden/:user", async (req: Request, res: Response) => {
   }
 });
 
-/** Manual watering (for demos / testing without waiting for a real push). */
-app.post("/api/garden/:user/water", async (req: Request, res: Response) => {
-  const user = cleanUser(req.params.user);
-  if (!user) {
-    res.status(400).json({ error: "username non valido" });
-    return;
-  }
-  const store = getStore();
-  const prev = (await store.get(user)) ?? emptyGarden(user);
-  const next = water(prev, 1, prev.lastSeen, today());
-  await store.put(next);
-  res.json(next);
-});
-
 app.get("/api/leaderboard", async (_req: Request, res: Response) => {
   res.json(await getStore().top(10));
 });
