@@ -1,9 +1,7 @@
-import { config } from "./config";
+import { getSettings } from "../config";
 
 export interface PushActivity {
-  /** number of commits in events newer than `since` */
   newWaterings: number;
-  /** ISO timestamp of the newest event seen */
   latestSeen: string | null;
 }
 
@@ -13,21 +11,20 @@ interface GitHubEvent {
   payload?: { size?: number; commits?: unknown[] };
 }
 
-/**
- * Count commits the user pushed since `since` using the public Events API
- * (works unauthenticated, ~60 req/h; a token raises the limit).
- */
+/** Count commits the user pushed since `since` via the public Events API. */
 export async function fetchPushActivity(user: string, since: string | null): Promise<PushActivity> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "commit-garden",
+    "User-Agent": "sams-commit-garden",
   };
-  if (config.githubToken) headers.Authorization = `Bearer ${config.githubToken}`;
+  const token = getSettings().githubToken;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`https://api.github.com/users/${encodeURIComponent(user)}/events/public?per_page=100`, {
-    headers,
-  });
+  const res = await fetch(
+    `https://api.github.com/users/${encodeURIComponent(user)}/events/public?per_page=100`,
+    { headers },
+  );
   if (res.status === 404) throw new Error(`utente GitHub "${user}" non trovato`);
   if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.text()).slice(0, 160)}`);
 

@@ -3,23 +3,16 @@ export type Stage = "seed" | "sprout" | "sapling" | "bush" | "tree" | "blooming"
 
 export interface GardenState {
   user: string;
-  /** total waterings ≈ commits/pushes counted over time */
   waterings: number;
-  /** consecutive days with at least one push */
   streak: number;
-  /** YYYY-MM-DD of the last watering, for streak math */
   lastWateredDate: string | null;
-  /** ISO timestamp of the most recent GitHub event we've already counted */
   lastSeen: string | null;
   stage: Stage;
-  /** 0..100 progress toward the next stage */
   growth: number;
-  /** true if watered today (plant looks fresh) */
   thirsty: boolean;
   updatedAt: string;
 }
 
-/** waterings needed to ENTER each stage. */
 const THRESHOLDS: Array<[Stage, number]> = [
   ["blooming", 60],
   ["tree", 30],
@@ -34,13 +27,12 @@ export function stageFor(waterings: number): Stage {
   return "seed";
 }
 
-/** progress (0..100) from the current stage's threshold toward the next one. */
 export function growthFor(waterings: number): number {
-  const ascending = [...THRESHOLDS].reverse(); // seed→blooming
+  const ascending = [...THRESHOLDS].reverse();
   for (let i = 0; i < ascending.length; i++) {
     const [, min] = ascending[i];
     const next = ascending[i + 1];
-    if (!next) return 100; // blooming
+    if (!next) return 100;
     if (waterings < next[1]) {
       const span = next[1] - min;
       return Math.round(((waterings - min) / Math.max(1, span)) * 100);
@@ -67,10 +59,7 @@ function dayDiff(a: string, b: string): number {
   return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 }
 
-/**
- * Apply freshly-fetched push activity to a garden state.
- * `newWaterings` = number of new commits/pushes since `lastSeen`.
- */
+/** Apply freshly-fetched push activity (`newWaterings` since `lastSeen`). */
 export function water(
   prev: GardenState,
   newWaterings: number,
@@ -78,8 +67,7 @@ export function water(
   today: string,
 ): GardenState {
   if (newWaterings <= 0) {
-    const thirsty = prev.lastWateredDate !== today;
-    return { ...prev, thirsty, updatedAt: new Date().toISOString() };
+    return { ...prev, thirsty: prev.lastWateredDate !== today, updatedAt: new Date().toISOString() };
   }
 
   let streak = prev.streak;
@@ -88,7 +76,7 @@ export function water(
     const d = dayDiff(prev.lastWateredDate, today);
     if (d === 0) streak = Math.max(1, prev.streak);
     else if (d === 1) streak = prev.streak + 1;
-    else streak = 1; // missed a day → reset
+    else streak = 1;
   }
 
   const waterings = prev.waterings + newWaterings;

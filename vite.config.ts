@@ -9,10 +9,9 @@ export default defineConfig({
     port: 5173,
     // Proxy runtime calls so the browser talks to the same origin (no CORS).
     proxy: {
-      "/api": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
+      "/api": { target: "http://localhost:8787", changeOrigin: true },
+      // Commit Garden public profile pages, served by the runtime.
+      "/u": { target: "http://localhost:8787", changeOrigin: true },
     },
   },
 });

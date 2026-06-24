@@ -118,9 +118,9 @@ export function GardenView() {
 
         {offline && (
           <div className="w-full max-w-sm rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 text-center text-[12.5px] text-amber-800">
-            Commit Garden non è in esecuzione. Avvialo:
-            <code className="mx-1 rounded bg-amber-100 px-1">cd commit-garden &amp;&amp; npm start</code>
-            poi riprova.
+            Il runtime SAMS non è in esecuzione. Avvialo con
+            <code className="mx-1 rounded bg-amber-100 px-1">npm start</code>
+            e riprova.
           </div>
         )}
         {error && !offline && (

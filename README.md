@@ -118,11 +118,16 @@ guide: [`server/README.md`](./server/README.md).
 
 ## Commit Garden (a room you can enter)
 
-The office has a **🌿 garden door** (back-right wall, also the Sprout button in the
-title bar or `⌘K → Open Commit Garden`). It opens **[Commit Garden](./commit-garden)** —
-a virtual garden where every GitHub push waters a plant that grows. SAMS calls
-the Commit Garden API; start it with `cd commit-garden && npm start` (the view
-shows a hint if it isn't running). Override its URL with `VITE_GARDEN_API`.
+The office has a **🌿 garden door** (back-right wall; also the Sprout button in the
+title bar or `⌘K → Open Commit Garden`). It opens **Commit Garden** — a virtual
+garden where every GitHub push waters a plant that grows (seed → sprout → … →
+blooming), with a public profile page at `/u/:user`.
+
+It's **built into the SAMS runtime** (not a separate app), so a single
+`npm start` runs everything. Plants grow **only from real pushes** — there's no
+manual watering. Optional: a `GITHUB_TOKEN` raises GitHub's rate limit; set
+`DB_HOST`/`DB_USER`/… in `server/.env` for MySQL persistence (in-memory
+otherwise). Override the API origin with `VITE_GARDEN_API` if you host it apart.
 
 ## Roadmap ideas
 
