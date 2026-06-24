@@ -9,6 +9,7 @@ import {
   Plus,
   Search,
   Settings,
+  Sprout,
   Sun,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
@@ -42,6 +43,7 @@ function IconBtn({
 export function TitleBar() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const setGardenOpen = useStore((s) => s.setGardenOpen);
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
   const addAgent = useStore((s) => s.addAgent);
@@ -86,6 +88,9 @@ export function TitleBar() {
         <button onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
           <Plus size={14} /> Agent
         </button>
+        <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
+          <Sprout size={16} />
+        </IconBtn>
         <IconBtn title={theme === "dark" ? "Light theme" : "Dark theme"} onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>

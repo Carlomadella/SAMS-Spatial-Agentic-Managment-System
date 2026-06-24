@@ -127,6 +127,52 @@ function ZoneMarker({ zone }: { zone: Zone }) {
   );
 }
 
+function GardenDoor() {
+  const onOpen = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    useStore.getState().setGardenOpen(true);
+  };
+  return (
+    <group position={[8, 0, ROOM.minZ + 0.16]}>
+      <mesh position={[0, 1.2, 0]} castShadow>
+        <boxGeometry args={[1.5, 2.4, 0.18]} />
+        <meshStandardMaterial color="#2f6d45" roughness={0.6} />
+      </mesh>
+      <mesh
+        position={[0, 1.15, 0.12]}
+        onClick={onOpen}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => (document.body.style.cursor = "default")}
+      >
+        <boxGeometry args={[1.16, 2.05, 0.12]} />
+        <meshStandardMaterial color="#5bbf7e" emissive="#2c7d43" emissiveIntensity={0.4} roughness={0.5} toneMapped={false} />
+      </mesh>
+      <mesh position={[0.42, 1.15, 0.2]}>
+        <sphereGeometry args={[0.07, 16, 16]} />
+        <meshStandardMaterial color="#eaf6ef" metalness={0.3} />
+      </mesh>
+      <group position={[1.18, 0, 0.15]}>
+        <mesh position={[0, 0.2, 0]} castShadow>
+          <cylinderGeometry args={[0.16, 0.12, 0.4, 12]} />
+          <meshStandardMaterial color="#c2724a" roughness={0.7} />
+        </mesh>
+        <mesh position={[0, 0.56, 0]} castShadow>
+          <sphereGeometry args={[0.28, 16, 16]} />
+          <meshStandardMaterial color="#3aa657" roughness={0.8} />
+        </mesh>
+      </group>
+      <Html position={[0, 2.78, 0.2]} center distanceFactor={11} zIndexRange={[40, 20]} pointerEvents="none">
+        <div className="pointer-events-none select-none whitespace-nowrap rounded-full border border-emerald-600/30 bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 shadow-sm">
+          🌿 Commit Garden — entra
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -160,6 +206,7 @@ function SceneContents() {
       <LoungeSofa position={[-6.6, 0, 2.4]} rotation={[0, 0.7, 0]} />
       <Plant position={[-7.6, 0, -1.2]} />
       <Plant position={[6.4, 0, -4.4]} />
+      <GardenDoor />
 
       {ZONES.map((z) => (
         <ZoneMarker key={z.id} zone={z} />

@@ -117,3 +117,23 @@
     color: rgb(var(--c-text-strong));
   }
 }
+
+/* Commit Garden plant — gentle sway */
+.cg-sway {
+  transform-origin: 120px 196px;
+  animation: cg-sway 4.5s ease-in-out infinite;
+}
+@keyframes cg-sway {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-sway {
+    animation: none;
+  }
+}

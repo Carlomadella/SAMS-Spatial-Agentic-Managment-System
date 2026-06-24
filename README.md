@@ -116,6 +116,14 @@ agents are repo-agnostic. Keys and provisioned IDs are stored locally in
 `http://localhost:8787` by default (override with `VITE_SAMS_BACKEND_URL`). Full
 guide: [`server/README.md`](./server/README.md).
 
+## Commit Garden (a room you can enter)
+
+The office has a **🌿 garden door** (back-right wall, also the Sprout button in the
+title bar or `⌘K → Open Commit Garden`). It opens **[Commit Garden](./commit-garden)** —
+a virtual garden where every GitHub push waters a plant that grows. SAMS calls
+the Commit Garden API; start it with `cd commit-garden && npm start` (the view
+shows a hint if it isn't running). Override its URL with `VITE_GARDEN_API`.
+
 ## Roadmap ideas
 
 - **Live simulation mode** — agents that pick up tasks and progress on their own.
