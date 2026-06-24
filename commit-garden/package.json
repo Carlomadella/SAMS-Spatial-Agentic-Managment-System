@@ -1,0 +1,13 @@
+{
+  "name": "commit-garden",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Commit Garden — every GitHub push waters a plant that grows.",
+  "scripts": {
+    "bootstrap": "npm install --prefix server && npm install --prefix client",
+    "start": "node scripts/dev-all.mjs",
+    "build": "npm --prefix client run build",
+    "typecheck": "npm --prefix server run typecheck"
+  }
+}
