@@ -39,7 +39,4 @@ async function json<T>(r: Response): Promise<T> {
 export const getGarden = (user: string) =>
   fetch(`/api/garden/${encodeURIComponent(user)}`).then((r) => json<GardenState>(r));
 
-export const waterGarden = (user: string) =>
-  fetch(`/api/garden/${encodeURIComponent(user)}/water`, { method: "POST" }).then((r) => json<GardenState>(r));
-
 export const leaderboard = () => fetch(`/api/leaderboard`).then((r) => json<GardenState[]>(r));

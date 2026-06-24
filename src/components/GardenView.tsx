@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, RefreshCw, Sprout } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { GardenPlant } from "./GardenPlant";
-import {
-  getGarden,
-  gardenProfileUrl,
-  leaderboard,
-  STAGE_LABEL,
-  waterGarden,
-  type GardenState,
-} from "../lib/garden";
+import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState } from "../lib/garden";
 
 const STAGE_EMOJI: Record<string, string> = {
   seed: "🌰",
@@ -62,17 +55,6 @@ export function GardenView() {
       setGarden(null);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function onWater() {
-    if (!garden) return;
-    try {
-      setGarden(await waterGarden(garden.user));
-      void refreshBoard();
-    } catch (e) {
-      if (isNetworkError(e)) setOffline(true);
-      else setError((e as Error).message);
     }
   }
 
@@ -178,16 +160,10 @@ export function GardenView() {
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button
-                onClick={onWater}
-                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-emerald-800"
-              >
-                💧 Innaffia
-              </button>
-              <button
                 onClick={() => load(garden.user)}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-[13px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-emerald-800"
               >
-                <RefreshCw size={13} /> Aggiorna
+                <RefreshCw size={13} /> Aggiorna da GitHub
               </button>
               <a
                 href={gardenProfileUrl(garden.user)}

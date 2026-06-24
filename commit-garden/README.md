@@ -39,9 +39,12 @@ limit) and the DB falls back to in-memory. Add a token / MySQL when you want.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/garden/:user` | refresh from GitHub + return state |
-| `POST`| `/api/garden/:user/water` | manual +1 watering (demo) |
 | `GET` | `/api/leaderboard` | top gardens |
 | `GET` | `/u/:user` | public SEO profile page (HTML + OG) |
+
+> Plants grow **only** from real GitHub pushes — there's no manual "water"
+> action (that would be cheating). Hitting `/api/garden/:user` re-reads the
+> user's recent pushes and waters accordingly.
 
 ---
 
