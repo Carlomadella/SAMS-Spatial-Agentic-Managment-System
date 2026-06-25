@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Hand, HelpCircle, Move3d, MousePointerClick, PanelBottom, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Hand, HelpCircle, Loader2, Move3d, MousePointerClick, PanelBottom, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -11,9 +11,21 @@ import { SettingsModal } from "./components/SettingsModal";
 import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
-import { OfficeScene } from "./scene/OfficeScene";
 import { useStore } from "./store/useStore";
 import { connectBackend } from "./lib/backend";
+
+// The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
+// IDE shell paints immediately.
+const OfficeScene = lazy(() => import("./scene/OfficeScene").then((m) => ({ default: m.OfficeScene })));
+
+function SceneLoading() {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#eef2f7] text-slate-500">
+      <Loader2 size={22} className="animate-spin" />
+      <span className="text-[12px]">Caricamento scena 3D…</span>
+    </div>
+  );
+}
 
 function StageHint() {
   const [open, setOpen] = useState(() => localStorage.getItem("sams.hint") !== "off");
@@ -116,7 +128,9 @@ export default function App() {
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
-            <OfficeScene />
+            <Suspense fallback={<SceneLoading />}>
+              <OfficeScene />
+            </Suspense>
             <StageHint />
             <ReopenPanelButton />
           </div>

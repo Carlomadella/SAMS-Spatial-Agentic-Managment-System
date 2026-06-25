@@ -9,6 +9,52 @@ import * as THREE from "three";
 let _wood: THREE.Texture | null = null;
 let _rug: THREE.Texture | null = null;
 let _tile: THREE.Texture | null = null;
+let _grass: THREE.Texture | null = null;
+
+/** Lush mottled lawn for the Commit Garden ground. */
+export function grassTexture(): THREE.Texture {
+  if (_grass) return _grass;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const ctx = c.getContext("2d")!;
+
+  // base lawn
+  ctx.fillStyle = "#5a9d4a";
+  ctx.fillRect(0, 0, 256, 256);
+
+  // mottled patches for depth
+  const tones = ["#67ab53", "#4f9142", "#73b85d", "#5fa64d", "#488a3d"];
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = tones[i % tones.length];
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const r = 2 + Math.random() * 6;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.7, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // little grass-blade flecks
+  ctx.globalAlpha = 0.6;
+  for (let i = 0; i < 600; i++) {
+    ctx.strokeStyle = i % 2 ? "#7cc063" : "#3f7d36";
+    ctx.lineWidth = 1;
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() * 3 - 1.5), y - 3 - Math.random() * 3);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(14, 14);
+  tex.anisotropy = 8;
+  _grass = tex;
+  return tex;
+}
 
 /** Classic Habbo-style checkerboard floor tiles with grout lines. */
 export function tileFloorTexture(): THREE.Texture {
