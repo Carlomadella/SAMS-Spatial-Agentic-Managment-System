@@ -487,6 +487,73 @@ export function WallArt({ position = [0, 0, 0], rotation = [0, 0, 0], color = "#
   );
 }
 
+export function WallSconce({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* backplate */}
+      <mesh castShadow>
+        <boxGeometry args={[0.14, 0.3, 0.05]} />
+        <meshStandardMaterial color={BRASS} metalness={0.6} roughness={0.3} />
+      </mesh>
+      {/* shade opening upward */}
+      <mesh position={[0, 0.2, 0.12]} castShadow>
+        <coneGeometry args={[0.16, 0.26, 18, 1, true]} />
+        <meshStandardMaterial color={LINEN} emissive="#ffd9a0" emissiveIntensity={0.5} roughness={0.8} side={THREE.DoubleSide} />
+      </mesh>
+      {/* bulb glow */}
+      <mesh position={[0, 0.22, 0.13]}>
+        <sphereGeometry args={[0.05, 12, 12]} />
+        <meshBasicMaterial color="#fff0d0" toneMapped={false} />
+      </mesh>
+      <pointLight position={[0, 0.3, 0.5]} color="#ffce8a" intensity={3} distance={6} decay={2} />
+    </group>
+  );
+}
+
+export function WallClock({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* wooden rim */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.34, 0.34, 0.06, 36]} />
+        <meshStandardMaterial color={WALNUT} roughness={0.5} />
+      </mesh>
+      {/* face */}
+      <mesh position={[0, 0, 0.035]}>
+        <circleGeometry args={[0.3, 36]} />
+        <meshStandardMaterial color="#f7f1e6" roughness={0.6} />
+      </mesh>
+      {/* hour ticks */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const a = (i / 12) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.sin(a) * 0.25, Math.cos(a) * 0.25, 0.045]} rotation={[0, 0, -a]}>
+            <boxGeometry args={[0.02, i % 3 === 0 ? 0.06 : 0.035, 0.01]} />
+            <meshStandardMaterial color="#3a3027" />
+          </mesh>
+        );
+      })}
+      {/* hands */}
+      <group rotation={[0, 0, -Math.PI * 0.62]}>
+        <mesh position={[0, 0.09, 0.05]}>
+          <boxGeometry args={[0.026, 0.17, 0.01]} />
+          <meshStandardMaterial color="#2a2018" />
+        </mesh>
+      </group>
+      <group rotation={[0, 0, Math.PI * 0.16]}>
+        <mesh position={[0, 0.12, 0.055]}>
+          <boxGeometry args={[0.02, 0.25, 0.01]} />
+          <meshStandardMaterial color="#2a2018" />
+        </mesh>
+      </group>
+      <mesh position={[0, 0, 0.06]}>
+        <circleGeometry args={[0.028, 16]} />
+        <meshStandardMaterial color={BRASS} metalness={0.6} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Rug + greenery
 // ---------------------------------------------------------------------------
