@@ -52,6 +52,8 @@ interface State {
   backendOnline: boolean;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
+  /** cumulative Gemini tokens used across tasks this workspace */
+  tokensUsed: number;
   /** transient on-screen notifications */
   toasts: Toast[];
 
@@ -102,6 +104,7 @@ interface State {
     progress?: number;
     level?: LogLevel;
     message?: string;
+    tokens?: number;
   }) => void;
 }
 
@@ -172,6 +175,7 @@ export const useStore = create<State>()(
   bottomHeight: 248,
   backendOnline: false,
   runtimeReady: false,
+  tokensUsed: 0,
   toasts: [],
 
   log: (e) =>
@@ -391,12 +395,15 @@ export const useStore = create<State>()(
         const tp: Partial<TaskRecord> = {};
         if (e.status) tp.status = e.status;
         if (e.progress != null) tp.progress = clamp(Math.round(e.progress), 0, 100);
+        if (e.tokens != null) tp.tokens = e.tokens;
         const url = e.message?.match(/https?:\/\/\S+/)?.[0];
         if (url) tp.url = url;
         if (Object.keys(tp).length > 0) tasks = patchLatestTask(s.tasks, e.agentId, tp);
       }
 
-      return { agents, events, tasks };
+      const tokensUsed = s.tokensUsed + (e.tokens ?? 0);
+
+      return { agents, events, tasks, tokensUsed };
     });
 
     // surface notable outcomes as toasts
@@ -418,6 +425,7 @@ export const useStore = create<State>()(
         tasks: s.tasks,
         environment: s.environment,
         selectedAgentId: s.selectedAgentId,
+        tokensUsed: s.tokensUsed,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,

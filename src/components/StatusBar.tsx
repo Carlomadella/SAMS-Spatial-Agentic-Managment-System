@@ -1,11 +1,16 @@
-import { Check, CircleAlert, GitBranch, Radio, TriangleAlert, Users } from "lucide-react";
+import { Check, CircleAlert, GitBranch, Radio, TriangleAlert, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled } from "../lib/backend";
+
+function fmtTokens(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
+}
 
 export function StatusBar() {
   const environment = useStore((s) => s.environment);
   const agents = useStore((s) => s.agents);
   const backendOnline = useStore((s) => s.backendOnline);
+  const tokensUsed = useStore((s) => s.tokensUsed);
   const warnings = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
   );
@@ -31,6 +36,11 @@ export function StatusBar() {
         </span>
       </div>
       <div className="flex items-center gap-3">
+        {tokensUsed > 0 && (
+          <span className="flex items-center gap-1" title="Token Gemini usati (cumulativi)">
+            <Zap size={12} /> {fmtTokens(tokensUsed)} tok
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <Users size={12} /> {agents.length} agents
         </span>

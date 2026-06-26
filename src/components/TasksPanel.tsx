@@ -4,6 +4,10 @@ import { AGENT_HEX } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { clock, cn } from "../lib/utils";
 
+function fmtTokens(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
+}
+
 /** History of assigned tasks with status, progress and result links. */
 export function TasksPanel() {
   const tasks = useStore((s) => s.tasks);
@@ -40,6 +44,7 @@ export function TasksPanel() {
 
             <div className="mt-0.5 flex items-center gap-2 text-[10px] text-mut">
               <span className="truncate font-mono">{t.branch}</span>
+              {t.tokens ? <span className="shrink-0">· {fmtTokens(t.tokens)} tok</span> : null}
               {t.url && (
                 <a
                   href={t.url}

@@ -71,6 +71,8 @@ export interface TaskRecord {
   progress: number;
   /** a result link (PR or Notion), if any */
   url?: string;
+  /** Gemini tokens used by this task, if reported by the runtime */
+  tokens?: number;
   createdAt: number;
 }
 

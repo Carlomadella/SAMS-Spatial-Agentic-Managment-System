@@ -1,5 +1,5 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
-import { geminiModel, generateWithRetry } from "./gemini";
+import { geminiModel, generateWithRetry, usageTokens } from "./gemini";
 import { getSettings } from "./config";
 import { createBranch, createPullRequest, listFiles, readFile, writeFile } from "./github";
 import { appendTaskLog, appendToPageByTitle, notionConfigured } from "./notion";
@@ -103,6 +103,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   let branchReady = false;
   let doneSummary = "";
   let progress = 10;
+  let totalTokens = 0;
 
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
 
@@ -116,6 +117,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       (n, waitMs) =>
         emit({ agentId, agentName, level: "WARN", message: `Gemini occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
+    totalTokens += usageTokens(resp);
 
     const calls = resp.functionCalls ?? [];
     if (calls.length === 0) {
@@ -180,6 +182,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     status: didSomething ? "review" : "idle",
     level: didSomething ? "SUCCESS" : "WARN",
     message: didSomething ? "Lavoro completato" : "Concluso senza modifiche — controlla strumenti/istruzioni",
+    tokens: totalTokens,
   });
 
   if (repoEnabled && wroteFiles && s.openPRs) {

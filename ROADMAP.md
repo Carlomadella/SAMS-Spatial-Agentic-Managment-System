@@ -54,7 +54,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [ ] 💡 **Anteprima & approvazione del diff** nel pannello destro prima del push.
 - [x] ✅ **Libreria di istruzioni pronte** — 12 template categorizzati (Notion / Codice / Documentazione / Contenuti / Manutenzione) nell'inspector; riempiono titolo+branch e selezionano il primo segnaposto da editare.
 - [ ] 💡 **Onboarding guidato** al primo avvio (repo + key + spawn agenti).
-- [ ] 💡 **Meter di utilizzo/token** per task (trasparenza costi).
+- [x] ✅ **Meter di utilizzo/token** — token Gemini per task (TasksPanel) + totale cumulativo nella StatusBar.
 - [ ] 💡 **Output in streaming** nell'event log.
 - [ ] 💡 **Layout responsive/mobile** e accessibilità (keyboard nav, label sul 3D).
 
@@ -84,6 +84,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Persistenza dello stato (Zustand persist) — niente più reset al refresh.
 - [x] ✅ Libreria di istruzioni pronte (template categorizzati) nell'inspector.
 - [x] ✅ Agenti più vivi: fumetti con l'ultima azione + cammino verso la zona pertinente.
+- [x] ✅ Meter dei token Gemini (per task + totale cumulativo).
 
 ---
 
@@ -119,3 +120,11 @@ verificabili con build/test, dato che non posso aprire il browser).
   con test lato server e una verifica live da parte tua.
 - 🔜 **Prossimo candidato**: meter di utilizzo/token + output in streaming, oppure
   l'approvazione-diff. Procedo col più sicuro-da-verificare salvo tue indicazioni.
+
+### 2026-06-26 — implementazione (giro 3)
+- ✅ **Meter dei token**: il runtime accumula i token Gemini (`usageMetadata`) di ogni
+  task e li invia a fine lavoro; la UI mostra i token **per task** (TasksPanel) e il
+  **totale cumulativo** nella StatusBar (persistito). Aggiunto un test lato server
+  per `usageTokens` (ora 8 test totali).
+- 📄 Creato **`IMPLEMENTAZIONE.md`**: documento con tutto ciò che è stato implementato
+  dopo il brainstorming (persistenza, template, agenti vivi, meter token).

@@ -8,6 +8,8 @@ export interface WireEvent {
   status?: "idle" | "working" | "review" | "blocked" | "done";
   /** 0..100 */
   progress?: number;
+  /** cumulative Gemini tokens used by this task (sent once on completion) */
+  tokens?: number;
 }
 
 export interface AssignBody {

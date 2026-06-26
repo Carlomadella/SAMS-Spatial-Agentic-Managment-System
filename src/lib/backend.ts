@@ -16,6 +16,8 @@ export interface RemoteUpdate {
   progress?: number;
   level?: LogLevel;
   message?: string;
+  /** cumulative Gemini tokens for the task (sent once on completion) */
+  tokens?: number;
 }
 
 export type Provider = "gemini" | "claude";

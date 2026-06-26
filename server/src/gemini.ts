@@ -19,6 +19,11 @@ export function geminiModel(): string {
   return m.startsWith("gemini") ? m : "gemini-2.5-flash";
 }
 
+/** Total tokens billed for a response (0 if the API didn't report usage). */
+export function usageTokens(resp: Pick<GenerateContentResponse, "usageMetadata">): number {
+  return resp.usageMetadata?.totalTokenCount ?? 0;
+}
+
 /** generateContent with retry/backoff on transient overload / rate-limit. */
 export async function generateWithRetry(
   params: GenerateContentParameters,
