@@ -19,7 +19,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 |---|------|-------|---------|--------|
 | 1 | Anteprima + **approvazione del diff** prima del push | 🔜 | 🔴 | 🟡 |
 | 2 | **Libreria di istruzioni pronte** (task in 1 click) | ✅ | 🔴 | 🟢 |
-| 3 | **Agenti più vivi**: cammino mirato + fumetto col passo corrente | 💡 | 🟡 | 🟡 |
+| 3 | **Agenti più vivi**: cammino mirato + fumetto col passo corrente | ✅ | 🟡 | 🟡 |
 | 4 | **Auto-verifica**: l'agente lancia test/lint e si autocorregge | 💡 | 🔴 | 🟡 |
 | 5 | **Persistenza** di agenti/task/eventi al refresh | ✅ | 🟡 | 🟢 |
 
@@ -41,9 +41,9 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [ ] 💡 **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva.
 
 ## 🎮 Mondo 3D (feel "The Sims")
-- [ ] 💡 **Cammino mirato** — l'agente va alla zona giusta per il tipo di task.
+- [x] ✅ **Cammino mirato** — all'assegnazione del task l'agente cammina verso la zona pertinente (docs→Reading Nook, codice→Work Desk).
 - [ ] 💡 **Animazioni di lavoro** — digita alla scrivania, disegna sul muro.
-- [ ] 💡 **Fumetti di stato** — mostrano il passo corrente, collegati agli eventi SSE.
+- [x] ✅ **Fumetti di stato** — sopra ogni agente compare l'ultima azione (dagli eventi SSE), per qualche secondo.
 - [ ] 💡 **Mobili vivi** — il monitor mostra il diff reale, la media wall i task reali.
 - [ ] 💡 **Ciclo giorno/notte** + suoni ambientali.
 - [ ] 💡 **Mood/energia** degli agenti (pausa caffè quando idle).
@@ -83,6 +83,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ ErrorBoundary + code-splitting delle scene 3D.
 - [x] ✅ Persistenza dello stato (Zustand persist) — niente più reset al refresh.
 - [x] ✅ Libreria di istruzioni pronte (template categorizzati) nell'inspector.
+- [x] ✅ Agenti più vivi: fumetti con l'ultima azione + cammino verso la zona pertinente.
 
 ---
 
@@ -105,3 +106,16 @@ verificabili con build/test, dato che non posso aprire il browser).
   un clic riempie titolo + branch e seleziona il primo `{segnaposto}` da editare.
 - 🔜 **Prossimo**: anteprima + approvazione del diff prima del push (più delicato:
   tocca runtime + frontend, lo affronto con cura e test lato server).
+
+### 2026-06-26 — implementazione (giro 2)
+- ✅ **Agenti più vivi**: ogni agente mostra un **fumetto** con la sua ultima azione
+  (dagli eventi SSE: `read X`, `write Y`, `Notion ← …`) che svanisce dopo qualche
+  secondo; all'assegnazione di un task l'agente **cammina verso la zona** pertinente
+  (docs/Notion → Reading Nook, codice → Work Desk).
+- 📌 **Re-sequenziamento ragionato**: l'approvazione-diff in-app è scesa di urgenza
+  perché gli agenti **già** lavorano su un branch dedicato + PR (niente arriva su
+  `main` senza review su GitHub). Inoltre non posso testarne il flusso live (niente
+  chiave Gemini né browser qui). Resta in cima come prossimo grande blocco, da fare
+  con test lato server e una verifica live da parte tua.
+- 🔜 **Prossimo candidato**: meter di utilizzo/token + output in streaming, oppure
+  l'approvazione-diff. Procedo col più sicuro-da-verificare salvo tue indicazioni.

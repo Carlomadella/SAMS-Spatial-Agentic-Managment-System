@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -65,6 +65,20 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     for (const ch of agent.id) h = (h * 33 + ch.charCodeAt(0)) % 997;
     return (h / 997) * Math.PI * 2;
   }, [agent.id]);
+
+  // speech bubble: surface this agent's latest event for a few seconds
+  const lastEvent = useStore((s) => {
+    for (let i = s.events.length - 1; i >= 0; i--) if (s.events[i].agentId === agent.id) return s.events[i];
+    return undefined;
+  });
+  const [bubble, setBubble] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lastEvent || Date.now() - lastEvent.ts > 8000) return;
+    const msg = lastEvent.message;
+    setBubble(msg.length > 90 ? msg.slice(0, 89) + "…" : msg);
+    const t = setTimeout(() => setBubble(null), 6000);
+    return () => clearTimeout(t);
+  }, [lastEvent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, delta) => {
     const g = groupRef.current;
@@ -296,6 +310,16 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           )}
         </group>
       </group>
+
+      {/* speech bubble — the agent's latest action */}
+      {bubble && (
+        <Html position={[0, 2.95, 0]} center distanceFactor={11} zIndexRange={[70, 50]} pointerEvents="none">
+          <div className="pointer-events-none relative max-w-[180px] select-none rounded-2xl border border-white/10 bg-ink-900/95 px-2.5 py-1.5 text-center text-[11px] leading-snug text-slate-100 shadow-panel">
+            {bubble}
+            <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-white/10 bg-ink-900/95" />
+          </div>
+        </Html>
+      )}
 
       {/* name label */}
       <Html position={[0, 2.55, 0]} center distanceFactor={11} zIndexRange={[60, 40]} pointerEvents="none">

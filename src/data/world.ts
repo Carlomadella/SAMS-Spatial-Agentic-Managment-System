@@ -35,6 +35,22 @@ export const ZONE_BY_ID: Record<string, Zone> = Object.fromEntries(
 /** Where freshly spawned agents appear (near the entrance, front-right). */
 export const SPAWN_POINT: Vec2 = [4.5, 4.2];
 
+/**
+ * Pick a fitting zone for a task from keywords in its title, so an agent walks
+ * somewhere sensible when it starts working (writing → reading nook, code →
+ * desk, etc). Falls back to the work desk.
+ */
+export function zoneForTitle(title: string): string {
+  const t = title.toLowerCase();
+  if (/notion|guida|lezion|glossar|cheatsheet|readme|docs?|document|content|articol|blog/.test(t)) {
+    return "whiteboard"; // Reading Nook — ideas & planning
+  }
+  if (/test|bug|fix|refactor|feature|implement|codice|code|api|deps|dipendenz/.test(t)) {
+    return "desk"; // Work Desk — active compute
+  }
+  return "desk";
+}
+
 /** Clamp a point so agents never walk through the walls. */
 export function clampToRoom([x, z]: Vec2): Vec2 {
   const pad = 0.6;

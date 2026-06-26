@@ -15,7 +15,7 @@ import {
   type Vec2,
 } from "../types";
 import { SEED_AGENTS, seedEvents } from "../data/seed";
-import { clampToRoom, SPAWN_POINT, ZONE_BY_ID } from "../data/world";
+import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
@@ -272,6 +272,9 @@ export const useStore = create<State>()(
       ),
       tasks: [...s.tasks, rec].slice(-100),
     }));
+    // walk to a fitting zone so work visibly "happens" somewhere
+    const zone = ZONE_BY_ID[zoneForTitle(title)];
+    if (zone) get().moveAgent(id, zone.position);
     get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Started task: ${title}` });
   },
 
