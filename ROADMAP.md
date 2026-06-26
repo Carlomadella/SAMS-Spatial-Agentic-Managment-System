@@ -28,7 +28,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ## 🧠 Intelligenza & autonomia degli agenti
 - [ ] 💡 **Piano visibile prima di agire** — l'agente elenca i passi e tu approvi.
 - [ ] 💡 **Auto-verifica qualità** — dopo aver scritto codice lancia test/lint del repo e ritenta in loop se falliscono.
-- [ ] 💡 **Memoria di progetto** — file `CONVENTIONS.md` per repo letto sempre (stile, cartelle, regole).
+- [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
 - [ ] 💡 **Ruoli specializzati** — prompt dedicati per frontend / backend / docs / reviewer / tester.
 - [ ] 💡 **Coda di task per agente** — gli agenti pescano i task in coda autonomamente.
 - [ ] 💡 **Collaborazione tra agenti** — handoff (red scrive → blue revisiona → green scrive i test).
@@ -85,6 +85,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Libreria di istruzioni pronte (template categorizzati) nell'inspector.
 - [x] ✅ Agenti più vivi: fumetti con l'ultima azione + cammino verso la zona pertinente.
 - [x] ✅ Meter dei token Gemini (per task + totale cumulativo).
+- [x] ✅ Memoria di progetto: l'agente legge le linee guida del repo e le rispetta.
 
 ---
 
@@ -128,3 +129,10 @@ verificabili con build/test, dato che non posso aprire il browser).
   per `usageTokens` (ora 8 test totali).
 - 📄 Creato **`IMPLEMENTAZIONE.md`**: documento con tutto ciò che è stato implementato
   dopo il brainstorming (persistenza, template, agenti vivi, meter token).
+
+### 2026-06-26 — implementazione (giro 4)
+- ✅ **Memoria di progetto**: prima di lavorare, l'agente prova a leggere dal repo
+  (base branch) un file di linee guida — in ordine `AGENTS.md`, `CONVENTIONS.md`,
+  `.sams/guide.md`, `SAMS_GUIDE.md` — e, se presente, lo include nel prompt di sistema
+  così rispetta stile e regole del progetto. Estratta la funzione pura `composeSystem`
+  con 4 test (ora **12 test** lato server).

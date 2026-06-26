@@ -21,6 +21,43 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : JSON.stringify(v);
 }
 
+/** Files an agent reads (in order) for project-specific guidelines, if present. */
+const GUIDE_FILES = ["AGENTS.md", "CONVENTIONS.md", ".sams/guide.md", "SAMS_GUIDE.md"];
+
+/** Read the first project-guide file that exists on the base branch ("" if none). */
+async function loadProjectGuide(baseBranch: string): Promise<string> {
+  for (const f of GUIDE_FILES) {
+    try {
+      const c = await readFile(f, baseBranch);
+      if (c && c.trim()) return truncate(c, 2000);
+    } catch {
+      /* not found — try the next candidate */
+    }
+  }
+  return "";
+}
+
+/** Build the Gemini system instruction from the configured tools + optional guide. */
+export function composeSystem(o: {
+  agentName: string;
+  notionEnabled: boolean;
+  repoEnabled: boolean;
+  guide?: string;
+}): string {
+  const base =
+    `Sei "${o.agentName}", un agente operativo. Esegui il task in modo mirato e di alta qualità, scrivendo in italiano. ` +
+    (o.notionEnabled
+      ? `Per scrivere su Notion usa SOLO lo strumento notion_write (trova la pagina per titolo). `
+      : `Notion non è configurato: non puoi scrivere su Notion. `) +
+    (o.repoEnabled
+      ? `Per i file di codice del repository usa gli strumenti gh_*. `
+      : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
+    `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
+    `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+  const g = o.guide?.trim();
+  return g ? `${base}\n\nLinee guida del progetto (rispettale scrupolosamente):\n${g}` : base;
+}
+
 /**
  * Self-hosted agent loop powered by Gemini (free tier). The model reasons and
  * calls tools (GitHub Contents API + Notion API); the runtime executes them and
@@ -87,16 +124,14 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     parametersJsonSchema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
   });
 
-  const system =
-    `Sei "${agentName}", un agente operativo. Esegui il task in modo mirato e di alta qualità, scrivendo in italiano. ` +
-    (notionEnabled
-      ? `Per scrivere su Notion usa SOLO lo strumento notion_write (trova la pagina per titolo). `
-      : `Notion non è configurato: non puoi scrivere su Notion. `) +
-    (repoEnabled
-      ? `Per i file di codice del repository usa gli strumenti gh_*. `
-      : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
-    `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
-    `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+  // load optional project guidelines (AGENTS.md / CONVENTIONS.md / …) so the
+  // agent follows the repo's conventions — a no-op if no such file exists.
+  let guide = "";
+  if (repoEnabled) {
+    guide = await loadProjectGuide(s.baseBranch);
+    if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
+  }
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, guide });
 
   let wroteFiles = false;
   let notionWrote = false;

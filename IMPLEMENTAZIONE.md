@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 8 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 12 test ✓
 
 ---
 
@@ -100,6 +100,30 @@ ricaricando si perdevano agenti, task ed eventi.
 
 ---
 
+## 5. 🧠 Memoria di progetto — *commit `composeSystem`*
+
+**Cosa fa.** Prima di iniziare, l'agente **legge le linee guida del repository** (se
+presenti) e le include nel suo prompt, così rispetta stile, struttura e regole del
+progetto.
+
+**Come si usa.** Crea nel repo collegato (sul base branch) **uno** di questi file:
+`AGENTS.md`, `CONVENTIONS.md`, `.sams/guide.md` o `SAMS_GUIDE.md`. Verrà letto in
+quest'ordine; il primo trovato (fino a ~2000 caratteri) viene aggiunto al prompt.
+Se nessuno esiste, è un no-op: l'agente lavora come prima.
+
+**Dettagli tecnici.**
+- `loadProjectGuide(baseBranch)` prova i file in ordine e ritorna il primo non vuoto.
+- `composeSystem({ agentName, notionEnabled, repoEnabled, guide })` è una funzione **pura**
+  che costruisce il prompt di sistema, con la sezione *“Linee guida del progetto”* solo
+  se la guida è presente.
+- Quando una guida viene caricata, l'agente emette un evento INFO “Linee guida del
+  progetto caricate”.
+- **Test**: `server/src/agent.test.ts` copre `composeSystem` (nomi, strumenti, guida).
+
+**File toccati.** `server/src/agent.ts`, `server/src/agent.test.ts` (nuovo)
+
+---
+
 ## ✅ Come verificare
 
 ```bash
@@ -108,7 +132,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 8 test attesi
+npm --prefix server test      # 12 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start
@@ -120,6 +144,8 @@ Prove manuali consigliate:
 - **Agenti vivi**: assegna un task → l'agente cammina e mostra il fumetto.
 - **Token**: con runtime attivo e chiave Gemini, dopo un task vedi i token nel TasksPanel
   e nella StatusBar.
+- **Memoria di progetto**: aggiungi un `AGENTS.md` al repo collegato → l'agente emette
+  “Linee guida del progetto caricate” e ne segue le regole.
 
 ---
 
