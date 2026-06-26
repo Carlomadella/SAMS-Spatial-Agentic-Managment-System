@@ -180,6 +180,46 @@ export async function appendToPageByTitle(title: string, content: string): Promi
   return page.title;
 }
 
+/** Render a block's text (covers the common text-bearing block types). */
+export function blockPlainText(block: Record<string, unknown>): string {
+  const type = String(block.type ?? "");
+  const body = block[type] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
+  const rt = body?.rich_text;
+  if (!Array.isArray(rt)) return "";
+  const text = rt.map((t) => t.plain_text ?? "").join("");
+  if (!text) return "";
+  if (type.startsWith("heading_")) return `\n## ${text}`;
+  if (type === "bulleted_list_item" || type === "numbered_list_item") return `- ${text}`;
+  if (type === "to_do") return `- [ ] ${text}`;
+  if (type === "code") return "```\n" + text + "\n```";
+  if (type === "quote") return `> ${text}`;
+  return text;
+}
+
+/** Read a page's text content (by title), following pagination. */
+export async function readPageByTitle(title: string, max = 6000): Promise<{ title: string; text: string }> {
+  const page = await findPageByTitle(title);
+  const lines: string[] = [];
+  let cursor: string | undefined;
+  let guard = 0;
+  do {
+    const q = cursor ? `?start_cursor=${cursor}&page_size=100` : `?page_size=100`;
+    const data = (await notion(`/blocks/${pageId(page.id)}/children${q}`)) as {
+      results?: Array<Record<string, unknown>>;
+      has_more?: boolean;
+      next_cursor?: string | null;
+    };
+    for (const b of data.results ?? []) {
+      const t = blockPlainText(b);
+      if (t) lines.push(t);
+    }
+    cursor = data.has_more ? data.next_cursor ?? undefined : undefined;
+    guard++;
+  } while (cursor && guard < 20);
+  const text = lines.join("\n").slice(0, max);
+  return { title: page.title, text: text || "(pagina vuota)" };
+}
+
 /** Append a one-line task-log bullet to the configured log page. */
 export async function appendTaskLog(entry: {
   agentName: string;

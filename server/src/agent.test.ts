@@ -5,6 +5,7 @@ describe("composeSystem", () => {
   it("mentions the agent name and both tools when enabled", () => {
     const s = composeSystem({ agentName: "red-agent", notionEnabled: true, repoEnabled: true });
     expect(s).toContain("red-agent");
+    expect(s).toContain("notion_read");
     expect(s).toContain("notion_write");
     expect(s).toContain("gh_*");
   });

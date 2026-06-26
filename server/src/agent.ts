@@ -2,7 +2,7 @@ import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetry, usageTokens } from "./gemini";
 import { getSettings } from "./config";
 import { createBranch, createPullRequest, listFiles, readFile, writeFile } from "./github";
-import { appendTaskLog, appendToPageByTitle, notionConfigured } from "./notion";
+import { appendTaskLog, appendToPageByTitle, notionConfigured, readPageByTitle } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
 
 function slugify(s: string): string {
@@ -47,7 +47,7 @@ export function composeSystem(o: {
   const base =
     `Sei "${o.agentName}", un agente operativo. Esegui il task in modo mirato e di alta qualità, scrivendo in italiano. ` +
     (o.notionEnabled
-      ? `Per scrivere su Notion usa SOLO lo strumento notion_write (trova la pagina per titolo). `
+      ? `Per Notion: leggi con notion_read e scrivi SOLO con notion_write (trova la pagina per titolo); leggi prima di scrivere per evitare duplicati. `
       : `Notion non è configurato: non puoi scrivere su Notion. `) +
     (o.repoEnabled
       ? `Per i file di codice del repository usa gli strumenti gh_*. `
@@ -108,15 +108,26 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     );
   }
   if (notionEnabled) {
-    decls.push({
-      name: "notion_write",
-      description: "Aggiungi contenuto (markdown, anche blocchi ```lang) a una pagina Notion trovata per titolo.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: { page_title: { type: "string" }, content: { type: "string" } },
-        required: ["page_title", "content"],
+    decls.push(
+      {
+        name: "notion_read",
+        description: "Leggi il contenuto testuale di una pagina Notion (trovata per titolo). Usalo PRIMA di scrivere per evitare duplicati o per aggiornare contenuti esistenti.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: { page_title: { type: "string" } },
+          required: ["page_title"],
+        },
       },
-    });
+      {
+        name: "notion_write",
+        description: "Aggiungi contenuto (markdown, anche blocchi ```lang) a una pagina Notion trovata per titolo.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: { page_title: { type: "string" }, content: { type: "string" } },
+          required: ["page_title", "content"],
+        },
+      },
+    );
   }
   decls.push({
     name: "done",
@@ -185,6 +196,10 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           await writeFile(str(args.path), str(args.content), branch, str(args.message) || `SAMS: ${truncate(title, 60)}`);
           wroteFiles = true;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${str(args.path)}` });
+        } else if (name === "notion_read") {
+          const { title: resolved, text } = await readPageByTitle(str(args.page_title));
+          result = text;
+          emit({ agentId, agentName, progress, level: "INFO", message: `Notion → letta "${resolved}"` });
         } else if (name === "notion_write") {
           const resolved = await appendToPageByTitle(str(args.page_title), str(args.content));
           notionWrote = true;

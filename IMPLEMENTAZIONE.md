@@ -124,6 +124,24 @@ Se nessuno esiste, è un no-op: l'agente lavora come prima.
 
 ---
 
+## 6. 📖 Notion: lettura pagina (`notion_read`) — *questo giro*
+
+**Cosa fa.** L'agente può ora **leggere** una pagina Notion (per titolo) **prima di
+scrivere**, così evita di duplicare contenuti e può aggiornare ciò che già esiste.
+
+**Dettagli tecnici.**
+- Nuovo strumento `notion_read` (accanto a `notion_write`) esposto al modello.
+- `readPageByTitle(title)` trova la pagina e ne estrae il testo dei blocchi, seguendo la
+  **paginazione** (`has_more` / `next_cursor`), fino a ~6000 caratteri.
+- `blockPlainText(block)` rende i tipi di blocco più comuni (paragrafi, heading, liste,
+  to-do, citazioni, codice).
+- Il prompt di sistema ora dice esplicitamente: *leggi con `notion_read`, scrivi con
+  `notion_write`, leggi prima di scrivere*.
+
+**File toccati.** `server/src/notion.ts`, `server/src/agent.ts`
+
+---
+
 ## ✅ Come verificare
 
 ```bash

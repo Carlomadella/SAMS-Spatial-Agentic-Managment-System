@@ -36,7 +36,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ## 🔌 Più strumenti per gli agenti
 - [ ] 💡 **Web search / fetch** — ricerca prima di scrivere.
 - [ ] 💡 **GitHub esteso** — creare issue, commentare PR, leggere log CI.
-- [ ] 💡 **Notion completo** — leggere/aggiornare blocchi, creare pagine e database (ora solo append).
+- [ ] 🏗️ **Notion completo** — ✅ lettura pagina per titolo (`notion_read`, l'agente legge prima di scrivere); restano update/sostituzione blocchi, creazione pagine e database.
 - [ ] 💡 **Notifiche a fine task** — Slack / Discord / email (in-app i toast ci sono già).
 - [ ] 💡 **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva.
 
@@ -86,6 +86,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Agenti più vivi: fumetti con l'ultima azione + cammino verso la zona pertinente.
 - [x] ✅ Meter dei token Gemini (per task + totale cumulativo).
 - [x] ✅ Memoria di progetto: l'agente legge le linee guida del repo e le rispetta.
+- [x] ✅ Notion `notion_read`: l'agente legge una pagina prima di scrivere (no duplicati).
 
 ---
 
@@ -136,3 +137,9 @@ verificabili con build/test, dato che non posso aprire il browser).
   `.sams/guide.md`, `SAMS_GUIDE.md` — e, se presente, lo include nel prompt di sistema
   così rispetta stile e regole del progetto. Estratta la funzione pura `composeSystem`
   con 4 test (ora **12 test** lato server).
+
+### 2026-06-26 — implementazione (giro 5)
+- ✅ **Notion `notion_read`**: nuovo strumento che legge il contenuto testuale di una
+  pagina (per titolo, con paginazione dei blocchi). Il prompt ora istruisce l'agente a
+  **leggere prima di scrivere** per evitare duplicati / aggiornare contenuti esistenti.
+  Aggiunte `readPageByTitle` + `blockPlainText` in `notion.ts`. (12 test, typecheck ✓.)
