@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import {
   AGENT_COLORS,
   type ActivityView,
@@ -145,7 +146,9 @@ function patchLatestTask(
   return tasks;
 }
 
-export const useStore = create<State>()((set, get) => ({
+export const useStore = create<State>()(
+  persist(
+    (set, get) => ({
   agents: SEED_AGENTS.map((a) => ({ ...a })),
   events: seedEvents(),
   tasks: [],
@@ -400,7 +403,35 @@ export const useStore = create<State>()((set, get) => ({
         get().pushToast("SUCCESS", e.message);
     }
   },
-}));
+    }),
+    {
+      name: "sams.store",
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      // Persist only durable slices — never transient UI/runtime flags.
+      partialize: (s) => ({
+        agents: s.agents,
+        events: s.events,
+        tasks: s.tasks,
+        environment: s.environment,
+        selectedAgentId: s.selectedAgentId,
+        theme: s.theme,
+        activity: s.activity,
+        bottomTab: s.bottomTab,
+        leftOpen: s.leftOpen,
+        rightOpen: s.rightOpen,
+        bottomOpen: s.bottomOpen,
+        leftWidth: s.leftWidth,
+        rightWidth: s.rightWidth,
+        bottomHeight: s.bottomHeight,
+      }),
+      onRehydrateStorage: () => (state) => {
+        // don't resume stale walk targets after a reload
+        if (state) for (const a of state.agents) a.target = null;
+      },
+    },
+  ),
+);
 
 // Stable selector helpers ----------------------------------------------------
 
