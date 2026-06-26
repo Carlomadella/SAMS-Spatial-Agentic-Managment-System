@@ -17,11 +17,11 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 | # | Idea | Stato | Impatto | Effort |
 |---|------|-------|---------|--------|
-| 1 | Anteprima + **approvazione del diff** prima del push | 💡 | 🔴 | 🟡 |
-| 2 | **Libreria di istruzioni pronte** (task in 1 click) | 💡 | 🔴 | 🟢 |
+| 1 | Anteprima + **approvazione del diff** prima del push | 🔜 | 🔴 | 🟡 |
+| 2 | **Libreria di istruzioni pronte** (task in 1 click) | ✅ | 🔴 | 🟢 |
 | 3 | **Agenti più vivi**: cammino mirato + fumetto col passo corrente | 💡 | 🟡 | 🟡 |
 | 4 | **Auto-verifica**: l'agente lancia test/lint e si autocorregge | 💡 | 🔴 | 🟡 |
-| 5 | **Persistenza** di agenti/task/eventi al refresh | 💡 | 🟡 | 🟢 |
+| 5 | **Persistenza** di agenti/task/eventi al refresh | ✅ | 🟡 | 🟢 |
 
 ---
 
@@ -52,7 +52,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 ## 🖱️ UX / UI
 - [ ] 💡 **Anteprima & approvazione del diff** nel pannello destro prima del push.
-- [ ] 💡 **Libreria di istruzioni pronte** — template ("Documenta file", "Aggiungi test", "Fixa issue").
+- [x] ✅ **Libreria di istruzioni pronte** — 12 template categorizzati (Notion / Codice / Documentazione / Contenuti / Manutenzione) nell'inspector; riempiono titolo+branch e selezionano il primo segnaposto da editare.
 - [ ] 💡 **Onboarding guidato** al primo avvio (repo + key + spawn agenti).
 - [ ] 💡 **Meter di utilizzo/token** per task (trasparenza costi).
 - [ ] 💡 **Output in streaming** nell'event log.
@@ -67,7 +67,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [ ] ❄️ **Auto-innaffiatura via webhook** — opzionale (per ora refresh manuale, scelta voluta).
 
 ## 🛠️ Solidità (engineering)
-- [ ] 💡 **Persistenza** — agenti/task/eventi sopravvivono al refresh (localStorage o DB).
+- [x] ✅ **Persistenza** — agenti/task/eventi/layout sopravvivono al refresh (Zustand `persist` su localStorage; flag transitori esclusi).
 - [ ] 💡 **CI su PR** — lint + typecheck + test + build.
 - [ ] 💡 **Test frontend / e2e** (Playwright) — finora solo unit test del runtime.
 - [ ] 💡 **Dockerizzare il runtime** + deploy in un comando.
@@ -81,6 +81,8 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Commit Garden** trasformato in scena 3D vera (prato, cielo, recinto, la tua pianta che cresce per stadi).
 - [x] ✅ Integrazione runtime (SSE, settings, provisioning) + Vite proxy (no CORS).
 - [x] ✅ ErrorBoundary + code-splitting delle scene 3D.
+- [x] ✅ Persistenza dello stato (Zustand persist) — niente più reset al refresh.
+- [x] ✅ Libreria di istruzioni pronte (template categorizzati) nell'inspector.
 
 ---
 
@@ -91,3 +93,15 @@ Primo brainstorming completo organizzato per aree (vedi sezioni sopra).
 Shortlist consigliata: anteprima/approvazione diff, libreria istruzioni pronte,
 agenti più vivi, auto-verifica, persistenza. Scelta: accumulare le idee in questo
 file (nessuna implementazione in questo giro).
+
+### 2026-06-26 — implementazione (giro 1)
+Iniziata l'esecuzione in ordine di priorità (più urgenti e a basso rischio prima,
+verificabili con build/test, dato che non posso aprire il browser).
+- ✅ **Persistenza** dello stato (Zustand `persist`): agenti, task, eventi, ambiente,
+  agente selezionato e layout sopravvivono al refresh. Esclusi i flag transitori
+  (command palette, modali, toast, stato runtime). I `target` di camminata vengono
+  azzerati al rehydrate per non riprendere percorsi obsoleti.
+- ✅ **Libreria di istruzioni pronte**: 12 template categorizzati nell'inspector;
+  un clic riempie titolo + branch e seleziona il primo `{segnaposto}` da editare.
+- 🔜 **Prossimo**: anteprima + approvazione del diff prima del push (più delicato:
+  tocca runtime + frontend, lo affronto con cura e test lato server).

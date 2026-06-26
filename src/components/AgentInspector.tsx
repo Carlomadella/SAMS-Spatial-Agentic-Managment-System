@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MousePointerClick, Send, Trash2 } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
@@ -6,15 +6,9 @@ import { STATUS_META } from "../lib/meta";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { assignRemote, backendEnabled } from "../lib/backend";
+import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
-
-const TASK_SUGGESTIONS = [
-  "Scrivi nella pagina Notion …",
-  "Aggiungi una lezione su …",
-  "Genera 5 esercizi su …",
-  "Aggiorna il README",
-];
 
 export function AgentInspector() {
   const agent = useSelectedAgent();
@@ -30,6 +24,23 @@ export function AgentInspector() {
 
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  function applyTemplate(id: string) {
+    const tpl = TASK_TEMPLATES.find((t) => t.id === id);
+    if (!tpl) return;
+    setTitle(tpl.title);
+    setBranch(tpl.branch ?? "");
+    // focus the title and select the first {placeholder} for quick editing
+    requestAnimationFrame(() => {
+      const el = titleRef.current;
+      if (!el) return;
+      el.focus();
+      const m = tpl.title.match(/\{[^}]+\}/);
+      if (m && m.index != null) el.setSelectionRange(m.index, m.index + m[0].length);
+      else el.setSelectionRange(tpl.title.length, tpl.title.length);
+    });
+  }
 
   if (!agent) {
     return (
@@ -113,19 +124,27 @@ export function AgentInspector() {
         ) : (
           <div className="space-y-2">
             <div className="text-[11px] font-medium text-mut">Assign a task</div>
-            <div className="flex flex-wrap gap-1">
-              {TASK_SUGGESTIONS.map((sg) => (
-                <button
-                  key={sg}
-                  type="button"
-                  onClick={() => setTitle(sg)}
-                  className="rounded-full border border-line bg-ink-850 px-2 py-0.5 text-[10px] text-mut transition-colors hover:border-brand/40 hover:text-slate-200"
-                >
-                  {sg}
-                </button>
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) applyTemplate(e.target.value);
+                e.currentTarget.value = "";
+              }}
+              className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"
+            >
+              <option value="">Parti da un template…</option>
+              {TASK_CATEGORIES.map((cat) => (
+                <optgroup key={cat} label={cat} className="bg-ink-800">
+                  {TASK_TEMPLATES.filter((t) => t.category === cat).map((t) => (
+                    <option key={t.id} value={t.id} className="bg-ink-800">
+                      {t.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
-            </div>
+            </select>
             <input
+              ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Task title…"
