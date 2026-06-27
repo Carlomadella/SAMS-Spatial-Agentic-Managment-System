@@ -129,6 +129,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
 
+  let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {
     let thinking = "";
     const resp = await generateWithRetryStream(
@@ -146,6 +147,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     const calls = resp.functionCalls;
     if (calls.length === 0) {
       ctx.doneSummary = resp.text;
+      truncated = false;
       break;
     }
 
@@ -164,7 +166,14 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     }
 
     contents.push({ role: "user", parts: responseParts });
-    if (ctx.finished) break;
+    if (ctx.finished) {
+      truncated = false;
+      break;
+    }
+  }
+
+  if (truncated) {
+    emit({ agentId, agentName, level: "WARN", message: `Task interrotto: raggiunto il limite di ${MAX_STEPS} passi senza chiamare done` });
   }
 
   await finalizeTask(ctx, { totalTokens, repoEnabled, notionEnabled, prProviderLabel: "Gemini" });

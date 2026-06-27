@@ -28,7 +28,7 @@ describe("jsonFetch", () => {
 
   it("HttpError message includes the label and status", async () => {
     mockFetch(() => new Response("boom", { status: 500 }));
-    const err = await jsonFetch("https://x", {}, "Notion").catch((e) => e as HttpError);
+    const err = await jsonFetch("https://x", {}, "Notion", { retries: 0 }).catch((e) => e as HttpError);
     expect(err).toBeInstanceOf(HttpError);
     expect((err as HttpError).message).toContain("Notion 500");
   });
@@ -44,6 +44,34 @@ describe("jsonFetch", () => {
       e.name = "TimeoutError";
       return Promise.reject(e);
     });
-    await expect(jsonFetch("https://x", {}, "GitHub", 1)).rejects.toThrow(/timeout/);
+    await expect(jsonFetch("https://x", {}, "GitHub", { timeoutMs: 1, retries: 0 })).rejects.toThrow(/timeout/);
+  });
+
+  it("retries a GET on 5xx then succeeds", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls++;
+        return calls < 3
+          ? new Response("busy", { status: 503, headers: { "retry-after": "0" } })
+          : new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }),
+    );
+    await expect(jsonFetch("https://x", {}, "GitHub")).resolves.toEqual({ ok: true });
+    expect(calls).toBe(3);
+  });
+
+  it("does NOT retry a POST (avoids duplicate writes)", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls++;
+        return new Response("err", { status: 500 });
+      }),
+    );
+    await expect(jsonFetch("https://x", { method: "POST" }, "GitHub")).rejects.toMatchObject({ status: 500 });
+    expect(calls).toBe(1);
   });
 });

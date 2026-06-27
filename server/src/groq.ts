@@ -155,6 +155,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
 
   const messages: GroqMessage[] = [{ role: "user", content: `Task: ${title}` }];
 
+  let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {
     const resp = await groqChat(
       messages,
@@ -167,6 +168,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
 
     if (resp.toolCalls.length === 0) {
       ctx.doneSummary = resp.text ?? "";
+      truncated = false;
       break;
     }
 
@@ -190,7 +192,14 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
       const result = await executeTool(call.name, call.args, ctx);
       messages.push({ role: "tool", content: result, tool_call_id: call.id });
     }
-    if (ctx.finished) break;
+    if (ctx.finished) {
+      truncated = false;
+      break;
+    }
+  }
+
+  if (truncated) {
+    emit({ agentId, agentName, level: "WARN", message: `Task interrotto: raggiunto il limite di ${MAX_STEPS} passi senza chiamare done` });
   }
 
   await finalizeTask(ctx, { totalTokens, repoEnabled, notionEnabled, prProviderLabel: `Groq · ${groqModel()}` });
