@@ -79,6 +79,18 @@ export interface TaskHistoryRow {
   ts: number;
 }
 
+/** Current repo content of a file (the "before" of a staged diff); "" if new/unreachable. */
+export async function fetchFile(path: string, ref?: string): Promise<{ content: string; exists: boolean }> {
+  try {
+    const q = new URLSearchParams({ path, ...(ref ? { ref } : {}) });
+    const res = await fetch(`${BASE}/api/file?${q.toString()}`);
+    if (!res.ok) return { content: "", exists: false };
+    return (await res.json()) as { content: string; exists: boolean };
+  } catch {
+    return { content: "", exists: false };
+  }
+}
+
 /** Recent finished tasks from the runtime's durable log (empty if unreachable). */
 export async function fetchHistory(): Promise<TaskHistoryRow[]> {
   try {

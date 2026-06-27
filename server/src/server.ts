@@ -6,7 +6,8 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
-import { createBranch, createPullRequest, writeFile } from "./github";
+import { createBranch, createPullRequest, readFile, writeFile } from "./github";
+import { HttpError } from "./http";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
@@ -72,6 +73,25 @@ app.get("/api/metrics", (_req: Request, res: Response) => {
 /** Recent finished tasks from the durable log (newest first). */
 app.get("/api/history", (_req: Request, res: Response) => {
   res.json(recentTasks(db(), 20));
+});
+
+/** Current content of a repo file (the "before" side of a staged diff). */
+app.get("/api/file", async (req: Request, res: Response) => {
+  const filePath = String(req.query.path ?? "");
+  const ref = String(req.query.ref ?? getSettings().baseBranch);
+  if (!filePath) {
+    res.status(400).json({ error: "path richiesto" });
+    return;
+  }
+  try {
+    res.json({ content: await readFile(filePath, ref), exists: true });
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) {
+      res.json({ content: "", exists: false }); // new file → no "before"
+      return;
+    }
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 /** Save settings entered in the app (keys, repo, model…). */
