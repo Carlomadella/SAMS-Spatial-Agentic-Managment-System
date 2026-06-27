@@ -12,7 +12,7 @@ import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
 import { useStore } from "./store/useStore";
-import { connectBackend } from "./lib/backend";
+import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
 // IDE shell paints immediately.
@@ -68,6 +68,49 @@ function StageHint() {
       </span>
     </div>
   );
+}
+
+/**
+ * Invisible component that watches the store and auto-starts the next queued
+ * task whenever an agent transitions to idle with a non-empty queue.
+ */
+function QueueBridge() {
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      for (const agent of state.agents) {
+        const prevAgent = prev.agents.find((a) => a.id === agent.id);
+        if (
+          agent.status === "idle" &&
+          prevAgent?.status !== "idle" &&
+          (agent.taskQueue?.length ?? 0) > 0 &&
+          !agent.task
+        ) {
+          const next = agent.taskQueue[0];
+          setTimeout(() => {
+            const { agents } = useStore.getState();
+            const fresh = agents.find((a) => a.id === agent.id);
+            if (fresh?.status === "idle" && (fresh.taskQueue?.length ?? 0) > 0 && !fresh.task) {
+              useStore.getState().shiftQueue(fresh.id);
+              useStore.getState().assignTask(fresh.id, next.title, next.branch);
+              if (backendEnabled) {
+                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions).catch(
+                  (err: Error) =>
+                    useStore.getState().log({
+                      agentId: fresh.id,
+                      agentName: fresh.name,
+                      color: fresh.color,
+                      level: "ERROR",
+                      message: `Queue: ${err.message}`,
+                    }),
+                );
+              }
+            }
+          }, 800);
+        }
+      }
+    });
+  }, []);
+  return null;
 }
 
 /** Floating affordance to reopen the bottom panel (Event Log) once it's hidden. */
@@ -145,6 +188,7 @@ export default function App() {
       <SettingsModal />
       <GardenView />
       <Toaster />
+      <QueueBridge />
     </div>
   );
 }

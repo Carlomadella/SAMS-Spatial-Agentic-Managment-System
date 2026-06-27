@@ -10,6 +10,7 @@ import {
   type EnvironmentName,
   type LogEvent,
   type LogLevel,
+  type QueuedTask,
   type TaskRecord,
   type Toast,
   type Vec2,
@@ -71,6 +72,9 @@ interface State {
   updateProgress: (id: string, progress: number) => void;
   clearTask: (id: string) => void;
   renameAgent: (id: string, name: string) => void;
+  enqueueTask: (id: string, task: QueuedTask) => void;
+  shiftQueue: (id: string) => void;
+  removeFromQueue: (id: string, index: number) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -201,6 +205,7 @@ export const useStore = create<State>()(
       position: [...SPAWN_POINT] as Vec2,
       target: null,
       task: null,
+      taskQueue: [],
     };
     set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
     log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agent spawned into workspace" });
@@ -327,6 +332,29 @@ export const useStore = create<State>()(
   renameAgent: (id, name) =>
     set((s) => ({
       agents: s.agents.map((a) => (a.id === id ? { ...a, name: name || a.name } : a)),
+    })),
+
+  enqueueTask: (id, task) =>
+    set((s) => ({
+      agents: s.agents.map((a) =>
+        a.id === id ? { ...a, taskQueue: [...(a.taskQueue ?? []), task] } : a,
+      ),
+    })),
+
+  shiftQueue: (id) =>
+    set((s) => ({
+      agents: s.agents.map((a) =>
+        a.id === id ? { ...a, taskQueue: (a.taskQueue ?? []).slice(1) } : a,
+      ),
+    })),
+
+  removeFromQueue: (id, index) =>
+    set((s) => ({
+      agents: s.agents.map((a) =>
+        a.id === id
+          ? { ...a, taskQueue: (a.taskQueue ?? []).filter((_, i) => i !== index) }
+          : a,
+      ),
     })),
 
   clearEvents: () => set({ events: [] }),
@@ -468,6 +496,7 @@ export const useStore = create<State>()(
             a.target = null;
             // back-fill fields added after initial persist (migration)
             if (a.instructions === undefined) a.instructions = "";
+            if (a.taskQueue === undefined) a.taskQueue = [];
           }
         }
       },

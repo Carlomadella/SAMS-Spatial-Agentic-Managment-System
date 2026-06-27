@@ -31,7 +31,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
 - [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
 - [x] ✅ **Istruzioni permanenti per agente** — textarea nell'inspector, persistita nello store, iniettata nel prompt con massima priorità.
-- [ ] 💡 **Coda di task per agente** — gli agenti pescano i task in coda autonomamente.
+- [x] ✅ **Coda di task per agente** — l'inspector mostra una lista "In coda"; il bottone diventa "Aggiungi alla coda" quando l'agente è occupato; al completamento del task il prossimo parte automaticamente.
 - [ ] 💡 **Collaborazione tra agenti** — handoff (red scrive → blue revisiona → green scrive i test).
 
 ## 🔌 Più strumenti per gli agenti
@@ -44,7 +44,8 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 ## 🎮 Mondo 3D (feel "The Sims")
 - [x] ✅ **Cammino mirato** — all'assegnazione del task l'agente cammina verso la zona pertinente (docs→Reading Nook, codice→Work Desk).
-- [ ] 💡 **Animazioni di lavoro** — digita alla scrivania, disegna sul muro.
+- [x] ✅ **Animazione di digitazione** — quando l'agente è working e fermo, le braccia vanno in posizione di typing con stutter alternato; testa inclinata in avanti.
+- [ ] 💡 **Animazioni extra** — disegna sul muro, coffee break idle.
 - [x] ✅ **Fumetti di stato** — sopra ogni agente compare l'ultima azione (dagli eventi SSE), per qualche secondo.
 - [ ] 💡 **Mobili vivi** — il monitor mostra il diff reale, la media wall i task reali.
 - [ ] 💡 **Ciclo giorno/notte** + suoni ambientali.
@@ -178,6 +179,10 @@ verificabili con build/test, dato che non posso aprire il browser).
   prefisso 💭. Estratta la funzione pura `collectStream` (prende un `AsyncGenerator` e lo drena
   in `{text, functionCalls, tokens}`), testabile senza mock del client. 5 nuovi test
   (ora **23 test** lato server).
+
+### 2026-06-27 — implementazione (giro 11)
+- ✅ **Coda di task per agente**: `taskQueue: QueuedTask[]` sull'`Agent`. Nell'inspector il bottone diventa "Aggiungi alla coda" quando l'agente ha già un task; la coda è mostrata con rimozione per singolo item. Il `QueueBridge` (componente invisibile in `App.tsx`) ascolta la store via `subscribe` e, quando un agente passa a idle con coda non vuota, avvia automaticamente il prossimo task (locale + backend) dopo 800ms.
+- ✅ **Animazione di digitazione**: quando `status === "working"` e non in movimento, le braccia vanno in posizione di typing (forward, z-inward) con stutter alternato (`sin(t*13 + PI)`); la testa si inclina più in avanti rispetto al cammino; il bob è leggermente più rapido. Le transizioni usano `lerp` per evitare scatti.
 
 ### 2026-06-27 — implementazione (giro 10)
 - ✅ **Provider Groq** (free Llama 3.3 70B): nuovo `server/src/groq.ts` con `runGroqTask`, loop identico al Gemini ma via API OpenAI-compatible di Groq. Selezionabile in Impostazioni (terza opzione). Non richiede provisioning. 2 nuovi test (ora **30 test** lato server).

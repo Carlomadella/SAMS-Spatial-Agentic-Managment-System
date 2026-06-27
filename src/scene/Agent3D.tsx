@@ -110,24 +110,41 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     }
 
     const t = state.clock.elapsedTime;
+    const isTyping = agent.status === "working" && !moving;
 
-    // upper body: bob + a small forward lean while walking
-    const bob = moving ? Math.sin(t * 10) * 0.05 : Math.sin(t * 2.2) * 0.02;
+    // upper body: bob + a small forward lean while walking; lean further when typing
+    const bob = moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * 0.02;
     if (charRef.current) {
       charRef.current.position.y = bob;
       charRef.current.rotation.x = THREE.MathUtils.lerp(
         charRef.current.rotation.x,
-        moving ? 0.1 : 0,
-        0.12,
+        moving ? 0.1 : isTyping ? 0.16 : 0,
+        0.09,
       );
     }
 
-    // walk cycle: legs swing, arms counter-swing
+    // walk cycle: legs swing, arms counter-swing; when typing, arms go forward with alternating stutter
     const swing = moving ? Math.sin(t * 10) * 0.55 : Math.sin(t * 2.0) * 0.05;
     if (legLRef.current) legLRef.current.rotation.x = swing;
     if (legRRef.current) legRRef.current.rotation.x = -swing;
-    if (armLRef.current) armLRef.current.rotation.x = -swing * 0.9;
-    if (armRRef.current) armRRef.current.rotation.x = swing * 0.9;
+    if (armLRef.current) {
+      if (isTyping) {
+        armLRef.current.rotation.x = THREE.MathUtils.lerp(armLRef.current.rotation.x, 0.55 + Math.sin(t * 13) * 0.14, 0.18);
+        armLRef.current.rotation.z = THREE.MathUtils.lerp(armLRef.current.rotation.z, -0.18, 0.1);
+      } else {
+        armLRef.current.rotation.x = THREE.MathUtils.lerp(armLRef.current.rotation.x, -swing * 0.9, 0.2);
+        armLRef.current.rotation.z = THREE.MathUtils.lerp(armLRef.current.rotation.z, 0, 0.1);
+      }
+    }
+    if (armRRef.current) {
+      if (isTyping) {
+        armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, 0.55 + Math.sin(t * 13 + Math.PI) * 0.14, 0.18);
+        armRRef.current.rotation.z = THREE.MathUtils.lerp(armRRef.current.rotation.z, 0.18, 0.1);
+      } else {
+        armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, swing * 0.9, 0.2);
+        armRRef.current.rotation.z = THREE.MathUtils.lerp(armRRef.current.rotation.z, 0, 0.1);
+      }
+    }
 
     // blink (eyes squash on their own y axis)
     const bt = (t + blinkPhase) % 3.6;

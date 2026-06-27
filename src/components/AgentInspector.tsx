@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { MousePointerClick, Send, Trash2 } from "lucide-react";
+import { ListOrdered, MousePointerClick, Plus, Send, Trash2, X as XIcon } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
@@ -31,6 +31,8 @@ export function AgentInspector() {
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
   const renameAgent = useStore((s) => s.renameAgent);
+  const enqueueTask = useStore((s) => s.enqueueTask);
+  const removeFromQueue = useStore((s) => s.removeFromQueue);
   const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
@@ -140,9 +142,10 @@ export function AgentInspector() {
         </div>
       </details>
 
-      {/* task */}
+      {/* task + queue */}
       <div className="mt-3 rounded-lg border border-line bg-ink-850/60 p-2.5">
-        {agent.task ? (
+        {/* current task progress */}
+        {agent.task && (
           <div>
             <Field label="Task" value={agent.task.title} />
             <Field label="Branch" mono value={agent.task.branch} />
@@ -173,67 +176,95 @@ export function AgentInspector() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="text-[11px] font-medium text-mut">Assign a task</div>
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) applyTemplate(e.target.value);
-                e.currentTarget.value = "";
-              }}
-              className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"
-            >
-              <option value="">Parti da un template…</option>
-              {TASK_CATEGORIES.map((cat) => (
-                <optgroup key={cat} label={cat} className="bg-ink-800">
-                  {TASK_TEMPLATES.filter((t) => t.category === cat).map((t) => (
-                    <option key={t.id} value={t.id} className="bg-ink-800">
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <input
-              ref={titleRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Task title…"
-              className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
-            />
-            <input
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              placeholder="feature/branch"
-              className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
-            />
-            <button
-              disabled={!title.trim()}
-              onClick={() => {
-                const t = title.trim();
-                const b = branch.trim();
+        )}
+
+        {/* queue list */}
+        {(agent.taskQueue?.length ?? 0) > 0 && (
+          <div className={cn("space-y-1", agent.task && "mt-3 border-t border-line pt-2.5")}>
+            <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-mut">
+              <ListOrdered size={11} /> In coda ({agent.taskQueue.length})
+            </div>
+            {agent.taskQueue.map((qt, i) => (
+              <div key={i} className="flex items-center gap-1.5 rounded-md bg-ink-800 px-2 py-1">
+                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{qt.title}</span>
+                <button
+                  onClick={() => removeFromQueue(agent.id, i)}
+                  title="Rimuovi dalla coda"
+                  className="shrink-0 text-mut hover:text-rose-300"
+                >
+                  <XIcon size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* assign / enqueue form */}
+        <div className={cn("space-y-2", agent.task && "mt-3 border-t border-line pt-2.5")}>
+          <div className="text-[11px] font-medium text-mut">
+            {agent.task ? "Metti in coda il prossimo task" : "Assegna un task"}
+          </div>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) applyTemplate(e.target.value);
+              e.currentTarget.value = "";
+            }}
+            className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"
+          >
+            <option value="">Parti da un template…</option>
+            {TASK_CATEGORIES.map((cat) => (
+              <optgroup key={cat} label={cat} className="bg-ink-800">
+                {TASK_TEMPLATES.filter((t) => t.category === cat).map((t) => (
+                  <option key={t.id} value={t.id} className="bg-ink-800">
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <input
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Task title…"
+            className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
+          />
+          <input
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+            placeholder="feature/branch"
+            className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
+          />
+          <button
+            disabled={!title.trim()}
+            onClick={() => {
+              const t = title.trim();
+              const b = branch.trim();
+              if (agent.task) {
+                // agent busy → queue it
+                enqueueTask(agent.id, { title: t, branch: b });
+                log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda: ${t}` });
+              } else {
+                // agent idle → start immediately
                 assignTask(agent.id, t, b);
                 if (backendEnabled) {
                   assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions).catch((err: Error) =>
-                    log({
-                      agentId: agent.id,
-                      agentName: agent.name,
-                      color: agent.color,
-                      level: "ERROR",
-                      message: `Runtime: ${err.message}`,
-                    }),
+                    log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Runtime: ${err.message}` }),
                   );
                 }
-                setTitle("");
-                setBranch("");
-              }}
-              className="btn btn-primary w-full"
-            >
-              <Send size={13} /> {backendEnabled ? "Assign task (live)" : "Assign task"}
-            </button>
-          </div>
-        )}
+              }
+              setTitle("");
+              setBranch("");
+            }}
+            className="btn btn-primary w-full"
+          >
+            {agent.task
+              ? <><Plus size={13} /> Aggiungi alla coda</>
+              : <><Send size={13} /> {backendEnabled ? "Assign task (live)" : "Assign task"}</>
+            }
+          </button>
+        </div>
       </div>
 
       {/* status quick set */}

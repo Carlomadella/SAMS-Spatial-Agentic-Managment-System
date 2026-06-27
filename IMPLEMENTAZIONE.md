@@ -297,6 +297,52 @@ Groq è OpenAI-compatible e ha un free tier generoso.
 
 ---
 
+## 10. 📋 Coda di task + animazione di digitazione — *questo giro*
+
+### 10a. Coda di task per agente
+
+**Cosa fa.** Ogni agente ha ora una **coda di task**. Quando l'agente è già
+al lavoro, il bottone "Assign task" diventa **"Aggiungi alla coda"**. Appena
+il task corrente finisce, il prossimo parte automaticamente senza che tu debba
+fare nulla.
+
+**Come si usa.**
+1. Seleziona un agente che ha già un task.
+2. Nell'inspector comparirà il titolo del task corrente + progressbar.
+3. Compila titolo e branch (o scegli un template) → premi **Aggiungi alla coda**.
+4. I task in coda sono listati sotto con una × per rimuoverli.
+5. Quando il task corrente finisce, il prossimo parte dopo ~800ms — automaticamente.
+
+**Dettagli tecnici.**
+- `QueuedTask { title, branch }` aggiunto a `src/types.ts`.
+- `Agent.taskQueue: QueuedTask[]` (persistito; migrazione in `onRehydrateStorage`).
+- Azioni store: `enqueueTask`, `shiftQueue`, `removeFromQueue`.
+- `QueueBridge` (componente React invisibile in `App.tsx`) usa `useStore.subscribe`
+  per osservare le transizioni `→ idle` e avviare il prossimo task (locale + backend).
+- L'inspector mostra sempre il form di assegnazione, adattando il label e il bottone
+  in base a `agent.task`.
+
+**File toccati.** `src/types.ts`, `src/data/seed.ts`, `src/store/useStore.ts`,
+`src/components/AgentInspector.tsx`, `src/App.tsx`
+
+### 10b. Animazione di digitazione
+
+**Cosa fa.** Quando un agente ha status `working` e non sta camminando,
+assume la **postura di digitazione**: braccia in avanti con stutter alternato,
+testa inclinata in avanti, bob leggermente più rapido. La transizione è fluida
+(lerp per evitare scatti).
+
+**Dettagli tecnici.**
+- In `Agent3D.tsx`, il flag `isTyping = agent.status === "working" && !moving`
+  guida un branch separato nell'animazione di braccia e corpo.
+- Braccia: `rotation.x → 0.55 + sin(t*13 ± PI) * 0.14` + `rotation.z → ±0.18`.
+- Testa: `charRef.current.rotation.x → 0.16` (vs 0.1 in cammino, 0 idle).
+- Bob: `sin(t*8) * 0.025` (più rapido/piccolo rispetto all'idle `sin(t*2.2) * 0.02`).
+
+**File toccati.** `src/scene/Agent3D.tsx`
+
+---
+
 ## ✅ Come verificare
 
 ```bash

@@ -76,6 +76,12 @@ export interface TaskRecord {
   createdAt: number;
 }
 
+/** A task waiting in the agent's queue to be started when the agent is free. */
+export interface QueuedTask {
+  title: string;
+  branch: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -91,6 +97,8 @@ export interface Agent {
   /** Where the agent is walking to, if anywhere. */
   target: Vec2 | null;
   task: Task | null;
+  /** Tasks waiting to start once this agent finishes its current task. */
+  taskQueue: QueuedTask[];
 }
 
 export interface LogEvent {
