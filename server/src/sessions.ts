@@ -2,27 +2,8 @@ import { getClient } from "./anthropic";
 import { getSettings } from "./config";
 import { createPullRequest } from "./github";
 import { appendTaskLog, notionConfigured } from "./notion";
+import { makeBranch, truncate } from "./agentTools";
 import type { AssignBody, WireEvent } from "./types";
-
-function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "")
-      .slice(0, 40) || "task"
-  );
-}
-
-function makeBranch(agentName: string, title: string): string {
-  const who = agentName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  return `sams/${who}/${slugify(title)}-${Date.now().toString(36)}`;
-}
-
-function truncate(s: string, n: number): string {
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
-}
 
 /**
  * Drive one Managed Agents session: mount the repo, send the task, stream the
@@ -76,6 +57,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
   });
 
   let progress = 8;
+  let sessionError = false;
   emit({ agentId, agentName, progress });
 
   for await (const ev of stream) {
@@ -84,13 +66,17 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
         emit({ agentId, agentName, status: "working", level: "INFO", message: "Agente al lavoro…" });
         break;
       case "agent.message": {
-        const text = ev.content.map((b) => b.text).join(" ").trim();
+        // Content blocks may be non-text (tool_use, image…) — keep only text.
+        const text = ev.content
+          .map((b) => (b as { text?: string }).text ?? "")
+          .join(" ")
+          .trim();
         if (text) emit({ agentId, agentName, level: "INFO", message: truncate(text, 180) });
         break;
       }
       case "agent.tool_use": {
         progress = Math.min(92, progress + 7);
-        const cmd = typeof ev.input.command === "string" ? ` ${truncate(ev.input.command, 60)}` : "";
+        const cmd = ev.input && typeof ev.input.command === "string" ? ` ${truncate(ev.input.command, 60)}` : "";
         emit({ agentId, agentName, progress, level: "INFO", message: `tool: ${ev.name}${cmd}` });
         break;
       }
@@ -103,13 +89,15 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
         emit({ agentId, agentName, progress });
         break;
       case "session.error":
-        emit({ agentId, agentName, status: "blocked", level: "ERROR", message: ev.error.message || "Errore di sessione" });
+        sessionError = true;
+        emit({ agentId, agentName, status: "blocked", progress: 100, level: "ERROR", message: ev.error.message || "Errore di sessione" });
         break;
       default:
         break;
     }
 
-    if (ev.type === "session.status_terminated") break;
+    // Stop on terminal states or a fatal error (don't keep draining the stream).
+    if (sessionError || ev.type === "session.status_terminated") break;
     if (ev.type === "session.status_idle") {
       if (ev.stop_reason.type === "requires_action") {
         emit({ agentId, agentName, level: "WARN", message: "L'agente attende una conferma non gestita — chiudo la sessione" });
@@ -117,6 +105,9 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
       break;
     }
   }
+
+  // A failed session must not be reported as completed nor open a PR.
+  if (sessionError) return;
 
   emit({ agentId, agentName, progress: 100, status: "review", level: "SUCCESS", message: "Lavoro completato" });
 

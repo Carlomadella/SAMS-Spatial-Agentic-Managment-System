@@ -1,4 +1,5 @@
 import { getSettings } from "./config";
+import { jsonFetch } from "./http";
 
 const API = "https://api.notion.com/v1";
 
@@ -11,12 +12,7 @@ function headers(): Record<string, string> {
 }
 
 async function notion(path: string, init?: RequestInit): Promise<unknown> {
-  const res = await fetch(`${API}${path}`, { ...init, headers: headers() });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Notion ${res.status}: ${text.slice(0, 200)}`);
-  }
-  return res.json();
+  return jsonFetch(`${API}${path}`, { ...init, headers: headers() }, "Notion");
 }
 
 export function notionConfigured(): boolean {

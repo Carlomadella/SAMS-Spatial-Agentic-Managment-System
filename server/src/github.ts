@@ -1,4 +1,5 @@
 import { getSettings } from "./config";
+import { HttpError, jsonFetch } from "./http";
 
 const API = "https://api.github.com";
 
@@ -14,17 +15,23 @@ function headers(): Record<string, string> {
 }
 
 function repoBase(): string {
-  const [owner, repo] = getSettings().githubRepo.split("/");
-  return `${API}/repos/${owner}/${repo}`;
+  const repo = getSettings().githubRepo;
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    throw new Error(`Repository GitHub non valido: "${repo}" (atteso owner/repo)`);
+  }
+  const [owner, name] = repo.split("/");
+  return `${API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+}
+
+/** Normalize a repo-relative path: strip leading slashes, reject `.`/`..`, encode each segment. */
+function cleanPath(filePath: string): string {
+  const parts = filePath.replace(/^\/+/, "").split("/").filter(Boolean);
+  if (parts.some((p) => p === ".." || p === ".")) throw new Error(`Percorso non valido: "${filePath}"`);
+  return parts.map(encodeURIComponent).join("/");
 }
 
 async function gh(pathSuffix: string, init?: RequestInit): Promise<unknown> {
-  const res = await fetch(`${repoBase()}${pathSuffix}`, { ...init, headers: headers() });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GitHub ${res.status}: ${text.slice(0, 200)}`);
-  }
-  return res.json();
+  return jsonFetch(`${repoBase()}${pathSuffix}`, { ...init, headers: headers() }, "GitHub");
 }
 
 interface PullRequest {
@@ -43,12 +50,14 @@ export async function createBranch(newBranch: string, fromBranch: string): Promi
       body: JSON.stringify({ ref: `refs/heads/${newBranch}`, sha: ref.object.sha }),
     });
   } catch (err) {
-    if (!String((err as Error).message).includes("422")) throw err; // 422 = already exists
+    // 422 "Reference already exists" is the expected no-op; rethrow anything else.
+    if (err instanceof HttpError && err.status === 422 && /already exists/i.test(err.message)) return;
+    throw err;
   }
 }
 
 export async function listFiles(dirPath: string, ref: string): Promise<string[]> {
-  const clean = dirPath.replace(/^\/+/, "");
+  const clean = cleanPath(dirPath);
   const data = (await gh(`/contents/${clean}?ref=${encodeURIComponent(ref)}`)) as
     | Array<{ name: string; type: string }>
     | { name: string };
@@ -57,7 +66,7 @@ export async function listFiles(dirPath: string, ref: string): Promise<string[]>
 }
 
 export async function readFile(filePath: string, ref: string): Promise<string> {
-  const clean = filePath.replace(/^\/+/, "");
+  const clean = cleanPath(filePath);
   const data = (await gh(`/contents/${clean}?ref=${encodeURIComponent(ref)}`)) as {
     content?: string;
     encoding?: string;
@@ -68,12 +77,15 @@ export async function readFile(filePath: string, ref: string): Promise<string> {
 
 async function getSha(filePath: string, branch: string): Promise<string | undefined> {
   try {
-    const data = (await gh(`/contents/${filePath.replace(/^\/+/, "")}?ref=${encodeURIComponent(branch)}`)) as {
+    const data = (await gh(`/contents/${cleanPath(filePath)}?ref=${encodeURIComponent(branch)}`)) as {
       sha?: string;
     };
     return data.sha;
-  } catch {
-    return undefined; // file doesn't exist yet
+  } catch (err) {
+    // Only a 404 means "file doesn't exist yet" — propagate transient errors so
+    // we never silently overwrite (commit without the sha) on a network blip.
+    if (err instanceof HttpError && err.status === 404) return undefined;
+    throw err;
   }
 }
 
@@ -84,8 +96,8 @@ export async function writeFile(
   branch: string,
   message: string,
 ): Promise<void> {
-  const clean = filePath.replace(/^\/+/, "");
-  const sha = await getSha(clean, branch);
+  const clean = cleanPath(filePath);
+  const sha = await getSha(filePath, branch);
   await gh(`/contents/${clean}`, {
     method: "PUT",
     body: JSON.stringify({

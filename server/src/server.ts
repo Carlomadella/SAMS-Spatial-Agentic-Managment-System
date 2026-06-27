@@ -1,4 +1,4 @@
-import express, { type Request, type Response } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
@@ -25,14 +25,25 @@ app.use((req: Request, res: Response, next) => {
   }
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 /** Connected SSE clients (the SAMS browser UIs). */
 const clients = new Set<Response>();
+const HEARTBEAT_MS = 25000;
 
 function broadcast(e: WireEvent): void {
   const line = `data: ${JSON.stringify(e)}\n\n`;
-  for (const res of clients) res.write(line);
+  for (const res of clients) {
+    if (res.writableEnded || res.destroyed) {
+      clients.delete(res);
+      continue;
+    }
+    try {
+      res.write(line);
+    } catch {
+      clients.delete(res); // socket died between checks — drop it
+    }
+  }
 }
 
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -88,18 +99,26 @@ app.get("/api/events", (req: Request, res: Response) => {
   res.write(": connected\n\n");
   clients.add(res);
 
-  const heartbeat = setInterval(() => {
+  // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
+  // we must not rely on a throw — react to close/error and guard every write.
+  let heartbeat: ReturnType<typeof setInterval>;
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    clients.delete(res);
+  };
+  heartbeat = setInterval(() => {
+    if (res.writableEnded || res.destroyed) {
+      cleanup();
+      return;
+    }
     try {
       res.write(": ping\n\n");
     } catch {
-      clearInterval(heartbeat);
-      clients.delete(res);
+      cleanup();
     }
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(heartbeat);
-    clients.delete(res);
-  });
+  }, HEARTBEAT_MS);
+  res.on("error", cleanup);
+  req.on("close", cleanup);
 });
 
 app.post("/api/assign", (req: Request, res: Response) => {
@@ -183,10 +202,31 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// Final error handler: turn body-parse / payload-size / unexpected throws into
+// consistent JSON instead of Express's default HTML error page.
+app.use((err: Error & { type?: string; status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+  if (res.headersSent) return;
+  if (err?.type === "entity.parse.failed") {
+    res.status(400).json({ error: "Corpo della richiesta JSON non valido" });
+    return;
+  }
+  if (err?.type === "entity.too.large") {
+    res.status(413).json({ error: "Payload troppo grande" });
+    return;
+  }
+  console.error("Errore non gestito:", err);
+  res.status(500).json({ error: "Errore interno del runtime" });
+});
+
+// Last-resort safety net so a stray rejection logs instead of crashing silently.
+process.on("unhandledRejection", (reason) => console.error("UnhandledRejection:", reason));
+
 const { port, githubRepo } = getSettings();
 app.listen(port, () => {
   console.log(`SAMS runtime → http://localhost:${port}`);
   console.log(`  repo:  ${githubRepo}`);
   console.log(`  ready: ${isReady()}`);
-  void initGardenStore().then((k) => console.log(`  garden store: ${k}`));
+  void initGardenStore()
+    .then((k) => console.log(`  garden store: ${k}`))
+    .catch((err) => console.error("  garden store init fallito:", err));
 });

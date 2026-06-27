@@ -49,16 +49,27 @@ function fromEnv(): Settings {
     requireApproval: (process.env.SAMS_REQUIRE_APPROVAL ?? "false") !== "false",
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
-    port: Number(process.env.PORT ?? 8787),
+    port: parsePort(process.env.PORT),
   };
+}
+
+function parsePort(raw: string | undefined): number {
+  const p = Number(raw);
+  return Number.isFinite(p) && p > 0 && p < 65536 ? p : 8787;
 }
 
 function load(): Settings {
   const base = fromEnv();
+  let raw: string;
   try {
-    const saved = JSON.parse(fs.readFileSync(STORE_FILE, "utf8")) as Partial<Settings>;
-    return { ...base, ...saved };
+    raw = fs.readFileSync(STORE_FILE, "utf8");
   } catch {
+    return base; // no store file yet — first run, use env defaults
+  }
+  try {
+    return { ...base, ...(JSON.parse(raw) as Partial<Settings>) };
+  } catch (err) {
+    console.warn(`⚠️  ${STORE_FILE} è corrotto (${(err as Error).message}); uso i valori di default.`);
     return base;
   }
 }
@@ -83,7 +94,13 @@ function persist(): void {
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
   };
-  fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), "utf8");
+  // 0o600: the file holds API tokens in plaintext — keep it owner-only.
+  fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
+  try {
+    fs.chmodSync(STORE_FILE, 0o600); // enforce perms even if the file pre-existed with looser mode
+  } catch {
+    /* best-effort on platforms without chmod */
+  }
 }
 
 export function getSettings(): Settings {
