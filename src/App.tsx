@@ -14,7 +14,7 @@ import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
-import { composeRelayTitle, findRelayTarget, isIdleEligible } from "./lib/orchestration";
+import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./lib/orchestration";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
 // IDE shell paints immediately.
@@ -81,17 +81,12 @@ function QueueBridge() {
     return useStore.subscribe((state, prev) => {
       for (const agent of state.agents) {
         const prevAgent = prev.agents.find((a) => a.id === agent.id);
-        if (
-          agent.status === "idle" &&
-          prevAgent?.status !== "idle" &&
-          (agent.taskQueue?.length ?? 0) > 0 &&
-          !agent.task
-        ) {
+        if (shouldAutoStartQueue(agent, prevAgent)) {
           const next = agent.taskQueue[0];
           setTimeout(() => {
             const { agents } = useStore.getState();
             const fresh = agents.find((a) => a.id === agent.id);
-            if (fresh?.status === "idle" && (fresh.taskQueue?.length ?? 0) > 0 && !fresh.task) {
+            if (fresh && canStartQueued(fresh)) {
               useStore.getState().shiftQueue(fresh.id);
               useStore.getState().assignTask(fresh.id, next.title, next.branch);
               if (backendEnabled) {

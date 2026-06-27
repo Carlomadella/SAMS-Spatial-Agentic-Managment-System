@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeRelayTitle, findRelayTarget, isIdleEligible } from "./orchestration";
+import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./orchestration";
 import type { Agent } from "../types";
 
 function mkAgent(over: Partial<Agent> & { id: string }): Agent {
@@ -65,5 +65,21 @@ describe("isIdleEligible", () => {
     expect(isIdleEligible({ status: "working", task: null, taskQueue: [] })).toBe(false);
     expect(isIdleEligible({ status: "idle", task: { title: "t", branch: "b", progress: 0 }, taskQueue: [] })).toBe(false);
     expect(isIdleEligible({ status: "idle", task: null, taskQueue: [{ title: "q", branch: "b" }] })).toBe(false);
+  });
+});
+
+describe("canStartQueued / shouldAutoStartQueue", () => {
+  const queued = { status: "idle" as const, task: null, taskQueue: [{ title: "q", branch: "b" }] };
+
+  it("canStartQueued requires idle, no task, and a non-empty queue", () => {
+    expect(canStartQueued(queued)).toBe(true);
+    expect(canStartQueued({ ...queued, taskQueue: [] })).toBe(false);
+    expect(canStartQueued({ ...queued, status: "working" })).toBe(false);
+  });
+
+  it("shouldAutoStartQueue fires only on the transition into idle", () => {
+    expect(shouldAutoStartQueue(queued, { status: "working" })).toBe(true);
+    expect(shouldAutoStartQueue(queued, { status: "idle" })).toBe(false); // already idle → no re-fire
+    expect(shouldAutoStartQueue(queued, undefined)).toBe(true);
   });
 });

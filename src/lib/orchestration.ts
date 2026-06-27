@@ -35,3 +35,19 @@ export function composeRelayTitle(relay: Pick<RelayRequest, "title" | "context" 
 export function isIdleEligible(a: Pick<Agent, "status" | "task" | "taskQueue">): boolean {
   return a.status === "idle" && !a.task && !(a.taskQueue?.length);
 }
+
+/** Idle, no active task, and at least one task waiting in the queue. */
+export function canStartQueued(a: Pick<Agent, "status" | "task" | "taskQueue">): boolean {
+  return a.status === "idle" && !a.task && (a.taskQueue?.length ?? 0) > 0;
+}
+
+/**
+ * Should the queue bridge auto-start the next task? True on the transition INTO
+ * idle (so we react once, not every tick) while a queued task is waiting.
+ */
+export function shouldAutoStartQueue(
+  agent: Pick<Agent, "status" | "task" | "taskQueue">,
+  prev: Pick<Agent, "status"> | undefined,
+): boolean {
+  return canStartQueued(agent) && prev?.status !== "idle";
+}
