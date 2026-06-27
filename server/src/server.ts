@@ -10,6 +10,7 @@ import { createBranch, createPullRequest, writeFile } from "./github";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
+import { metricsSnapshot, recordEvent } from "./metrics";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -32,6 +33,7 @@ const clients = new Set<Response>();
 const HEARTBEAT_MS = 25000;
 
 function broadcast(e: WireEvent): void {
+  recordEvent(e);
   const line = `data: ${JSON.stringify(e)}\n\n`;
   for (const res of clients) {
     if (res.writableEnded || res.destroyed) {
@@ -53,6 +55,11 @@ app.get("/api/health", (_req: Request, res: Response) => {
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
 app.get("/api/status", (_req: Request, res: Response) => {
   res.json(publicStatus());
+});
+
+/** In-memory runtime metrics (events, tasks, errors, uptime, connected UIs). */
+app.get("/api/metrics", (_req: Request, res: Response) => {
+  res.json(metricsSnapshot({ clients: clients.size }));
 });
 
 /** Save settings entered in the app (keys, repo, model…). */
