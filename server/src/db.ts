@@ -86,3 +86,12 @@ export function db(): DatabaseSync {
   if (!_db) _db = openDb(DB_FILE);
   return _db;
 }
+
+/** Best-effort append of a finished task to the durable log (never throws). */
+export function logTask(e: TaskLogEntry): void {
+  try {
+    insertTask(db(), e);
+  } catch (err) {
+    console.warn("task log write failed:", (err as Error).message);
+  }
+}

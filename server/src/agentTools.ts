@@ -26,6 +26,7 @@ import {
   replacePageByTitle,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
+import { logTask } from "./db";
 import type { PendingFile, WireEvent } from "./types";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
@@ -444,6 +445,15 @@ export async function finalizeTask(
     level: didSomething ? "SUCCESS" : "WARN",
     message: didSomething ? "Lavoro completato" : "Concluso senza modifiche — controlla strumenti/istruzioni",
     tokens: opts.totalTokens,
+  });
+
+  logTask({
+    agentId, agentName,
+    title: ctx.title,
+    branch: ctx.branch,
+    status: didSomething ? "review" : "idle",
+    tokens: opts.totalTokens,
+    ts: Date.now(),
   });
 
   if (opts.repoEnabled && ctx.wroteFiles && s.openPRs) {

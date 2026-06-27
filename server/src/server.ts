@@ -11,6 +11,7 @@ import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
 import { metricsSnapshot, recordEvent } from "./metrics";
+import { db, recentTasks, taskStats } from "./db";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -57,9 +58,20 @@ app.get("/api/status", (_req: Request, res: Response) => {
   res.json(publicStatus());
 });
 
-/** In-memory runtime metrics (events, tasks, errors, uptime, connected UIs). */
+/** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
 app.get("/api/metrics", (_req: Request, res: Response) => {
-  res.json(metricsSnapshot({ clients: clients.size }));
+  let lifetime = { total: 0, completed: 0, tokens: 0 };
+  try {
+    lifetime = taskStats(db());
+  } catch {
+    /* DB unavailable — report since-boot metrics only */
+  }
+  res.json({ ...metricsSnapshot({ clients: clients.size }), lifetime });
+});
+
+/** Recent finished tasks from the durable log (newest first). */
+app.get("/api/history", (_req: Request, res: Response) => {
+  res.json(recentTasks(db(), 20));
 });
 
 /** Save settings entered in the app (keys, repo, model…). */

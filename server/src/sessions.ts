@@ -3,6 +3,7 @@ import { getSettings } from "./config";
 import { createPullRequest } from "./github";
 import { appendTaskLog, notionConfigured } from "./notion";
 import { makeBranch, truncate } from "./agentTools";
+import { logTask } from "./db";
 import type { AssignBody, WireEvent } from "./types";
 
 /**
@@ -110,6 +111,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
   if (sessionError) return;
 
   emit({ agentId, agentName, progress: 100, status: "review", level: "SUCCESS", message: "Lavoro completato" });
+  logTask({ agentId, agentName, title, branch, status: "review", tokens: 0, ts: Date.now() });
 
   let prUrl: string | undefined;
   if (s.openPRs && s.githubToken) {
