@@ -1,5 +1,5 @@
-import { Suspense, useMemo, useRef } from "react";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import React, { Suspense, useMemo, useRef } from "react";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import {
@@ -302,7 +302,30 @@ function SceneContents() {
   );
 }
 
+/** Gently shifts the OrbitControls target to stay near the selected agent when it walks. */
+function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: THREE.Vector3; update(): void } | null> }) {
+  useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const { selectedAgentId, agents } = useStore.getState();
+    if (!selectedAgentId) return;
+    const agent = agents.find((a) => a.id === selectedAgentId);
+    if (!agent) return;
+    const dest = agent.target ?? agent.position;
+    const agentVec = new THREE.Vector3(dest[0], 0.8, dest[1]);
+    // Only nudge when the agent has moved significantly away from the camera target —
+    // this way manual orbiting stays stable while walking is gently tracked.
+    if (controls.target.distanceTo(agentVec) > 2) {
+      controls.target.lerp(agentVec, 0.03);
+      controls.update();
+    }
+  });
+  return null;
+}
+
 export function OfficeScene() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null);
   return (
     <Canvas
       shadows
@@ -316,6 +339,7 @@ export function OfficeScene() {
         <SceneContents />
       </Suspense>
       <OrbitControls
+        ref={controlsRef}
         target={[0, 0.8, 0]}
         enablePan={false}
         minDistance={9}
@@ -325,6 +349,7 @@ export function OfficeScene() {
         enableDamping
         dampingFactor={0.08}
       />
+      <CameraFollow controlsRef={controlsRef} />
     </Canvas>
   );
 }

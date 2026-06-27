@@ -43,6 +43,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const eyeRRef = useRef<THREE.Mesh>(null);
   const haloRef = useRef<THREE.Group>(null);
   const cur = useRef(new THREE.Vector3(agent.position[0], 0, agent.position[1]));
+  const prevStatus = useRef(agent.status);
+  const celebrate = useRef(0); // 1 → 0 over ~0.5s, drives a bounce
 
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
@@ -113,10 +115,25 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     const t = state.clock.elapsedTime;
     const isTyping = agent.status === "working" && !moving;
 
+    // Trigger a bounce when the agent finishes a task (working → review/done)
+    if (agent.status !== prevStatus.current) {
+      if (
+        (agent.status === "review" || agent.status === "done") &&
+        prevStatus.current === "working"
+      ) {
+        celebrate.current = 1.0;
+      }
+      prevStatus.current = agent.status;
+    }
+    if (celebrate.current > 0) {
+      celebrate.current = Math.max(0, celebrate.current - d * 2.2);
+    }
+    const celebrateBump = celebrate.current > 0 ? Math.sin(celebrate.current * Math.PI) * 0.55 : 0;
+
     // upper body: bob + a small forward lean while walking; lean further when typing
     const bob = moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * 0.02;
     if (charRef.current) {
-      charRef.current.position.y = bob;
+      charRef.current.position.y = bob + celebrateBump;
       charRef.current.rotation.x = THREE.MathUtils.lerp(
         charRef.current.rotation.x,
         moving ? 0.1 : isTyping ? 0.16 : 0,

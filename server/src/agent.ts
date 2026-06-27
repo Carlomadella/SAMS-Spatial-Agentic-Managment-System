@@ -174,6 +174,15 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       },
     );
   }
+  decls.push({
+    name: "web_fetch",
+    description: "Scarica il contenuto testuale di una URL (documentazione, API, pagine web) utile per il task. Ritorna fino a 6000 caratteri di testo leggibile.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: { url: { type: "string", description: "URL da scaricare (deve iniziare con https://)" } },
+      required: ["url"],
+    },
+  });
   decls.push(
     {
       name: "relay_task",
@@ -289,6 +298,26 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "web_fetch") {
+          const url = str(args.url);
+          if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            result = "ERRORE: URL non valida — deve iniziare con https://";
+          } else {
+            const resp = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "SAMS-Agent/1.0" } });
+            const raw = await resp.text();
+            const ct = resp.headers.get("content-type") ?? "";
+            const content = ct.includes("html")
+              ? raw
+                  .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                  .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                  .replace(/<[^>]+>/g, " ")
+                  .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => ({ "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">" }[m] ?? m))
+                  .replace(/\s+/g, " ")
+                  .trim()
+              : raw;
+            result = truncate(content, 6000);
+            emit({ agentId, agentName, progress, level: "INFO", message: `fetch ${url.slice(0, 70)}` });
+          }
         } else if (name === "relay_task") {
           const relayTarget = str(args.target);
           const relayTitle = str(args.title);
