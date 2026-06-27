@@ -196,6 +196,20 @@ export async function pullRequestStatus(prNumber: number): Promise<string> {
   ].join("\n");
 }
 
+/** Merge a PR (default squash). Throws (→ caught upstream) if GitHub refuses. */
+export async function mergePullRequest(
+  prNumber: number,
+  method: "merge" | "squash" | "rebase" = "squash",
+): Promise<string> {
+  const data = (await gh(`/pulls/${prNumber}/merge`, {
+    method: "PUT",
+    body: JSON.stringify({ merge_method: method }),
+  })) as { merged?: boolean; message?: string; sha?: string };
+  return data.merged
+    ? `PR #${prNumber} mergiata (${method}) — ${data.sha?.slice(0, 7) ?? ""}`
+    : `PR #${prNumber} non mergiata: ${data.message ?? "motivo sconosciuto"}`;
+}
+
 /** Post a comment on a PR (uses the issues comments endpoint). */
 export async function commentOnPullRequest(prNumber: number, body: string): Promise<{ html_url: string }> {
   return (await gh(`/issues/${prNumber}/comments`, {

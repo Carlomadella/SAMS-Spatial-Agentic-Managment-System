@@ -14,6 +14,7 @@ import {
   listCIRuns,
   listFiles,
   listPullRequests,
+  mergePullRequest,
   pullRequestStatus,
   readFile,
   readPullRequest,
@@ -136,6 +137,18 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
         schema: {
           type: "object",
           properties: { pr_number: { type: "number", description: "Numero della PR" } },
+          required: ["pr_number"],
+        },
+      },
+      {
+        name: "gh_merge_pr",
+        description: "Mergia una pull request (usare con cautela; controlla prima gh_pr_status).",
+        schema: {
+          type: "object",
+          properties: {
+            pr_number: { type: "number", description: "Numero della PR" },
+            method: { type: "string", description: "merge | squash | rebase (default squash)" },
+          },
           required: ["pr_number"],
         },
       },
@@ -363,6 +376,12 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       if (!Number.isFinite(prNum)) return "ERRORE: pr_number non valido";
       result = await pullRequestStatus(prNum);
       emit({ agentId, agentName, progress, level: "INFO", message: `Stato PR #${prNum}` });
+    } else if (name === "gh_merge_pr") {
+      const prNum = Number(args.pr_number);
+      if (!Number.isFinite(prNum)) return "ERRORE: pr_number non valido";
+      const method = ["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
+      result = await mergePullRequest(prNum, method);
+      emit({ agentId, agentName, progress, level: "SUCCESS", message: `Merge PR #${prNum} (${method})` });
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });

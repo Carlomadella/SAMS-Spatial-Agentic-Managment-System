@@ -81,7 +81,8 @@ collega.
       scritture. _Resta da fare:_ commit multi-file atomico (sotto).
 - [ ] 💡 **Commit multi-file atomico** via Git Data API (tree+commit) invece di N PUT
       sequenziali sull'endpoint Contents (evita commit parziali e conflitti di `sha`).
-- [ ] 💡 **GitHub: merge / è-mergeabile / stato check** come strumenti agente.
+- [x] ✅ **GitHub: merge / è-mergeabile / stato check** — strumenti `gh_pr_status`
+      (mergeable + check CI, sola lettura) e `gh_merge_pr` (merge/squash/rebase).
 - [ ] 💡 **Notion: database** (creare/aggiornare righe), non solo pagine.
 - [ ] 💡 **Webhook in ingresso** — eventi GitHub (push/PR/CI) che svegliano gli agenti.
 - [ ] 💡 **Sfruttare gli MCP** — report su Google Drive, eventi su Calendar, grafiche su
