@@ -7,22 +7,66 @@ import { STAGE_LABEL, type GardenState, type Stage } from "../lib/garden";
 
 type Vec3 = [number, number, number];
 
-const LEAF = "#4f9d69";
-const LEAF_D = "#3f8f5a";
-const TRUNK = "#7a5230";
+// ---------------------------------------------------------------------------
+// Base palette constants (defaults / fallbacks)
+// ---------------------------------------------------------------------------
+const LEAF  = "#4f9d69";
 const STONE = "#b9b0a2";
-const SOIL = "#6b4f3a";
-const WOOD = "#a9763f";
+const SOIL  = "#6b4f3a";
+const WOOD  = "#a9763f";
 
 // ---------------------------------------------------------------------------
-// The growing plant — its silhouette changes with the commit stage
+// Season + Biome system
+// ---------------------------------------------------------------------------
+type Season = "spring" | "summer" | "autumn" | "winter";
+type Biome  = "oak" | "pine" | "birch";
+
+interface BiomePalette { leaf: string; leafDark: string; trunk: string }
+
+const BIOME_PALETTES: Record<Biome, BiomePalette> = {
+  oak:   { leaf: "#4f9d69", leafDark: "#3f8f5a", trunk: "#7a5230" },
+  pine:  { leaf: "#2d7a50", leafDark: "#1f5f3a", trunk: "#6b4226" },
+  birch: { leaf: "#74c27c", leafDark: "#5aac62", trunk: "#b0a898" },
+};
+
+const SEASON_SKY: Record<Season, { sky: string; fog: string; sunIntensity: number }> = {
+  spring: { sky: "#c5e9f5", fog: "#cfeaf4", sunIntensity: 1.3 },
+  summer: { sky: "#6ec9f0", fog: "#9ad4ef", sunIntensity: 1.7 },
+  autumn: { sky: "#d4b896", fog: "#d4c9b0", sunIntensity: 0.9 },
+  winter: { sky: "#c0d8e8", fog: "#c4dce8", sunIntensity: 0.6 },
+};
+
+function getCurrentSeason(): Season {
+  const m = new Date().getMonth(); // 0-11
+  if (m >= 2 && m <= 4) return "spring";
+  if (m >= 5 && m <= 7) return "summer";
+  if (m >= 8 && m <= 10) return "autumn";
+  return "winter";
+}
+
+function getBiome(username: string): Biome {
+  let h = 7;
+  for (const ch of username) h = (h * 33 + ch.charCodeAt(0)) % 997;
+  const biomes: Biome[] = ["oak", "pine", "birch"];
+  return biomes[h % 3];
+}
+
+function computePalette(season: Season, biome: Biome): BiomePalette {
+  const base = BIOME_PALETTES[biome];
+  if (season === "autumn") return { ...base, leaf: "#d08040", leafDark: "#c06830" };
+  if (season === "winter") return { ...base, leaf: "#7a9880", leafDark: "#5a7862" };
+  return base;
+}
+
+// ---------------------------------------------------------------------------
+// Plant primitives
 // ---------------------------------------------------------------------------
 
-function Leaf({ position, rotation, scale = 1 }: { position: Vec3; rotation?: Vec3; scale?: number }) {
+function Leaf({ position, rotation, scale = 1, color = LEAF }: { position: Vec3; rotation?: Vec3; scale?: number; color?: string }) {
   return (
     <mesh position={position} rotation={rotation} scale={[0.3 * scale, 0.1 * scale, 0.18 * scale]} castShadow>
       <sphereGeometry args={[1, 12, 8]} />
-      <meshStandardMaterial color={LEAF} roughness={0.8} />
+      <meshStandardMaterial color={color} roughness={0.8} />
     </mesh>
   );
 }
@@ -101,7 +145,94 @@ function Petals({ count = 16 }: { count?: number }) {
   );
 }
 
-function Foliage({ stage }: { stage: Stage }) {
+/** Autumn: orange and amber leaves drifting and spinning. */
+function FallingLeaves({ count = 18 }: { count?: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        x: (Math.random() * 2 - 1) * 6,
+        z: (Math.random() * 2 - 1) * 6,
+        y: 0.3 + Math.random() * 5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.25 + Math.random() * 0.4,
+        sway: 0.3 + Math.random() * 0.7,
+        rotSpd: (Math.random() - 0.5) * 3.5,
+      })),
+    [count],
+  );
+  const AUTUMN_COLS = ["#d4843a", "#c87028", "#e8a850", "#b85a1c", "#de9840"];
+  useFrame((state, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const d = Math.min(delta, 0.05);
+    g.children.forEach((child, i) => {
+      const s = seeds[i];
+      child.position.y -= s.speed * d;
+      if (child.position.y < 0.1) child.position.y = 5;
+      child.position.x = s.x + Math.sin(t * s.sway + s.phase) * 0.7;
+      child.rotation.z += s.rotSpd * d;
+      child.rotation.x += s.rotSpd * 0.5 * d;
+    });
+  });
+  return (
+    <group ref={ref}>
+      {seeds.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]}>
+          <planeGeometry args={[0.18, 0.14]} />
+          <meshStandardMaterial color={AUTUMN_COLS[i % AUTUMN_COLS.length]} side={THREE.DoubleSide} roughness={0.85} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Winter: gentle snowfall. */
+function Snowflakes({ count = 50 }: { count?: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        x: (Math.random() * 2 - 1) * 12,
+        z: (Math.random() * 2 - 1) * 12,
+        y: Math.random() * 9,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.06 + Math.random() * 0.12,
+        sway: 0.2 + Math.random() * 0.5,
+      })),
+    [count],
+  );
+  useFrame((state, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const d = Math.min(delta, 0.05);
+    g.children.forEach((child, i) => {
+      const s = seeds[i];
+      child.position.y -= s.speed * d;
+      if (child.position.y < 0) child.position.y = 9;
+      child.position.x = s.x + Math.sin(t * s.sway + s.phase) * 0.5;
+    });
+  });
+  return (
+    <group ref={ref}>
+      {seeds.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]}>
+          <sphereGeometry args={[0.035, 6, 6]} />
+          <meshStandardMaterial color="#f0f6ff" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The growing plant — silhouette changes with stage, colors with biome
+// ---------------------------------------------------------------------------
+
+function Foliage({ stage, palette = BIOME_PALETTES.oak }: { stage: Stage; palette?: BiomePalette }) {
+  const { leaf, leafDark, trunk } = palette;
   switch (stage) {
     case "seed":
       return <mesh position={[0, 0.06, 0]} castShadow><sphereGeometry args={[0.12, 14, 12]} /><meshStandardMaterial color="#caa46a" roughness={0.85} /></mesh>;
@@ -110,10 +241,10 @@ function Foliage({ stage }: { stage: Stage }) {
         <group>
           <mesh position={[0, 0.26, 0]} castShadow>
             <cylinderGeometry args={[0.04, 0.05, 0.55, 8]} />
-            <meshStandardMaterial color={LEAF_D} roughness={0.7} />
+            <meshStandardMaterial color={leafDark} roughness={0.7} />
           </mesh>
-          <Leaf position={[0.12, 0.46, 0]} rotation={[0, 0, -0.7]} scale={0.8} />
-          <Leaf position={[-0.12, 0.4, 0]} rotation={[0, Math.PI, 0.7]} scale={0.8} />
+          <Leaf position={[0.12, 0.46, 0]} rotation={[0, 0, -0.7]} scale={0.8} color={leaf} />
+          <Leaf position={[-0.12, 0.4, 0]} rotation={[0, Math.PI, 0.7]} scale={0.8} color={leaf} />
         </group>
       );
     case "sapling":
@@ -121,12 +252,12 @@ function Foliage({ stage }: { stage: Stage }) {
         <group>
           <mesh position={[0, 0.5, 0]} castShadow>
             <cylinderGeometry args={[0.05, 0.07, 1.0, 8]} />
-            <meshStandardMaterial color={TRUNK} roughness={0.7} />
+            <meshStandardMaterial color={trunk} roughness={0.7} />
           </mesh>
-          <Leaf position={[0.18, 0.55, 0]} rotation={[0, 0, -0.6]} />
-          <Leaf position={[-0.18, 0.72, 0.05]} rotation={[0, Math.PI, 0.6]} />
-          <Leaf position={[0.12, 0.9, -0.05]} rotation={[0.2, 0, -0.5]} scale={0.9} />
-          <Blob position={[0, 1.05, 0]} r={0.22} />
+          <Leaf position={[0.18, 0.55, 0]} rotation={[0, 0, -0.6]} color={leaf} />
+          <Leaf position={[-0.18, 0.72, 0.05]} rotation={[0, Math.PI, 0.6]} color={leaf} />
+          <Leaf position={[0.12, 0.9, -0.05]} rotation={[0.2, 0, -0.5]} scale={0.9} color={leaf} />
+          <Blob position={[0, 1.05, 0]} r={0.22} color={leaf} />
         </group>
       );
     case "bush":
@@ -134,12 +265,12 @@ function Foliage({ stage }: { stage: Stage }) {
         <group>
           <mesh position={[0, 0.35, 0]} castShadow>
             <cylinderGeometry args={[0.08, 0.1, 0.7, 8]} />
-            <meshStandardMaterial color={TRUNK} roughness={0.7} />
+            <meshStandardMaterial color={trunk} roughness={0.7} />
           </mesh>
-          <Blob position={[0, 0.95, 0]} r={0.5} />
-          <Blob position={[-0.38, 0.78, 0.1]} r={0.34} color={LEAF_D} />
-          <Blob position={[0.4, 0.8, -0.05]} r={0.36} />
-          <Blob position={[0.05, 1.15, 0.2]} r={0.3} color={LEAF_D} />
+          <Blob position={[0, 0.95, 0]} r={0.5} color={leaf} />
+          <Blob position={[-0.38, 0.78, 0.1]} r={0.34} color={leafDark} />
+          <Blob position={[0.4, 0.8, -0.05]} r={0.36} color={leaf} />
+          <Blob position={[0.05, 1.15, 0.2]} r={0.3} color={leafDark} />
         </group>
       );
     case "tree":
@@ -147,12 +278,12 @@ function Foliage({ stage }: { stage: Stage }) {
         <group>
           <mesh position={[0, 0.7, 0]} castShadow>
             <cylinderGeometry args={[0.12, 0.2, 1.5, 10]} />
-            <meshStandardMaterial color={TRUNK} roughness={0.75} />
+            <meshStandardMaterial color={trunk} roughness={0.75} />
           </mesh>
-          <Blob position={[0, 1.85, 0]} r={0.78} />
-          <Blob position={[-0.6, 1.6, 0.1]} r={0.5} color={LEAF_D} />
-          <Blob position={[0.62, 1.62, -0.05]} r={0.52} />
-          <Blob position={[0.1, 2.2, 0.25]} r={0.45} color={LEAF_D} />
+          <Blob position={[0, 1.85, 0]} r={0.78} color={leaf} />
+          <Blob position={[-0.6, 1.6, 0.1]} r={0.5} color={leafDark} />
+          <Blob position={[0.62, 1.62, -0.05]} r={0.52} color={leaf} />
+          <Blob position={[0.1, 2.2, 0.25]} r={0.45} color={leafDark} />
         </group>
       );
     case "blooming":
@@ -160,12 +291,12 @@ function Foliage({ stage }: { stage: Stage }) {
         <group>
           <mesh position={[0, 0.75, 0]} castShadow>
             <cylinderGeometry args={[0.13, 0.22, 1.6, 10]} />
-            <meshStandardMaterial color={TRUNK} roughness={0.75} />
+            <meshStandardMaterial color={trunk} roughness={0.75} />
           </mesh>
-          <Blob position={[0, 2.0, 0]} r={0.85} />
-          <Blob position={[-0.65, 1.72, 0.1]} r={0.55} color={LEAF_D} />
-          <Blob position={[0.68, 1.74, -0.05]} r={0.56} />
-          <Blob position={[0.1, 2.4, 0.25]} r={0.5} color={LEAF_D} />
+          <Blob position={[0, 2.0, 0]} r={0.85} color={leaf} />
+          <Blob position={[-0.65, 1.72, 0.1]} r={0.55} color={leafDark} />
+          <Blob position={[0.68, 1.74, -0.05]} r={0.56} color={leaf} />
+          <Blob position={[0.1, 2.4, 0.25]} r={0.5} color={leafDark} />
           <Flowers
             points={[
               [0, 2.55, 0.4],
@@ -182,7 +313,7 @@ function Foliage({ stage }: { stage: Stage }) {
   }
 }
 
-function Plant3D({ stage, growth }: { stage: Stage; growth: number }) {
+function Plant3D({ stage, growth, palette }: { stage: Stage; growth: number; palette: BiomePalette }) {
   const sway = useRef<THREE.Group>(null);
   useFrame((state) => {
     if (!sway.current) return;
@@ -193,13 +324,12 @@ function Plant3D({ stage, growth }: { stage: Stage; growth: number }) {
   const scale = 0.92 + (growth / 100) * 0.18;
   return (
     <group position={[0, 0.32, 0]}>
-      {/* soil */}
       <mesh position={[0, 0.02, 0]} receiveShadow>
         <cylinderGeometry args={[1.05, 1.05, 0.12, 28]} />
         <meshStandardMaterial color={SOIL} roughness={0.95} />
       </mesh>
       <group ref={sway} position={[0, 0.08, 0]} scale={scale}>
-        <Foliage stage={stage} />
+        <Foliage stage={stage} palette={palette} />
       </group>
       {stage === "blooming" && <Petals />}
     </group>
@@ -223,12 +353,10 @@ function Ground() {
 function Plot() {
   return (
     <group>
-      {/* stone planter rim */}
       <mesh position={[0, 0.16, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[1.4, 1.5, 0.32, 28]} />
         <meshStandardMaterial color={STONE} roughness={0.9} />
       </mesh>
-      {/* a ring of cobbles around the rim */}
       {Array.from({ length: 16 }).map((_, i) => {
         const a = (i / 16) * Math.PI * 2;
         return (
@@ -267,7 +395,6 @@ function PicketFence({ length, position, rotation }: { length: number; position:
   const gap = length / n;
   return (
     <group position={position} rotation={rotation}>
-      {/* rails */}
       <mesh position={[0, 0.5, 0]} castShadow>
         <boxGeometry args={[length, 0.08, 0.05]} />
         <meshStandardMaterial color={WOOD} roughness={0.7} />
@@ -276,14 +403,12 @@ function PicketFence({ length, position, rotation }: { length: number; position:
         <boxGeometry args={[length, 0.08, 0.05]} />
         <meshStandardMaterial color={WOOD} roughness={0.7} />
       </mesh>
-      {/* pickets */}
       {Array.from({ length: n + 1 }).map((_, i) => (
         <group key={i} position={[-length / 2 + i * gap, 0, 0]}>
           <mesh position={[0, 0.4, 0]} castShadow>
             <boxGeometry args={[0.1, 0.8, 0.06]} />
             <meshStandardMaterial color="#c08a4e" roughness={0.7} />
           </mesh>
-          {/* pointed top */}
           <mesh position={[0, 0.82, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
             <coneGeometry args={[0.075, 0.12, 4]} />
             <meshStandardMaterial color="#c08a4e" roughness={0.7} />
@@ -294,18 +419,18 @@ function PicketFence({ length, position, rotation }: { length: number; position:
   );
 }
 
-function Decor({ flowers }: { flowers: Vec3[] }) {
+function Decor({ flowers, palette }: { flowers: Vec3[]; palette: BiomePalette }) {
+  const { leaf, leafDark } = palette;
   return (
     <group>
       <Flowers points={flowers} />
-      {/* a couple of shrubs */}
       <group position={[-5.5, 0, 4.5]}>
-        <Blob position={[0, 0.5, 0]} r={0.55} />
-        <Blob position={[0.4, 0.4, 0.2]} r={0.38} color={LEAF_D} />
+        <Blob position={[0, 0.5, 0]} r={0.55} color={leaf} />
+        <Blob position={[0.4, 0.4, 0.2]} r={0.38} color={leafDark} />
       </group>
       <group position={[5.8, 0, 3.6]}>
-        <Blob position={[0, 0.5, 0]} r={0.5} />
-        <Blob position={[-0.4, 0.42, -0.1]} r={0.36} color={LEAF_D} />
+        <Blob position={[0, 0.5, 0]} r={0.5} color={leaf} />
+        <Blob position={[-0.4, 0.42, -0.1]} r={0.36} color={leafDark} />
       </group>
       {/* watering can near the plot */}
       <group position={[2.0, 0, 1.6]} rotation={[0, -0.6, 0]}>
@@ -412,6 +537,7 @@ function Signpost({ garden }: { garden: GardenState | null }) {
 const MINI_STAGE: Record<Stage, number> = { seed: 0.3, sprout: 0.4, sapling: 0.5, bush: 0.6, tree: 0.7, blooming: 0.8 };
 
 function MiniGarden({ g, x, onSelectUser }: { g: GardenState; x: number; onSelectUser: (u: string) => void }) {
+  const miniPalette = BIOME_PALETTES[getBiome(g.user)];
   return (
     <group position={[x, 0, -6.5]}>
       <mesh position={[0, 0.08, 0]} receiveShadow>
@@ -423,7 +549,7 @@ function MiniGarden({ g, x, onSelectUser }: { g: GardenState; x: number; onSelec
         <meshStandardMaterial color={SOIL} roughness={0.95} />
       </mesh>
       <group position={[0, 0.22, 0]} scale={MINI_STAGE[g.stage]}>
-        <Foliage stage={g.stage} />
+        <Foliage stage={g.stage} palette={miniPalette} />
       </group>
       <Html position={[0, 1.7, 0]} center distanceFactor={11} zIndexRange={[30, 10]}>
         <button
@@ -455,7 +581,6 @@ export function GardenScene({
       Array.from({ length: 22 }, () => {
         let x = 0;
         let z = 0;
-        // keep flowers off the central plot
         do {
           x = (Math.random() * 2 - 1) * 8.5;
           z = (Math.random() * 2 - 1) * 8.5;
@@ -467,16 +592,21 @@ export function GardenScene({
 
   const others = useMemo(() => board.filter((g) => !garden || g.user !== garden.user).slice(0, 5), [board, garden]);
 
+  const season = useMemo(() => getCurrentSeason(), []);
+  const biome  = useMemo(() => (garden ? getBiome(garden.user) : "oak"), [garden?.user]); // eslint-disable-line react-hooks/exhaustive-deps
+  const palette = useMemo(() => computePalette(season, biome), [season, biome]);
+  const seasonSky = SEASON_SKY[season];
+
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7, 14], fov: 38 }} gl={{ antialias: true }}>
-      <color attach="background" args={["#bfe3f2"]} />
-      <fog attach="fog" args={["#cfeaf4", 28, 64]} />
+      <color attach="background" args={[seasonSky.sky]} />
+      <fog attach="fog" args={[seasonSky.fog, 28, 64]} />
       <Suspense fallback={null}>
         <hemisphereLight args={["#cfeefc", "#5a9d4a", 0.85]} />
         <ambientLight intensity={0.4} />
         <directionalLight
           position={[-10, 14, -8]}
-          intensity={1.5}
+          intensity={seasonSky.sunIntensity}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-near={1}
@@ -488,14 +618,18 @@ export function GardenScene({
           shadow-bias={-0.0004}
         />
 
-        <Sun />
+        {season !== "winter" && <Sun />}
         <Clouds />
         <Ground />
         <StonePath />
         <Plot />
-        <Plant3D stage={garden ? garden.stage : "seed"} growth={garden ? garden.growth : 0} />
+        <Plant3D stage={garden ? garden.stage : "seed"} growth={garden ? garden.growth : 0} palette={palette} />
         <Signpost garden={garden} />
-        <Decor flowers={flowers} />
+        <Decor flowers={flowers} palette={palette} />
+
+        {/* seasonal effects */}
+        {season === "autumn" && <FallingLeaves />}
+        {season === "winter" && <Snowflakes />}
 
         {/* an open-L of fencing behind + to the left */}
         <PicketFence length={19} position={[0, 0, -9.3]} />
@@ -505,8 +639,13 @@ export function GardenScene({
           <MiniGarden key={g.user} g={g} x={-4 + i * 2} onSelectUser={onSelectUser} />
         ))}
 
-        <Butterfly center={[1.5, 0, 1]} radius={1.6} height={1.4} speed={0.6} phase={0} color="#ff9ec4" />
-        <Butterfly center={[-1.6, 0, 0.5]} radius={2.0} height={1.8} speed={0.45} phase={2} color="#ffd166" />
+        {/* butterflies only in warmer seasons */}
+        {season !== "winter" && (
+          <>
+            <Butterfly center={[1.5, 0, 1]} radius={1.6} height={1.4} speed={0.6} phase={0} color="#ff9ec4" />
+            <Butterfly center={[-1.6, 0, 0.5]} radius={2.0} height={1.8} speed={0.45} phase={2} color="#ffd166" />
+          </>
+        )}
       </Suspense>
 
       <OrbitControls

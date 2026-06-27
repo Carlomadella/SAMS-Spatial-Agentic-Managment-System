@@ -3,6 +3,21 @@ import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Sprout } from "lucide-reac
 import { useStore } from "../store/useStore";
 import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState } from "../lib/garden";
 
+interface Badge { emoji: string; label: string }
+
+function computeBadges(g: GardenState): Badge[] {
+  const badges: Badge[] = [];
+  if (g.waterings >= 1)   badges.push({ emoji: "🌱", label: "Primo push" });
+  if (g.waterings >= 10)  badges.push({ emoji: "💧", label: "Innaffiatore" });
+  if (g.waterings >= 50)  badges.push({ emoji: "🌊", label: "Pioggia" });
+  if (g.streak >= 7)      badges.push({ emoji: "🔥", label: "7gg streak" });
+  if (g.streak >= 30)     badges.push({ emoji: "⚡", label: "30gg streak" });
+  if (g.stage === "tree" || g.stage === "blooming") badges.push({ emoji: "🌳", label: "Grande albero" });
+  if (g.stage === "blooming") badges.push({ emoji: "🌸", label: "In fiore" });
+  if (g.growth >= 75 && g.stage !== "blooming") badges.push({ emoji: "🚀", label: "Quasi lì" });
+  return badges;
+}
+
 // The garden is a full three.js scene — load it as its own chunk on demand.
 const GardenScene = lazy(() => import("../scene/GardenScene").then((m) => ({ default: m.GardenScene })));
 
@@ -175,6 +190,23 @@ export function GardenView() {
                   <ExternalLink size={13} /> Pagina
                 </a>
               </div>
+              {(() => {
+                const badges = computeBadges(garden);
+                if (badges.length === 0) return null;
+                return (
+                  <div className="mt-3">
+                    <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900/50">Traguardi</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {badges.map((b) => (
+                        <span key={b.label} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          <span>{b.emoji}</span>
+                          <span>{b.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
