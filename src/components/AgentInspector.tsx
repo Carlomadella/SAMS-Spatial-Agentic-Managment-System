@@ -7,6 +7,7 @@ import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, rejectChanges } from "../lib/backend";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
+import { StagedFileDiff } from "./StagedFileDiff";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -151,14 +152,7 @@ export function AgentInspector() {
           </div>
           <div className="mb-3 max-h-52 space-y-1.5 overflow-y-auto">
             {agent.pendingFiles!.map((f, i) => (
-              <details key={i} className="rounded-md border border-line bg-ink-800">
-                <summary className="cursor-pointer select-none px-2 py-1.5 font-mono text-[11px] text-slate-200 hover:text-white">
-                  {f.path}
-                </summary>
-                <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap break-all px-2 pb-2 pt-1 font-mono text-[10px] leading-relaxed text-slate-400">
-                  {f.content.length > 1200 ? f.content.slice(0, 1200) + "\n…" : f.content}
-                </pre>
-              </details>
+              <StagedFileDiff key={i} file={f} />
             ))}
           </div>
           <div className="flex gap-2">
