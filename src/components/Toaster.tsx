@@ -14,7 +14,11 @@ export function Toaster() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-9 right-4 z-50 flex w-80 flex-col gap-2">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed bottom-9 right-4 z-50 flex w-80 flex-col gap-2"
+    >
       {toasts.map((t) => {
         const url = firstUrl(t.message);
         const isErr = t.level === "ERROR";
@@ -44,7 +48,7 @@ export function Toaster() {
                 t.message
               )}
             </div>
-            <button onClick={() => dismiss(t.id)} className="shrink-0 text-white/50 hover:text-white">
+            <button onClick={() => dismiss(t.id)} aria-label="Chiudi notifica" className="shrink-0 text-white/50 hover:text-white">
               <X size={14} />
             </button>
           </div>

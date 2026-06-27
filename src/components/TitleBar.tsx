@@ -29,6 +29,8 @@ function IconBtn({
   return (
     <button
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-ink-700 hover:text-white",

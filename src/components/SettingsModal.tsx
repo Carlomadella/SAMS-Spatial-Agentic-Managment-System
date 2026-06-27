@@ -142,7 +142,7 @@ export function SettingsModal() {
             <h2 className="text-sm font-semibold text-white">Runtime · Agenti</h2>
             <p className="text-[11px] text-mut">Scegli il motore, collega le chiavi — tutto da qui.</p>
           </div>
-          <button onClick={() => setOpen(false)} className="btn h-7 w-7 px-0">
+          <button onClick={() => setOpen(false)} aria-label="Chiudi impostazioni" className="btn h-7 w-7 px-0">
             <X size={16} />
           </button>
         </div>

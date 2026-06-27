@@ -34,6 +34,7 @@ export function OnboardingWizard() {
         {/* close */}
         <button
           onClick={close}
+          aria-label="Chiudi"
           className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-ink-700 hover:text-slate-200"
         >
           <X size={15} />

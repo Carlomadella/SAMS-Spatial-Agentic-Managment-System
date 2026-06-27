@@ -26,6 +26,8 @@ export function ActivityBar() {
           <button
             key={id}
             title={label}
+            aria-label={label}
+            aria-pressed={active}
             onClick={() => {
               if (activity === id && leftOpen) toggleLeft();
               else {
