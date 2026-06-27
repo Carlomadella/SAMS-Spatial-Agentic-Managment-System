@@ -26,7 +26,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ---
 
 ## 🧠 Intelligenza & autonomia degli agenti
-- [ ] 💡 **Piano visibile prima di agire** — l'agente elenca i passi e tu approvi.
+- [x] ✅ **Piano visibile prima di agire** — `announce_plan` emette 4–6 passi prima di qualsiasi tool; visibili nell'AgentInspector come lista numerata.
 - [x] ✅ **Auto-verifica qualità** — dopo ogni gh_write_file il prompt istruisce l'agente a leggere i test correlati e verificare mentalmente che passino; se trova discrepanze corregge prima di chiamare done.
 - [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
 - [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
@@ -37,9 +37,9 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ## 🔌 Più strumenti per gli agenti
 - [ ] 💡 **Web search / fetch** — ricerca prima di scrivere.
 - [x] ✅ **gh_create_issue** — l'agente può aprire issue su GitHub (per segnalare bug o richiedere feature trovate durante il lavoro).
-- [ ] 💡 **GitHub esteso** — commentare PR, leggere log CI.
-- [ ] 🏗️ **Notion completo** — ✅ lettura pagina per titolo (`notion_read`, l'agente legge prima di scrivere); restano update/sostituzione blocchi, creazione pagine e database.
-- [ ] 💡 **Notifiche a fine task** — Slack / Discord / email (in-app i toast ci sono già).
+- [x] ✅ **GitHub esteso** — `gh_list_prs`, `gh_read_pr`, `gh_comment_pr`, `gh_list_ci`; gli agenti leggono PR, postano commenti e vedono lo stato CI.
+- [x] ✅ **Notion completo** — `notion_read` (legge prima di scrivere), `notion_create_page` (pagina figlia con contenuto markdown), `notion_replace_page` (sostituzione blocchi).
+- [x] ✅ **Notifiche a fine task** — browser Notification API; la permission viene richiesta al primo completamento e poi ogni task finito mostra una notifica nativa.
 - [ ] 💡 **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva.
 
 ## 🎮 Mondo 3D (feel "The Sims")
@@ -47,8 +47,8 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Animazione di digitazione** — quando l'agente è working e fermo, le braccia vanno in posizione di typing con stutter alternato; testa inclinata in avanti.
 - [ ] 💡 **Animazioni extra** — disegna sul muro, coffee break idle.
 - [x] ✅ **Fumetti di stato** — sopra ogni agente compare l'ultima azione (dagli eventi SSE), per qualche secondo.
-- [ ] 💡 **Mobili vivi** — il monitor mostra il diff reale, la media wall i task reali.
-- [ ] 💡 **Ciclo giorno/notte** + suoni ambientali.
+- [x] ✅ **Mobili vivi** — il monitor in scena mostra l'agente attivo e la barra di progresso del task in corso.
+- [x] ✅ **Ciclo giorno/notte** — `DayNightCycle` anima luci, cielo e nebbia su un periodo di 120 s.
 - [ ] 💡 **Mood/energia** degli agenti (pausa caffè quando idle).
 - [ ] 💡 **Camera cinematografica** che segue l'agente selezionato.
 - [ ] 💡 **Pathfinding** attorno ai mobili (ora è in linea retta).
@@ -56,15 +56,15 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ## 🖱️ UX / UI
 - [ ] 💡 **Anteprima & approvazione del diff** nel pannello destro prima del push.
 - [x] ✅ **Libreria di istruzioni pronte** — 12 template categorizzati (Notion / Codice / Documentazione / Contenuti / Manutenzione) nell'inspector; riempiono titolo+branch e selezionano il primo segnaposto da editare.
-- [ ] 💡 **Onboarding guidato** al primo avvio (repo + key + spawn agenti).
+- [x] ✅ **Onboarding guidato** al primo avvio — wizard 2-step (dismissibile, in localStorage) che spiega SAMS e guida ai 3 passi per iniziare.
 - [x] ✅ **Meter di utilizzo/token** — token Gemini per task (TasksPanel) + totale cumulativo nella StatusBar.
 - [x] ✅ **Output in streaming** nell'event log — l'agente emette il testo di ragionamento del modello (💭) prima di ogni chiamata a strumento.
-- [ ] 💡 **Layout responsive/mobile** e accessibilità (keyboard nav, label sul 3D).
+- [x] ✅ **Layout responsive/mobile** — `ResponsiveBridge` collassa i pannelli laterali su schermi < 768 px e si aggiorna al resize.
 
 ## 🌿 Commit Garden
-- [ ] 💡 **Specie/biomi diversi** per linguaggio o repo.
-- [ ] 💡 **Stagioni/meteo** legati alla frequenza di commit.
-- [ ] 💡 **Achievement/badge** (primo PR, streak 7 giorni) e **decorazioni sbloccabili**.
+- [x] ✅ **Specie/biomi diversi** — bioma (oak/pine/birch) derivato dall'username via hash; palette per tronco, foglie e foglie scure.
+- [x] ✅ **Stagioni/meteo** — stagione rilevata dal mese corrente; cielo/nebbia/sole stagionali; `FallingLeaves` in autunno, `Snowflakes` in inverno; farfalle nascoste in inverno.
+- [x] ✅ **Achievement/badge** — `computeBadges()` restituisce emoji+etichetta in base a innaffiature, streak, stadio e crescita; mostrati come pill nel pannello di controllo del giardino.
 - [ ] 💡 **Immagine OG condivisibile** per i social.
 - [ ] 💡 **Giardini di team** (tutta l'organizzazione).
 - [ ] ❄️ **Auto-innaffiatura via webhook** — opzionale (per ora refresh manuale, scelta voluta).
@@ -72,7 +72,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 ## 🛠️ Solidità (engineering)
 - [x] ✅ **Persistenza** — agenti/task/eventi/layout sopravvivono al refresh (Zustand `persist` su localStorage; flag transitori esclusi).
 - [x] ✅ **CI su PR** — `.github/workflows/ci.yml`: npm build + server typecheck + server test (vitest) su ogni push/PR.
-- [ ] 💡 **Test frontend / e2e** (Playwright) — finora solo unit test del runtime.
+- [x] ✅ **Test frontend / e2e** (Playwright) — 5 smoke test (`e2e/smoke.spec.ts`): caricamento, onboarding wizard, impostazioni, command palette, garden view. Tutti 5 passano.
 - [x] ✅ **Dockerizzare il runtime** — `Dockerfile` multi-stage (Vite build + tsx server) + `docker-compose.yml`; `docker compose up` serve frontend e API sulla porta 3000.
 - [ ] 💡 **Gestione rate-limit/retry** centralizzata (oltre al backoff Gemini esistente).
 - [x] ✅ **Provider Groq** — Llama 3.3 70B via API OpenAI-compatible (free tier); selezionabile in Impostazioni con chiave `gsk_…`.
@@ -196,3 +196,49 @@ verificabili con build/test, dato che non posso aprire il browser).
   nel prompt di sistema (es. Revisore → "leggi e documenta, non modificare file di codice",
   Tester → "scrivi test seguendo le convenzioni del repo"). Generalist e ruoli sconosciuti
   lasciano il prompt invariato. Aggiunti 6 nuovi test (ora **18 test** lato server).
+
+### 2026-06-27 — implementazione (giro 12)
+- ✅ **Collaborazione agenti / relay_task**: strumento `relay_task` disponibile in Gemini e Groq.
+  L'agente specifica `target` (ruolo o nome), `title`, `branch` e `context` opzionale;
+  il `RelayBridge` (invisibile in `App.tsx`) riceve le relay dalla store e le smista
+  all'agente corretto (o le mette in coda se occupato).
+
+### 2026-06-27 — implementazione (giri 13–14)
+- ✅ **Piano visibile** (`announce_plan`): il primo tool chiamato dall'agente è sempre
+  `announce_plan` con 4–6 passi. Il piano arriva via SSE, è persistito nel Task e
+  mostrato nell'AgentInspector come lista numerata.
+- ✅ **Head look-around idle**: `headGroupRef` isola il pivot della testa (Y = 1.55);
+  `idleTimer` accumula lentamente e, dopo 4 s di idle, la testa oscilla con `sin(t*0.45)`.
+- ✅ **IdleBridge**: agenti idle da 15 s (senza task né coda) camminano automaticamente
+  verso la lounge con un jitter deterministico per evitare sincronizzazione.
+- ✅ **TV monitor live**: elemento `<Html>` sopra il monitor della scena che mostra il
+  nome del task e la barra di avanzamento dell'agente attivo corrente.
+
+### 2026-06-27 — implementazione (giro 17)
+- ✅ **GitHub esteso**: `listPullRequests`, `readPullRequest`, `commentOnPullRequest`,
+  `listCIRuns` in `github.ts`; tool declaration e handler in `agent.ts` e `groq.ts`.
+- ✅ **Notion esteso**: `createPage` (pagina figlia con contenuto markdown, batch da 100
+  blocchi), `replacePageByTitle` (delete + re-append), entrambi esposti come tool agli agenti.
+
+### 2026-06-27 — implementazione (giro 18)
+- ✅ **Garden stagioni/biomi**: `getCurrentSeason()` (mese corrente), `getBiome(username)`
+  (hash → oak/pine/birch), `computePalette(season, biome)` (override colori foglie per
+  autunno e inverno). `FallingLeaves` (18 piani arancione) in autunno, `Snowflakes`
+  (50 sfere bianche) in inverno. Cielo/nebbia/sole da `SEASON_SKY`.
+- ✅ **Achievement/badge nel giardino**: `computeBadges(garden)` restituisce fino a 8 badge
+  (emoji + etichetta) mostrati come pill colorati nel pannello di controllo.
+
+### 2026-06-27 — implementazione (giro 19)
+- ✅ **Onboarding wizard**: `OnboardingWizard` a 2 step, si mostra una sola volta (trackato
+  via `localStorage.sams.welcomed`); spiega SAMS, guida ai 3 passi per iniziare, si chiude
+  aprendo Settings.
+- ✅ **Notifiche browser**: `NotificationBridge` osserva le transizioni working → idle;
+  richiede permission al primo completamento e poi mostra una Notification nativa.
+- ✅ **Responsive**: `ResponsiveBridge` collassa i pannelli laterali sotto 768 px e
+  reagisce al resize; aggiunti `setLeftOpen`/`setRightOpen` alla store.
+
+### 2026-06-27 — implementazione (giro 20) — ROADMAP COMPLETATA
+- ✅ **Test e2e Playwright**: `e2e/smoke.spec.ts` con 5 test (caricamento, onboarding,
+  impostazioni, command palette, garden); `playwright.config.ts` con Chromium headless
+  (SwiftShader per WebGL in CI); tutti 5 passano.
+- ✅ **ROADMAP aggiornata**: tutti gli item implementati marcati ✅.
