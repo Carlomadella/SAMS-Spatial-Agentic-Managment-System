@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 12 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 18 test ✓
 
 ---
 
@@ -142,6 +142,43 @@ scrivere**, così evita di duplicare contenuti e può aggiornare ciò che già e
 
 ---
 
+## 7. 🎭 Ruoli specializzati — *questo giro*
+
+**Cosa fa.** Ogni agente può ora assumere un **ruolo specifico** che adatta il suo
+prompt di sistema, così lo stesso modello si comporta diversamente a seconda del
+compito: un Revisore legge e annota senza toccare il codice, un Tester scrive solo
+file di test, un Documentatore aggiorna README e pagine Notion, un Architetto produce
+documenti di analisi.
+
+**Ruoli disponibili.**
+| Ruolo | Comportamento extra |
+|---|---|
+| Generalist | Nessuna istruzione aggiuntiva (default) |
+| Revisore | Legge il codice, documenta problemi su Notion; **non modifica file** |
+| Tester | Scrive file di test seguendo le convenzioni del repo |
+| Documentatore | Aggiorna README / `.md` / pagine Notion dopo aver letto il sorgente |
+| Architetto | Analizza la struttura del progetto e produce documenti di piano |
+
+**Come si usa.**
+1. Seleziona un agente → pannello **AgentInspector**.
+2. Apri il **selettore di ruolo** (accanto al chip del modello) e scegli il ruolo.
+3. Assegna un task: il ruolo viene trasmesso al runtime e incluso nel prompt.
+
+**Dettagli tecnici.**
+- `ROLE_PROMPTS` (mappa statica in `agent.ts`) associa ogni ruolo a una riga di
+  istruzioni aggiuntive.
+- `composeSystem` ora accetta `role?: string` e — se il ruolo è presente nella mappa —
+  appende le istruzioni tra il blocco base e le linee guida del progetto.
+- `AssignBody.role?` trasmette il ruolo dalla UI al runtime via POST `/api/assign`.
+- Il selettore di ruolo nell'inspector chiama `setRole(id, role)` nello store Zustand
+  (persistito) e passa `agent.role` a `assignRemote`.
+- **Test**: 6 nuovi test in `agent.test.ts` (ora **18 test** lato server).
+
+**File toccati.** `server/src/types.ts`, `server/src/agent.ts`, `server/src/agent.test.ts`,
+`src/lib/backend.ts`, `src/store/useStore.ts`, `src/components/AgentInspector.tsx`
+
+---
+
 ## ✅ Come verificare
 
 ```bash
@@ -150,7 +187,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 12 test attesi
+npm --prefix server test      # 18 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start
@@ -164,6 +201,8 @@ Prove manuali consigliate:
   e nella StatusBar.
 - **Memoria di progetto**: aggiungi un `AGENTS.md` al repo collegato → l'agente emette
   “Linee guida del progetto caricate” e ne segue le regole.
+- **Ruoli**: cambia il ruolo di un agente in Revisore → assegna un task di review →
+  verifica che non modifichi file di codice ma scriva osservazioni su Notion.
 
 ---
 

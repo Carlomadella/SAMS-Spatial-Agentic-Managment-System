@@ -61,6 +61,7 @@ interface State {
   addAgent: (color?: AgentColor) => string;
   removeAgent: (id: string) => void;
   selectAgent: (id: string | null) => void;
+  setRole: (id: string, role: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
   sendToZone: (id: string, zoneId: string) => void;
@@ -214,6 +215,9 @@ export const useStore = create<State>()(
   },
 
   selectAgent: (id) => set({ selectedAgentId: id }),
+
+  setRole: (id, role) =>
+    set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, role } : a)) })),
 
   moveAgent: (id, target) =>
     set((s) => ({

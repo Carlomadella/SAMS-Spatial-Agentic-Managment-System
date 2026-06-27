@@ -17,4 +17,6 @@ export interface AssignBody {
   agentName?: string;
   title: string;
   branch?: string;
+  /** Agent role that shapes the system prompt (e.g. "Revisore", "Tester"). */
+  role?: string;
 }

@@ -37,11 +37,27 @@ async function loadProjectGuide(baseBranch: string): Promise<string> {
   return "";
 }
 
-/** Build the Gemini system instruction from the configured tools + optional guide. */
+/**
+ * Extra instructions injected per role. Roles not listed here get no extra text
+ * (the base instruction is already enough for a generic developer).
+ */
+const ROLE_PROMPTS: Record<string, string> = {
+  Revisore:
+    "Ruolo REVISORE: leggi i file con gh_read_file, individua problemi (bug, stile, sicurezza, performance) e documenta le osservazioni su Notion con notion_write. Non modificare file di codice.",
+  Tester:
+    "Ruolo TESTER: leggi il codice esistente con gh_read_file, poi scrivi file di test con gh_write_file seguendo le convenzioni di test già presenti nel repository.",
+  Documentatore:
+    "Ruolo DOCUMENTATORE: scrivi documentazione chiara e completa. Usa notion_write per le pagine Notion, gh_write_file per README o file .md. Leggi il sorgente con gh_read_file prima di documentare.",
+  Architetto:
+    "Ruolo ARCHITETTO: analizza la struttura del progetto con gh_list_files e gh_read_file, poi scrivi un documento di analisi o un piano architetturale su Notion o come file .md nel repository.",
+};
+
+/** Build the Gemini system instruction from the configured tools + optional role and guide. */
 export function composeSystem(o: {
   agentName: string;
   notionEnabled: boolean;
   repoEnabled: boolean;
+  role?: string;
   guide?: string;
 }): string {
   const base =
@@ -54,8 +70,12 @@ export function composeSystem(o: {
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
     `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+  const roleExtra = o.role ? (ROLE_PROMPTS[o.role] ?? "") : "";
   const g = o.guide?.trim();
-  return g ? `${base}\n\nLinee guida del progetto (rispettale scrupolosamente):\n${g}` : base;
+  const parts = [base];
+  if (roleExtra) parts.push(roleExtra);
+  if (g) parts.push(`Linee guida del progetto (rispettale scrupolosamente):\n${g}`);
+  return parts.join("\n\n");
 }
 
 /**
@@ -74,6 +94,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const repoEnabled = s.githubToken.length > 0 && s.githubRepo.includes("/");
   const notionEnabled = notionConfigured();
   const branch = body.branch?.trim() || makeBranch(agentName, title);
+  const role = body.role?.trim() || "";
 
   emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
@@ -142,7 +163,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, guide });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, role, guide });
 
   let wroteFiles = false;
   let notionWrote = false;

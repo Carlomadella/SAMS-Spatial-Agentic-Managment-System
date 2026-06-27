@@ -27,4 +27,42 @@ describe("composeSystem", () => {
     const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, guide: "   " });
     expect(s).not.toContain("Linee guida del progetto");
   });
+
+  it("injects Revisore role instructions and discourages code edits", () => {
+    const s = composeSystem({ agentName: "r", notionEnabled: true, repoEnabled: true, role: "Revisore" });
+    expect(s).toContain("REVISORE");
+    expect(s).toContain("Non modificare file di codice");
+  });
+
+  it("injects Tester role instructions about writing test files", () => {
+    const s = composeSystem({ agentName: "t", notionEnabled: true, repoEnabled: true, role: "Tester" });
+    expect(s).toContain("TESTER");
+    expect(s).toContain("file di test");
+  });
+
+  it("injects Documentatore role instructions", () => {
+    const s = composeSystem({ agentName: "d", notionEnabled: true, repoEnabled: true, role: "Documentatore" });
+    expect(s).toContain("DOCUMENTATORE");
+  });
+
+  it("injects Architetto role instructions about analysis", () => {
+    const s = composeSystem({ agentName: "a", notionEnabled: true, repoEnabled: true, role: "Architetto" });
+    expect(s).toContain("ARCHITETTO");
+    expect(s).toContain("analizza");
+  });
+
+  it("adds no role text for Generalist or unknown role", () => {
+    const g = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "Generalist" });
+    const u = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "UnknownRole" });
+    expect(g).not.toContain("Ruolo");
+    expect(u).not.toContain("Ruolo");
+  });
+
+  it("stacks role instructions and project guidelines together", () => {
+    const guide = "Segui le convenzioni.";
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "Tester", guide });
+    expect(s).toContain("TESTER");
+    expect(s).toContain("Linee guida del progetto");
+    expect(s).toContain(guide);
+  });
 });

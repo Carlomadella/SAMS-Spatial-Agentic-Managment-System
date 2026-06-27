@@ -29,7 +29,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [ ] 💡 **Piano visibile prima di agire** — l'agente elenca i passi e tu approvi.
 - [ ] 💡 **Auto-verifica qualità** — dopo aver scritto codice lancia test/lint del repo e ritenta in loop se falliscono.
 - [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
-- [ ] 💡 **Ruoli specializzati** — prompt dedicati per frontend / backend / docs / reviewer / tester.
+- [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
 - [ ] 💡 **Coda di task per agente** — gli agenti pescano i task in coda autonomamente.
 - [ ] 💡 **Collaborazione tra agenti** — handoff (red scrive → blue revisiona → green scrive i test).
 
@@ -87,6 +87,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Meter dei token Gemini (per task + totale cumulativo).
 - [x] ✅ Memoria di progetto: l'agente legge le linee guida del repo e le rispetta.
 - [x] ✅ Notion `notion_read`: l'agente legge una pagina prima di scrivere (no duplicati).
+- [x] ✅ Ruoli specializzati: Generalist · Revisore · Tester · Documentatore · Architetto — selettore nell'inspector, prompt role-aware nel runtime.
 
 ---
 
@@ -143,3 +144,11 @@ verificabili con build/test, dato che non posso aprire il browser).
   pagina (per titolo, con paginazione dei blocchi). Il prompt ora istruisce l'agente a
   **leggere prima di scrivere** per evitare duplicati / aggiornare contenuti esistenti.
   Aggiunte `readPageByTitle` + `blockPlainText` in `notion.ts`. (12 test, typecheck ✓.)
+
+### 2026-06-27 — implementazione (giro 6)
+- ✅ **Ruoli specializzati**: ogni agente ora ha un **selettore di ruolo** nell'inspector
+  (Generalist · Revisore · Tester · Documentatore · Architetto). Il ruolo viene trasmesso
+  al runtime (`AssignBody.role`) e `composeSystem` inietta istruzioni extra specifiche
+  nel prompt di sistema (es. Revisore → "leggi e documenta, non modificare file di codice",
+  Tester → "scrivi test seguendo le convenzioni del repo"). Generalist e ruoli sconosciuti
+  lasciano il prompt invariato. Aggiunti 6 nuovi test (ora **18 test** lato server).

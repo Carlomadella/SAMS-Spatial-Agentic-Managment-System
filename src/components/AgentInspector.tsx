@@ -10,6 +10,14 @@ import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
+const AGENT_ROLES = [
+  { id: "Generalist", label: "Generalist", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
+  { id: "Revisore", label: "Revisore", desc: "Legge il codice e documenta osservazioni su Notion; non modifica file" },
+  { id: "Tester", label: "Tester", desc: "Scrive file di test seguendo le convenzioni del repo" },
+  { id: "Documentatore", label: "Documentatore", desc: "Aggiorna README, file .md e pagine Notion" },
+  { id: "Architetto", label: "Architetto", desc: "Analizza la struttura e scrive documenti di piano" },
+];
+
 export function AgentInspector() {
   const agent = useSelectedAgent();
   const agents = useStore((s) => s.agents);
@@ -20,6 +28,7 @@ export function AgentInspector() {
   const clearTask = useStore((s) => s.clearTask);
   const sendToZone = useStore((s) => s.sendToZone);
   const removeAgent = useStore((s) => s.removeAgent);
+  const setRole = useStore((s) => s.setRole);
   const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
@@ -82,7 +91,18 @@ export function AgentInspector() {
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         <span className="chip bg-ink-700 text-slate-300">{agent.model}</span>
-        <span className="chip bg-ink-700 text-slate-300">{agent.role}</span>
+        <select
+          value={agent.role}
+          onChange={(e) => setRole(agent.id, e.target.value)}
+          title="Agent role — shapes the system prompt"
+          className="chip cursor-pointer border border-line bg-ink-700 text-slate-300 outline-none focus:border-brand/50"
+        >
+          {AGENT_ROLES.map((r) => (
+            <option key={r.id} value={r.id} className="bg-ink-800">
+              {r.label}
+            </option>
+          ))}
+        </select>
         <span className={cn("chip bg-ink-800", meta.text)}>
           <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} /> {meta.label}
         </span>
@@ -163,7 +183,7 @@ export function AgentInspector() {
                 const b = branch.trim();
                 assignTask(agent.id, t, b);
                 if (backendEnabled) {
-                  assignRemote(agent.id, agent.name, t, b).catch((err: Error) =>
+                  assignRemote(agent.id, agent.name, t, b, agent.role).catch((err: Error) =>
                     log({
                       agentId: agent.id,
                       agentName: agent.name,
