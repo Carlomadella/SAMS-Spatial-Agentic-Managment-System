@@ -25,6 +25,9 @@ jobs:
       - name: Typecheck & build frontend
         run: npm run build
 
+      - name: Test frontend
+        run: npm test
+
       - name: Install server deps
         run: npm ci --prefix server
 
