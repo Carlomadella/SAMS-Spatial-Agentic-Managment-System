@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 18 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 23 test ✓
 
 ---
 
@@ -142,7 +142,36 @@ scrivere**, così evita di duplicare contenuti e può aggiornare ciò che già e
 
 ---
 
-## 7. 🎭 Ruoli specializzati — *questo giro*
+## 7. 🌊 Output in streaming — *commit `548fcc8`*
+
+**Cosa fa.** Il runtime usa ora l'API di **streaming** di Gemini (`generateContentStream`)
+invece della chiamata bloccante `generateContent`. Il beneficio principale: il testo che
+il modello produce **prima di chiamare uno strumento** (il suo ragionamento: "Leggo il
+file per capire la struttura prima di scrivere…") viene emesso in tempo reale nell'event
+log con il prefisso 💭. In precedenza questo testo era invisibile; ora dà all'utente
+visibilità su **perché** l'agente sta per fare ciò che fa.
+
+**Come appare.**
+- Nel pannello *Event log* compaiono eventi `💭 Leggo il file per capire…` prima di ogni
+  `read foo.ts`, `write bar.ts`, `Notion ← "…"`.
+- Gli eventi di azione successivi restano invariati.
+
+**Dettagli tecnici.**
+- Nuova funzione pura `collectStream(stream, onText): Promise<StreamResult>` — drena un
+  `AsyncGenerator<GenerateContentResponse>` accumulando `text`, `functionCalls[]` e
+  `tokens` (dal campo `usageMetadata`). Pura = testabile senza mock del client Gemini.
+- `generateWithRetryStream(params, onText, onRetry)` avvolge `generateContentStream` con
+  la stessa logica di retry/backoff già usata per le chiamate non in streaming.
+- In `agent.ts`, il loop sostituisce `generateWithRetry` con `generateWithRetryStream`;
+  accumula il testo del modello in `thinking` e, se non vuoto, emette un evento INFO
+  `💭 <testo>` prima di dispatching le tool call.
+- **Test**: 5 nuovi test su `collectStream` (ora **23 test** lato server).
+
+**File toccati.** `server/src/gemini.ts`, `server/src/gemini.test.ts`, `server/src/agent.ts`
+
+---
+
+## 8. 🎭 Ruoli specializzati — *questo giro*
 
 **Cosa fa.** Ogni agente può ora assumere un **ruolo specifico** che adatta il suo
 prompt di sistema, così lo stesso modello si comporta diversamente a seconda del
@@ -187,7 +216,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 18 test attesi
+npm --prefix server test      # 23 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start
@@ -203,6 +232,8 @@ Prove manuali consigliate:
   “Linee guida del progetto caricate” e ne segue le regole.
 - **Ruoli**: cambia il ruolo di un agente in Revisore → assegna un task di review →
   verifica che non modifichi file di codice ma scriva osservazioni su Notion.
+- **Streaming**: con runtime attivo e chiave Gemini, assegna un task → nell'event log
+  appaiono eventi 💭 con il ragionamento del modello prima di ogni tool call.
 
 ---
 

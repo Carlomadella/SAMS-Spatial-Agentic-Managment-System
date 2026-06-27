@@ -55,7 +55,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Libreria di istruzioni pronte** — 12 template categorizzati (Notion / Codice / Documentazione / Contenuti / Manutenzione) nell'inspector; riempiono titolo+branch e selezionano il primo segnaposto da editare.
 - [ ] 💡 **Onboarding guidato** al primo avvio (repo + key + spawn agenti).
 - [x] ✅ **Meter di utilizzo/token** — token Gemini per task (TasksPanel) + totale cumulativo nella StatusBar.
-- [ ] 💡 **Output in streaming** nell'event log.
+- [x] ✅ **Output in streaming** nell'event log — l'agente emette il testo di ragionamento del modello (💭) prima di ogni chiamata a strumento.
 - [ ] 💡 **Layout responsive/mobile** e accessibilità (keyboard nav, label sul 3D).
 
 ## 🌿 Commit Garden
@@ -88,6 +88,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Memoria di progetto: l'agente legge le linee guida del repo e le rispetta.
 - [x] ✅ Notion `notion_read`: l'agente legge una pagina prima di scrivere (no duplicati).
 - [x] ✅ Ruoli specializzati: Generalist · Revisore · Tester · Documentatore · Architetto — selettore nell'inspector, prompt role-aware nel runtime.
+- [x] ✅ Output in streaming: l'agente usa `generateContentStream` e mostra il testo di ragionamento (💭) nell'event log prima di ogni chiamata a strumento.
 
 ---
 
@@ -144,6 +145,14 @@ verificabili con build/test, dato che non posso aprire il browser).
   pagina (per titolo, con paginazione dei blocchi). Il prompt ora istruisce l'agente a
   **leggere prima di scrivere** per evitare duplicati / aggiornare contenuti esistenti.
   Aggiunte `readPageByTitle` + `blockPlainText` in `notion.ts`. (12 test, typecheck ✓.)
+
+### 2026-06-27 — implementazione (giro 7)
+- ✅ **Output in streaming**: il loop dell'agente usa ora `generateContentStream` invece di
+  `generateContent`. Il testo che il modello emette _prima_ di chiamare uno strumento (il suo
+  ragionamento: "Leggo il file per capire la struttura…") viene mostrato nell'event log con il
+  prefisso 💭. Estratta la funzione pura `collectStream` (prende un `AsyncGenerator` e lo drena
+  in `{text, functionCalls, tokens}`), testabile senza mock del client. 5 nuovi test
+  (ora **23 test** lato server).
 
 ### 2026-06-27 — implementazione (giro 6)
 - ✅ **Ruoli specializzati**: ogni agente ora ha un **selettore di ruolo** nell'inspector

@@ -1,5 +1,5 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
-import { geminiModel, generateWithRetry, usageTokens } from "./gemini";
+import { geminiModel, generateWithRetryStream } from "./gemini";
 import { getSettings } from "./config";
 import { createBranch, createPullRequest, listFiles, readFile, writeFile } from "./github";
 import { appendTaskLog, appendToPageByTitle, notionConfigured, readPageByTitle } from "./notion";
@@ -175,22 +175,28 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
 
   for (let step = 0; step < 14; step++) {
-    const resp = await generateWithRetry(
+    let thinking = "";
+    const resp = await generateWithRetryStream(
       {
         model: geminiModel(),
         contents,
         config: { systemInstruction: system, tools: [{ functionDeclarations: decls }], temperature: 0.4 },
       },
+      (chunk) => { thinking += chunk; },
       (n, waitMs) =>
         emit({ agentId, agentName, level: "WARN", message: `Gemini occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
-    totalTokens += usageTokens(resp);
+    totalTokens += resp.tokens;
 
-    const calls = resp.functionCalls ?? [];
+    const calls = resp.functionCalls;
     if (calls.length === 0) {
-      doneSummary = resp.text ?? "";
+      doneSummary = resp.text;
       break;
     }
+
+    // Show reasoning text emitted by the model before it calls a tool
+    const thought = thinking.trim();
+    if (thought) emit({ agentId, agentName, level: "INFO", message: `💭 ${truncate(thought, 200)}` });
 
     contents.push({ role: "model", parts: calls.map((c) => ({ functionCall: c })) });
 
