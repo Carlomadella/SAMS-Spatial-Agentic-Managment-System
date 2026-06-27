@@ -35,11 +35,11 @@ collega.
 
 ## 🎯 Le 3 scommesse (in ordine di esecuzione)
 
-| # | Scommessa | Perché | Effort |
-|---|-----------|--------|--------|
-| 1 | **Fondamenta dati + sicurezza** — SQLite + test sullo store | Abilitatore nascosto (storico, metriche, multi-utente) e rete di sicurezza sulla logica più delicata | 🟡 |
-| 2 | **Fiducia** — diff preview in-app + `run_tests` reali + gate CI | Senza fiducia resta una demo; con essa diventa usabile su repo veri | 🟡 |
-| 3 | **Autonomia** — Live simulation mode | Trasforma il prodotto dal claim alla realtà; richiede #1 e #2 come base | 🔴 |
+| # | Scommessa | Perché | Effort | Stato |
+|---|-----------|--------|--------|-------|
+| 1 | **Fondamenta dati + sicurezza** — SQLite + test sullo store | Abilitatore nascosto (storico, metriche, multi-utente) e rete di sicurezza sulla logica più delicata | 🟡 | 🏗️ test fatti; SQLite da fare |
+| 2 | **Fiducia** — diff preview in-app + `run_tests` reali + gate CI | Senza fiducia resta una demo; con essa diventa usabile su repo veri | 🟡 | 💡 |
+| 3 | **Autonomia** — Live simulation mode | Trasforma il prodotto dal claim alla realtà; richiede #1 e #2 come base | 🔴 | 💡 |
 
 > Sequenza voluta: prima le fondamenta (#1), poi la fiducia (#2), infine
 > l'autonomia (#3) che ha bisogno di entrambe.
@@ -72,12 +72,13 @@ collega.
       "mentale" via prompt: l'agente *dice* di aver controllato i test).
 - [ ] 💡 **Gate su CI** — non aprire/mergiare finché GitHub Actions non è verde (i tool
       `gh_list_ci` ci sono già; manca il loop che li usa per decidere).
-- [ ] 💡 **Segnalare il troncamento del loop** — quando l'agente esaurisce i `MAX_STEPS`
-      senza chiamare `done`, dirlo all'utente invece di concludere in silenzio.
+- [x] ✅ **Segnalare il troncamento del loop** — quando l'agente esaurisce i `MAX_STEPS`
+      senza chiamare `done`, emette un WARN esplicito invece di concludere in silenzio.
 
 ## 🔌 Strumenti & integrazioni
-- [ ] 🔜 **Retry/backoff centralizzato** in `http.ts` (onorando `Retry-After`) per i loop
-      di scrittura/lettura Notion e le chiamate GitHub rate-limited.
+- [x] ✅ **Retry/backoff centralizzato** in `http.ts` (onora `Retry-After`) per i metodi
+      idempotenti (GET/HEAD); POST/PATCH/PUT non vengono ritentati per non duplicare
+      scritture. _Resta da fare:_ commit multi-file atomico (sotto).
 - [ ] 💡 **Commit multi-file atomico** via Git Data API (tree+commit) invece di N PUT
       sequenziali sull'endpoint Contents (evita commit parziali e conflitti di `sha`).
 - [ ] 💡 **GitHub: merge / è-mergeabile / stato check** come strumenti agente.
@@ -121,8 +122,10 @@ collega.
 - [ ] 💡 **Marketplace di "template agente"** (ruolo + istruzioni + modello) condivisibili.
 
 ## 🛠️ Solidità & produzione (engineering)
-- [ ] 🏗️ **Test frontend** (scommessa #1) — Vitest + @testing-library/react su store
-      (`applyRemote`, coda, relay) e sui bridge. Oggi il frontend ha solo gli smoke e2e.
+- [x] ✅ **Test frontend** (scommessa #1) — Vitest + jsdom: 37 test su store
+      (`applyRemote`, coda, relay, lifecycle), orchestrazione (relay/idle/coda, estratta
+      in `lib/orchestration.ts`), `zoneForTitle`/`clampToRoom` e `isValidRepo`. La logica
+      dei bridge è ora in helper puri testati. _Manca:_ test di rendering dei componenti.
 - [ ] 🔜 **Persistenza su SQLite** (scommessa #1) — settings, stato garden ed eventi su
       DB locale (better-sqlite3) invece di JSON + Map in memoria; sopravvive ai restart.
 - [ ] 💡 **Auth opzionale sul runtime** — header con token locale per le route mutanti;
@@ -133,8 +136,10 @@ collega.
       lingua di default.
 
 ## ♿ UX / Accessibilità
-- [ ] 💡 **Navigazione da tastiera nel 3D** — selezione/azione agenti senza mouse, label
-      ARIA sugli elementi interattivi.
+- [ ] 🏗️ **Accessibilità** — ✅ nomi accessibili (aria-label/aria-pressed) sui pulsanti
+      icona-only di TitleBar/ActivityBar/Toaster/modali + toast in live region. _Manca:_
+      navigazione da tastiera nel 3D e il resto degli elementi interattivi.
+      (`eslint-plugin-jsx-a11y` non installabile finché non supporta ESLint 10.)
 - [ ] 💡 **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
       l'onboarding spiega i *concetti*, non l'*UI*.
 - [ ] 💡 **Mobile usabile** — sotto i 768px i pannelli collassano ma scena+inspector non
@@ -149,6 +154,21 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-27 — implementazione (giro 1 della Roadmap 2)
+Avviata l'esecuzione in ordine di priorità, a piccoli incrementi committati.
+- ✅ **Test frontend** (scommessa #1): Vitest + jsdom, suite da 0 a 37 test
+  (store, orchestrazione, world, validation). Logica dei bridge estratta in
+  `lib/orchestration.ts` (relay-matching, idle/coda) e testata.
+- ✅ **Troncamento del loop**: WARN esplicito quando si esauriscono i `MAX_STEPS`.
+- ✅ **Retry/backoff** in `http.ts` su GET/HEAD (onora `Retry-After`); POST non
+  ritentati per non duplicare scritture.
+- ✅ **Dispatcher `executeTool`** coperto da test (done/plan/relay/web_fetch/…).
+- ✅ **A11y**: nomi accessibili sui controlli icona-only + toast in live region.
+- ✅ **Validazione `owner/repo`** nel form impostazioni con hint inline.
+- Test totali: **96+** (62 server, 37 frontend). `eslint .` pulito, build verde.
+- 🔜 **Prossimo**: SQLite (scommessa #1, persistenza), poi diff preview reale
+  (scommessa #2). Sono i due item più grandi: da affrontare con cura e test.
 
 ### 2026-06-27 — brainstorming approfondito + riorganizzazione
 Sessione di brainstorming sull'evoluzione del prodotto, partendo da ciò che è
