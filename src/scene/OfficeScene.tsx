@@ -377,6 +377,8 @@ function SceneContents() {
 
 /** Gently shifts the OrbitControls target to stay near the selected agent when it walks. */
 function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: THREE.Vector3; update(): void } | null> }) {
+  // Scratch vector reused every frame — never allocate inside useFrame.
+  const agentVec = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     const controls = controlsRef.current;
     if (!controls) return;
@@ -385,7 +387,7 @@ function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: 
     const agent = agents.find((a) => a.id === selectedAgentId);
     if (!agent) return;
     const dest = agent.target ?? agent.position;
-    const agentVec = new THREE.Vector3(dest[0], 0.8, dest[1]);
+    agentVec.set(dest[0], 0.8, dest[1]);
     // Only nudge when the agent has moved significantly away from the camera target —
     // this way manual orbiting stays stable while walking is gently tracked.
     if (controls.target.distanceTo(agentVec) > 2) {
