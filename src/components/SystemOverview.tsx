@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useStore } from "../store/useStore";
 import { ROOM, ROOM_DEPTH, ROOM_WIDTH, ZONES } from "../data/world";
 import { AGENT_HEX } from "../types";
 import { cn } from "../lib/utils";
+import { fetchMetrics, type RuntimeMetrics } from "../lib/backend";
 
 function toPct(x: number, z: number) {
   return {
@@ -10,12 +12,36 @@ function toPct(x: number, z: number) {
   };
 }
 
+function fmtUptime(s: number): string {
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
+}
+
 export function SystemOverview() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const selectAgent = useStore((s) => s.selectAgent);
+  const backendOnline = useStore((s) => s.backendOnline);
 
   const active = agents.filter((a) => a.status !== "idle").length;
+
+  // Poll runtime metrics while the backend is online (defensive: ignore failures).
+  const [metrics, setMetrics] = useState<RuntimeMetrics | null>(null);
+  useEffect(() => {
+    if (!backendOnline) {
+      setMetrics(null);
+      return;
+    }
+    let alive = true;
+    const tick = () => void fetchMetrics().then((m) => alive && setMetrics(m));
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [backendOnline]);
 
   return (
     <div className="border-b border-line p-3">
@@ -51,6 +77,7 @@ export function SystemOverview() {
             <button
               key={a.id}
               title={a.name}
+              aria-label={`Seleziona ${a.name}`}
               onClick={() => selectAgent(a.id)}
               className={cn(
                 "absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 transition-transform hover:scale-125",
@@ -69,6 +96,14 @@ export function SystemOverview() {
         </span>
         <span className="font-mono">100%</span>
       </div>
+
+      {metrics && (
+        <div className="mt-1.5 flex items-center justify-between font-mono text-[10px] text-mut">
+          <span title="Task completati / avviati">✔ {metrics.tasksCompleted}/{metrics.tasksStarted}</span>
+          <span title="Errori" className={cn(metrics.errors > 0 && "text-rose-400")}>⚠ {metrics.errors}</span>
+          <span title="Uptime runtime">↑ {fmtUptime(metrics.uptimeSec)}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -58,6 +58,26 @@ export interface SettingsInput {
   notionPageId?: string;
 }
 
+export interface RuntimeMetrics {
+  events: number;
+  tasksStarted: number;
+  tasksCompleted: number;
+  errors: number;
+  uptimeSec: number;
+  clients: number;
+}
+
+/** Read the runtime's in-memory metrics (null if the runtime is unreachable). */
+export async function fetchMetrics(): Promise<RuntimeMetrics | null> {
+  try {
+    const res = await fetch(`${BASE}/api/metrics`);
+    if (!res.ok) return null;
+    return (await res.json()) as RuntimeMetrics;
+  } catch {
+    return null;
+  }
+}
+
 /** Read the runtime status (which keys are set, whether agents are provisioned). */
 export async function fetchStatus(): Promise<RuntimeStatus | null> {
   try {
