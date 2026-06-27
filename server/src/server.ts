@@ -3,6 +3,7 @@ import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch 
 import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
+import { runGroqTask } from "./groq";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
 import type { AssignBody, WireEvent } from "./types";
@@ -43,7 +44,8 @@ app.get("/api/status", (_req: Request, res: Response) => {
 app.post("/api/settings", (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
-  if (body.provider === "gemini" || body.provider === "claude") patch.provider = body.provider;
+  if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq") patch.provider = body.provider;
+  if (typeof body.groqApiKey === "string" && body.groqApiKey.trim()) patch.groqApiKey = body.groqApiKey.trim();
   if (typeof body.geminiApiKey === "string" && body.geminiApiKey.trim()) patch.geminiApiKey = body.geminiApiKey.trim();
   if (typeof body.anthropicApiKey === "string" && body.anthropicApiKey.trim()) patch.anthropicApiKey = body.anthropicApiKey.trim();
   if (typeof body.githubToken === "string" && body.githubToken.trim()) patch.githubToken = body.githubToken.trim();
@@ -107,7 +109,8 @@ app.post("/api/assign", (req: Request, res: Response) => {
   }
   res.json({ ok: true });
 
-  const runner = getSettings().provider === "gemini" ? runGeminiTask : runTask;
+  const { provider } = getSettings();
+  const runner = provider === "gemini" ? runGeminiTask : provider === "groq" ? runGroqTask : runTask;
   runner(body, broadcast).catch((err: unknown) => {
     broadcast({
       agentId: body.agentId,

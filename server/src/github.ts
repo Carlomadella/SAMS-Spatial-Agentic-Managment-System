@@ -108,3 +108,15 @@ export async function createPullRequest(args: {
     body: JSON.stringify({ title: args.title, head: args.branch, base: s.baseBranch, body: args.body }),
   })) as PullRequest;
 }
+
+/** Create a GitHub issue. Returns its number and URL. */
+export async function createIssue(
+  title: string,
+  body: string,
+  labels?: string[],
+): Promise<{ number: number; html_url: string }> {
+  return (await gh(`/issues`, {
+    method: "POST",
+    body: JSON.stringify({ title, body, labels: labels ?? [] }),
+  })) as { number: number; html_url: string };
+}

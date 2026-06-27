@@ -20,12 +20,13 @@ export interface RemoteUpdate {
   tokens?: number;
 }
 
-export type Provider = "gemini" | "claude";
+export type Provider = "gemini" | "claude" | "groq";
 
 export interface RuntimeStatus {
   provider: Provider;
   hasGeminiKey: boolean;
   hasAnthropicKey: boolean;
+  hasGroqKey: boolean;
   hasGithubToken: boolean;
   provisioned: boolean;
   ready: boolean;
@@ -42,6 +43,7 @@ export interface SettingsInput {
   provider?: Provider;
   geminiApiKey?: string;
   anthropicApiKey?: string;
+  groqApiKey?: string;
   githubToken?: string;
   githubRepo?: string;
   baseBranch?: string;

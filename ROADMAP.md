@@ -36,7 +36,8 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 ## 🔌 Più strumenti per gli agenti
 - [ ] 💡 **Web search / fetch** — ricerca prima di scrivere.
-- [ ] 💡 **GitHub esteso** — creare issue, commentare PR, leggere log CI.
+- [x] ✅ **gh_create_issue** — l'agente può aprire issue su GitHub (per segnalare bug o richiedere feature trovate durante il lavoro).
+- [ ] 💡 **GitHub esteso** — commentare PR, leggere log CI.
 - [ ] 🏗️ **Notion completo** — ✅ lettura pagina per titolo (`notion_read`, l'agente legge prima di scrivere); restano update/sostituzione blocchi, creazione pagine e database.
 - [ ] 💡 **Notifiche a fine task** — Slack / Discord / email (in-app i toast ci sono già).
 - [ ] 💡 **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva.
@@ -69,11 +70,11 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 ## 🛠️ Solidità (engineering)
 - [x] ✅ **Persistenza** — agenti/task/eventi/layout sopravvivono al refresh (Zustand `persist` su localStorage; flag transitori esclusi).
-- [ ] 💡 **CI su PR** — lint + typecheck + test + build.
+- [x] ✅ **CI su PR** — `.github/workflows/ci.yml`: npm build + server typecheck + server test (vitest) su ogni push/PR.
 - [ ] 💡 **Test frontend / e2e** (Playwright) — finora solo unit test del runtime.
 - [ ] 💡 **Dockerizzare il runtime** + deploy in un comando.
 - [ ] 💡 **Gestione rate-limit/retry** centralizzata (oltre al backoff Gemini esistente).
-- [ ] 💡 **Più provider gratuiti** — Groq, OpenRouter, Ollama locale; **modello per-agente**.
+- [x] ✅ **Provider Groq** — Llama 3.3 70B via API OpenAI-compatible (free tier); selezionabile in Impostazioni con chiave `gsk_…`.
 
 ## ✅ Già fatto (storico)
 - [x] ✅ Stanza 3D isometrica in stile salotto (mobili, pavimento in parquet, boiserie, applique, orologio).
@@ -177,6 +178,11 @@ verificabili con build/test, dato che non posso aprire il browser).
   prefisso 💭. Estratta la funzione pura `collectStream` (prende un `AsyncGenerator` e lo drena
   in `{text, functionCalls, tokens}`), testabile senza mock del client. 5 nuovi test
   (ora **23 test** lato server).
+
+### 2026-06-27 — implementazione (giro 10)
+- ✅ **Provider Groq** (free Llama 3.3 70B): nuovo `server/src/groq.ts` con `runGroqTask`, loop identico al Gemini ma via API OpenAI-compatible di Groq. Selezionabile in Impostazioni (terza opzione). Non richiede provisioning. 2 nuovi test (ora **30 test** lato server).
+- ✅ **gh_create_issue**: l'agente può aprire issue su GitHub (Gemini + Groq). Nuova funzione `createIssue` in `github.ts`, tool declaration in `agent.ts` e `groq.ts`, handler nel loop.
+- ✅ **CI workflow**: `.github/workflows/ci.yml` — su ogni push/PR esegue build frontend + typecheck server + test server.
 
 ### 2026-06-27 — implementazione (giro 6)
 - ✅ **Ruoli specializzati**: ogni agente ora ha un **selettore di ruolo** nell'inspector

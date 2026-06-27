@@ -14,6 +14,7 @@ import { cn } from "../lib/utils";
 const MODELS: Record<Provider, string[]> = {
   gemini: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"],
   claude: ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
+  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
 };
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
@@ -34,6 +35,7 @@ export function SettingsModal() {
   const [provider, setProvider] = useState<Provider>("gemini");
   const [geminiApiKey, setGeminiKey] = useState("");
   const [anthropicApiKey, setAnthropicKey] = useState("");
+  const [groqApiKey, setGroqKey] = useState("");
   const [githubToken, setGithubToken] = useState("");
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("main");
@@ -81,6 +83,7 @@ export function SettingsModal() {
       const patch: SettingsInput = { provider, githubRepo: repo, baseBranch: branch, model, notionPageId };
       if (provider === "gemini" && geminiApiKey.trim()) patch.geminiApiKey = geminiApiKey.trim();
       if (provider === "claude" && anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
+      if (provider === "groq" && groqApiKey.trim()) patch.groqApiKey = groqApiKey.trim();
       if (githubToken.trim()) patch.githubToken = githubToken.trim();
       if (notionToken.trim()) patch.notionToken = notionToken.trim();
       const st = await saveSettings(patch);
@@ -88,6 +91,7 @@ export function SettingsModal() {
       useStore.getState().setRuntimeReady(st.ready);
       setGeminiKey("");
       setAnthropicKey("");
+      setGroqKey("");
       setGithubToken("");
       setNotionToken("");
       setMsg({ kind: "ok", text: "Impostazioni salvate." });
@@ -116,7 +120,9 @@ export function SettingsModal() {
   const keyChip =
     provider === "gemini"
       ? { ok: !!status?.hasGeminiKey, label: "Gemini key" }
-      : { ok: !!status?.hasAnthropicKey, label: "Anthropic key" };
+      : provider === "groq"
+        ? { ok: !!status?.hasGroqKey, label: "Groq key" }
+        : { ok: !!status?.hasAnthropicKey, label: "Anthropic key" };
 
   return (
     <div
@@ -153,6 +159,7 @@ export function SettingsModal() {
               className="settings-input"
             >
               <option value="gemini" className="bg-ink-800">Gemini — Google (free tier)</option>
+              <option value="groq" className="bg-ink-800">Groq — Llama 3.3 70B (free tier)</option>
               <option value="claude" className="bg-ink-800">Claude — Anthropic (a pagamento)</option>
             </select>
           </Field>
@@ -164,6 +171,16 @@ export function SettingsModal() {
                 value={geminiApiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 placeholder={status?.hasGeminiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "AIza…  (aistudio.google.com)"}
+                className="settings-input"
+              />
+            </Field>
+          ) : provider === "groq" ? (
+            <Field label="Groq API key" icon={KeyRound}>
+              <input
+                type="password"
+                value={groqApiKey}
+                onChange={(e) => setGroqKey(e.target.value)}
+                placeholder={status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
                 className="settings-input"
               />
             </Field>
@@ -263,7 +280,9 @@ export function SettingsModal() {
               {status?.provisioned ? "Re-provisiona" : "Provisiona agenti"}
             </button>
           ) : (
-            <span className="text-[11px] text-mut">Con Gemini sei pronto subito dopo <strong>Salva</strong>.</span>
+            <span className="text-[11px] text-mut">
+              {provider === "groq" ? "Con Groq sei pronto subito dopo" : "Con Gemini sei pronto subito dopo"} <strong>Salva</strong>.
+            </span>
           )}
         </div>
       </div>

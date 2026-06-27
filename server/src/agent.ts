@@ -1,7 +1,7 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
 import { getSettings } from "./config";
-import { createBranch, createPullRequest, listFiles, readFile, writeFile } from "./github";
+import { createBranch, createIssue, createPullRequest, listFiles, readFile, writeFile } from "./github";
 import { appendTaskLog, appendToPageByTitle, notionConfigured, readPageByTitle } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -25,7 +25,7 @@ function str(v: unknown): string {
 const GUIDE_FILES = ["AGENTS.md", "CONVENTIONS.md", ".sams/guide.md", "SAMS_GUIDE.md"];
 
 /** Read the first project-guide file that exists on the base branch ("" if none). */
-async function loadProjectGuide(baseBranch: string): Promise<string> {
+export async function loadProjectGuide(baseBranch: string): Promise<string> {
   for (const f of GUIDE_FILES) {
     try {
       const c = await readFile(f, baseBranch);
@@ -130,6 +130,19 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           required: ["path", "content"],
         },
       },
+      {
+        name: "gh_create_issue",
+        description: "Apre una issue su GitHub (per segnalare bug, richiedere feature o documentare un problema trovato).",
+        parametersJsonSchema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            body: { type: "string" },
+            labels: { type: "array", items: { type: "string" } },
+          },
+          required: ["title", "body"],
+        },
+      },
     );
   }
   if (notionEnabled) {
@@ -227,6 +240,14 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           await writeFile(str(args.path), str(args.content), branch, str(args.message) || `SAMS: ${truncate(title, 60)}`);
           wroteFiles = true;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${str(args.path)}` });
+        } else if (name === "gh_create_issue") {
+          const issue = await createIssue(
+            str(args.title),
+            str(args.body),
+            Array.isArray(args.labels) ? (args.labels as string[]) : [],
+          );
+          result = `Issue #${issue.number}: ${issue.html_url}`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Issue #${issue.number} aperta` });
         } else if (name === "notion_read") {
           const { title: resolved, text } = await readPageByTitle(str(args.page_title));
           result = text;

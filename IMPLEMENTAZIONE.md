@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 28 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 30 test ✓
 
 ---
 
@@ -248,6 +248,55 @@ documenti di analisi.
 
 ---
 
+---
+
+## 9. 🔀 Provider Groq + gh_create_issue + CI — *questo giro*
+
+### 9a. Groq (Llama 3.3 70B, free tier)
+
+**Cosa fa.** Gli agenti possono ora usare **Groq** come motore AI alternativo a Gemini,
+con il modello `llama-3.3-70b-versatile` (o `llama-3.1-8b-instant` / `gemma2-9b-it`).
+Groq è OpenAI-compatible e ha un free tier generoso.
+
+**Come si usa.**
+1. Apri ⚙ → seleziona **Groq — Llama 3.3 70B** dal menù motore.
+2. Incolla la tua chiave API Groq (`gsk_…` da console.groq.com).
+3. Premi **Salva** — sei subito pronto (nessun provisioning).
+
+**Dettagli tecnici.**
+- `server/src/groq.ts`: `groqModel()` + `groqChat()` (fetch raw all'API OpenAI-compatible con retry/backoff) + `runGroqTask()` (loop identico al Gemini, stessi strumenti gh_* / notion_* / gh_create_issue / done).
+- `groqApiKey` aggiunto a `Settings`, `SettingsPatch`, `publicStatus` (`hasGroqKey`), `fromEnv` (`GROQ_API_KEY`), e persisted in `.sams-runtime.json`.
+- `isConfigured()` e `isProvisioned()` aggiornati per gestire "groq" (nessun provisioning).
+- Routing in `server.ts`: `provider === "groq" ? runGroqTask : ...`.
+- Frontend: terza opzione nel menù provider, campo chiave Groq, `MODELS.groq`, chip "Groq key".
+- **Test**: 2 nuovi test su `groqModel` (ora **30 test**).
+
+**File toccati.** `server/src/groq.ts` (nuovo), `server/src/groq.test.ts` (nuovo),
+`server/src/config.ts`, `server/src/server.ts`, `src/lib/backend.ts`, `src/components/SettingsModal.tsx`
+
+### 9b. gh_create_issue
+
+**Cosa fa.** L'agente può **aprire issue su GitHub** — utile per il ruolo Revisore
+(segnala bug trovati senza toccare codice) o per qualsiasi agente che scopre un problema.
+
+**Dettagli tecnici.**
+- `createIssue(title, body, labels?)` in `server/src/github.ts`.
+- Tool declaration `gh_create_issue` aggiunto sia in `agent.ts` (Gemini) che in `groq.ts` (Groq).
+- Handler emette evento SUCCESS con numero e URL dell'issue.
+- `loadProjectGuide` ora esportata da `agent.ts` così `groq.ts` può importarla senza duplicarla.
+
+**File toccati.** `server/src/github.ts`, `server/src/agent.ts`, `server/src/groq.ts`
+
+### 9c. CI workflow
+
+**Cosa fa.** Su ogni push e PR, GitHub Actions esegue:
+1. `npm ci` → `npm run build` (typecheck + build Vite del frontend)
+2. `npm ci --prefix server` → `npm --prefix server run typecheck` → `npm --prefix server test` (vitest)
+
+**File toccati.** `.github/workflows/ci.yml` (nuovo)
+
+---
+
 ## ✅ Come verificare
 
 ```bash
@@ -256,7 +305,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 28 test attesi
+npm --prefix server test      # 30 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start

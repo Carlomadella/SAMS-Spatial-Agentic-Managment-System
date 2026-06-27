@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import "dotenv/config";
 
-export type Provider = "gemini" | "claude";
+export type Provider = "gemini" | "claude" | "groq";
 
 /**
  * Runtime settings. Defaults come from the environment (.env), but the SAMS UI
@@ -14,6 +14,7 @@ export interface Settings {
   // engine keys
   geminiApiKey: string;
   anthropicApiKey: string;
+  groqApiKey: string;
   // github
   githubToken: string;
   githubRepo: string;
@@ -36,6 +37,7 @@ function fromEnv(): Settings {
     provider: (process.env.SAMS_PROVIDER as Provider) || "gemini",
     geminiApiKey: process.env.GEMINI_API_KEY ?? "",
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+    groqApiKey: process.env.GROQ_API_KEY ?? "",
     githubToken: process.env.GITHUB_TOKEN ?? "",
     githubRepo: process.env.GITHUB_REPO ?? "Carlomadella/Tutto-sulla-programmazione",
     baseBranch: process.env.GITHUB_BASE_BRANCH ?? "main",
@@ -67,6 +69,7 @@ function persist(): void {
     provider: s.provider,
     geminiApiKey: s.geminiApiKey,
     anthropicApiKey: s.anthropicApiKey,
+    groqApiKey: s.groqApiKey,
     githubToken: s.githubToken,
     githubRepo: s.githubRepo,
     baseBranch: s.baseBranch,
@@ -91,6 +94,7 @@ export type SettingsPatch = Partial<
     | "provider"
     | "geminiApiKey"
     | "anthropicApiKey"
+    | "groqApiKey"
     | "githubToken"
     | "githubRepo"
     | "baseBranch"
@@ -116,13 +120,15 @@ export function setProvision(ids: { agentId: string; environmentId: string }): S
 
 export function isConfigured(): boolean {
   const s = getSettings();
-  return s.provider === "gemini" ? s.geminiApiKey.length > 0 : s.anthropicApiKey.length > 0;
+  if (s.provider === "gemini") return s.geminiApiKey.length > 0;
+  if (s.provider === "groq") return s.groqApiKey.length > 0;
+  return s.anthropicApiKey.length > 0;
 }
 
 export function isProvisioned(): boolean {
   const s = getSettings();
-  // Gemini is a self-hosted loop — no provisioning step.
-  if (s.provider === "gemini") return true;
+  // Gemini and Groq are self-hosted loops — no provisioning step.
+  if (s.provider === "gemini" || s.provider === "groq") return true;
   return s.agentId.length > 0 && s.environmentId.length > 0;
 }
 
@@ -137,6 +143,7 @@ export function publicStatus() {
     provider: s.provider,
     hasGeminiKey: s.geminiApiKey.length > 0,
     hasAnthropicKey: s.anthropicApiKey.length > 0,
+    hasGroqKey: s.groqApiKey.length > 0,
     hasGithubToken: s.githubToken.length > 0,
     provisioned: isProvisioned(),
     ready: isReady(),
