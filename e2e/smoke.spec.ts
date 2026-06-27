@@ -23,17 +23,6 @@ test("onboarding wizard appears on first visit", async ({ page }) => {
   await expect(page.locator("text=Benvenuto in SAMS")).toBeVisible({ timeout: 10_000 });
 });
 
-test("settings modal opens and closes", async ({ page }) => {
-  // The settings cog is in TitleBar or reachable via RuntimeBanner.
-  // Command palette is the most reliable trigger.
-  await page.keyboard.press("Control+k");
-  const palette = page.locator("[placeholder*='Cerca comando']").or(
-    page.locator("input[placeholder*='Cerca']"),
-  );
-  // Dismiss with Escape — even if the palette didn't open, Escape is safe.
-  await page.keyboard.press("Escape");
-});
-
 test("command palette opens with Ctrl+K", async ({ page }) => {
   await page.keyboard.press("Control+k");
   // The command palette should show some input

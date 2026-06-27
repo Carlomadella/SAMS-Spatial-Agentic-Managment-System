@@ -101,12 +101,11 @@ app.get("/api/events", (req: Request, res: Response) => {
 
   // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
   // we must not rely on a throw — react to close/error and guard every write.
-  let heartbeat: ReturnType<typeof setInterval>;
-  const cleanup = () => {
+  function cleanup() {
     clearInterval(heartbeat);
     clients.delete(res);
-  };
-  heartbeat = setInterval(() => {
+  }
+  const heartbeat = setInterval(() => {
     if (res.writableEnded || res.destroyed) {
       cleanup();
       return;

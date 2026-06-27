@@ -579,8 +579,8 @@ export function GardenScene({
   const flowers = useMemo<Vec3[]>(
     () =>
       Array.from({ length: 22 }, () => {
-        let x = 0;
-        let z = 0;
+        let x: number;
+        let z: number;
         do {
           x = (Math.random() * 2 - 1) * 8.5;
           z = (Math.random() * 2 - 1) * 8.5;

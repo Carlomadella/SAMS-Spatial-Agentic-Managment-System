@@ -70,7 +70,7 @@ export function water(
     return { ...prev, thirsty: prev.lastWateredDate !== today, updatedAt: new Date().toISOString() };
   }
 
-  let streak = prev.streak;
+  let streak: number;
   if (!prev.lastWateredDate) streak = 1;
   else {
     const d = dayDiff(prev.lastWateredDate, today);

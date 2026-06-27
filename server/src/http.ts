@@ -27,9 +27,9 @@ export async function jsonFetch<T = unknown>(
   } catch (err) {
     const e = err as Error;
     if (e.name === "TimeoutError" || e.name === "AbortError") {
-      throw new Error(`${label}: timeout dopo ${Math.round(timeoutMs / 1000)}s`);
+      throw new Error(`${label}: timeout dopo ${Math.round(timeoutMs / 1000)}s`, { cause: err });
     }
-    throw new Error(`${label}: ${e.message}`);
+    throw new Error(`${label}: ${e.message}`, { cause: err });
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
