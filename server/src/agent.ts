@@ -2,6 +2,8 @@ import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
 import { getSettings } from "./config";
 import { createBranch, createIssue, createPullRequest, listFiles, readFile, writeFile } from "./github";
+import { setPending } from "./pendingBuffer";
+import type { PendingFile } from "./types";
 import { appendTaskLog, appendToPageByTitle, notionConfigured, readPageByTitle } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -99,6 +101,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const branch = body.branch?.trim() || makeBranch(agentName, title);
   const role = body.role?.trim() || "";
   const instructions = body.instructions?.trim() || "";
+  const requireApproval = s.requireApproval;
 
   emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
@@ -188,6 +191,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   let doneSummary = "";
   let progress = 10;
   let totalTokens = 0;
+  const stagedFiles: PendingFile[] = [];
 
   const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
 
@@ -232,14 +236,22 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           result = truncate(await readFile(str(args.path), s.baseBranch), 8000);
           emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}` });
         } else if (name === "gh_write_file") {
-          if (!branchReady) {
-            await createBranch(branch, s.baseBranch);
-            branchReady = true;
-            emit({ agentId, agentName, level: "INFO", message: `Branch ${branch} creato` });
+          const filePath = str(args.path);
+          const fileContent = str(args.content);
+          const fileMessage = str(args.message) || `SAMS: ${truncate(title, 60)}`;
+          if (requireApproval) {
+            stagedFiles.push({ path: filePath, content: fileContent, message: fileMessage });
+            emit({ agentId, agentName, progress, level: "INFO", message: `staged ${filePath}` });
+          } else {
+            if (!branchReady) {
+              await createBranch(branch, s.baseBranch);
+              branchReady = true;
+              emit({ agentId, agentName, level: "INFO", message: `Branch ${branch} creato` });
+            }
+            await writeFile(filePath, fileContent, branch, fileMessage);
+            wroteFiles = true;
+            emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${filePath}` });
           }
-          await writeFile(str(args.path), str(args.content), branch, str(args.message) || `SAMS: ${truncate(title, 60)}`);
-          wroteFiles = true;
-          emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${str(args.path)}` });
         } else if (name === "gh_create_issue") {
           const issue = await createIssue(
             str(args.title),
@@ -275,6 +287,24 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   }
 
   if (doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(doneSummary, 200) });
+
+  // When approval is required and the agent staged files, pause and wait for user action.
+  if (requireApproval && stagedFiles.length > 0) {
+    setPending(agentId, { branch, title, agentName, files: stagedFiles });
+    emit({
+      agentId, agentName,
+      status: "awaiting_approval",
+      progress: 100,
+      level: "WARN",
+      message: `${stagedFiles.length} file${stagedFiles.length > 1 ? " pronti" : " pronto"} — approva o rifiuta nel pannello`,
+      pendingFiles: stagedFiles,
+      tokens: totalTokens,
+    });
+    if (notionWrote && s.notionPageId) {
+      try { await appendTaskLog({ agentName, title, branch, repo: s.githubRepo }); } catch { /* best-effort */ }
+    }
+    return;
+  }
 
   const didSomething = wroteFiles || notionWrote;
   emit({

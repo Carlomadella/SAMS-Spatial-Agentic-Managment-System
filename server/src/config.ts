@@ -25,6 +25,7 @@ export interface Settings {
   // misc
   model: string;
   openPRs: boolean;
+  requireApproval: boolean;
   notionToken: string;
   notionPageId: string;
   port: number;
@@ -45,6 +46,7 @@ function fromEnv(): Settings {
     environmentId: process.env.SAMS_ENVIRONMENT_ID ?? "",
     model: process.env.SAMS_MODEL ?? "gemini-2.5-flash",
     openPRs: (process.env.SAMS_OPEN_PRS ?? "true") !== "false",
+    requireApproval: (process.env.SAMS_REQUIRE_APPROVAL ?? "false") !== "false",
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
     port: Number(process.env.PORT ?? 8787),
@@ -77,6 +79,7 @@ function persist(): void {
     environmentId: s.environmentId,
     model: s.model,
     openPRs: s.openPRs,
+    requireApproval: s.requireApproval,
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
   };
@@ -100,6 +103,7 @@ export type SettingsPatch = Partial<
     | "baseBranch"
     | "model"
     | "openPRs"
+    | "requireApproval"
     | "notionToken"
     | "notionPageId"
   >
@@ -151,6 +155,7 @@ export function publicStatus() {
     baseBranch: s.baseBranch,
     model: s.model,
     openPRs: s.openPRs,
+    requireApproval: s.requireApproval,
     hasNotionToken: s.notionToken.length > 0,
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,

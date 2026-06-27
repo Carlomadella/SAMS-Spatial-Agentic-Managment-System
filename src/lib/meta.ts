@@ -9,6 +9,7 @@ export const STATUS_META: Record<
   review: { label: "In Review", text: "text-amber-300", dot: "bg-amber-400", ring: "ring-amber-500/40" },
   blocked: { label: "Blocked", text: "text-rose-300", dot: "bg-rose-400", ring: "ring-rose-500/40" },
   done: { label: "Done", text: "text-emerald-300", dot: "bg-emerald-400", ring: "ring-emerald-500/40" },
+  awaiting_approval: { label: "Awaiting Approval", text: "text-violet-300", dot: "bg-violet-400", ring: "ring-violet-500/40" },
 };
 
 export const LEVEL_META: Record<LogLevel, { text: string; label: string; badge: string }> = {

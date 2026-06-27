@@ -13,6 +13,7 @@ const STATUS_HEX: Record<AgentStatus, string> = {
   review: "#fbbf24",
   blocked: "#fb7185",
   done: "#34d399",
+  awaiting_approval: "#a78bfa",
 };
 
 const SPEED = 2.7; // world units / second

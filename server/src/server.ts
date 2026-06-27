@@ -4,6 +4,8 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
+import { createBranch, createPullRequest, writeFile } from "./github";
+import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
 import type { AssignBody, WireEvent } from "./types";
@@ -53,6 +55,7 @@ app.post("/api/settings", (req: Request, res: Response) => {
   if (typeof body.baseBranch === "string" && body.baseBranch.trim()) patch.baseBranch = body.baseBranch.trim();
   if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
   if (typeof body.openPRs === "boolean") patch.openPRs = body.openPRs;
+  if (typeof body.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
   if (typeof body.notionToken === "string" && body.notionToken.trim()) patch.notionToken = body.notionToken.trim();
   if (typeof body.notionPageId === "string") patch.notionPageId = body.notionPageId.trim();
   updateSettings(patch);
@@ -120,6 +123,48 @@ app.post("/api/assign", (req: Request, res: Response) => {
       message: `Errore: ${err instanceof Error ? err.message : String(err)}`,
     });
   });
+});
+
+/** Approve staged files: create branch, commit each file, optionally open a PR. */
+app.post("/api/approve/:agentId", async (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  const work = getPending(agentId);
+  if (!work) {
+    res.status(404).json({ error: "Nessun file in attesa per questo agente" });
+    return;
+  }
+  clearPending(agentId);
+  res.json({ ok: true }); // respond immediately; commit happens in background
+
+  const s = getSettings();
+  const agentName = work.agentName;
+  try {
+    await createBranch(work.branch, s.baseBranch);
+    broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
+    for (const f of work.files) {
+      await writeFile(f.path, f.content, work.branch, f.message);
+      broadcast({ agentId, agentName, level: "SUCCESS", message: `write ${f.path}` });
+    }
+    if (s.openPRs) {
+      const pr = await createPullRequest({
+        branch: work.branch,
+        title: work.title,
+        body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${work.title}\n\n_Branch \`${work.branch}\` → \`${s.baseBranch}\`._`,
+      });
+      broadcast({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
+    }
+    broadcast({ agentId, agentName, status: "review", progress: 100, level: "SUCCESS", message: "Lavoro completato" });
+  } catch (err) {
+    broadcast({ agentId, agentName, status: "blocked", level: "ERROR", message: `Commit fallito: ${(err as Error).message}` });
+  }
+});
+
+/** Reject staged files: discard buffer, agent returns to idle. */
+app.post("/api/reject/:agentId", (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  clearPending(agentId);
+  broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
+  res.json({ ok: true });
 });
 
 // Commit Garden lives inside the SAMS runtime (no separate app/port).

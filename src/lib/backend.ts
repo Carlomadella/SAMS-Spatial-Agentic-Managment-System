@@ -1,4 +1,4 @@
-import type { AgentStatus, LogLevel } from "../types";
+import type { AgentStatus, LogLevel, PendingFile } from "../types";
 import { useStore } from "../store/useStore";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
@@ -18,6 +18,7 @@ export interface RemoteUpdate {
   message?: string;
   /** cumulative Gemini tokens for the task (sent once on completion) */
   tokens?: number;
+  pendingFiles?: PendingFile[];
 }
 
 export type Provider = "gemini" | "claude" | "groq";
@@ -34,6 +35,7 @@ export interface RuntimeStatus {
   baseBranch: string;
   model: string;
   openPRs: boolean;
+  requireApproval: boolean;
   hasNotionToken: boolean;
   notionPageId: string;
   notionReady: boolean;
@@ -49,6 +51,7 @@ export interface SettingsInput {
   baseBranch?: string;
   model?: string;
   openPRs?: boolean;
+  requireApproval?: boolean;
   notionToken?: string;
   notionPageId?: string;
 }
@@ -123,6 +126,20 @@ export async function assignRemote(
     }
     throw new Error(msg);
   }
+}
+
+/** Approve staged files — triggers branch creation, commits and optional PR. */
+export async function approveChanges(agentId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/approve/${encodeURIComponent(agentId)}`, { method: "POST" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as { error?: string };
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+}
+
+/** Reject staged files — clears the buffer, agent goes idle. */
+export async function rejectChanges(agentId: string): Promise<void> {
+  await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, { method: "POST" });
 }
 
 let source: EventSource | null = null;

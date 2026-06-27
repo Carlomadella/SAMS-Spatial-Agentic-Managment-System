@@ -40,6 +40,8 @@ export function SettingsModal() {
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("main");
   const [model, setModel] = useState(MODELS.gemini[0]);
+  const [openPRs, setOpenPRs] = useState(true);
+  const [requireApproval, setRequireApproval] = useState(false);
   const [notionToken, setNotionToken] = useState("");
   const [notionPageId, setNotionPageId] = useState("");
   const [busy, setBusy] = useState<"" | "save" | "provision">("");
@@ -62,6 +64,8 @@ export function SettingsModal() {
       setRepo(st.repo);
       setBranch(st.baseBranch);
       setModel(st.model);
+      setOpenPRs(st.openPRs);
+      setRequireApproval(st.requireApproval);
       setNotionPageId(st.notionPageId);
     })();
     return () => {
@@ -80,7 +84,7 @@ export function SettingsModal() {
     setBusy("save");
     setMsg(null);
     try {
-      const patch: SettingsInput = { provider, githubRepo: repo, baseBranch: branch, model, notionPageId };
+      const patch: SettingsInput = { provider, githubRepo: repo, baseBranch: branch, model, openPRs, requireApproval, notionPageId };
       if (provider === "gemini" && geminiApiKey.trim()) patch.geminiApiKey = geminiApiKey.trim();
       if (provider === "claude" && anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
       if (provider === "groq" && groqApiKey.trim()) patch.groqApiKey = groqApiKey.trim();
@@ -224,6 +228,20 @@ export function SettingsModal() {
           </Field>
 
           <div className="border-t border-line pt-3">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-mut">Comportamento agenti</div>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12px] text-slate-300">Apri PR automaticamente dopo il commit</span>
+                <Toggle checked={openPRs} onChange={setOpenPRs} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12px] text-slate-300">Richiedi approvazione prima del commit</span>
+                <Toggle checked={requireApproval} onChange={setRequireApproval} />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-line pt-3">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-mut">Notion (opzionale)</div>
             <div className="space-y-3">
               <Field label="Notion integration token" icon={KeyRound}>
@@ -307,5 +325,25 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+        checked ? "bg-brand" : "bg-ink-700",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-4" : "translate-x-1",
+        )}
+      />
+    </button>
   );
 }

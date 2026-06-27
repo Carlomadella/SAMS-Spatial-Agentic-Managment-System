@@ -35,7 +35,15 @@ export type AgentStatus =
   | "working"
   | "review"
   | "blocked"
-  | "done";
+  | "done"
+  | "awaiting_approval";
+
+/** A file the agent wants to commit, staged for user approval. */
+export interface PendingFile {
+  path: string;
+  content: string;
+  message: string;
+}
 
 export type LogLevel = "INFO" | "SUCCESS" | "WARN" | "ERROR" | "IDLE";
 
@@ -99,6 +107,8 @@ export interface Agent {
   task: Task | null;
   /** Tasks waiting to start once this agent finishes its current task. */
   taskQueue: QueuedTask[];
+  /** Files staged by the runtime, waiting for the user to approve before committing. */
+  pendingFiles?: PendingFile[];
 }
 
 export interface LogEvent {

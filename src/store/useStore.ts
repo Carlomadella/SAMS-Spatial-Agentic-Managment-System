@@ -10,6 +10,7 @@ import {
   type EnvironmentName,
   type LogEvent,
   type LogLevel,
+  type PendingFile,
   type QueuedTask,
   type TaskRecord,
   type Toast,
@@ -25,6 +26,7 @@ const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   review: "WARN",
   blocked: "ERROR",
   done: "SUCCESS",
+  awaiting_approval: "WARN",
 };
 
 interface State {
@@ -75,6 +77,8 @@ interface State {
   enqueueTask: (id: string, task: QueuedTask) => void;
   shiftQueue: (id: string) => void;
   removeFromQueue: (id: string, index: number) => void;
+  setPendingFiles: (id: string, files: PendingFile[]) => void;
+  clearPendingFiles: (id: string) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -111,6 +115,7 @@ interface State {
     level?: LogLevel;
     message?: string;
     tokens?: number;
+    pendingFiles?: PendingFile[];
   }) => void;
 }
 
@@ -263,6 +268,7 @@ export const useStore = create<State>()(
         review: "Waiting for review",
         blocked: "Blocked · needs attention",
         done: "Marked task as done",
+        awaiting_approval: "Awaiting approval",
       };
       get().log({ agentId: id, agentName: a.name, color: a.color, level: STATUS_LEVEL[status], message: msg[status] });
     }
@@ -357,6 +363,16 @@ export const useStore = create<State>()(
       ),
     })),
 
+  setPendingFiles: (id, files) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id ? { ...a, pendingFiles: files } : a)),
+    })),
+
+  clearPendingFiles: (id) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id ? { ...a, pendingFiles: undefined } : a)),
+    })),
+
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
 
@@ -405,7 +421,7 @@ export const useStore = create<State>()(
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
-        agent && (e.status || e.progress != null)
+        agent && (e.status || e.progress != null || e.pendingFiles)
           ? s.agents.map((a) => {
               if (a.id !== e.agentId) return a;
               const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
@@ -415,7 +431,8 @@ export const useStore = create<State>()(
                     ? { ...a.task, progress }
                     : { title: e.message ?? "Runtime task", branch: "", progress }
                   : a.task;
-              return { ...a, status: e.status ?? a.status, task };
+              const pendingFiles = e.pendingFiles ?? (e.status && e.status !== "awaiting_approval" ? undefined : a.pendingFiles);
+              return { ...a, status: e.status ?? a.status, task, pendingFiles };
             })
           : s.agents;
 
@@ -497,6 +514,10 @@ export const useStore = create<State>()(
             // back-fill fields added after initial persist (migration)
             if (a.instructions === undefined) a.instructions = "";
             if (a.taskQueue === undefined) a.taskQueue = [];
+            // pending files are transient — never restore across reloads
+            a.pendingFiles = undefined;
+            // if agent was awaiting_approval before reload, reset to idle
+            if (a.status === "awaiting_approval") a.status = "idle";
           }
         }
       },

@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
-import { ListOrdered, MousePointerClick, Plus, Send, Trash2, X as XIcon } from "lucide-react";
+import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Trash2, X as XIcon } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
-import { assignRemote, backendEnabled } from "../lib/backend";
+import { approveChanges, assignRemote, backendEnabled, rejectChanges } from "../lib/backend";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
@@ -141,6 +141,46 @@ export function AgentInspector() {
           </div>
         </div>
       </details>
+
+      {/* diff approval panel */}
+      {agent.status === "awaiting_approval" && (agent.pendingFiles?.length ?? 0) > 0 && (
+        <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-violet-300">
+            <FileText size={12} />
+            {agent.pendingFiles!.length} {agent.pendingFiles!.length === 1 ? "file pronto" : "file pronti"} per il commit
+          </div>
+          <div className="mb-3 max-h-52 space-y-1.5 overflow-y-auto">
+            {agent.pendingFiles!.map((f, i) => (
+              <details key={i} className="rounded-md border border-line bg-ink-800">
+                <summary className="cursor-pointer select-none px-2 py-1.5 font-mono text-[11px] text-slate-200 hover:text-white">
+                  {f.path}
+                </summary>
+                <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap break-all px-2 pb-2 pt-1 font-mono text-[10px] leading-relaxed text-slate-400">
+                  {f.content.length > 1200 ? f.content.slice(0, 1200) + "\n…" : f.content}
+                </pre>
+              </details>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                approveChanges(agent.id).catch((err: Error) =>
+                  log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Approve: ${err.message}` }),
+                );
+              }}
+              className="btn btn-primary flex-1"
+            >
+              <Check size={13} /> Approva e committa
+            </button>
+            <button
+              onClick={() => rejectChanges(agent.id)}
+              className="btn flex-1 border-rose-500/30 text-rose-300 hover:bg-rose-500/10"
+            >
+              <XIcon size={13} /> Rifiuta
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* task + queue */}
       <div className="mt-3 rounded-lg border border-line bg-ink-850/60 p-2.5">
