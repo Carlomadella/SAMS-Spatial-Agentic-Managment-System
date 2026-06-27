@@ -156,4 +156,4 @@ export type ActivityView =
   | "cad"
   | "extensions";
 
-export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks";
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history";

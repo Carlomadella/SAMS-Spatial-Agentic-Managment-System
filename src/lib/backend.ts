@@ -65,6 +65,29 @@ export interface RuntimeMetrics {
   errors: number;
   uptimeSec: number;
   clients: number;
+  /** cumulative, durable totals from the task log (survive restarts) */
+  lifetime?: { total: number; completed: number; tokens: number };
+}
+
+export interface TaskHistoryRow {
+  agentId: string;
+  agentName: string;
+  title: string;
+  branch: string;
+  status: string;
+  tokens: number;
+  ts: number;
+}
+
+/** Recent finished tasks from the runtime's durable log (empty if unreachable). */
+export async function fetchHistory(): Promise<TaskHistoryRow[]> {
+  try {
+    const res = await fetch(`${BASE}/api/history`);
+    if (!res.ok) return [];
+    return (await res.json()) as TaskHistoryRow[];
+  } catch {
+    return [];
+  }
 }
 
 /** Read the runtime's in-memory metrics (null if the runtime is unreachable). */

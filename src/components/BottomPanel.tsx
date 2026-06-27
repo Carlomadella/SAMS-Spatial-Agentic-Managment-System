@@ -4,6 +4,7 @@ import type { BottomTab } from "../types";
 import { EventLog } from "./EventLog";
 import { AgentInspector } from "./AgentInspector";
 import { TasksPanel } from "./TasksPanel";
+import { HistoryPanel } from "./HistoryPanel";
 import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
 
@@ -69,6 +70,7 @@ const TABS: { id: BottomTab; label: string }[] = [
   { id: "output", label: "Output" },
   { id: "eventlog", label: "Event Log" },
   { id: "tasks", label: "Tasks" },
+  { id: "history", label: "History" },
   { id: "problems", label: "Problems" },
 ];
 
@@ -118,13 +120,14 @@ export function BottomPanel() {
           {(bottomTab === "eventlog" || bottomTab === "tasks") && (
             <button
               title="Clear"
+              aria-label="Svuota"
               onClick={bottomTab === "eventlog" ? clearEvents : clearTasks}
               className="btn h-7 w-7 px-0"
             >
               <Trash2 size={14} />
             </button>
           )}
-          <button title="Hide panel" onClick={toggleBottom} className="btn h-7 w-7 px-0">
+          <button title="Hide panel" aria-label="Nascondi pannello" onClick={toggleBottom} className="btn h-7 w-7 px-0">
             <ChevronDown size={16} />
           </button>
         </div>
@@ -137,6 +140,7 @@ export function BottomPanel() {
           {bottomTab === "output" && <OutputView />}
           {bottomTab === "eventlog" && <EventLog />}
           {bottomTab === "tasks" && <TasksPanel />}
+          {bottomTab === "history" && <HistoryPanel />}
           {bottomTab === "problems" && <ProblemsView />}
         </div>
         <div className="w-80 shrink-0 border-l border-line bg-ink-900/70">
