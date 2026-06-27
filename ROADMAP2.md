@@ -37,8 +37,8 @@ collega.
 
 | # | Scommessa | Perché | Effort | Stato |
 |---|-----------|--------|--------|-------|
-| 1 | **Fondamenta dati + sicurezza** — SQLite + test sullo store | Abilitatore nascosto (storico, metriche, multi-utente) e rete di sicurezza sulla logica più delicata | 🟡 | 🏗️ test fatti; SQLite da fare |
-| 2 | **Fiducia** — diff preview in-app + `run_tests` reali + gate CI | Senza fiducia resta una demo; con essa diventa usabile su repo veri | 🟡 | 💡 |
+| 1 | **Fondamenta dati + sicurezza** — SQLite + test sullo store | Abilitatore nascosto (storico, metriche, multi-utente) e rete di sicurezza sulla logica più delicata | 🟡 | ✅ |
+| 2 | **Fiducia** — diff preview in-app + `run_tests` reali + gate CI | Senza fiducia resta una demo; con essa diventa usabile su repo veri | 🟡 | 🏗️ |
 | 3 | **Autonomia** — Live simulation mode | Trasforma il prodotto dal claim alla realtà; richiede #1 e #2 come base | 🔴 | 💡 |
 
 > Sequenza voluta: prima le fondamenta (#1), poi la fiducia (#2), infine
@@ -88,10 +88,11 @@ collega.
       Canva come strumenti agente.
 
 ## 📊 Osservabilità
-- [ ] 💡 **Storico & costo nel tempo** — "cosa ha fatto l'agente Blu questa settimana?
-      quanti token? quante PR mergiate?". Oggi il meter token è solo *istantaneo*.
-      Richiede #1 (SQLite).
-- [ ] 💡 **Pagina `/api/metrics`** — token usati, task completati, errori, durata media.
+- [x] ✅ **Storico & costo nel tempo** — `task_log` SQLite alimentato a ogni task
+      concluso; tab **History** nel BottomPanel + totali cumulativi (`lifetime`) in
+      `/api/metrics`. Sopravvive ai riavvii.
+- [x] ✅ **Endpoint `/api/metrics`** — eventi, task avviati/completati, errori, uptime,
+      UI connesse, più i totali durevoli; visibile anche nel System Overview.
 - [ ] 💡 **Logging strutturato** lato runtime (livelli, niente segreti).
 
 ## 🎮 Mondo 3D (feel "The Sims")
@@ -126,8 +127,10 @@ collega.
       (`applyRemote`, coda, relay, lifecycle), orchestrazione (relay/idle/coda, estratta
       in `lib/orchestration.ts`), `zoneForTitle`/`clampToRoom` e `isValidRepo`. La logica
       dei bridge è ora in helper puri testati. _Manca:_ test di rendering dei componenti.
-- [ ] 🔜 **Persistenza su SQLite** (scommessa #1) — settings, stato garden ed eventi su
-      DB locale (better-sqlite3) invece di JSON + Map in memoria; sopravvive ai restart.
+- [x] ✅ **Persistenza su SQLite** (scommessa #1) — `db.ts` usa il builtin `node:sqlite`
+      (nessuna dipendenza nativa). Tabella `task_log` durevole alimentata dai loop di
+      tutti i provider; endpoint `/api/history` + `/api/metrics` (lifetime) + tab History.
+      _Resta opzionale:_ migrare anche settings/garden da JSON a SQLite.
 - [ ] 💡 **Auth opzionale sul runtime** — header con token locale per le route mutanti;
       bind `127.0.0.1` in dev, `0.0.0.0` solo in container.
 - [ ] 💡 **Pre-commit hook** (husky + lint-staged) — lint+typecheck prima del commit.
@@ -154,6 +157,17 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-27 — implementazione (giro 2): SQLite ✅ (scommessa #1 completa)
+Persistenza durevole in 3 sotto-passi committati:
+- **db.ts** con `node:sqlite` (builtin Node 22 — zero dipendenze native, niente
+  problemi Docker/alpine); tabella `task_log` + helper testati con `:memory:`.
+- **Cablaggio**: ogni task concluso (Gemini/Groq via `finalizeTask`, Claude via
+  `sessions.ts`) viene registrato; `GET /api/history` + `lifetime` in `/api/metrics`.
+- **UI**: tab **History** nel BottomPanel + metriche live nel System Overview.
+Con i test frontend del giro 1, la **scommessa #1 è completa**. 107 test totali.
+- 🔜 **Prossimo**: scommessa #2 (fiducia) — diff preview reale, partendo da una
+  util di diff pura e testata.
 
 ### 2026-06-27 — implementazione (giro 1 della Roadmap 2)
 Avviata l'esecuzione in ordine di priorità, a piccoli incrementi committati.
