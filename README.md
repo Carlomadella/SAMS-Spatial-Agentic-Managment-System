@@ -83,6 +83,20 @@ src/
   types.ts      domain model
 ```
 
+## Development
+
+```bash
+npm run dev               # Vite dev server (frontend only)
+npm start                 # frontend + runtime together (scripts/dev-all.mjs)
+npm run build             # typecheck + production build
+npm run lint              # ESLint over frontend + server + e2e
+npm test                  # frontend unit tests (Vitest + jsdom)
+npm run test:e2e          # Playwright smoke tests
+npm --prefix server test  # server unit tests (Vitest)
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, build, and both test suites on every push/PR.
+
 ## Live mode — real agents (Claude Managed Agents)
 
 SAMS can drive **real** AI agents: assign a task in plain language and the agent

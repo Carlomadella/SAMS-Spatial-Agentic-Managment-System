@@ -135,6 +135,9 @@ export function SettingsModal() {
       onClick={() => setOpen(false)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Impostazioni runtime e agenti"
         className="w-full max-w-lg animate-fade-in overflow-hidden rounded-xl border border-line bg-ink-850 shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
