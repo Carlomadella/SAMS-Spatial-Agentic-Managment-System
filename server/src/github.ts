@@ -120,3 +120,67 @@ export async function createIssue(
     body: JSON.stringify({ title, body, labels: labels ?? [] }),
   })) as { number: number; html_url: string };
 }
+
+/** List up to 10 open pull requests (number, title, author, source branch). */
+export async function listPullRequests(): Promise<string> {
+  const data = (await gh(`/pulls?state=open&per_page=10`)) as Array<{
+    number: number; title: string;
+    user: { login: string }; head: { ref: string };
+  }>;
+  if (!data.length) return "nessuna PR aperta";
+  return data.map((p) => `#${p.number} "${p.title}" — ${p.user.login} (${p.head.ref})`).join("\n");
+}
+
+/** Read a PR's title, body, and list of changed files. */
+export async function readPullRequest(prNumber: number): Promise<string> {
+  const [pr, filesRaw] = await Promise.all([
+    gh(`/pulls/${prNumber}`) as Promise<{
+      title: string; body: string | null; html_url: string;
+      user: { login: string }; head: { ref: string }; base: { ref: string };
+      comments: number; review_comments: number;
+    }>,
+    gh(`/pulls/${prNumber}/files?per_page=30`) as Promise<Array<{
+      filename: string; status: string; additions: number; deletions: number;
+    }>>,
+  ]);
+  const files = filesRaw
+    .map((f) => `  ${f.status === "added" ? "+" : f.status === "removed" ? "-" : "M"} ${f.filename} (+${f.additions}/-${f.deletions})`)
+    .join("\n");
+  const body = pr.body ? pr.body.slice(0, 1000) : "(nessuna descrizione)";
+  return [
+    `PR #${prNumber}: ${pr.title}`,
+    `Autore: ${pr.user.login} | ${pr.head.ref} → ${pr.base.ref}`,
+    `Commenti: ${pr.comments} | Review: ${pr.review_comments}`,
+    `URL: ${pr.html_url}`,
+    `\nDescrizione:\n${body}`,
+    `\nFile modificati (${filesRaw.length}):\n${files || "  (nessuno)"}`,
+  ].join("\n");
+}
+
+/** Post a comment on a PR (uses the issues comments endpoint). */
+export async function commentOnPullRequest(prNumber: number, body: string): Promise<{ html_url: string }> {
+  return (await gh(`/issues/${prNumber}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  })) as { html_url: string };
+}
+
+/** List the 5 most recent CI workflow runs (optionally filtered to a branch). */
+export async function listCIRuns(branch?: string): Promise<string> {
+  const q = branch ? `?branch=${encodeURIComponent(branch)}&per_page=5` : `?per_page=5`;
+  const data = (await gh(`/actions/runs${q}`)) as {
+    total_count?: number;
+    workflow_runs?: Array<{
+      id: number; name: string; status: string; conclusion: string | null;
+      html_url: string; head_branch: string; created_at: string;
+    }>;
+  };
+  const runs = data.workflow_runs ?? [];
+  if (!runs.length) return "nessuna run CI trovata";
+  return runs
+    .map((r) => {
+      const icon = r.conclusion === "success" ? "✅" : r.conclusion === "failure" ? "❌" : r.status === "in_progress" ? "🔄" : "⏳";
+      return `${icon} ${r.name} | ${r.status}${r.conclusion ? "/" + r.conclusion : ""} | ${r.head_branch} | ${r.created_at.slice(0, 10)}\n   ${r.html_url}`;
+    })
+    .join("\n");
+}

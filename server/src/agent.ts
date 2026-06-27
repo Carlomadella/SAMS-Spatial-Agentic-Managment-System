@@ -1,10 +1,10 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
 import { getSettings } from "./config";
-import { createBranch, createIssue, createPullRequest, listFiles, readFile, writeFile } from "./github";
+import { commentOnPullRequest, createBranch, createIssue, createPullRequest, listCIRuns, listFiles, listPullRequests, readFile, readPullRequest, writeFile } from "./github";
 import { setPending } from "./pendingBuffer";
 import type { PendingFile } from "./types";
-import { appendTaskLog, appendToPageByTitle, notionConfigured, readPageByTitle } from "./notion";
+import { appendTaskLog, appendToPageByTitle, createPage as notionCreatePage, notionConfigured, readPageByTitle, replacePageByTitle } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
 
 function slugify(s: string): string {
@@ -150,6 +150,40 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           required: ["title", "body"],
         },
       },
+      {
+        name: "gh_list_prs",
+        description: "Elenca le pull request aperte nel repository (numero, titolo, autore, branch).",
+        parametersJsonSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "gh_read_pr",
+        description: "Leggi i dettagli di una pull request: titolo, descrizione, file modificati con conteggio delle righe.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: { pr_number: { type: "number", description: "Numero della PR" } },
+          required: ["pr_number"],
+        },
+      },
+      {
+        name: "gh_comment_pr",
+        description: "Pubblica un commento su una pull request (revisione, feedback, osservazioni).",
+        parametersJsonSchema: {
+          type: "object",
+          properties: {
+            pr_number: { type: "number", description: "Numero della PR" },
+            body: { type: "string", description: "Testo del commento (markdown supportato)" },
+          },
+          required: ["pr_number", "body"],
+        },
+      },
+      {
+        name: "gh_list_ci",
+        description: "Elenca gli ultimi run della CI (GitHub Actions) per un branch.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: { branch: { type: "string", description: "Branch da controllare (opzionale)" } },
+        },
+      },
     );
   }
   if (notionEnabled) {
@@ -169,6 +203,31 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
         parametersJsonSchema: {
           type: "object",
           properties: { page_title: { type: "string" }, content: { type: "string" } },
+          required: ["page_title", "content"],
+        },
+      },
+      {
+        name: "notion_create_page",
+        description: "Crea una nuova pagina figlio Notion sotto la pagina trovata per titolo (parent_title).",
+        parametersJsonSchema: {
+          type: "object",
+          properties: {
+            parent_title: { type: "string", description: "Titolo della pagina genitore (workspace o pagina esistente)" },
+            title: { type: "string", description: "Titolo della nuova pagina" },
+            content: { type: "string", description: "Contenuto markdown della nuova pagina" },
+          },
+          required: ["parent_title", "title", "content"],
+        },
+      },
+      {
+        name: "notion_replace_page",
+        description: "Sostituisce TUTTO il contenuto di una pagina Notion (cancella i blocchi esistenti e riscrive con il nuovo contenuto). Usa con cautela.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: {
+            page_title: { type: "string" },
+            content: { type: "string", description: "Nuovo contenuto markdown completo" },
+          },
           required: ["page_title", "content"],
         },
       },
@@ -302,6 +361,21 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           );
           result = `Issue #${issue.number}: ${issue.html_url}`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Issue #${issue.number} aperta` });
+        } else if (name === "gh_list_prs") {
+          result = await listPullRequests();
+          emit({ agentId, agentName, progress, level: "INFO", message: `PR elencate` });
+        } else if (name === "gh_read_pr") {
+          const prNum = Number(args.pr_number);
+          result = await readPullRequest(prNum);
+          emit({ agentId, agentName, progress, level: "INFO", message: `PR #${prNum} letta` });
+        } else if (name === "gh_comment_pr") {
+          const prNum = Number(args.pr_number);
+          const comment = await commentOnPullRequest(prNum, str(args.body));
+          result = `Commento pubblicato: ${comment.html_url}`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Commento su PR #${prNum}` });
+        } else if (name === "gh_list_ci") {
+          result = await listCIRuns(str(args.branch) || undefined);
+          emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });
         } else if (name === "notion_read") {
           const { title: resolved, text } = await readPageByTitle(str(args.page_title));
           result = text;
@@ -311,6 +385,16 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "notion_create_page") {
+          const created = await notionCreatePage(str(args.parent_title), str(args.title), str(args.content));
+          notionWrote = true;
+          result = `Pagina "${str(args.title)}" creata: ${created.url}`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion: nuova pagina "${str(args.title)}"` });
+        } else if (name === "notion_replace_page") {
+          const replaced = await replacePageByTitle(str(args.page_title), str(args.content));
+          notionWrote = true;
+          result = `Pagina "${replaced}" sostituita`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ↺ "${replaced}"` });
         } else if (name === "announce_plan") {
           const steps = Array.isArray(args.steps) ? (args.steps as string[]) : [];
           result = "Piano ricevuto";

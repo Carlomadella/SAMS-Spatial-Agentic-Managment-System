@@ -220,6 +220,52 @@ export async function readPageByTitle(title: string, max = 6000): Promise<{ titl
   return { title: page.title, text: text || "(pagina vuota)" };
 }
 
+/** Create a new child page under the parent found by title. */
+export async function createPage(
+  parentTitle: string,
+  title: string,
+  content: string,
+): Promise<{ url: string; resolvedTitle: string }> {
+  const parent = await findPageByTitle(parentTitle);
+  const blocks = markdownToBlocks(content);
+  const page = (await notion(`/pages`, {
+    method: "POST",
+    body: JSON.stringify({
+      parent: { page_id: pageId(parent.id) },
+      properties: { title: { title: [{ type: "text", text: { content: title } }] } },
+      children: blocks.slice(0, 100),
+    }),
+  })) as { id: string; url?: string };
+  if (blocks.length > 100) await appendBlocks(page.id, blocks.slice(100));
+  return { url: page.url ?? `https://notion.so/${page.id.replace(/-/g, "")}`, resolvedTitle: title };
+}
+
+/** Delete all existing blocks in a page and replace with new content. */
+export async function replacePageByTitle(title: string, content: string): Promise<string> {
+  const page = await findPageByTitle(title);
+  // collect all existing block ids
+  const blockIds: string[] = [];
+  let cursor: string | undefined;
+  let guard = 0;
+  do {
+    const q = cursor ? `?start_cursor=${cursor}&page_size=100` : `?page_size=100`;
+    const data = (await notion(`/blocks/${pageId(page.id)}/children${q}`)) as {
+      results?: Array<{ id: string }>;
+      has_more?: boolean;
+      next_cursor?: string | null;
+    };
+    for (const b of data.results ?? []) blockIds.push(String(b.id));
+    cursor = data.has_more ? data.next_cursor ?? undefined : undefined;
+    guard++;
+  } while (cursor && guard < 20);
+  // delete sequentially to stay within rate limits
+  for (const id of blockIds) {
+    try { await notion(`/blocks/${id}`, { method: "DELETE" }); } catch { /* best-effort */ }
+  }
+  await appendBlocks(page.id, markdownToBlocks(content));
+  return page.title;
+}
+
 /** Append a one-line task-log bullet to the configured log page. */
 export async function appendTaskLog(entry: {
   agentName: string;
