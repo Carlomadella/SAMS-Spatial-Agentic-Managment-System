@@ -45,6 +45,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const cur = useRef(new THREE.Vector3(agent.position[0], 0, agent.position[1]));
   const prevStatus = useRef(agent.status);
   const celebrate = useRef(0); // 1 → 0 over ~0.5s, drives a bounce
+  const headGroupRef = useRef<THREE.Group>(null);
+  const idleTimer = useRef(0); // seconds idle, drives look-around animation
 
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
@@ -130,8 +132,20 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     }
     const celebrateBump = celebrate.current > 0 ? Math.sin(celebrate.current * Math.PI) * 0.55 : 0;
 
-    // upper body: bob + a small forward lean while walking; lean further when typing
-    const bob = moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * 0.02;
+    // idle look-around: build up over 4 s, decay fast when agent gets busy
+    if (agent.status === "idle" && !moving) {
+      idleTimer.current = Math.min(idleTimer.current + d, 60);
+    } else {
+      idleTimer.current = Math.max(0, idleTimer.current - d * 3);
+    }
+    const idleFactor = Math.min(1, idleTimer.current / 4);
+    if (headGroupRef.current) {
+      const lookY = agent.status === "idle" && !moving ? Math.sin(t * 0.45) * idleFactor * 0.45 : 0;
+      headGroupRef.current.rotation.y = THREE.MathUtils.lerp(headGroupRef.current.rotation.y, lookY, 0.04);
+    }
+
+    // upper body: bob slightly deeper when bored
+    const bob = moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * (0.02 + idleFactor * 0.012);
     if (charRef.current) {
       charRef.current.position.y = bob + celebrateBump;
       charRef.current.rotation.x = THREE.MathUtils.lerp(
@@ -295,54 +309,55 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
             </mesh>
           </group>
 
-          {/* head */}
-          <RoundedBox args={[0.66, 0.58, 0.6]} radius={0.2} smoothness={4} position={[0, 1.55, 0]} castShadow>
-            <meshStandardMaterial color={tint.main} roughness={0.4} metalness={0.12} />
-          </RoundedBox>
-          {/* glossy visor face */}
-          <RoundedBox args={[0.54, 0.3, 0.12]} radius={0.13} smoothness={4} position={[0, 1.56, 0.26]} castShadow>
-            <meshStandardMaterial color="#0d1119" roughness={0.15} metalness={0.45} />
-          </RoundedBox>
-          {/* eyes */}
-          <mesh ref={eyeLRef} position={[-0.12, 1.57, 0.34]}>
-            <sphereGeometry args={[0.052, 16, 16]} />
-            <meshStandardMaterial color="#eafff8" emissive="#bdeede" emissiveIntensity={0.7} toneMapped={false} />
-          </mesh>
-          <mesh ref={eyeRRef} position={[0.12, 1.57, 0.34]}>
-            <sphereGeometry args={[0.052, 16, 16]} />
-            <meshStandardMaterial color="#eafff8" emissive="#bdeede" emissiveIntensity={0.7} toneMapped={false} />
-          </mesh>
-          {/* ear cups */}
-          {[-0.35, 0.35].map((x, i) => (
-            <mesh key={i} position={[x, 1.54, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.11, 0.11, 0.09, 18]} />
-              <meshStandardMaterial color={tint.dark} roughness={0.5} metalness={0.15} />
+          {/* head group — pivots at head centre so look-around feels natural */}
+          <group ref={headGroupRef} position={[0, 1.55, 0]}>
+            <RoundedBox args={[0.66, 0.58, 0.6]} radius={0.2} smoothness={4} position={[0, 0, 0]} castShadow>
+              <meshStandardMaterial color={tint.main} roughness={0.4} metalness={0.12} />
+            </RoundedBox>
+            {/* glossy visor face */}
+            <RoundedBox args={[0.54, 0.3, 0.12]} radius={0.13} smoothness={4} position={[0, 0.01, 0.26]} castShadow>
+              <meshStandardMaterial color="#0d1119" roughness={0.15} metalness={0.45} />
+            </RoundedBox>
+            {/* eyes */}
+            <mesh ref={eyeLRef} position={[-0.12, 0.02, 0.34]}>
+              <sphereGeometry args={[0.052, 16, 16]} />
+              <meshStandardMaterial color="#eafff8" emissive="#bdeede" emissiveIntensity={0.7} toneMapped={false} />
             </mesh>
-          ))}
-
-          {/* antenna + status light */}
-          <mesh position={[0, 1.92, 0]}>
-            <cylinderGeometry args={[0.014, 0.014, 0.16, 8]} />
-            <meshStandardMaterial color="#cbd5e1" metalness={0.4} roughness={0.4} />
-          </mesh>
-          <mesh position={[0, 2.04, 0]}>
-            <sphereGeometry args={[0.06, 16, 16]} />
-            <meshStandardMaterial
-              color={STATUS_HEX[agent.status]}
-              emissive={STATUS_HEX[agent.status]}
-              emissiveIntensity={agent.status === "working" ? 1.6 : 0.85}
-              toneMapped={false}
-            />
-          </mesh>
-          {/* "working" orbiter */}
-          {agent.status === "working" && (
-            <group ref={haloRef} position={[0, 2.04, 0]}>
-              <mesh position={[0.22, 0, 0]}>
-                <sphereGeometry args={[0.05, 12, 12]} />
-                <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={1.6} toneMapped={false} />
+            <mesh ref={eyeRRef} position={[0.12, 0.02, 0.34]}>
+              <sphereGeometry args={[0.052, 16, 16]} />
+              <meshStandardMaterial color="#eafff8" emissive="#bdeede" emissiveIntensity={0.7} toneMapped={false} />
+            </mesh>
+            {/* ear cups */}
+            {[-0.35, 0.35].map((x, i) => (
+              <mesh key={i} position={[x, -0.01, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                <cylinderGeometry args={[0.11, 0.11, 0.09, 18]} />
+                <meshStandardMaterial color={tint.dark} roughness={0.5} metalness={0.15} />
               </mesh>
-            </group>
-          )}
+            ))}
+            {/* antenna + status light */}
+            <mesh position={[0, 0.37, 0]}>
+              <cylinderGeometry args={[0.014, 0.014, 0.16, 8]} />
+              <meshStandardMaterial color="#cbd5e1" metalness={0.4} roughness={0.4} />
+            </mesh>
+            <mesh position={[0, 0.49, 0]}>
+              <sphereGeometry args={[0.06, 16, 16]} />
+              <meshStandardMaterial
+                color={STATUS_HEX[agent.status]}
+                emissive={STATUS_HEX[agent.status]}
+                emissiveIntensity={agent.status === "working" ? 1.6 : 0.85}
+                toneMapped={false}
+              />
+            </mesh>
+            {/* "working" orbiter */}
+            {agent.status === "working" && (
+              <group ref={haloRef} position={[0, 0.49, 0]}>
+                <mesh position={[0.22, 0, 0]}>
+                  <sphereGeometry args={[0.05, 12, 12]} />
+                  <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={1.6} toneMapped={false} />
+                </mesh>
+              </group>
+            )}
+          </group>
         </group>
       </group>
 

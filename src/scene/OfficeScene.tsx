@@ -305,6 +305,7 @@ function DayNightCycle() {
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
+  const workingAgent = agents.find((a) => a.status === "working" && a.task) ?? null;
 
   return (
     <>
@@ -325,6 +326,25 @@ function SceneContents() {
       <Sideboard position={[-6.6, 0, -5.45]} />
       <Bookshelf position={[-2.4, 0, -5.5]} />
       <TVUnit position={[3.6, 0, -5.5]} />
+      {/* live task ticker on TV screen */}
+      <Html position={[3.6, 1.15, -5.18]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
+        <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
+          <div className="mb-0.5 text-[8px] uppercase tracking-widest text-green-700">◉ SAMS live</div>
+          {workingAgent?.task ? (
+            <>
+              <div className="truncate text-[10px] leading-tight text-green-300">{workingAgent.task.title}</div>
+              <div className="mt-1 flex items-center gap-1">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-green-950">
+                  <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${workingAgent.task.progress}%` }} />
+                </div>
+                <span className="text-[8px] text-green-700">{workingAgent.task.progress}%</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-[9px] text-green-800">no active task_</div>
+          )}
+        </div>
+      </Html>
       <Window position={[6.9, 1.5, -5.84]} />
 
       {/* gallery wall + ambiance */}

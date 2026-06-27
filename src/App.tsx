@@ -156,6 +156,57 @@ function RelayBridge() {
   return null;
 }
 
+/**
+ * Sends idle agents to the lounge zone when they've had nothing to do for 15 s.
+ * Cancels if the agent gets a task or enters a non-idle status before the timer fires.
+ */
+function IdleBridge() {
+  useEffect(() => {
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    function schedule(id: string) {
+      if (timers.has(id)) return;
+      timers.set(id, setTimeout(() => {
+        timers.delete(id);
+        const fresh = useStore.getState().agents.find((x) => x.id === id);
+        if (fresh?.status === "idle" && !fresh.task && !(fresh.taskQueue?.length) && !fresh.target) {
+          useStore.getState().sendToZone(fresh.id, "lounge");
+        }
+      }, 15000));
+    }
+
+    function cancel(id: string) {
+      const t = timers.get(id);
+      if (t) { clearTimeout(t); timers.delete(id); }
+    }
+
+    // seed timers for agents already idle on mount (stagger to avoid synchronised drift)
+    for (const a of useStore.getState().agents) {
+      if (a.status === "idle" && !a.task && !(a.taskQueue?.length)) {
+        // deterministic per-agent delay so agents don't all walk at once
+        const jitter = (a.id.charCodeAt(0) % 8) * 1000;
+        setTimeout(() => schedule(a.id), jitter);
+      }
+    }
+
+    const unsub = useStore.subscribe((s, prev) => {
+      for (const a of s.agents) {
+        const p = prev.agents.find((x) => x.id === a.id);
+        const wasElig = p?.status === "idle" && !p.task && !(p.taskQueue?.length);
+        const isElig = a.status === "idle" && !a.task && !(a.taskQueue?.length);
+        if (isElig && !wasElig) schedule(a.id);
+        else if (!isElig) cancel(a.id);
+      }
+    });
+
+    return () => {
+      unsub();
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  return null;
+}
+
 /** Floating affordance to reopen the bottom panel (Event Log) once it's hidden. */
 function ReopenPanelButton() {
   const bottomOpen = useStore((s) => s.bottomOpen);
@@ -233,6 +284,7 @@ export default function App() {
       <Toaster />
       <QueueBridge />
       <RelayBridge />
+      <IdleBridge />
     </div>
   );
 }
