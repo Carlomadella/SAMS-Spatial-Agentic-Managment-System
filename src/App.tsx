@@ -11,6 +11,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 
@@ -207,6 +208,62 @@ function IdleBridge() {
   return null;
 }
 
+/**
+ * Fires a browser Notification when an agent completes a task.
+ * Requests permission lazily on the first completion event.
+ */
+function NotificationBridge() {
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      if (!("Notification" in window)) return;
+      for (const agent of state.agents) {
+        const prevAgent = prev.agents.find((a) => a.id === agent.id);
+        if (!prevAgent) continue;
+        const wasWorking = prevAgent.status === "working" && prevAgent.task;
+        const isIdle = agent.status === "idle" || agent.status === "done";
+        if (wasWorking && isIdle) {
+          const taskTitle = prevAgent.task?.title ?? "Task completato";
+          const fire = () =>
+            new Notification(`✅ ${agent.name}`, {
+              body: taskTitle,
+              icon: "/favicon.ico",
+              tag: agent.id,
+              silent: true,
+            });
+          if (Notification.permission === "granted") {
+            fire();
+          } else if (Notification.permission !== "denied") {
+            void Notification.requestPermission().then((p) => { if (p === "granted") fire(); });
+          }
+        }
+      }
+    });
+  }, []);
+  return null;
+}
+
+/**
+ * On small screens (< 768 px) automatically collapse left and right panels
+ * so the 3D scene is visible. Re-runs on resize.
+ */
+function ResponsiveBridge() {
+  const setLeftOpen = useStore((s) => s.setLeftOpen);
+  const setRightOpen = useStore((s) => s.setRightOpen);
+
+  useEffect(() => {
+    function apply() {
+      if (window.innerWidth < 768) {
+        setLeftOpen(false);
+        setRightOpen(false);
+      }
+    }
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, [setLeftOpen, setRightOpen]);
+  return null;
+}
+
 /** Floating affordance to reopen the bottom panel (Event Log) once it's hidden. */
 function ReopenPanelButton() {
   const bottomOpen = useStore((s) => s.bottomOpen);
@@ -282,9 +339,12 @@ export default function App() {
       <SettingsModal />
       <GardenView />
       <Toaster />
+      <OnboardingWizard />
       <QueueBridge />
       <RelayBridge />
       <IdleBridge />
+      <NotificationBridge />
+      <ResponsiveBridge />
     </div>
   );
 }

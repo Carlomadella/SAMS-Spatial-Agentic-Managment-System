@@ -97,6 +97,8 @@ interface State {
   setSettingsOpen: (open: boolean) => void;
   setGardenOpen: (open: boolean) => void;
   toggleTheme: () => void;
+  setLeftOpen: (open: boolean) => void;
+  setRightOpen: (open: boolean) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleBottom: () => void;
@@ -404,6 +406,8 @@ export const useStore = create<State>()(
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setGardenOpen: (open) => set({ gardenOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+  setLeftOpen: (open) => set({ leftOpen: open }),
+  setRightOpen: (open) => set({ rightOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
   toggleRight: () => set((s) => ({ rightOpen: !s.rightOpen })),
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
