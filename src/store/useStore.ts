@@ -62,6 +62,7 @@ interface State {
   removeAgent: (id: string) => void;
   selectAgent: (id: string | null) => void;
   setRole: (id: string, role: string) => void;
+  setInstructions: (id: string, instructions: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
   sendToZone: (id: string, zoneId: string) => void;
@@ -195,6 +196,7 @@ export const useStore = create<State>()(
       color: c,
       model: "Claude Sonnet",
       role: "Generalist",
+      instructions: "",
       status: "idle",
       position: [...SPAWN_POINT] as Vec2,
       target: null,
@@ -218,6 +220,9 @@ export const useStore = create<State>()(
 
   setRole: (id, role) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, role } : a)) })),
+
+  setInstructions: (id, instructions) =>
+    set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, instructions } : a)) })),
 
   moveAgent: (id, target) =>
     set((s) => ({
@@ -441,8 +446,14 @@ export const useStore = create<State>()(
         bottomHeight: s.bottomHeight,
       }),
       onRehydrateStorage: () => (state) => {
-        // don't resume stale walk targets after a reload
-        if (state) for (const a of state.agents) a.target = null;
+        if (state) {
+          for (const a of state.agents) {
+            // don't resume stale walk targets after a reload
+            a.target = null;
+            // back-fill fields added after initial persist (migration)
+            if (a.instructions === undefined) a.instructions = "";
+          }
+        }
       },
     },
   ),

@@ -65,4 +65,38 @@ describe("composeSystem", () => {
     expect(s).toContain("Linee guida del progetto");
     expect(s).toContain(guide);
   });
+
+  it("injects user instructions with highest-priority label", () => {
+    const instr = "Scrivi sempre in inglese. Usa solo funzioni pure.";
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: instr });
+    expect(s).toContain("Istruzioni specifiche per questo agente");
+    expect(s).toContain(instr);
+  });
+
+  it("omits the instructions section when empty or whitespace", () => {
+    const s1 = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: "" });
+    const s2 = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: "  " });
+    expect(s1).not.toContain("Istruzioni specifiche");
+    expect(s2).not.toContain("Istruzioni specifiche");
+  });
+
+  it("stacks user instructions, role, and project guide in that order", () => {
+    const instr = "Evita le classi.";
+    const guide = "Usa ESLint strict.";
+    const s = composeSystem({
+      agentName: "x",
+      notionEnabled: true,
+      repoEnabled: true,
+      instructions: instr,
+      role: "Tester",
+      guide,
+    });
+    const instrIdx = s.indexOf("Istruzioni specifiche");
+    const roleIdx = s.indexOf("TESTER");
+    const guideIdx = s.indexOf("Linee guida");
+    expect(instrIdx).toBeLessThan(roleIdx);
+    expect(roleIdx).toBeLessThan(guideIdx);
+    expect(s).toContain(instr);
+    expect(s).toContain(guide);
+  });
 });

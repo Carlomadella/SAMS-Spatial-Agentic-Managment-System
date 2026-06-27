@@ -19,4 +19,6 @@ export interface AssignBody {
   branch?: string;
   /** Agent role that shapes the system prompt (e.g. "Revisore", "Tester"). */
   role?: string;
+  /** Standing instructions set by the user in the inspector; injected verbatim into the system prompt. */
+  instructions?: string;
 }

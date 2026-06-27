@@ -52,12 +52,13 @@ const ROLE_PROMPTS: Record<string, string> = {
     "Ruolo ARCHITETTO: analizza la struttura del progetto con gh_list_files e gh_read_file, poi scrivi un documento di analisi o un piano architetturale su Notion o come file .md nel repository.",
 };
 
-/** Build the Gemini system instruction from the configured tools + optional role and guide. */
+/** Build the Gemini system instruction from the configured tools + optional role, user instructions and guide. */
 export function composeSystem(o: {
   agentName: string;
   notionEnabled: boolean;
   repoEnabled: boolean;
   role?: string;
+  instructions?: string;
   guide?: string;
 }): string {
   const base =
@@ -70,9 +71,11 @@ export function composeSystem(o: {
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
     `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+  const userInstr = o.instructions?.trim();
   const roleExtra = o.role ? (ROLE_PROMPTS[o.role] ?? "") : "";
   const g = o.guide?.trim();
   const parts = [base];
+  if (userInstr) parts.push(`Istruzioni specifiche per questo agente (hanno la priorità su tutto il resto):\n${userInstr}`);
   if (roleExtra) parts.push(roleExtra);
   if (g) parts.push(`Linee guida del progetto (rispettale scrupolosamente):\n${g}`);
   return parts.join("\n\n");
@@ -95,6 +98,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const notionEnabled = notionConfigured();
   const branch = body.branch?.trim() || makeBranch(agentName, title);
   const role = body.role?.trim() || "";
+  const instructions = body.instructions?.trim() || "";
 
   emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
@@ -163,7 +167,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, role, guide });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, role, instructions, guide });
 
   let wroteFiles = false;
   let notionWrote = false;

@@ -83,6 +83,8 @@ export interface Agent {
   /** Free-text flavor — which model / role this agent represents. */
   model: string;
   role: string;
+  /** Standing instructions injected into the system prompt on every task. */
+  instructions: string;
   status: AgentStatus;
   /** Committed floor position. */
   position: Vec2;

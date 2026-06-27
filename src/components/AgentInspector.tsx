@@ -29,6 +29,7 @@ export function AgentInspector() {
   const sendToZone = useStore((s) => s.sendToZone);
   const removeAgent = useStore((s) => s.removeAgent);
   const setRole = useStore((s) => s.setRole);
+  const setInstructions = useStore((s) => s.setInstructions);
   const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
@@ -108,6 +109,27 @@ export function AgentInspector() {
         </span>
       </div>
 
+      {/* standing instructions */}
+      <details className="mt-3 rounded-lg border border-line bg-ink-850/60">
+        <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
+          <span>Istruzioni permanenti{agent.instructions.trim() ? " ●" : ""}</span>
+          <span className="text-[10px] opacity-60">sempre incluse nel prompt</span>
+        </summary>
+        <div className="px-2.5 pb-2.5">
+          <textarea
+            value={agent.instructions}
+            onChange={(e) => setInstructions(agent.id, e.target.value)}
+            placeholder={"Es: Scrivi sempre in TypeScript strict.\nUsa funzioni pure, evita classi.\nCommenta solo ciò che non è ovvio."}
+            rows={4}
+            maxLength={1200}
+            className="w-full resize-y rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50"
+          />
+          <div className="mt-1 text-right text-[10px] text-mut">
+            {agent.instructions.length}/1200
+          </div>
+        </div>
+      </details>
+
       {/* task */}
       <div className="mt-3 rounded-lg border border-line bg-ink-850/60 p-2.5">
         {agent.task ? (
@@ -183,7 +205,7 @@ export function AgentInspector() {
                 const b = branch.trim();
                 assignTask(agent.id, t, b);
                 if (backendEnabled) {
-                  assignRemote(agent.id, agent.name, t, b, agent.role).catch((err: Error) =>
+                  assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions).catch((err: Error) =>
                     log({
                       agentId: agent.id,
                       agentName: agent.name,

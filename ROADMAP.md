@@ -30,6 +30,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [ ] 💡 **Auto-verifica qualità** — dopo aver scritto codice lancia test/lint del repo e ritenta in loop se falliscono.
 - [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
 - [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
+- [x] ✅ **Istruzioni permanenti per agente** — textarea nell'inspector, persistita nello store, iniettata nel prompt con massima priorità.
 - [ ] 💡 **Coda di task per agente** — gli agenti pescano i task in coda autonomamente.
 - [ ] 💡 **Collaborazione tra agenti** — handoff (red scrive → blue revisiona → green scrive i test).
 
@@ -89,6 +90,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ Notion `notion_read`: l'agente legge una pagina prima di scrivere (no duplicati).
 - [x] ✅ Ruoli specializzati: Generalist · Revisore · Tester · Documentatore · Architetto — selettore nell'inspector, prompt role-aware nel runtime.
 - [x] ✅ Output in streaming: l'agente usa `generateContentStream` e mostra il testo di ragionamento (💭) nell'event log prima di ogni chiamata a strumento.
+- [x] ✅ Istruzioni permanenti per agente: textarea nell'inspector con indicatore ●, iniettata nel prompt a massima priorità; agenti seed pre-popolati con istruzioni di esempio.
 
 ---
 
@@ -145,6 +147,16 @@ verificabili con build/test, dato che non posso aprire il browser).
   pagina (per titolo, con paginazione dei blocchi). Il prompt ora istruisce l'agente a
   **leggere prima di scrivere** per evitare duplicati / aggiornare contenuti esistenti.
   Aggiunte `readPageByTitle` + `blockPlainText` in `notion.ts`. (12 test, typecheck ✓.)
+
+### 2026-06-27 — implementazione (giro 8)
+- ✅ **Istruzioni permanenti per agente**: nuovo campo `instructions: string` sull'`Agent`
+  (persistito, con migrazione automatica al rehydrate). Nell'inspector, una sezione
+  `<details>` collassabile "Istruzioni permanenti" con textarea, contatore caratteri
+  (max 1200) e indicatore ● quando non vuota. Le istruzioni vengono trasmesse al runtime
+  (`AssignBody.instructions`) e incluse in `composeSystem` con la massima priorità (sopra
+  ruolo e guida di progetto). Aggiornati 5 agenti seed con istruzioni di esempio concrete
+  (TypeScript strict, test dei casi limite, review costruttiva, architettura semplice,
+  documentazione breve). 3 nuovi test su `composeSystem` (ora **26 test**).
 
 ### 2026-06-27 — implementazione (giro 7)
 - ✅ **Output in streaming**: il loop dell'agente usa ora `generateContentStream` invece di

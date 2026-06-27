@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 23 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 26 test ✓
 
 ---
 
@@ -142,7 +142,47 @@ scrivere**, così evita di duplicare contenuti e può aggiornare ciò che già e
 
 ---
 
-## 7. 🌊 Output in streaming — *commit `548fcc8`*
+## 7. 📝 Istruzioni permanenti per agente — *questo giro*
+
+**Cosa fa.** Ogni agente ha ora un campo **"Istruzioni permanenti"** — una textarea
+nell'inspector dove l'utente scrive regole/vincoli che si applicano a **ogni task** di
+quell'agente, indipendentemente dal titolo del task. Queste istruzioni vengono iniettate
+nel prompt di sistema con **priorità massima** (prima del ruolo e delle linee guida di
+progetto), quindi non possono essere ignorate.
+
+**Esempi precaricati.** Gli agenti del workspace di partenza hanno già istruzioni concrete:
+- **blue** (Generalist): TypeScript strict, niente `any`, tipi di ritorno espliciti.
+- **green** (Tester): casi limite e scenari di errore, nomi di test descrittivi.
+- **orange** (Revisore): sicurezza → performance → stile, sempre con esempio migliorato.
+- **purple** (Architetto): leggi sempre la struttura prima, preferisci la semplicità.
+- **yellow** (Documentatore): esempi pratici, H2/H3, max 3 paragrafi per sezione.
+- **red** (Generalist): campo vuoto (agente senza vincoli, punto di partenza).
+
+**Come si usa.**
+1. Seleziona un agente → pannello **AgentInspector**.
+2. Apri la sezione **"Istruzioni permanenti"** (indicatore ● quando non vuota).
+3. Scrivi le regole in linguaggio naturale (max 1200 caratteri).
+4. Ogni task assegnato a quell'agente le riceverà automaticamente nel prompt.
+
+**Dettagli tecnici.**
+- `Agent.instructions: string` aggiunto al tipo (persistito in Zustand).
+- Migrazione automatica: `onRehydrateStorage` inizializza `instructions = ""` per i
+  vecchi agenti salvati prima di questo aggiornamento.
+- `setInstructions(id, text)` action nello store; la textarea chiama `setInstructions`
+  a ogni modifica (live, persistita subito).
+- `composeSystem` accetta ora `instructions?` e, se non vuoto, inserisce la sezione
+  *"Istruzioni specifiche per questo agente (hanno la priorità su tutto il resto)"*
+  come **primo blocco** dopo il base (prima del ruolo e della guida).
+- `AssignBody.instructions?` trasmette le istruzioni al runtime.
+- **Test**: 3 nuovi test su `composeSystem` per `instructions` (ora **26 test**).
+
+**File toccati.** `src/types.ts`, `src/store/useStore.ts`, `src/components/AgentInspector.tsx`,
+`src/lib/backend.ts`, `src/data/seed.ts`, `server/src/types.ts`, `server/src/agent.ts`,
+`server/src/agent.test.ts`
+
+---
+
+## 8. 🌊 Output in streaming — *commit `b2e31db`*
 
 **Cosa fa.** Il runtime usa ora l'API di **streaming** di Gemini (`generateContentStream`)
 invece della chiamata bloccante `generateContent`. Il beneficio principale: il testo che
@@ -216,7 +256,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 23 test attesi
+npm --prefix server test      # 26 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start
@@ -234,6 +274,9 @@ Prove manuali consigliate:
   verifica che non modifichi file di codice ma scriva osservazioni su Notion.
 - **Streaming**: con runtime attivo e chiave Gemini, assegna un task → nell'event log
   appaiono eventi 💭 con il ragionamento del modello prima di ogni tool call.
+- **Istruzioni permanenti**: seleziona blue-agent → apri "Istruzioni permanenti" →
+  le istruzioni TypeScript strict sono già caricate; assegna un task → l'agente
+  scriverà codice TypeScript strict anche senza che tu lo specifichi nel titolo.
 
 ---
 
