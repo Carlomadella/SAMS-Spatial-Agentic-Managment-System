@@ -10,6 +10,7 @@ import {
   type SettingsInput,
 } from "../lib/backend";
 import { cn } from "../lib/utils";
+import { isValidRepo } from "../lib/validation";
 
 const MODELS: Record<Provider, string[]> = {
   gemini: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"],
@@ -218,6 +219,11 @@ export function SettingsModal() {
               <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="settings-input" />
             </Field>
           </div>
+          {repo.trim() !== "" && !isValidRepo(repo) && (
+            <p className="-mt-1.5 text-[11px] text-amber-400">
+              Formato non valido — usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.
+            </p>
+          )}
 
           <Field label="Modello">
             <select value={model} onChange={(e) => setModel(e.target.value)} className="settings-input">
