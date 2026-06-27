@@ -39,3 +39,4 @@ pnpm-debug.log*
 # misc
 coverage
 .cache
+test-results/
