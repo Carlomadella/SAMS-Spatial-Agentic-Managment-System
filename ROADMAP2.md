@@ -64,9 +64,9 @@ collega.
       migliorie e apre PR sul progetto. Auto-miglioramento dimostrabile.
 
 ## 🔒 Fiducia & verifica (scommessa #2)
-- [ ] 🔜 **Diff preview in-app** — mostrare il diff colorato dei file staged (con
-      `requireApproval`) prima di approvare/rifiutare, non solo la lista dei path.
-      Ultimo grande tassello rimasto dalla Roadmap 1.
+- [x] ✅ **Diff preview in-app** — il pannello di approvazione mostra un vero diff
+      prima/dopo (LCS, righe colorate +/− con conteggio) confrontando il contenuto
+      staged con quello attuale del repo (`GET /api/file` + `lib/diff.ts`).
 - [ ] 💡 **`run_tests` in sandbox** — strumento che lancia davvero la suite e fa
       autocorreggere l'agente sui fallimenti reali (oggi l'auto-verifica è solo
       "mentale" via prompt: l'agente *dice* di aver controllato i test).
@@ -157,6 +157,13 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-27 — implementazione (giro 3): diff preview ✅ (scommessa #2 avviata)
+Diff preview reale in 3 sotto-passi: (1) `lib/diff.ts` LCS puro + test;
+(2) `GET /api/file` + client `fetchFile` per il contenuto "prima"; (3)
+`StagedFileDiff` nel pannello di approvazione (righe +/− colorate, +N/−M).
+112 test. _Restano in #2:_ `run_tests` reali in sandbox (decisione aperta:
+quale comando eseguire e con quale isolamento) e il gate su CI.
 
 ### 2026-06-27 — implementazione (giro 2): SQLite ✅ (scommessa #1 completa)
 Persistenza durevole in 3 sotto-passi committati:
