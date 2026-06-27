@@ -35,6 +35,7 @@ describe("buildToolSpecs gating", () => {
     const names = buildToolSpecs(baseSettings, { repoEnabled: true, notionEnabled: false }).map((t) => t.name);
     expect(names).toContain("gh_read_file");
     expect(names).toContain("gh_write_file");
+    expect(names).toContain("gh_pr_status");
     expect(names).not.toContain("notion_write");
   });
 

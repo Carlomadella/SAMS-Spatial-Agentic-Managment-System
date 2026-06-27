@@ -14,6 +14,7 @@ import {
   listCIRuns,
   listFiles,
   listPullRequests,
+  pullRequestStatus,
   readFile,
   readPullRequest,
   writeFile,
@@ -127,6 +128,15 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
             body: { type: "string", description: "Testo del commento (markdown supportato)" },
           },
           required: ["pr_number", "body"],
+        },
+      },
+      {
+        name: "gh_pr_status",
+        description: "Controlla se una PR è mergeable e lo stato dei check CI (per decidere se procedere).",
+        schema: {
+          type: "object",
+          properties: { pr_number: { type: "number", description: "Numero della PR" } },
+          required: ["pr_number"],
         },
       },
       {
@@ -348,6 +358,11 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       const comment = await commentOnPullRequest(prNum, str(args.body));
       result = `Commento pubblicato: ${comment.html_url}`;
       emit({ agentId, agentName, progress, level: "SUCCESS", message: `Commento su PR #${prNum}` });
+    } else if (name === "gh_pr_status") {
+      const prNum = Number(args.pr_number);
+      if (!Number.isFinite(prNum)) return "ERRORE: pr_number non valido";
+      result = await pullRequestStatus(prNum);
+      emit({ agentId, agentName, progress, level: "INFO", message: `Stato PR #${prNum}` });
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });

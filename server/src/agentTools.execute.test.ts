@@ -58,6 +58,7 @@ describe("executeTool — control tools", () => {
     const { ctx } = mkCtx();
     expect(await executeTool("gh_read_pr", { pr_number: "#12" }, ctx)).toBe("ERRORE: pr_number non valido");
     expect(await executeTool("gh_comment_pr", { pr_number: "x", body: "hi" }, ctx)).toBe("ERRORE: pr_number non valido");
+    expect(await executeTool("gh_pr_status", { pr_number: "x" }, ctx)).toBe("ERRORE: pr_number non valido");
   });
 
   it("advances progress by PROGRESS_STEP, capped at PROGRESS_CAP", async () => {

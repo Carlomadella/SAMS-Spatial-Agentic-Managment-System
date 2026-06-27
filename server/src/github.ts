@@ -169,6 +169,33 @@ export async function readPullRequest(prNumber: number): Promise<string> {
   ].join("\n");
 }
 
+/** Merge-readiness + CI check rollup for a PR (read-only — supports a "gate on green" flow). */
+export async function pullRequestStatus(prNumber: number): Promise<string> {
+  const pr = (await gh(`/pulls/${prNumber}`)) as {
+    state: string; mergeable: boolean | null; mergeable_state: string;
+    head: { sha: string }; draft?: boolean;
+  };
+  const checks = (await gh(`/commits/${encodeURIComponent(pr.head.sha)}/check-runs`)) as {
+    total_count?: number;
+    check_runs?: Array<{ name: string; status: string; conclusion: string | null }>;
+  };
+  const runs = checks.check_runs ?? [];
+  const summary = runs.length
+    ? runs
+        .map((c) => {
+          const icon = c.conclusion === "success" ? "✅" : c.conclusion === "failure" ? "❌" : c.status === "completed" ? "•" : "🔄";
+          return `  ${icon} ${c.name}${c.conclusion ? ` (${c.conclusion})` : ` (${c.status})`}`;
+        })
+        .join("\n")
+    : "  (nessun check)";
+  const mergeable = pr.mergeable === null ? "in calcolo" : pr.mergeable ? "sì" : "no";
+  return [
+    `PR #${prNumber}: stato ${pr.state}${pr.draft ? " (draft)" : ""}`,
+    `Mergeable: ${mergeable} | stato: ${pr.mergeable_state}`,
+    `Check CI (${runs.length}):\n${summary}`,
+  ].join("\n");
+}
+
 /** Post a comment on a PR (uses the issues comments endpoint). */
 export async function commentOnPullRequest(prNumber: number, body: string): Promise<{ html_url: string }> {
   return (await gh(`/issues/${prNumber}/comments`, {
