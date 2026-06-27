@@ -35,6 +35,10 @@ pnpm-debug.log*
 
 # runtime (server) — local secrets/state, never commit
 .sams-runtime.json
+.sams-data.db
+.sams-data.db-journal
+.sams-data.db-wal
+.sams-data.db-shm
 
 # misc
 coverage
