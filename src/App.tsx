@@ -14,6 +14,7 @@ import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
+import { composeRelayTitle, findRelayTarget, isIdleEligible } from "./lib/orchestration";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
 // IDE shell paints immediately.
@@ -126,15 +127,9 @@ function RelayBridge() {
       useStore.getState().shiftRelay();
       setTimeout(() => {
         const { agents } = useStore.getState();
-        const target = agents.find(
-          (a) =>
-            a.role.toLowerCase() === relay.target.toLowerCase() ||
-            a.name.toLowerCase().includes(relay.target.toLowerCase()),
-        );
+        const target = findRelayTarget(agents, relay.target);
         if (!target) return;
-        const title = relay.context
-          ? `${relay.title} [da ${relay.fromName}: ${relay.context.slice(0, 80)}]`
-          : relay.title;
+        const title = composeRelayTitle(relay);
         if (target.task) {
           useStore.getState().enqueueTask(target.id, { title, branch: relay.branch });
         } else {
@@ -170,7 +165,7 @@ function IdleBridge() {
       timers.set(id, setTimeout(() => {
         timers.delete(id);
         const fresh = useStore.getState().agents.find((x) => x.id === id);
-        if (fresh?.status === "idle" && !fresh.task && !(fresh.taskQueue?.length) && !fresh.target) {
+        if (fresh && isIdleEligible(fresh) && !fresh.target) {
           useStore.getState().sendToZone(fresh.id, "lounge");
         }
       }, 15000));
@@ -183,7 +178,7 @@ function IdleBridge() {
 
     // seed timers for agents already idle on mount (stagger to avoid synchronised drift)
     for (const a of useStore.getState().agents) {
-      if (a.status === "idle" && !a.task && !(a.taskQueue?.length)) {
+      if (isIdleEligible(a)) {
         // deterministic per-agent delay so agents don't all walk at once
         const jitter = (a.id.charCodeAt(0) % 8) * 1000;
         setTimeout(() => schedule(a.id), jitter);
@@ -193,8 +188,8 @@ function IdleBridge() {
     const unsub = useStore.subscribe((s, prev) => {
       for (const a of s.agents) {
         const p = prev.agents.find((x) => x.id === a.id);
-        const wasElig = p?.status === "idle" && !p.task && !(p.taskQueue?.length);
-        const isElig = a.status === "idle" && !a.task && !(a.taskQueue?.length);
+        const wasElig = !!p && isIdleEligible(p);
+        const isElig = isIdleEligible(a);
         if (isElig && !wasElig) schedule(a.id);
         else if (!isElig) cancel(a.id);
       }
