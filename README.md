@@ -129,12 +129,18 @@ manual watering. Optional: a `GITHUB_TOKEN` raises GitHub's rate limit; set
 `DB_HOST`/`DB_USER`/… in `server/.env` for MySQL persistence (in-memory
 otherwise). Override the API origin with `VITE_GARDEN_API` if you host it apart.
 
-## Roadmap ideas
+## Roadmap
+
+The first roadmap is complete — see [`ROADMAP.md`](./ROADMAP.md) for the full,
+checked-off history. The next chapter lives in [`ROADMAP2.md`](./ROADMAP2.md)
+(in-app diff approval, SQLite persistence, frontend tests, centralized
+retry/backoff, optional runtime auth, deeper 3D world).
+
+Highlights still on deck:
 
 - **Live simulation mode** — agents that pick up tasks and progress on their own.
 - Multi-repo targets, per-agent role/model presets, PR review from the gate panel.
-- Persistence (save/load workspaces), multi-room layouts, drag-to-move,
-  richer character models, and a true resizable panel system.
+- Multi-room layouts, drag-to-move, richer character models.
 
 ---
 

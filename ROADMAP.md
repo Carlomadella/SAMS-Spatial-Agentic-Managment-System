@@ -4,6 +4,10 @@ Idee per far crescere **SAMS** (Spatial Agentic Management System): stanza 3D
 isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 **Commit Garden** in 3D e il runtime Express.
 
+> ✅ **Questa roadmap è stata completata.** Il capitolo successivo vive in
+> [`ROADMAP2.md`](./ROADMAP2.md) (anteprima diff in-app, SQLite, test frontend,
+> retry/backoff, auth opzionale, …).
+
 > **Come si mantiene questo file**
 > A ogni sessione di brainstorming aggiungo nuove idee qui e aggiorno gli stati.
 > In fondo c'è un **Log dei brainstorming** datato.
