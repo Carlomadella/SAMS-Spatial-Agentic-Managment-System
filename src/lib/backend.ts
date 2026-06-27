@@ -19,6 +19,7 @@ export interface RemoteUpdate {
   /** cumulative Gemini tokens for the task (sent once on completion) */
   tokens?: number;
   pendingFiles?: PendingFile[];
+  relayTo?: { target: string; title: string; branch: string; context: string };
 }
 
 export type Provider = "gemini" | "claude" | "groq";

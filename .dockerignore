@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+server/node_modules
+server/.sams-runtime.json
+*.log
+.git
+.github
+coverage

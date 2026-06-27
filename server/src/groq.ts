@@ -224,21 +224,40 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
       },
     );
   }
-  tools.push({
-    type: "function",
-    function: {
-      name: "done",
-      description: "Chiama quando il task è completato (o se non puoi completarlo).",
-      parameters: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
+  tools.push(
+    {
+      type: "function",
+      function: {
+        name: "relay_task",
+        description: "Delega la continuazione del task a un altro agente SAMS specificando il ruolo (Tester/Revisore/Documentatore/Architetto) o il nome. Chiama done subito dopo.",
+        parameters: {
+          type: "object",
+          properties: {
+            target: { type: "string", description: "Ruolo o nome dell'agente destinatario" },
+            title: { type: "string", description: "Titolo del task da assegnare" },
+            branch: { type: "string", description: "Branch su cui lavorare (vuoto = eredita quello corrente)" },
+            context: { type: "string", description: "Contesto o istruzioni aggiuntive per il destinatario" },
+          },
+          required: ["target", "title"],
+        },
+      },
     },
-  });
+    {
+      type: "function",
+      function: {
+        name: "done",
+        description: "Chiama quando il task è completato (o se non puoi completarlo).",
+        parameters: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
+      },
+    },
+  );
 
   let guide = "";
   if (repoEnabled) {
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, role, instructions, guide });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide });
 
   let wroteFiles = false;
   let notionWrote = false;
@@ -327,6 +346,13 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "relay_task") {
+          const relayTarget = str(args.target);
+          const relayTitle = str(args.title);
+          const relayBranch = str(args.branch) || branch;
+          const relayCtx = str(args.context);
+          result = `Relay inviato a "${relayTarget}": ${relayTitle}`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `→ Relay a ${relayTarget}: ${relayTitle}`, relayTo: { target: relayTarget, title: relayTitle, branch: relayBranch, context: relayCtx } });
         } else if (name === "done") {
           doneSummary = str(args.summary);
           finished = true;

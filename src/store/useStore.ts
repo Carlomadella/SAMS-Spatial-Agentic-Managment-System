@@ -79,6 +79,9 @@ interface State {
   removeFromQueue: (id: string, index: number) => void;
   setPendingFiles: (id: string, files: PendingFile[]) => void;
   clearPendingFiles: (id: string) => void;
+  pendingRelays: Array<{ target: string; title: string; branch: string; context: string; fromName: string; fromId: string }>;
+  pushRelay: (r: { target: string; title: string; branch: string; context: string; fromName: string; fromId: string }) => void;
+  shiftRelay: () => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -116,6 +119,7 @@ interface State {
     message?: string;
     tokens?: number;
     pendingFiles?: PendingFile[];
+    relayTo?: { target: string; title: string; branch: string; context: string };
   }) => void;
 }
 
@@ -188,6 +192,7 @@ export const useStore = create<State>()(
   runtimeReady: false,
   tokensUsed: 0,
   toasts: [],
+  pendingRelays: [],
 
   log: (e) =>
     set((s) => ({
@@ -373,6 +378,9 @@ export const useStore = create<State>()(
       agents: s.agents.map((a) => (a.id === id ? { ...a, pendingFiles: undefined } : a)),
     })),
 
+  pushRelay: (r) => set((s) => ({ pendingRelays: [...s.pendingRelays, r] })),
+  shiftRelay: () => set((s) => ({ pendingRelays: s.pendingRelays.slice(1) })),
+
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
 
@@ -466,6 +474,11 @@ export const useStore = create<State>()(
 
       return { agents, events, tasks, tokensUsed };
     });
+
+    // Agent-to-agent relay: queue this for RelayBridge to process
+    if (e.relayTo) {
+      get().pushRelay({ ...e.relayTo, fromName: e.agentName ?? "?", fromId: e.agentId });
+    }
 
     // Auto-clear task when runtime finishes without producing changes (status "idle"):
     // the agent didn't write anything useful so there's nothing to review — reset immediately.

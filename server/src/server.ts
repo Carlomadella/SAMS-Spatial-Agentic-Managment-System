@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from "express";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -169,6 +171,17 @@ app.post("/api/reject/:agentId", (req: Request, res: Response) => {
 
 // Commit Garden lives inside the SAMS runtime (no separate app/port).
 registerGardenRoutes(app);
+
+// In production (Docker), serve the Vite build as static files so the same
+// Express process handles both the API and the SPA without a separate Nginx.
+if (process.env.NODE_ENV === "production") {
+  const __dir = dirname(fileURLToPath(import.meta.url));
+  const publicDir = join(__dir, "../../dist");
+  app.use(express.static(publicDir));
+  app.use((_req: Request, res: Response) => {
+    res.sendFile(join(publicDir, "index.html"));
+  });
+}
 
 const { port, githubRepo } = getSettings();
 app.listen(port, () => {

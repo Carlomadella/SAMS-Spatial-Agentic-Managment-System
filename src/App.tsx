@@ -113,6 +113,49 @@ function QueueBridge() {
   return null;
 }
 
+/**
+ * Invisible component that watches pendingRelays and forwards each one
+ * to the matching agent (by role or name), queuing if the agent is busy.
+ */
+function RelayBridge() {
+  useEffect(() => {
+    return useStore.subscribe((s) => {
+      if (s.pendingRelays.length === 0) return;
+      const relay = s.pendingRelays[0];
+      useStore.getState().shiftRelay();
+      setTimeout(() => {
+        const { agents } = useStore.getState();
+        const target = agents.find(
+          (a) =>
+            a.role.toLowerCase() === relay.target.toLowerCase() ||
+            a.name.toLowerCase().includes(relay.target.toLowerCase()),
+        );
+        if (!target) return;
+        const title = relay.context
+          ? `${relay.title} [da ${relay.fromName}: ${relay.context.slice(0, 80)}]`
+          : relay.title;
+        if (target.task) {
+          useStore.getState().enqueueTask(target.id, { title, branch: relay.branch });
+        } else {
+          useStore.getState().assignTask(target.id, title, relay.branch);
+          if (backendEnabled) {
+            const fresh = useStore.getState().agents.find((a) => a.id === target.id)!;
+            assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions).catch(() => {});
+          }
+        }
+        useStore.getState().log({
+          agentId: target.id,
+          agentName: target.name,
+          color: target.color,
+          level: "INFO",
+          message: `← Handoff da ${relay.fromName}: ${relay.title}`,
+        });
+      }, 200);
+    });
+  }, []);
+  return null;
+}
+
 /** Floating affordance to reopen the bottom panel (Event Log) once it's hidden. */
 function ReopenPanelButton() {
   const bottomOpen = useStore((s) => s.bottomOpen);
@@ -189,6 +232,7 @@ export default function App() {
       <GardenView />
       <Toaster />
       <QueueBridge />
+      <RelayBridge />
     </div>
   );
 }

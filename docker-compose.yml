@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  sams:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # AI providers — set at least one
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # GitHub (required for code tasks)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_REPO=${GITHUB_REPO:-}
+      - BASE_BRANCH=${BASE_BRANCH:-main}
+      # Runtime behaviour
+      - SAMS_PROVIDER=${SAMS_PROVIDER:-gemini}
+      - SAMS_OPEN_PRS=${SAMS_OPEN_PRS:-true}
+      - SAMS_REQUIRE_APPROVAL=${SAMS_REQUIRE_APPROVAL:-false}
+      # Notion (optional)
+      - NOTION_TOKEN=${NOTION_TOKEN:-}
+      - NOTION_PAGE_ID=${NOTION_PAGE_ID:-}
+    volumes:
+      # Persist .sams-runtime.json (settings + provisioning state) across restarts
+      - sams-data:/app/server
+    restart: unless-stopped
+
+volumes:
+  sams-data:

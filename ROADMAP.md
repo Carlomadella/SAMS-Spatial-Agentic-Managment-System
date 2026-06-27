@@ -32,7 +32,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
 - [x] ✅ **Istruzioni permanenti per agente** — textarea nell'inspector, persistita nello store, iniettata nel prompt con massima priorità.
 - [x] ✅ **Coda di task per agente** — l'inspector mostra una lista "In coda"; il bottone diventa "Aggiungi alla coda" quando l'agente è occupato; al completamento del task il prossimo parte automaticamente.
-- [ ] 💡 **Collaborazione tra agenti** — handoff (red scrive → blue revisiona → green scrive i test).
+- [x] ✅ **Collaborazione tra agenti** — strumento `relay_task`: l'agente specifica il ruolo (Tester/Revisore/Documentatore/Architetto) o il nome del destinatario; il runtime trova l'agente e assegna il task automaticamente (o lo mette in coda se occupato).
 
 ## 🔌 Più strumenti per gli agenti
 - [ ] 💡 **Web search / fetch** — ricerca prima di scrivere.
@@ -73,7 +73,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Persistenza** — agenti/task/eventi/layout sopravvivono al refresh (Zustand `persist` su localStorage; flag transitori esclusi).
 - [x] ✅ **CI su PR** — `.github/workflows/ci.yml`: npm build + server typecheck + server test (vitest) su ogni push/PR.
 - [ ] 💡 **Test frontend / e2e** (Playwright) — finora solo unit test del runtime.
-- [ ] 💡 **Dockerizzare il runtime** + deploy in un comando.
+- [x] ✅ **Dockerizzare il runtime** — `Dockerfile` multi-stage (Vite build + tsx server) + `docker-compose.yml`; `docker compose up` serve frontend e API sulla porta 3000.
 - [ ] 💡 **Gestione rate-limit/retry** centralizzata (oltre al backoff Gemini esistente).
 - [x] ✅ **Provider Groq** — Llama 3.3 70B via API OpenAI-compatible (free tier); selezionabile in Impostazioni con chiave `gsk_…`.
 

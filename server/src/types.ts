@@ -19,6 +19,8 @@ export interface WireEvent {
   tokens?: number;
   /** file contents staged for approval (sent with status = awaiting_approval) */
   pendingFiles?: PendingFile[];
+  /** agent-to-agent handoff: ask a peer to continue the work */
+  relayTo?: { target: string; title: string; branch: string; context: string };
 }
 
 export interface AssignBody {

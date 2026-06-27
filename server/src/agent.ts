@@ -59,6 +59,7 @@ export function composeSystem(o: {
   agentName: string;
   notionEnabled: boolean;
   repoEnabled: boolean;
+  relayEnabled?: boolean;
   role?: string;
   instructions?: string;
   guide?: string;
@@ -71,6 +72,9 @@ export function composeSystem(o: {
     (o.repoEnabled
       ? `Per i file di codice del repository usa gli strumenti gh_*. Dopo ogni gh_write_file su file di codice, leggi con gh_read_file i file di test correlati (*.test.ts, *.spec.ts, directory __tests__/) e verifica mentalmente che la tua implementazione li superi; se trovi discrepanze, correggi prima di chiamare done. `
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
+    (o.relayEnabled
+      ? `Se un altro agente deve continuare il lavoro (es: il Revisore revisioni il codice, il Tester scriva i test), usa relay_task specificando il ruolo (Tester/Revisore/Documentatore/Architetto) o nome dell'agente, poi chiama done. `
+      : ``) +
     `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
   const userInstr = o.instructions?.trim();
@@ -170,11 +174,27 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       },
     );
   }
-  decls.push({
-    name: "done",
-    description: "Chiama quando il task è completato (o se non puoi completarlo).",
-    parametersJsonSchema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
-  });
+  decls.push(
+    {
+      name: "relay_task",
+      description: "Delega la continuazione del task a un altro agente SAMS specificando il ruolo (Tester/Revisore/Documentatore/Architetto) o il nome. Chiama done subito dopo.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          target: { type: "string", description: "Ruolo o nome dell'agente destinatario" },
+          title: { type: "string", description: "Titolo del task da assegnare" },
+          branch: { type: "string", description: "Branch su cui lavorare (vuoto = eredita quello corrente)" },
+          context: { type: "string", description: "Contesto o istruzioni aggiuntive per il destinatario" },
+        },
+        required: ["target", "title"],
+      },
+    },
+    {
+      name: "done",
+      description: "Chiama quando il task è completato (o se non puoi completarlo).",
+      parametersJsonSchema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
+    },
+  );
 
   // load optional project guidelines (AGENTS.md / CONVENTIONS.md / …) so the
   // agent follows the repo's conventions — a no-op if no such file exists.
@@ -183,7 +203,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, role, instructions, guide });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide });
 
   let wroteFiles = false;
   let notionWrote = false;
@@ -269,6 +289,13 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "relay_task") {
+          const relayTarget = str(args.target);
+          const relayTitle = str(args.title);
+          const relayBranch = str(args.branch) || branch;
+          const relayCtx = str(args.context);
+          result = `Relay inviato a "${relayTarget}": ${relayTitle}`;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `→ Relay a ${relayTarget}: ${relayTitle}`, relayTo: { target: relayTarget, title: relayTitle, branch: relayBranch, context: relayCtx } });
         } else if (name === "done") {
           doneSummary = str(args.summary);
           finished = true;
