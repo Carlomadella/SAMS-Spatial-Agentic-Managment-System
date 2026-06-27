@@ -10,6 +10,18 @@ describe("composeSystem", () => {
     expect(s).toContain("gh_*");
   });
 
+  it("includes auto-verifica instruction to read tests after writing code", () => {
+    const s = composeSystem({ agentName: "x", notionEnabled: false, repoEnabled: true });
+    expect(s).toContain("test");
+    expect(s).toContain("verifica");
+    expect(s).toContain("discrepanze");
+  });
+
+  it("omits auto-verifica when repo is not configured", () => {
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: false });
+    expect(s).not.toContain("verifica mentalmente");
+  });
+
   it("states clearly when a tool is not configured", () => {
     const s = composeSystem({ agentName: "blue", notionEnabled: false, repoEnabled: true });
     expect(s).toContain("Notion non è configurato");

@@ -27,7 +27,7 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 
 ## 🧠 Intelligenza & autonomia degli agenti
 - [ ] 💡 **Piano visibile prima di agire** — l'agente elenca i passi e tu approvi.
-- [ ] 💡 **Auto-verifica qualità** — dopo aver scritto codice lancia test/lint del repo e ritenta in loop se falliscono.
+- [x] ✅ **Auto-verifica qualità** — dopo ogni gh_write_file il prompt istruisce l'agente a leggere i test correlati e verificare mentalmente che passino; se trova discrepanze corregge prima di chiamare done.
 - [x] ✅ **Memoria di progetto** — l'agente legge un file di linee guida dal repo (`AGENTS.md` / `CONVENTIONS.md` / `.sams/guide.md` / `SAMS_GUIDE.md`) e lo include nel prompt.
 - [x] ✅ **Ruoli specializzati** — selettore di ruolo nell'inspector (Generalist / Revisore / Tester / Documentatore / Architetto); ogni ruolo inietta istruzioni aggiuntive nel prompt di sistema.
 - [x] ✅ **Istruzioni permanenti per agente** — textarea nell'inspector, persistita nello store, iniettata nel prompt con massima priorità.
@@ -147,6 +147,18 @@ verificabili con build/test, dato che non posso aprire il browser).
   pagina (per titolo, con paginazione dei blocchi). Il prompt ora istruisce l'agente a
   **leggere prima di scrivere** per evitare duplicati / aggiornare contenuti esistenti.
   Aggiunte `readPageByTitle` + `blockPlainText` in `notion.ts`. (12 test, typecheck ✓.)
+
+### 2026-06-27 — implementazione (giro 9)
+- Rimosso il contenuto pre-impostato dalle istruzioni permanenti degli agenti seed (ora
+  tutte a `""`). La funzionalità rimane nell'inspector per chi vuole usarla.
+- ✅ **Auto-clear on done**: quando l'utente marca un agente come "done" (quick-set), il
+  task viene cancellato automaticamente dopo 1,5 s e l'agente torna idle. Quando il
+  runtime chiude senza modifiche (`status: "idle"`), il task viene cancellato dopo 0,9 s.
+- ✅ **Rename agente inline**: input "ghost" nel pannello inspector (compare il bordo al
+  focus) che chiama `renameAgent` direttamente — niente bottoni extra.
+- ✅ **Auto-verifica** nel prompt: dopo ogni gh_write_file, l'agente legge i test
+  correlati (*.test.ts, *.spec.ts, __tests__/) e verifica mentalmente che passino; se
+  trova discrepanze, corregge prima di chiamare done. 2 nuovi test (ora **28 test**).
 
 ### 2026-06-27 — implementazione (giro 8)
 - ✅ **Istruzioni permanenti per agente**: nuovo campo `instructions: string` sull'`Agent`

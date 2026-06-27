@@ -67,7 +67,7 @@ export function composeSystem(o: {
       ? `Per Notion: leggi con notion_read e scrivi SOLO con notion_write (trova la pagina per titolo); leggi prima di scrivere per evitare duplicati. `
       : `Notion non è configurato: non puoi scrivere su Notion. `) +
     (o.repoEnabled
-      ? `Per i file di codice del repository usa gli strumenti gh_*. `
+      ? `Per i file di codice del repository usa gli strumenti gh_*. Dopo ogni gh_write_file su file di codice, leggi con gh_read_file i file di test correlati (*.test.ts, *.spec.ts, directory __tests__/) e verifica mentalmente che la tua implementazione li superi; se trovi discrepanze, correggi prima di chiamare done. `
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
     `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;

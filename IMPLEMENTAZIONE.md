@@ -7,7 +7,7 @@ con build/test (dato che in questo ambiente non sono disponibili browser né chi
 Gemini per provare il flusso live).
 
 > Branch di sviluppo: `claude/epic-goodall-y8kej4`
-> Stato qualità: build ✓ · server typecheck ✓ · 26 test ✓
+> Stato qualità: build ✓ · server typecheck ✓ · 28 test ✓
 
 ---
 
@@ -256,7 +256,7 @@ npm run build
 
 # typecheck e test del runtime
 npm --prefix server run typecheck
-npm --prefix server test      # 26 test attesi
+npm --prefix server test      # 28 test attesi
 
 # avvio completo (web + runtime) e apertura su http://localhost:5173
 npm start

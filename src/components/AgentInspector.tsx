@@ -30,6 +30,7 @@ export function AgentInspector() {
   const removeAgent = useStore((s) => s.removeAgent);
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
+  const renameAgent = useStore((s) => s.renameAgent);
   const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
@@ -109,8 +110,17 @@ export function AgentInspector() {
         </span>
       </div>
 
+      {/* inline rename */}
+      <input
+        value={agent.name}
+        onChange={(e) => renameAgent(agent.id, e.target.value)}
+        placeholder="Agent name…"
+        title="Click to rename"
+        className="mt-2 w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-[13px] font-medium text-slate-300 outline-none transition-colors hover:border-line focus:border-brand/50 focus:bg-ink-800"
+      />
+
       {/* standing instructions */}
-      <details className="mt-3 rounded-lg border border-line bg-ink-850/60">
+      <details className="mt-2 rounded-lg border border-line bg-ink-850/60">
         <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
           <span>Istruzioni permanenti{agent.instructions.trim() ? " ●" : ""}</span>
           <span className="text-[10px] opacity-60">sempre incluse nel prompt</span>

@@ -261,6 +261,13 @@ export const useStore = create<State>()(
       };
       get().log({ agentId: id, agentName: a.name, color: a.color, level: STATUS_LEVEL[status], message: msg[status] });
     }
+    // When explicitly marked done, clear the task after a short visual pause
+    if (status === "done") {
+      setTimeout(() => {
+        const agent = get().agents.find((x) => x.id === id);
+        if (agent?.task) get().clearTask(id);
+      }, 1500);
+    }
   },
 
   assignTask: (id, title, branch) => {
@@ -414,6 +421,15 @@ export const useStore = create<State>()(
 
       return { agents, events, tasks, tokensUsed };
     });
+
+    // Auto-clear task when runtime finishes without producing changes (status "idle"):
+    // the agent didn't write anything useful so there's nothing to review — reset immediately.
+    if (e.status === "idle") {
+      setTimeout(() => {
+        const agent = get().agents.find((x) => x.id === e.agentId);
+        if (agent?.task && agent.status === "idle") get().clearTask(e.agentId);
+      }, 900);
+    }
 
     // surface notable outcomes as toasts
     if (e.message) {
