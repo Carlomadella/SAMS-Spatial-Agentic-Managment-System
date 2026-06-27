@@ -1,5 +1,5 @@
 import React, { Suspense, useMemo, useRef } from "react";
-import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import {
@@ -235,15 +235,57 @@ function GardenDoor() {
   );
 }
 
-function SceneContents() {
-  const agents = useStore((s) => s.agents);
-  const selectedAgentId = useStore((s) => s.selectedAgentId);
+/** Animates the directional light and scene background on a 2-minute day/night cycle. */
+function DayNightCycle() {
+  const dirRef = useRef<THREE.DirectionalLight>(null);
+  const ambRef = useRef<THREE.AmbientLight>(null);
+  const hemiRef = useRef<THREE.HemisphereLight>(null);
+
+  // Pre-allocate color objects — never `new THREE.Color()` inside useFrame
+  const bgDay   = useMemo(() => new THREE.Color("#f3ece0"), []);
+  const bgNight  = useMemo(() => new THREE.Color("#0d1520"), []);
+  const skyDay   = useMemo(() => new THREE.Color("#ffffff"), []);
+  const skyNight = useMemo(() => new THREE.Color("#1a2550"), []);
+  const gndDay   = useMemo(() => new THREE.Color("#c9d3e3"), []);
+  const gndNight = useMemo(() => new THREE.Color("#0e1020"), []);
+  const bgTemp   = useMemo(() => new THREE.Color("#f3ece0"), []);
+
+  const PERIOD = 120; // seconds for a full cycle
+  // Start at t=0.5 (noon) so the scene opens in daylight
+  const elapsed = useRef(PERIOD * 0.5);
+
+  const { scene } = useThree();
+
+  useFrame((_, delta) => {
+    elapsed.current = (elapsed.current + delta) % PERIOD;
+    const t = elapsed.current / PERIOD; // 0..1
+    // sunAngle: -π/2 at midnight (t=0), π/2 at noon (t=0.5)
+    const sunAngle = t * Math.PI * 2 - Math.PI / 2;
+    const sunY = Math.sin(sunAngle);          // -1 (night) … +1 (noon)
+    const sunX = Math.cos(sunAngle);
+    const dayness = Math.max(0, sunY);        // 0..1, zero when sun is below horizon
+
+    if (dirRef.current) {
+      dirRef.current.position.set(sunX * 14, Math.max(sunY * 14, -3), 7);
+      dirRef.current.intensity = 0.15 + dayness * 1.2;
+    }
+    if (ambRef.current) ambRef.current.intensity = 0.2 + dayness * 0.45;
+    if (hemiRef.current) {
+      hemiRef.current.color.lerpColors(skyNight, skyDay, dayness);
+      hemiRef.current.groundColor.lerpColors(gndNight, gndDay, dayness);
+    }
+
+    bgTemp.lerpColors(bgNight, bgDay, dayness);
+    scene.background = bgTemp;
+    if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(bgTemp);
+  });
 
   return (
     <>
-      <hemisphereLight args={["#ffffff", "#c9d3e3", 0.65]} />
-      <ambientLight intensity={0.55} />
+      <hemisphereLight ref={hemiRef} args={["#ffffff", "#c9d3e3", 0.65]} />
+      <ambientLight ref={ambRef} intensity={0.55} />
       <directionalLight
+        ref={dirRef}
         position={[9, 15, 7]}
         intensity={1.25}
         castShadow
@@ -256,6 +298,17 @@ function SceneContents() {
         shadow-camera-bottom={-18}
         shadow-bias={-0.0004}
       />
+    </>
+  );
+}
+
+function SceneContents() {
+  const agents = useStore((s) => s.agents);
+  const selectedAgentId = useStore((s) => s.selectedAgentId);
+
+  return (
+    <>
+      <DayNightCycle />
 
       <Floor />
 

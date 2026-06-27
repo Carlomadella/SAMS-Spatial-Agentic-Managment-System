@@ -189,6 +189,22 @@ export function AgentInspector() {
           <div>
             <Field label="Task" value={agent.task.title} />
             <Field label="Branch" mono value={agent.task.branch} />
+
+            {/* step-by-step plan from announce_plan */}
+            {(agent.task.plan?.length ?? 0) > 0 && (
+              <div className="mt-2 rounded-md border border-brand/20 bg-brand/5 px-2 py-1.5">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-brand/70">Piano</div>
+                <ol className="space-y-0.5">
+                  {agent.task.plan!.map((step, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-300">
+                      <span className="mt-0.5 shrink-0 font-mono text-[10px] text-brand/60">{i + 1}.</span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
             <div className="mt-2">
               <div className="mb-1 flex items-center justify-between text-[11px]">
                 <span className="text-mut">Progress</span>

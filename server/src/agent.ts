@@ -65,7 +65,7 @@ export function composeSystem(o: {
   guide?: string;
 }): string {
   const base =
-    `Sei "${o.agentName}", un agente operativo. Esegui il task in modo mirato e di alta qualità, scrivendo in italiano. ` +
+    `Sei "${o.agentName}", un agente operativo. Prima di qualsiasi altra azione chiama SEMPRE announce_plan con 4–6 passi che descrivono come intendi procedere. Poi esegui il piano passo dopo passo con precisione e alta qualità, scrivendo in italiano. ` +
     (o.notionEnabled
       ? `Per Notion: leggi con notion_read e scrivi SOLO con notion_write (trova la pagina per titolo); leggi prima di scrivere per evitare duplicati. `
       : `Notion non è configurato: non puoi scrivere su Notion. `) +
@@ -174,15 +174,28 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       },
     );
   }
-  decls.push({
-    name: "web_fetch",
-    description: "Scarica il contenuto testuale di una URL (documentazione, API, pagine web) utile per il task. Ritorna fino a 6000 caratteri di testo leggibile.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: { url: { type: "string", description: "URL da scaricare (deve iniziare con https://)" } },
-      required: ["url"],
+  decls.push(
+    {
+      name: "announce_plan",
+      description: "Chiama SUBITO all'inizio, prima di qualsiasi altra azione, per dichiarare i passi del tuo piano (4–6 voci). Aiuta l'utente a seguire il progresso.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          steps: { type: "array", items: { type: "string" }, description: "Lista di passi del piano (4–6 voci brevi)" },
+        },
+        required: ["steps"],
+      },
     },
-  });
+    {
+      name: "web_fetch",
+      description: "Scarica il contenuto testuale di una URL (documentazione, API, pagine web) utile per il task. Ritorna fino a 6000 caratteri di testo leggibile.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: { url: { type: "string", description: "URL da scaricare (deve iniziare con https://)" } },
+        required: ["url"],
+      },
+    },
+  );
   decls.push(
     {
       name: "relay_task",
@@ -298,6 +311,10 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "announce_plan") {
+          const steps = Array.isArray(args.steps) ? (args.steps as string[]) : [];
+          result = "Piano ricevuto";
+          emit({ agentId, agentName, plan: steps, level: "INFO", message: `📋 Piano (${steps.length} passi): ${steps.slice(0, 3).join(" → ")}${steps.length > 3 ? " …" : ""}` });
         } else if (name === "web_fetch") {
           const url = str(args.url);
           if (!url.startsWith("http://") && !url.startsWith("https://")) {

@@ -120,6 +120,7 @@ interface State {
     tokens?: number;
     pendingFiles?: PendingFile[];
     relayTo?: { target: string; title: string; branch: string; context: string };
+    plan?: string[];
   }) => void;
 }
 
@@ -429,7 +430,7 @@ export const useStore = create<State>()(
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
-        agent && (e.status || e.progress != null || e.pendingFiles)
+        agent && (e.status || e.progress != null || e.pendingFiles || e.plan != null)
           ? s.agents.map((a) => {
               if (a.id !== e.agentId) return a;
               const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
@@ -439,8 +440,9 @@ export const useStore = create<State>()(
                     ? { ...a.task, progress }
                     : { title: e.message ?? "Runtime task", branch: "", progress }
                   : a.task;
+              const taskWithPlan = e.plan != null && task ? { ...task, plan: e.plan } : task;
               const pendingFiles = e.pendingFiles ?? (e.status && e.status !== "awaiting_approval" ? undefined : a.pendingFiles);
-              return { ...a, status: e.status ?? a.status, task, pendingFiles };
+              return { ...a, status: e.status ?? a.status, task: taskWithPlan, pendingFiles };
             })
           : s.agents;
 

@@ -21,6 +21,8 @@ export interface WireEvent {
   pendingFiles?: PendingFile[];
   /** agent-to-agent handoff: ask a peer to continue the work */
   relayTo?: { target: string; title: string; branch: string; context: string };
+  /** step-by-step plan the agent announced before starting work */
+  plan?: string[];
 }
 
 export interface AssignBody {

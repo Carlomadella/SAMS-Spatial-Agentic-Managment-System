@@ -64,6 +64,8 @@ export interface Task {
   branch: string;
   /** 0..100 */
   progress: number;
+  /** step-by-step plan broadcast by announce_plan before the agent starts */
+  plan?: string[];
 }
 
 /** A historical record of an assigned task (for the Tasks panel). */

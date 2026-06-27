@@ -224,18 +224,34 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
       },
     );
   }
-  tools.push({
-    type: "function",
-    function: {
-      name: "web_fetch",
-      description: "Scarica il contenuto testuale di una URL (documentazione, API, pagine web) utile per il task. Ritorna fino a 6000 caratteri di testo leggibile.",
-      parameters: {
-        type: "object",
-        properties: { url: { type: "string", description: "URL da scaricare (deve iniziare con https://)" } },
-        required: ["url"],
+  tools.push(
+    {
+      type: "function",
+      function: {
+        name: "announce_plan",
+        description: "Chiama SUBITO all'inizio, prima di qualsiasi altra azione, per dichiarare i passi del tuo piano (4–6 voci). Aiuta l'utente a seguire il progresso.",
+        parameters: {
+          type: "object",
+          properties: {
+            steps: { type: "array", items: { type: "string" }, description: "Lista di passi del piano (4–6 voci brevi)" },
+          },
+          required: ["steps"],
+        },
       },
     },
-  });
+    {
+      type: "function",
+      function: {
+        name: "web_fetch",
+        description: "Scarica il contenuto testuale di una URL (documentazione, API, pagine web) utile per il task. Ritorna fino a 6000 caratteri di testo leggibile.",
+        parameters: {
+          type: "object",
+          properties: { url: { type: "string", description: "URL da scaricare (deve iniziare con https://)" } },
+          required: ["url"],
+        },
+      },
+    },
+  );
   tools.push(
     {
       type: "function",
@@ -358,6 +374,10 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
           notionWrote = true;
           result = `scritto sulla pagina "${resolved}"`;
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ← "${resolved}"` });
+        } else if (name === "announce_plan") {
+          const steps = Array.isArray(args.steps) ? (args.steps as string[]) : [];
+          result = "Piano ricevuto";
+          emit({ agentId, agentName, plan: steps, level: "INFO", message: `📋 Piano (${steps.length} passi): ${steps.slice(0, 3).join(" → ")}${steps.length > 3 ? " …" : ""}` });
         } else if (name === "web_fetch") {
           const url = str(args.url);
           if (!url.startsWith("http://") && !url.startsWith("https://")) {

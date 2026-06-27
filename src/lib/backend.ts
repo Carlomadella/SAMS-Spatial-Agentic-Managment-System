@@ -20,6 +20,7 @@ export interface RemoteUpdate {
   tokens?: number;
   pendingFiles?: PendingFile[];
   relayTo?: { target: string; title: string; branch: string; context: string };
+  plan?: string[];
 }
 
 export type Provider = "gemini" | "claude" | "groq";
