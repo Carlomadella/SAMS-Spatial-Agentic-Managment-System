@@ -51,6 +51,10 @@ const HEARTBEAT_MS = 25000;
 
 function broadcast(e: WireEvent): void {
   recordEvent(e);
+  // Release the per-agent cooldown once a task reaches a terminal state.
+  if (e.agentId && (e.status === "done" || e.status === "review" || e.status === "idle" || e.status === "blocked")) {
+    lastAssign.delete(e.agentId);
+  }
   const line = `data: ${JSON.stringify(e)}\n\n`;
   for (const res of clients) {
     if (res.writableEnded || res.destroyed) {
@@ -174,6 +178,10 @@ app.get("/api/events", (req: Request, res: Response) => {
   req.on("close", cleanup);
 });
 
+// Per-agent cooldown: prevent hammering an agent with rapid task submissions.
+const ASSIGN_COOLDOWN_MS = 20_000; // 20 s between task starts per agent
+const lastAssign = new Map<string, number>();
+
 app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
   const body = req.body as AssignBody;
   if (!body?.agentId || !body?.title) {
@@ -184,11 +192,22 @@ app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
     res.status(503).json({ error: "Runtime non pronto — apri le Impostazioni, salva le chiavi e premi 'Provisiona agenti'." });
     return;
   }
+
+  const now = Date.now();
+  const prev = lastAssign.get(body.agentId) ?? 0;
+  const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
+  if (wait > 0) {
+    res.status(429).json({ error: `Agente occupato — riprova tra ${wait}s`, retryAfterSec: wait });
+    return;
+  }
+  lastAssign.set(body.agentId, now);
+
   res.json({ ok: true });
 
   const { provider } = getSettings();
   const runner = provider === "gemini" ? runGeminiTask : provider === "groq" ? runGroqTask : runTask;
   runner(body, broadcast).catch((err: unknown) => {
+    lastAssign.delete(body.agentId); // release on error so the user can retry
     broadcast({
       agentId: body.agentId,
       agentName: body.agentName || body.agentId,
