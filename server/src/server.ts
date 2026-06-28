@@ -14,7 +14,7 @@ import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
 import { metricsSnapshot, recordEvent } from "./metrics";
-import { db, recentTasks, taskStats } from "./db";
+import { clearMemory, db, listMemory, recentTasks, taskStats } from "./db";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -216,6 +216,19 @@ app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
       message: `Errore: ${err instanceof Error ? err.message : String(err)}`,
     });
   });
+});
+
+/** Agent memory — read all memories for an agent. */
+app.get("/api/memory/:agentId", (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  res.json(listMemory(db(), agentId));
+});
+
+/** Agent memory — clear all memories for an agent. */
+app.delete("/api/memory/:agentId", requireAuth, (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  clearMemory(db(), agentId);
+  res.json({ ok: true });
 });
 
 /** Approve staged files: create branch, commit each file, optionally open a PR. */

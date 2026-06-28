@@ -283,6 +283,18 @@ export async function releaseSimByAgent(agentId: string): Promise<void> {
   }).catch(() => {});
 }
 
+export interface MemoryEntry { key: string; value: string; updatedAt: number }
+
+export async function fetchMemory(agentId: string): Promise<MemoryEntry[]> {
+  const res = await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`);
+  if (!res.ok) return [];
+  return (await res.json()) as MemoryEntry[];
+}
+
+export async function clearMemory(agentId: string): Promise<void> {
+  await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE" });
+}
+
 let source: EventSource | null = null;
 
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */

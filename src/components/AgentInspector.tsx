@@ -5,7 +5,7 @@ import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
-import { approveChanges, assignRemote, backendEnabled, rejectChanges } from "../lib/backend";
+import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 
@@ -39,7 +39,14 @@ export function AgentInspector() {
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+  const [memories, setMemories] = useState<MemoryEntry[]>([]);
+  const [memoriesOpen, setMemoriesOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!agent?.id || !memoriesOpen) return;
+    fetchMemory(agent.id).then(setMemories).catch(() => {});
+  }, [agent?.id, memoriesOpen]);
 
   function toggleStep(i: number) {
     setCheckedSteps((prev) => {
@@ -179,6 +186,42 @@ export function AgentInspector() {
           </div>
         </div>
       </details>
+
+      {/* agent memories */}
+      {backendEnabled && (
+        <details
+          className="mt-2 rounded-lg border border-line bg-ink-850/60"
+          onToggle={(e) => setMemoriesOpen((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
+            <span>Memorie di progetto{memories.length > 0 ? ` (${memories.length})` : ""}</span>
+            <span className="text-[10px] opacity-60">salvate con remember</span>
+          </summary>
+          <div className="px-2.5 pb-2.5">
+            {memories.length === 0 ? (
+              <p className="text-[11px] text-mut">Nessuna memoria salvata. L&apos;agente usa <code>remember</code> per salvare informazioni persistenti.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {memories.map((m) => (
+                  <div key={m.key} className="rounded border border-line bg-ink-800 px-2 py-1.5">
+                    <div className="mb-0.5 text-[10px] font-semibold text-brand/80">{m.key}</div>
+                    <p className="text-[11px] text-slate-300">{m.value}</p>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    if (!agent) return;
+                    clearMemory(agent.id).then(() => setMemories([])).catch(() => {});
+                  }}
+                  className="mt-1 text-[10px] text-mut hover:text-rose-300"
+                >
+                  Cancella tutte le memorie
+                </button>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
 
       {/* diff approval panel */}
       {agent.status === "awaiting_approval" && (agent.pendingFiles?.length ?? 0) > 0 && (
