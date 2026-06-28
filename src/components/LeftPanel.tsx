@@ -1,7 +1,8 @@
-import { MapPin, Package, Search } from "lucide-react";
+import { MapPin, Package } from "lucide-react";
 import { Explorer } from "./Explorer";
 import { ResizeHandle } from "./ResizeHandle";
 import { ScmView } from "./ScmView";
+import { SearchView } from "./SearchView";
 import { useStore } from "../store/useStore";
 import { ZONES } from "../data/world";
 
@@ -9,26 +10,6 @@ function PanelHeader({ title }: { title: string }) {
   return (
     <div className="px-3 py-2">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">{title}</span>
-    </div>
-  );
-}
-
-function SearchView() {
-  return (
-    <div className="flex h-full flex-col">
-      <PanelHeader title="Search" />
-      <div className="px-3">
-        <div className="flex items-center gap-2 rounded-md border border-line bg-ink-850 px-2 py-1.5">
-          <Search size={14} className="text-mut" />
-          <input
-            placeholder="Search workspace…"
-            className="w-full bg-transparent text-[13px] text-slate-200 outline-none placeholder:text-mut"
-          />
-        </div>
-        <p className="mt-3 text-[12px] leading-relaxed text-mut">
-          Search across agents, workflows and configs. Try an agent name or a task keyword.
-        </p>
-      </div>
     </div>
   );
 }

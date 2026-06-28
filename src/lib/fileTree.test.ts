@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flattenBadgedFiles } from "./fileTree";
+import { flattenBadgedFiles, flattenFiles } from "./fileTree";
 import type { FileNode } from "../types";
 
 describe("flattenBadgedFiles", () => {
@@ -47,5 +47,31 @@ describe("flattenBadgedFiles", () => {
       { id: "d", name: "pkg", kind: "folder", badge: "M", children: [] },
     ];
     expect(flattenBadgedFiles(tree)).toEqual([]);
+  });
+});
+
+describe("flattenFiles", () => {
+  it("collects every file (badged or not) with its full path", () => {
+    const tree: FileNode[] = [
+      {
+        id: "dir",
+        name: "src",
+        kind: "folder",
+        children: [
+          { id: "a", name: "index.ts", kind: "file" },
+          { id: "b", name: "util.ts", kind: "file", badge: "M" },
+        ],
+      },
+      { id: "c", name: "README.md", kind: "file" },
+    ];
+    expect(flattenFiles(tree)).toEqual([
+      { id: "a", name: "index.ts", path: "src/index.ts" },
+      { id: "b", name: "util.ts", path: "src/util.ts" },
+      { id: "c", name: "README.md", path: "README.md" },
+    ]);
+  });
+
+  it("returns nothing for an empty tree", () => {
+    expect(flattenFiles([])).toEqual([]);
   });
 });
