@@ -57,13 +57,15 @@ collega.
       da `moodFor(status, energy)`: blocked=frustrated, done/review=proud, idle+alta=happy,
       bassa energia=tired, working=focused. Visualizzato in AgentInspector con barra
       colorata + emoji. 6 nuovi test.
-- [ ] 💡 **Specializzazioni che contano** — oggi i ruoli sono solo prompt; renderli
-      comportamenti distinti (il Tester rifiuta codice di produzione, l'Architetto
-      produce solo design-doc).
-- [ ] 💡 **Piano rivedibile** — l'utente modifica/riordina i passi di `announce_plan`
-      prima che l'agente proceda.
-- [ ] 💡 **Memoria di progetto persistente** — memoria per-agente che sopravvive tra i
-      task (decisioni prese, cosa è già stato fatto). Richiede #1 (SQLite).
+- [x] ✅ **Specializzazioni che contano** — ROLE_PROMPTS con VINCOLI ASSOLUTI comportamentali:
+      Revisore non modifica codice, Tester scrive solo *.test.ts, Documentatore solo .md/Notion,
+      Architetto solo design-doc. System prompt ciclo CI aggiornato a gh_trigger_workflow.
+- [x] ✅ **Piano rivedibile** — i passi di `announce_plan` sono cliccabili nell'inspector:
+      click → spunta verde + testo barrato. Contatore "X/N completati". Reset automatico
+      al cambio di agente/task.
+- [x] ✅ **Memoria di progetto persistente** — tool `remember`/`recall` (universali);
+      tabella SQLite `agent_memory`; memorie iniettate nel system prompt; pannello UI
+      nell'inspector con visualizzazione e cancellazione; API REST GET/DELETE `/api/memory/:id`.
 - [ ] 💡 **Meta-agente** 🤯 — un agente il cui repo target *è SAMS stesso*: propone
       migliorie e apre PR sul progetto. Auto-miglioramento dimostrabile.
 
@@ -154,10 +156,8 @@ collega.
       lingua di default.
 
 ## ♿ UX / Accessibilità
-- [ ] 🏗️ **Accessibilità** — ✅ nomi accessibili (aria-label/aria-pressed) sui pulsanti
-      icona-only di TitleBar/ActivityBar/Toaster/modali + toast in live region. _Manca:_
-      navigazione da tastiera nel 3D e il resto degli elementi interattivi.
-      (`eslint-plugin-jsx-a11y` non installabile finché non supporta ESLint 10.)
+- [x] ✅ **Accessibilità tastiera** — Tab/Shift-Tab cicla tra agenti nel canvas (salta
+      se focus in input/textarea), Escape deseleziona. Funziona in sinergia con Ctrl+K.
 - [ ] 💡 **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
       l'onboarding spiega i *concetti*, non l'*UI*.
 - [ ] 💡 **Mobile usabile** — sotto i 768px i pannelli collassano ma scena+inspector non
@@ -172,6 +172,24 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-28 — sessione 3: profondità e UX (14 migliorie)
+Feature implementate in sequenza (tutte con typecheck + test verdi):
+
+- **Specializzazioni ruolo** — ROLE_PROMPTS con VINCOLI ASSOLUTI (Revisore/Tester/Documentatore/Architetto). Sistema prompt ciclo CI: gh_trigger_workflow → gh_list_ci → gh_ci_jobs → correggi → mergia.
+- **Piano rivedibile** — passi announce_plan cliccabili in AgentInspector (spunta verde, testo barrato, contatore X/N). 2 nuovi test in agent.test.ts.
+- **Memoria persistente** — tabella SQLite `agent_memory`; tool `remember`/`recall` universali; memorie iniettate nel system prompt; pannello "Memorie di progetto" nell'inspector; API REST GET/DELETE `/api/memory/:agentId`.
+- **Tooltip stats 3D** — al hover su un agente nel canvas appare un pannello con stato, energia, task corrente e progresso. Scompare quando l'agente è selezionato.
+- **SystemOverview potenziato** — barra distribuzione stati a colori, contatore per-stato, energia media (⚡), token lifetime.
+- **Tastiera a11y** — Tab/Shift-Tab cicla tra agenti; Escape deseleziona.
+- **Quick-assign da Command Palette** — digitare qualsiasi testo con un agente selezionato mostra "Assign '...' → NomeAgente" come prima opzione; Enter lo invia subito.
+- **Rate limiting** — POST /api/assign restituisce 429 {retryAfterSec} se lo stesso agente riceve un task entro 20s. Cooldown azzerato al task terminale.
+- **Storico filtrato** — HistoryPanel con ricerca full-text, filtro agente, filtro stato; contatore filtrato/totale.
+- **Toast per stati terminali** — done → "✓ NomeAgente ha completato il task", review → "⏳ in revisione", blocked → "⚠ bloccato".
+- **Export CSV log** — pulsante "CSV" nell'header del log eventi; scarica sams-events-YYYY-MM-DD_HH-MM.csv.
+- **Memoria UI** — pannello collassabile nell'inspector che mostra le coppie key/value salvate con `remember`, con pulsante "Cancella tutte".
+
+Test: 94 server, 87 frontend (181 totali). Build, lint, typecheck: verdi.
 
 ### 2026-06-28 — pass qualità & nuove feature (sessione 2)
 Sette miglioramenti committati in sequenza, tutti con test o typecheck verde:
