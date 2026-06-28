@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, Cpu, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Clock, Cpu, Trash2 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import type { BottomTab } from "../types";
 import { EventLog } from "./EventLog";
@@ -13,23 +13,48 @@ import { cn } from "../lib/utils";
 
 function ProblemsView() {
   const agents = useStore((s) => s.agents);
+  const selectAgent = useStore((s) => s.selectAgent);
   const problems = agents.filter((a) => a.status === "blocked" || a.status === "review");
 
   if (problems.length === 0) {
-    return <div className="px-3 py-3 text-[12px] text-mut">No problems detected.</div>;
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1.5 text-center">
+        <Check size={18} className="text-emerald-400/70" />
+        <span className="text-[12px] text-mut">Nessun problema rilevato.</span>
+      </div>
+    );
   }
   return (
-    <div className="h-full overflow-y-auto px-3 py-2 text-[12px]">
-      {problems.map((a) => (
-        <div key={a.id} className="flex items-center gap-2 py-1">
-          <AlertTriangle size={14} className="text-amber-400" />
-          <span className="text-slate-300">
-            <span className="font-medium">{a.name}</span>{" "}
-            {a.status === "blocked" ? "is blocked and needs attention" : "is waiting for review"}
-            {a.task ? ` · ${a.task.title}` : ""}
-          </span>
-        </div>
-      ))}
+    <div className="h-full overflow-y-auto px-2 py-1.5 text-[12px]">
+      {problems.map((a) => {
+        const blocked = a.status === "blocked";
+        return (
+          <button
+            key={a.id}
+            onClick={() => selectAgent(a.id)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-ink-700/60"
+          >
+            {blocked ? (
+              <AlertTriangle size={14} className="shrink-0 text-rose-400" />
+            ) : (
+              <Clock size={14} className="shrink-0 text-amber-400" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-slate-300">
+              <span className="font-medium text-slate-200">{a.name}</span>{" "}
+              {blocked ? "è bloccato e richiede attenzione" : "è in attesa di review"}
+              {a.task ? ` · ${a.task.title}` : ""}
+            </span>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+                blocked ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-300",
+              )}
+            >
+              {blocked ? "blocked" : "review"}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -46,12 +46,27 @@ function CadView() {
 
 
 function ExtensionsView() {
-  const exts = [
-    { name: "Spatial CAD", desc: "3D office layout editor", on: true },
-    { name: "Agent Runtime", desc: "Lifecycle & task scheduling", on: true },
-    { name: "Security Gate", desc: "Access rules & approvals", on: true },
-    { name: "Event Stream", desc: "Live workspace telemetry", on: false },
+  const backendOnline = useStore((s) => s.backendOnline);
+  const runtimeReady = useStore((s) => s.runtimeReady);
+  const simMode = useStore((s) => s.simMode);
+
+  // Each "extension" reflects a real capability and its live state, instead of
+  // a hardcoded on/off flag.
+  const exts: { name: string; desc: string; state: "on" | "live" | "off" }[] = [
+    { name: "Spatial CAD", desc: "3D office layout & zones", state: "on" },
+    { name: "Agent Runtime", desc: "Lifecycle & task scheduling", state: runtimeReady ? "on" : "off" },
+    { name: "Security Gate", desc: "Diff approval before commit", state: "on" },
+    { name: "Event Stream", desc: "Live workspace telemetry (SSE)", state: backendOnline ? "live" : "off" },
+    { name: "Live Simulation", desc: "Agents pull GitHub issues autonomously", state: simMode ? "live" : "off" },
   ];
+
+  const chip: Record<string, string> = {
+    on: "bg-emerald-500/15 text-emerald-300",
+    live: "bg-brand/15 text-brand-soft",
+    off: "bg-ink-700 text-mut",
+  };
+  const label: Record<string, string> = { on: "Enabled", live: "Live", off: "Off" };
+
   return (
     <div className="flex h-full flex-col">
       <PanelHeader title="Extensions" />
@@ -63,10 +78,11 @@ function ExtensionsView() {
               <div className="text-[13px] text-slate-200">{e.name}</div>
               <div className="text-[11px] text-mut">{e.desc}</div>
             </div>
-            <span
-              className={`chip ${e.on ? "bg-emerald-500/15 text-emerald-300" : "bg-ink-700 text-mut"}`}
-            >
-              {e.on ? "Enabled" : "Off"}
+            <span className={`chip ${chip[e.state]}`}>
+              {e.state === "live" && (
+                <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse-soft" />
+              )}
+              {label[e.state]}
             </span>
           </div>
         ))}
