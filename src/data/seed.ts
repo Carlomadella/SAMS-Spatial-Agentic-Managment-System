@@ -1,4 +1,4 @@
-import type { Agent, FileNode, LogEvent } from "../types";
+import type { Agent, FileNode, LogEvent, WorkflowDef } from "../types";
 
 // ---------------------------------------------------------------------------
 // Initial population of the workspace. This is a manual sandbox: these agents
@@ -110,6 +110,34 @@ export function seedEvents(now = Date.now()): LogEvent[] {
   });
 }
 
+/** Workflow definitions — what each .flow file does when triggered. */
+export const WORKFLOW_DEFS: WorkflowDef[] = [
+  {
+    id: "wf-onboarding",
+    name: "Onboarding",
+    description: "Analizza il repository e genera un report di orientamento per i nuovi agenti",
+    taskTemplate: "Onboarding: esplora il repository con gh_list_files, leggi README e file di configurazione principali, poi scrivi un report di orientamento su Notion con le sezioni: struttura progetto, convenzioni, aree chiave",
+    defaultRole: "Documentatore",
+    icon: "BookOpen",
+  },
+  {
+    id: "wf-codereview",
+    name: "Code Review",
+    description: "Revisione approfondita delle PR aperte — bug, stile e sicurezza",
+    taskTemplate: "Code Review: elenca le PR aperte con gh_list_prs, leggi quella più recente con gh_read_pr, analizza i file modificati con gh_read_file e documenta i problemi trovati (bug, stile, sicurezza, performance) su Notion",
+    defaultRole: "Revisore",
+    icon: "GitPullRequest",
+  },
+  {
+    id: "wf-deploy",
+    name: "Deploy Check",
+    description: "Verifica lo stato CI/CD e apre una PR di deployment se tutto è verde",
+    taskTemplate: "Deploy Check: controlla gli ultimi run CI con gh_list_ci, se tutto è verde apri una PR di deployment verso main, altrimenti documenta i problemi trovati",
+    defaultRole: "Generalist",
+    icon: "Rocket",
+  },
+];
+
 /**
  * The non-agent part of the Explorer tree (workflows / environments / assets /
  * configs / docs). The agents folder is generated live from the store.
@@ -120,9 +148,9 @@ export const STATIC_TREE: FileNode[] = [
     name: "workflows",
     kind: "folder",
     children: [
-      { id: "wf-onboarding", name: "onboarding.flow", kind: "file", badge: "M" },
-      { id: "wf-codereview", name: "code-review.flow", kind: "file", badge: "M" },
-      { id: "wf-deploy", name: "deploy.flow", kind: "file" },
+      { id: "wf-onboarding", name: "onboarding.flow", kind: "file", badge: "M", workflowId: "wf-onboarding" },
+      { id: "wf-codereview", name: "code-review.flow", kind: "file", badge: "M", workflowId: "wf-codereview" },
+      { id: "wf-deploy", name: "deploy.flow", kind: "file", workflowId: "wf-deploy" },
     ],
   },
   {

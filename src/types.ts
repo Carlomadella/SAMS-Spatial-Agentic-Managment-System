@@ -144,7 +144,22 @@ export interface FileNode {
   badge?: FileBadge;
   /** when set, clicking the node selects this agent */
   agentId?: string;
+  /** when set, clicking the node opens the workflow runner for this workflow */
+  workflowId?: string;
   children?: FileNode[];
+}
+
+/** A workflow definition that can be triggered from the Explorer. */
+export interface WorkflowDef {
+  id: string;
+  name: string;
+  description: string;
+  /** Task title sent to the agent when the workflow is triggered */
+  taskTemplate: string;
+  /** Preferred agent role (used to pre-select in the runner) */
+  defaultRole: string;
+  /** Lucide icon name */
+  icon: string;
 }
 
 // --- UI state ---------------------------------------------------------------
