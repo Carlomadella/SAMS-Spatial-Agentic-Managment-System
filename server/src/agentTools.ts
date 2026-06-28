@@ -31,7 +31,7 @@ import {
   replacePageByTitle,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
-import { logTask } from "./db";
+import { db, listMemory, logTask, setMemory } from "./db";
 import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
@@ -255,6 +255,23 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
     );
   }
   specs.push(
+    {
+      name: "remember",
+      description: "Salva un'informazione persistente nella tua memoria di progetto (sopravvive tra i task). Usa chiavi brevi (es: 'architettura', 'convenzioni', 'branch-corrente').",
+      schema: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Chiave breve identificativa (max 100 caratteri)" },
+          value: { type: "string", description: "Informazione da memorizzare (max 2000 caratteri)" },
+        },
+        required: ["key", "value"],
+      },
+    },
+    {
+      name: "recall",
+      description: "Leggi le tue memorie di progetto persistenti (salvate con 'remember' nei task precedenti).",
+      schema: { type: "object", properties: {} },
+    },
     {
       name: "announce_plan",
       description:
@@ -494,6 +511,23 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       ctx.notionWrote = true;
       result = `Pagina "${replaced}" sostituita`;
       emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ↺ "${replaced}"` });
+    } else if (name === "remember") {
+      const key = str(args.key);
+      const value = str(args.value);
+      if (!key) { result = "ERRORE: key è obbligatoria"; }
+      else {
+        setMemory(db(), agentId, key, value);
+        result = `Memorizzato: "${key}"`;
+        emit({ agentId, agentName, progress, level: "INFO", message: `🧠 Memoria salvata: "${key}"` });
+      }
+    } else if (name === "recall") {
+      const memories = listMemory(db(), agentId);
+      if (!memories.length) {
+        result = "Nessuna memoria salvata";
+      } else {
+        result = memories.map((m) => `[${m.key}]: ${m.value}`).join("\n\n");
+        emit({ agentId, agentName, progress, level: "INFO", message: `🧠 Ricordati ${memories.length} memorie` });
+      }
     } else if (name === "announce_plan") {
       const steps = Array.isArray(args.steps) ? (args.steps as unknown[]).map(String) : [];
       result = "Piano ricevuto";

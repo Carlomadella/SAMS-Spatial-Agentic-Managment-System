@@ -4,6 +4,7 @@ import { getSettings } from "./config";
 import { readFile } from "./github";
 import { notionConfigured } from "./notion";
 import type { AssignBody, WireEvent } from "./types";
+import { db, listMemory } from "./db";
 import {
   GUIDE_LIMIT,
   MAX_STEPS,
@@ -78,6 +79,7 @@ export function composeSystem(o: {
   role?: string;
   instructions?: string;
   guide?: string;
+  memories?: string;
 }): string {
   const base =
     `Sei "${o.agentName}", un agente operativo. Prima di qualsiasi altra azione chiama SEMPRE announce_plan con 4–6 passi che descrivono come intendi procedere. Poi esegui il piano passo dopo passo con precisione e alta qualità, scrivendo in italiano. ` +
@@ -94,10 +96,12 @@ export function composeSystem(o: {
       : ``) +
     `Usa solo lo strumento pertinente al task (un task "su Notion" usa notion_write, non gli strumenti gh_*). ` +
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
+  const mem = o.memories?.trim();
   const userInstr = o.instructions?.trim();
   const roleExtra = o.role ? (ROLE_PROMPTS[o.role] ?? "") : "";
   const g = o.guide?.trim();
   const parts = [base];
+  if (mem) parts.push(`Memoria di progetto (informazioni che hai salvato nei task precedenti con "remember"):\n${mem}`);
   if (userInstr) parts.push(`Istruzioni specifiche per questo agente (hanno la priorità su tutto il resto):\n${userInstr}`);
   if (roleExtra) parts.push(roleExtra);
   if (g) parts.push(`Linee guida del progetto (rispettale scrupolosamente):\n${g}`);
@@ -140,7 +144,15 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide });
+
+  // load agent memories saved in previous tasks
+  const savedMemories = listMemory(db(), agentId);
+  const memories = savedMemories.length
+    ? savedMemories.map((m) => `[${m.key}]: ${m.value}`).join("\n")
+    : "";
+  if (savedMemories.length) emit({ agentId, agentName, level: "INFO", message: `Memoria: ${savedMemories.length} voci caricate` });
+
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide, memories });
 
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,

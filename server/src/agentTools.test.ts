@@ -48,9 +48,9 @@ describe("buildToolSpecs gating", () => {
     expect(names).not.toContain("gh_read_file");
   });
 
-  it("always includes the universal tools (plan/web/relay/done)", () => {
+  it("always includes the universal tools (memory/plan/web/relay/done)", () => {
     const names = buildToolSpecs(baseSettings, { repoEnabled: false, notionEnabled: false }).map((t) => t.name);
-    expect(names).toEqual(["announce_plan", "web_fetch", "relay_task", "done"]);
+    expect(names).toEqual(["remember", "recall", "announce_plan", "web_fetch", "relay_task", "done"]);
   });
 
   it("interpolates the base branch into gh tool descriptions", () => {

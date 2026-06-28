@@ -63,6 +63,19 @@ describe("composeSystem", () => {
     expect(s).toContain("analizza");
   });
 
+  it("injects memories block when memories are provided", () => {
+    const s = composeSystem({ agentName: "x", notionEnabled: false, repoEnabled: true, memories: "[architettura]: monorepo React+Express" });
+    expect(s).toContain("Memoria di progetto");
+    expect(s).toContain("[architettura]");
+  });
+
+  it("omits memories block when memories is empty or whitespace", () => {
+    const s1 = composeSystem({ agentName: "x", notionEnabled: false, repoEnabled: true, memories: "" });
+    const s2 = composeSystem({ agentName: "x", notionEnabled: false, repoEnabled: true, memories: "  " });
+    expect(s1).not.toContain("Memoria di progetto");
+    expect(s2).not.toContain("Memoria di progetto");
+  });
+
   it("adds no role text for Generalist or unknown role", () => {
     const g = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "Generalist" });
     const u = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "UnknownRole" });

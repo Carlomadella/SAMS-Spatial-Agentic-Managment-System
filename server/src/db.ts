@@ -42,8 +42,43 @@ export function openDb(location: string): DatabaseSync {
       ts         INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_task_log_ts ON task_log (ts DESC);
+
+    CREATE TABLE IF NOT EXISTS agent_memory (
+      agent_id   TEXT    NOT NULL,
+      key        TEXT    NOT NULL,
+      value      TEXT    NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (agent_id, key)
+    );
   `);
   return db;
+}
+
+// --- agent memory helpers ---------------------------------------------------
+
+export interface MemoryEntry { key: string; value: string; updatedAt: number }
+
+export function setMemory(db: DatabaseSync, agentId: string, key: string, value: string): void {
+  db.prepare(
+    `INSERT INTO agent_memory (agent_id, key, value, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT (agent_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+  ).run(agentId, key.slice(0, 100), value.slice(0, 2000), Date.now());
+}
+
+export function getMemory(db: DatabaseSync, agentId: string, key: string): string | null {
+  const row = db.prepare(`SELECT value FROM agent_memory WHERE agent_id = ? AND key = ?`).get(agentId, key) as
+    | { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function listMemory(db: DatabaseSync, agentId: string): MemoryEntry[] {
+  return (db.prepare(
+    `SELECT key, value, updated_at AS updatedAt FROM agent_memory WHERE agent_id = ? ORDER BY updated_at DESC LIMIT 30`,
+  ).all(agentId) as unknown as MemoryEntry[]).map((r) => ({ ...r, updatedAt: Number(r.updatedAt) }));
+}
+
+export function clearMemory(db: DatabaseSync, agentId: string): void {
+  db.prepare(`DELETE FROM agent_memory WHERE agent_id = ?`).run(agentId);
 }
 
 /** Append one finished task to the log. */
