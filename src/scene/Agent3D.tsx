@@ -424,11 +424,32 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         </Html>
       )}
 
-      {/* name label */}
+      {/* name label + optional task progress bar */}
       <Html position={[0, 2.55, 0]} center distanceFactor={11} zIndexRange={[60, 40]} pointerEvents="none">
-        <div className="pointer-events-none flex select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-ink-900/90 px-2.5 py-1 text-[12px] font-medium text-slate-100 shadow-panel">
-          <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[agent.status] }} />
-          {agent.name}
+        <div className="pointer-events-none flex select-none flex-col items-center gap-1">
+          <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-ink-900/90 px-2.5 py-1 text-[12px] font-medium text-slate-100 shadow-panel">
+            <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[agent.status] }} />
+            {agent.name}
+            {agent.status === "working" && (
+              <span className="flex gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="inline-block h-1 w-1 rounded-full bg-brand"
+                    style={{ animation: `pulse 1.2s ${i * 0.2}s infinite` }}
+                  />
+                ))}
+              </span>
+            )}
+          </div>
+          {agent.task && agent.task.progress > 0 && agent.task.progress < 100 && (
+            <div className="h-0.5 w-20 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-700"
+                style={{ width: `${agent.task.progress}%` }}
+              />
+            </div>
+          )}
         </div>
       </Html>
 
