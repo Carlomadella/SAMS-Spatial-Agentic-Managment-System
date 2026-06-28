@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, RefreshCw, Search, X } from "lucide-react";
 import { fetchHistory, type TaskHistoryRow } from "../lib/backend";
 import { colorFromAgentId } from "../lib/agentColor";
 import { cn } from "../lib/utils";
@@ -25,6 +25,9 @@ const STATUS_CHIP: Record<string, string> = {
 export function HistoryPanel() {
   const [rows, setRows] = useState<TaskHistoryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   async function load() {
     setLoading(true);
@@ -38,6 +41,22 @@ export function HistoryPanel() {
 
   useEffect(() => { void load(); }, []);
 
+  const agentNames = useMemo(() => {
+    if (!rows) return [];
+    return [...new Set(rows.map((r) => r.agentName))].sort();
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (agentFilter !== "all" && r.agentName !== agentFilter) return false;
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (q && !`${r.title} ${r.agentName} ${r.branch}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [rows, query, agentFilter, statusFilter]);
+
   if (rows === null) {
     return (
       <div className="flex h-full items-center justify-center gap-2 text-[12px] text-mut">
@@ -49,26 +68,66 @@ export function HistoryPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-line/40 px-2 py-1">
-        <span className="text-[10px] text-mut">
-          {rows.length} {rows.length === 1 ? "operazione" : "operazioni"}
-        </span>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-mut transition-colors hover:bg-ink-700 hover:text-slate-300 disabled:opacity-40"
-        >
-          <RefreshCw size={10} className={cn(loading && "animate-spin")} /> Aggiorna
-        </button>
+      <div className="shrink-0 space-y-1 border-b border-line/40 px-2 py-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-mut">
+            {filtered.length}/{rows.length} {rows.length === 1 ? "operazione" : "operazioni"}
+          </span>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-mut transition-colors hover:bg-ink-700 hover:text-slate-300 disabled:opacity-40"
+          >
+            <RefreshCw size={10} className={cn(loading && "animate-spin")} /> Aggiorna
+          </button>
+        </div>
+
+        {/* search */}
+        <div className="relative">
+          <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-mut" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cerca task, agente, branch…"
+            className="w-full rounded border border-line bg-ink-800 py-0.5 pl-5 pr-5 text-[10px] text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50"
+          />
+          {query && (
+            <button onClick={() => setQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-mut hover:text-slate-300">
+              <X size={10} />
+            </button>
+          )}
+        </div>
+
+        {/* filters */}
+        <div className="flex gap-1">
+          <select
+            value={agentFilter}
+            onChange={(e) => setAgentFilter(e.target.value)}
+            className="flex-1 rounded border border-line bg-ink-800 px-1 py-0.5 text-[10px] text-slate-200 outline-none"
+          >
+            <option value="all">Tutti gli agenti</option>
+            {agentNames.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded border border-line bg-ink-800 px-1 py-0.5 text-[10px] text-slate-200 outline-none"
+          >
+            <option value="all">Tutti stati</option>
+            <option value="done">done</option>
+            <option value="review">review</option>
+            <option value="blocked">blocked</option>
+          </select>
+        </div>
       </div>
 
-      {rows.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="px-3 py-4 text-[12px] text-mut">
-          Nessun task registrato. I task completati appariranno qui e persistono ai riavvii.
+          {rows.length === 0 ? "Nessun task registrato. I task completati appariranno qui e persistono ai riavvii." : "Nessun risultato per i filtri selezionati."}
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {rows.map((r, i) => {
+          {filtered.map((r, i) => {
             const color = colorFromAgentId(r.agentId);
             const chipCls = STATUS_CHIP[r.status] ?? STATUS_CHIP.idle;
             return (
