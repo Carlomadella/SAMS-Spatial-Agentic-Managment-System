@@ -113,6 +113,31 @@ export function AgentInspector() {
         </span>
       </div>
 
+      {/* energy + mood */}
+      {agent.energy != null && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-[10px] text-mut w-12 shrink-0">Energia</span>
+          <div className="relative flex-1 h-1.5 rounded-full bg-ink-700 overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+              style={{
+                width: `${agent.energy}%`,
+                background: agent.energy > 60 ? "#22c55e" : agent.energy > 30 ? "#eab308" : "#ef4444",
+              }}
+            />
+          </div>
+          <span className="text-[10px] text-mut w-7 text-right shrink-0">{agent.energy}%</span>
+          <span className="text-[11px]" title={`Mood: ${agent.mood ?? "happy"}`}>
+            {agent.mood === "happy" ? "😊"
+              : agent.mood === "focused" ? "🎯"
+              : agent.mood === "tired" ? "😴"
+              : agent.mood === "proud" ? "🌟"
+              : agent.mood === "frustrated" ? "😤"
+              : "😊"}
+          </span>
+        </div>
+      )}
+
       {/* inline rename */}
       <input
         value={agent.name}

@@ -5,6 +5,7 @@ import {
   type ActivityView,
   type Agent,
   type AgentColor,
+  type AgentMood,
   type AgentStatus,
   type BottomTab,
   type EnvironmentName,
@@ -162,6 +163,16 @@ function uniqueName(agents: Agent[], color: AgentColor): string {
   return `${base}-${i}`;
 }
 
+/** Compute mood from status + energy — outcome signals take priority. */
+function moodFor(status: AgentStatus, energy: number, prevMood: AgentMood): AgentMood {
+  if (status === "blocked") return "frustrated";
+  if (status === "done" || status === "review") return "proud";
+  if (status === "idle") return energy >= 70 ? "happy" : "focused";
+  if (energy < 30) return "tired";
+  if (status === "working" || status === "awaiting_approval") return "focused";
+  return prevMood;
+}
+
 function patchLatestTask(
   tasks: TaskRecord[],
   agentId: string,
@@ -232,6 +243,8 @@ export const useStore = create<State>()(
       target: null,
       task: null,
       taskQueue: [],
+      energy: 100,
+      mood: "happy",
     };
     set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
     log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agent spawned into workspace" });
@@ -280,7 +293,11 @@ export const useStore = create<State>()(
   setStatus: (id, status) => {
     const a = get().agents.find((x) => x.id === id);
     set((s) => ({
-      agents: s.agents.map((x) => (x.id === id ? { ...x, status } : x)),
+      agents: s.agents.map((x) => {
+        if (x.id !== id) return x;
+        const energy = status === "idle" ? Math.min(100, x.energy + 15) : x.energy;
+        return { ...x, status, energy, mood: moodFor(status, energy, x.mood) };
+      }),
     }));
     if (a) {
       const msg: Record<AgentStatus, string> = {
@@ -337,19 +354,20 @@ export const useStore = create<State>()(
     const a = get().agents.find((x) => x.id === id);
     if (!a || !a.task) return;
     const willComplete = p >= 100 && a.task.progress < 100;
+    // Drain 1 energy point for every 7% of progress — long tasks tire the agent.
+    const energyDrain = Math.max(0, Math.floor((p - a.task.progress) / 7));
     set((s) => ({
-      agents: s.agents.map((x) =>
-        x.id === id && x.task
-          ? { ...x, task: { ...x.task, progress: p }, status: p >= 100 ? "done" : x.status }
-          : x,
-      ),
+      agents: s.agents.map((x) => {
+        if (x.id !== id || !x.task) return x;
+        const newEnergy = Math.max(0, x.energy - energyDrain);
+        const newStatus = p >= 100 ? "done" as const : x.status;
+        const newMood = moodFor(newStatus, newEnergy, x.mood);
+        return { ...x, task: { ...x.task, progress: p }, status: newStatus, energy: newEnergy, mood: newMood };
+      }),
       tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
     }));
     if (willComplete) {
       get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task complete: ${a.task.title}` });
-      // Mirror setStatus: reaching 100% sets status "done", so schedule the same
-      // guarded auto-clear or the agent would sit in "done" forever (and never
-      // recycle in sim mode, which only picks up idle agents).
       setTimeout(() => {
         const agent = get().agents.find((x) => x.id === id);
         if (agent?.status === "done" && agent.task) get().clearTask(id);
@@ -360,7 +378,11 @@ export const useStore = create<State>()(
   clearTask: (id) => {
     const a = get().agents.find((x) => x.id === id);
     set((s) => ({
-      agents: s.agents.map((x) => (x.id === id ? { ...x, task: null, status: "idle" } : x)),
+      agents: s.agents.map((x) => {
+        if (x.id !== id) return x;
+        const energy = Math.min(100, x.energy + 15);
+        return { ...x, task: null, status: "idle", energy, mood: moodFor("idle", energy, x.mood) };
+      }),
     }));
     if (a) get().log({ agentId: id, agentName: a.name, color: a.color, level: "IDLE", message: "Cleared task · now idle" });
   },
@@ -471,7 +493,12 @@ export const useStore = create<State>()(
                   : a.task;
               const taskWithPlan = e.plan != null && task ? { ...task, plan: e.plan } : task;
               const pendingFiles = e.pendingFiles ?? (e.status && e.status !== "awaiting_approval" ? undefined : a.pendingFiles);
-              return { ...a, status: e.status ?? a.status, task: taskWithPlan, pendingFiles };
+              const newStatus = e.status ?? a.status;
+              const energyDrain = progress != null ? Math.max(0, Math.floor((progress - (a.task?.progress ?? 0)) / 7)) : 0;
+              const energy = e.status === "idle"
+                ? Math.min(100, a.energy + 15)
+                : Math.max(0, a.energy - energyDrain);
+              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.mood) };
             })
           : s.agents;
 

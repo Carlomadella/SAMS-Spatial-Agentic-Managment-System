@@ -14,6 +14,8 @@ beforeEach(() => {
       taskQueue: [],
       target: null,
       pendingFiles: undefined,
+      energy: 100,
+      mood: "happy" as const,
     })),
     events: [],
     tasks: [],
@@ -154,6 +156,55 @@ describe("applyRemote", () => {
   it("ignores events for unknown agents but still logs the message", () => {
     useStore.getState().applyRemote({ agentId: "ghost", message: "orphan" });
     expect(useStore.getState().events.at(-1)!.message).toBe("orphan");
+  });
+});
+
+describe("energy & mood", () => {
+  it("new agent starts with full energy and happy mood", () => {
+    const id = useStore.getState().addAgent("blue");
+    const a = useStore.getState().agents.find((x) => x.id === id)!;
+    expect(a.energy).toBe(100);
+    expect(a.mood).toBe("happy");
+  });
+
+  it("updateProgress drains energy proportionally", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "T", "b");
+    // baseline energy is 100 (reset in beforeEach via SEED_AGENTS defaults)
+    useStore.getState().updateProgress(id, 35); // drain floor(35/7) = 5
+    expect(useStore.getState().agents.find((x) => x.id === id)!.energy).toBe(95);
+  });
+
+  it("clearTask restores some energy", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "T", "b");
+    useStore.getState().updateProgress(id, 70); // drain 10
+    const before = useStore.getState().agents.find((x) => x.id === id)!.energy;
+    useStore.getState().clearTask(id);
+    const after = useStore.getState().agents.find((x) => x.id === id)!.energy;
+    expect(after).toBeGreaterThan(before);
+    expect(after).toBeLessThanOrEqual(100);
+  });
+
+  it("blocked status sets frustrated mood", () => {
+    const id = firstId();
+    useStore.getState().setStatus(id, "blocked");
+    expect(useStore.getState().agents.find((x) => x.id === id)!.mood).toBe("frustrated");
+  });
+
+  it("review/done status sets proud mood", () => {
+    const id = firstId();
+    useStore.getState().setStatus(id, "review");
+    expect(useStore.getState().agents.find((x) => x.id === id)!.mood).toBe("proud");
+    useStore.getState().setStatus(id, "done");
+    expect(useStore.getState().agents.find((x) => x.id === id)!.mood).toBe("proud");
+  });
+
+  it("idle status with high energy sets happy mood", () => {
+    const id = firstId();
+    // energy starts at 100 in test baseline
+    useStore.getState().setStatus(id, "idle");
+    expect(useStore.getState().agents.find((x) => x.id === id)!.mood).toBe("happy");
   });
 });
 

@@ -38,6 +38,9 @@ export type AgentStatus =
   | "done"
   | "awaiting_approval";
 
+/** Emotional state of an agent — changes based on task outcomes and energy level. */
+export type AgentMood = "happy" | "focused" | "tired" | "proud" | "frustrated";
+
 /** A file the agent wants to commit, staged for user approval. */
 export interface PendingFile {
   path: string;
@@ -111,6 +114,10 @@ export interface Agent {
   taskQueue: QueuedTask[];
   /** Files staged by the runtime, waiting for the user to approve before committing. */
   pendingFiles?: PendingFile[];
+  /** 0..100. Decreases during long tasks, recovers while idle. */
+  energy: number;
+  /** Emotional state — changes based on task outcomes and energy level. */
+  mood: AgentMood;
 }
 
 export interface LogEvent {

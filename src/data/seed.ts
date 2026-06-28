@@ -18,6 +18,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: { title: "Implement authentication flow", branch: "feature/auth-flow", progress: 72 },
     taskQueue: [],
+    energy: 68,
+    mood: "focused",
   },
   {
     id: "agent-green",
@@ -31,6 +33,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: { title: "Run test suite", branch: "feature/auth-flow", progress: 100 },
     taskQueue: [],
+    energy: 80,
+    mood: "proud",
   },
   {
     id: "agent-orange",
@@ -44,6 +48,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: { title: "Waiting for review: PR #128", branch: "feature/payments", progress: 40 },
     taskQueue: [],
+    energy: 55,
+    mood: "focused",
   },
   {
     id: "agent-purple",
@@ -57,6 +63,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: { title: "Update workflow: code-review.flow", branch: "chore/flows", progress: 55 },
     taskQueue: [],
+    energy: 45,
+    mood: "tired",
   },
   {
     id: "agent-yellow",
@@ -70,6 +78,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: { title: "Deploy to staging environment", branch: "release/0.4", progress: 100 },
     taskQueue: [],
+    energy: 90,
+    mood: "proud",
   },
   {
     id: "agent-red",
@@ -83,6 +93,8 @@ export const SEED_AGENTS: Agent[] = [
     target: null,
     task: null,
     taskQueue: [],
+    energy: 100,
+    mood: "happy",
   },
 ];
 
