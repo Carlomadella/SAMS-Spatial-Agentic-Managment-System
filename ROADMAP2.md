@@ -52,9 +52,11 @@ collega.
       prendono un altro. Da "tu comandi" a "tu supervisioni". _Implementato:_ tab "Live Sim"
       nel BottomPanel; `simLoop.ts` con claim atomico server-side; `SimBridge` che
       auto-approva, auto-libera e auto-assegna; 123 test totali.
-- [ ] 💡 **Bisogni/mood** — energia che cala con task lunghi, pausa caffè in lounge,
-      umore legato all'esito (PR mergiata = festa, CI rossa = testa bassa). Comunica lo
-      stato reale e dà vita alla scena.
+- [x] ✅ **Bisogni/mood** — `Agent.energy` (0..100) cala con il progresso del task (ogni
+      7% di avanzamento drena 1pt di energia), si recupera a idle. `Agent.mood` calcolato
+      da `moodFor(status, energy)`: blocked=frustrated, done/review=proud, idle+alta=happy,
+      bassa energia=tired, working=focused. Visualizzato in AgentInspector con barra
+      colorata + emoji. 6 nuovi test.
 - [ ] 💡 **Specializzazioni che contano** — oggi i ruoli sono solo prompt; renderli
       comportamenti distinti (il Tester rifiuta codice di produzione, l'Architetto
       produce solo design-doc).
@@ -69,9 +71,10 @@ collega.
 - [x] ✅ **Diff preview in-app** — il pannello di approvazione mostra un vero diff
       prima/dopo (LCS, righe colorate +/− con conteggio) confrontando il contenuto
       staged con quello attuale del repo (`GET /api/file` + `lib/diff.ts`).
-- [ ] 💡 **`run_tests` in sandbox** — strumento che lancia davvero la suite e fa
-      autocorreggere l'agente sui fallimenti reali (oggi l'auto-verifica è solo
-      "mentale" via prompt: l'agente *dice* di aver controllato i test).
+- [x] ✅ **`gh_trigger_workflow`** — tool che avvia un workflow CI via `workflow_dispatch`
+      su un branch; l'agente usa poi `gh_list_ci` + `gh_ci_jobs` per leggere i risultati
+      e autocorreggersi prima di aprire la PR. System prompt aggiornato con il ciclo
+      "scrivi → trigger → controlla CI → correggi → mergia".
 - [x] ✅ **Gate su CI + `gh_ci_jobs`** — tool `gh_ci_jobs(run_id)` che restituisce job +
       step falliti di un run CI; system prompt aggiornato a insegnare agli agenti il ciclo
       "controlla CI → leggi failure → correggi → ri-controlla → mergia solo se verde".
@@ -99,7 +102,8 @@ collega.
       `/api/metrics`. Sopravvive ai riavvii.
 - [x] ✅ **Endpoint `/api/metrics`** — eventi, task avviati/completati, errori, uptime,
       UI connesse, più i totali durevoli; visibile anche nel System Overview.
-- [ ] 💡 **Logging strutturato** lato runtime (livelli, niente segreti).
+- [x] ✅ **Logging strutturato** — `log.ts` con livelli debug/info/warn/error in JSON
+      (`{ t, level, msg, ...meta }`); LOG_LEVEL da env; usato in server.ts e auth middleware.
 
 ## 🎮 Mondo 3D (feel "The Sims")
 - [ ] 💡 **Pathfinding attorno ai mobili** (oggi i percorsi sono in linea retta e
@@ -113,8 +117,9 @@ collega.
 - [ ] 💡 **Suoni ambientali** legati al ciclo giorno/notte già esistente.
 
 ## 🌿 Commit Garden
-- [ ] 💡 **Garden connesso agli agenti** — completare un task innaffia la pianta: il
-      lavoro reale fa crescere il giardino (oggi sono due mondi separati).
+- [x] ✅ **Garden connesso agli agenti** — `waterAgentGarden(agentName)` in `finalizeTask`:
+      ogni task completato con modifiche reali innaffia la pianta SAMS dell'agente
+      (`user = sams-<agentName>`). Il lavoro reale fa crescere il giardino.
 - [ ] 💡 **Immagine OG condivisibile** — esporta il giardino come PNG (canvas/OG meta)
       per i social. (Rimasto dalla Roadmap 1.)
 - [ ] 💡 **Giardini di team / organizzazione** — vista aggregata di tutti i contributor.
@@ -137,10 +142,14 @@ collega.
       (nessuna dipendenza nativa). Tabella `task_log` durevole alimentata dai loop di
       tutti i provider; endpoint `/api/history` + `/api/metrics` (lifetime) + tab History.
       _Resta opzionale:_ migrare anche settings/garden da JSON a SQLite.
-- [ ] 💡 **Auth opzionale sul runtime** — header con token locale per le route mutanti;
-      bind `127.0.0.1` in dev, `0.0.0.0` solo in container.
-- [ ] 💡 **Pre-commit hook** (husky + lint-staged) — lint+typecheck prima del commit.
-- [ ] 💡 **Coverage in CI** — soglia minima su `agentTools`, `http`, `garden/model`.
+- [x] ✅ **Auth opzionale sul runtime** — `SAMS_TOKEN` env: se impostato, tutte le route
+      mutanti (POST /assign, /approve, /reject, /settings, /sim/start, /sim/stop) richiedono
+      `Authorization: Bearer <token>`. `hasToken` in `publicStatus`. `requireAuth` middleware.
+- [x] ✅ **Pre-commit hook** (husky + lint-staged) — `eslint --max-warnings=0` sui file
+      TypeScript staged; il commit fallisce su ogni warning.
+- [x] ✅ **Coverage in CI** — `@vitest/coverage-v8` con soglie lines≥60%, functions≥70%,
+      branches≥58% sui moduli critici (`agentTools`, `http`, `garden/model`, `db`).
+      CI aggiornato a usare `npm run test:coverage`.
 - [ ] 💡 **i18n** — oggi i messaggi mescolano IT/EN; estrarre le stringhe e scegliere una
       lingua di default.
 
@@ -163,6 +172,27 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-28 — pass qualità & nuove feature (sessione 2)
+Sette miglioramenti committati in sequenza, tutti con test o typecheck verde:
+
+- **Logging strutturato** — `log.ts` JSON leveled (debug/info/warn/error), usato in
+  server.ts (startup, error handler, unhandledRejection).
+- **Auth opzionale** — `SAMS_TOKEN` env; `requireAuth` middleware su 6 route mutanti;
+  `hasToken` in publicStatus; logging tentativo non autorizzato.
+- **`gh_trigger_workflow`** — tool agente che avvia `workflow_dispatch` su un branch
+  (chiude scommessa #2: ora gli agenti possono davvero eseguire i test via CI e
+  autocorreggersi). 3 test nuovi → 92 server test totali.
+- **Garden connesso agli agenti** — `waterAgentGarden(agentName)` chiamato in
+  `finalizeTask` quando `didSomething`: ogni task reale annaffia la pianta dell'agente.
+- **Bisogni/mood** — `Agent.energy` (0..100) + `Agent.mood` (5 stati). Drena con il
+  progresso, recupera a idle. Visualizzato in AgentInspector (barra colorata + emoji).
+  6 nuovi test → 87 frontend test totali.
+- **Pre-commit hook** — husky init + lint-staged: `eslint --max-warnings=0` sui TS staged.
+- **Coverage in CI** — `@vitest/coverage-v8`; soglie lines≥60%/functions≥70%/branches≥58%;
+  CI aggiornato a `npm run test:coverage`.
+
+Test totali: **179** (92 server, 87 frontend). Build, lint, typecheck: tutti puliti.
 
 ### 2026-06-28 — frontend: i pannelli finti diventano reali
 Giro dedicato al frontend: ogni pannello placeholder della shell IDE ora è
