@@ -251,6 +251,81 @@ export async function listIssues(label?: string): Promise<GithubIssue[]> {
     }));
 }
 
+/** Atomically commit multiple files to an existing branch in one Git commit.
+ *  Uses the Git Data API (tree + commit) so all files land together with no
+ *  partial-commit risk and no per-file sha lookups. */
+export async function writeFilesAtomic(
+  files: Array<{ path: string; content: string }>,
+  branch: string,
+  message: string,
+): Promise<void> {
+  if (files.length === 0) return;
+
+  // 1. Get the SHA of the current branch tip
+  const ref = (await gh(`/git/ref/heads/${encodeURIComponent(branch)}`)) as {
+    object: { sha: string };
+  };
+  const headSha = ref.object.sha;
+
+  // 2. Get the root tree SHA from that commit
+  const headCommit = (await gh(`/git/commits/${headSha}`)) as { tree: { sha: string } };
+
+  // 3. Create a new tree on top of the existing one
+  const newTree = (await gh(`/git/trees`, {
+    method: "POST",
+    body: JSON.stringify({
+      base_tree: headCommit.tree.sha,
+      tree: files.map((f) => ({
+        path: f.path.replace(/^\/+/, ""),
+        mode: "100644",
+        type: "blob",
+        content: f.content,
+      })),
+    }),
+  })) as { sha: string };
+
+  // 4. Create the commit
+  const newCommit = (await gh(`/git/commits`, {
+    method: "POST",
+    body: JSON.stringify({ message, tree: newTree.sha, parents: [headSha] }),
+  })) as { sha: string };
+
+  // 5. Fast-forward the branch ref
+  await gh(`/git/refs/heads/${encodeURIComponent(branch)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sha: newCommit.sha }),
+  });
+}
+
+/** Return a human-readable summary of jobs and their steps for a workflow run. */
+export async function getWorkflowJobs(runId: number): Promise<string> {
+  const data = (await gh(`/actions/runs/${runId}/jobs?per_page=15`)) as {
+    jobs?: Array<{
+      id: number;
+      name: string;
+      status: string;
+      conclusion: string | null;
+      steps?: Array<{ name: string; status: string; conclusion: string | null }>;
+    }>;
+  };
+  const jobs = data.jobs ?? [];
+  if (!jobs.length) return "Nessun job trovato per questo run";
+  return jobs
+    .map((j) => {
+      const icon =
+        j.conclusion === "success" ? "✅" : j.conclusion === "failure" ? "❌" : j.status === "in_progress" ? "🔄" : "⏳";
+      const steps = (j.steps ?? [])
+        .filter((s) => s.status !== "queued" || s.conclusion !== null)
+        .map((s) => {
+          const si = s.conclusion === "success" ? "✓" : s.conclusion === "failure" ? "✗" : "·";
+          return `    ${si} ${s.name}${s.conclusion === "failure" ? " ← FALLITO" : ""}`;
+        })
+        .join("\n");
+      return `${icon} ${j.name} (${j.conclusion ?? j.status})${steps ? "\n" + steps : ""}`;
+    })
+    .join("\n");
+}
+
 /** Add a label to an issue (best-effort). */
 export async function addIssueLabel(issueNumber: number, label: string): Promise<void> {
   await gh(`/issues/${issueNumber}/labels`, {

@@ -11,6 +11,7 @@ import {
   createBranch,
   createIssue,
   createPullRequest,
+  getWorkflowJobs,
   listCIRuns,
   listFiles,
   listPullRequests,
@@ -19,6 +20,7 @@ import {
   readFile,
   readPullRequest,
   writeFile,
+  writeFilesAtomic,
 } from "./github";
 import {
   appendTaskLog,
@@ -85,11 +87,31 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
       },
       {
         name: "gh_write_file",
-        description: "Crea o aggiorna un file nel repository (commit su un branch dedicato, poi PR).",
+        description: "Crea o aggiorna UN file nel repository (commit su un branch dedicato). Per più file usa gh_write_files.",
         schema: {
           type: "object",
           properties: { path: { type: "string" }, content: { type: "string" }, message: { type: "string" } },
           required: ["path", "content"],
+        },
+      },
+      {
+        name: "gh_write_files",
+        description: "Commit ATOMICO di più file in un'unica operazione (nessun commit parziale, nessun conflitto di sha). Preferire sempre questo a più chiamate gh_write_file consecutive.",
+        schema: {
+          type: "object",
+          properties: {
+            files: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { path: { type: "string" }, content: { type: "string" } },
+                required: ["path", "content"],
+              },
+              description: "Lista di file da scrivere (path + contenuto testuale completo)",
+            },
+            message: { type: "string", description: "Messaggio di commit (conciso, descrive le modifiche)" },
+          },
+          required: ["files", "message"],
         },
       },
       {
@@ -154,10 +176,19 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
       },
       {
         name: "gh_list_ci",
-        description: "Elenca gli ultimi run della CI (GitHub Actions) per un branch.",
+        description: "Elenca gli ultimi run della CI (GitHub Actions) per un branch. Usa gh_ci_jobs per vedere i dettagli dei fallimenti.",
         schema: {
           type: "object",
           properties: { branch: { type: "string", description: "Branch da controllare (opzionale)" } },
+        },
+      },
+      {
+        name: "gh_ci_jobs",
+        description: "Dettaglio job e step di un run CI (run_id da gh_list_ci). Mostra quali step sono falliti — utile per diagnosticare errori e correggere il codice.",
+        schema: {
+          type: "object",
+          properties: { run_id: { type: "number", description: "ID del workflow run (dalla colonna id di gh_list_ci)" } },
+          required: ["run_id"],
         },
       },
     );
@@ -349,6 +380,31 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         ctx.wroteFiles = true;
         emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${filePath}` });
       }
+    } else if (name === "gh_write_files") {
+      const rawFiles = Array.isArray(args.files) ? args.files as Array<Record<string, unknown>> : [];
+      const files = rawFiles
+        .filter((f) => typeof f.path === "string" && typeof f.content === "string")
+        .map((f) => ({ path: str(f.path), content: str(f.content) }));
+      if (files.length === 0) {
+        result = "ERRORE: nessun file valido nella lista";
+      } else {
+        const commitMsg = str(args.message) || `SAMS: ${truncate(ctx.title, COMMIT_MSG_LIMIT)}`;
+        if (ctx.requireApproval) {
+          for (const f of files) ctx.stagedFiles.push({ path: f.path, content: f.content, message: commitMsg });
+          emit({ agentId, agentName, progress, level: "INFO", message: `staged ${files.length} file (atomic)` });
+          result = `${files.length} file staged per approvazione`;
+        } else {
+          if (!ctx.branchReady) {
+            await createBranch(ctx.branch, s.baseBranch);
+            ctx.branchReady = true;
+            emit({ agentId, agentName, level: "INFO", message: `Branch ${ctx.branch} creato` });
+          }
+          await writeFilesAtomic(files, ctx.branch, commitMsg);
+          ctx.wroteFiles = true;
+          emit({ agentId, agentName, progress, level: "SUCCESS", message: `write atomico: ${files.map((f) => f.path).join(", ")}` });
+          result = `${files.length} file committati atomicamente su ${ctx.branch}`;
+        }
+      }
     } else if (name === "gh_create_issue") {
       const issue = await createIssue(
         str(args.title),
@@ -385,6 +441,13 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });
+    } else if (name === "gh_ci_jobs") {
+      const runId = Number(args.run_id);
+      if (!Number.isFinite(runId) || runId <= 0) { result = "ERRORE: run_id non valido"; }
+      else {
+        result = await getWorkflowJobs(runId);
+        emit({ agentId, agentName, progress, level: "INFO", message: `Job CI run #${runId}` });
+      }
     } else if (name === "notion_read") {
       const { title: resolved, text } = await readPageByTitle(str(args.page_title));
       result = text;

@@ -6,7 +6,7 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
-import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, writeFile } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { getPending, clearPending } from "./pendingBuffer";
@@ -201,10 +201,12 @@ app.post("/api/approve/:agentId", async (req: Request, res: Response) => {
   try {
     await createBranch(work.branch, s.baseBranch);
     broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
-    for (const f of work.files) {
-      await writeFile(f.path, f.content, work.branch, f.message);
-      broadcast({ agentId, agentName, level: "SUCCESS", message: `write ${f.path}` });
-    }
+    // Atomic commit: all staged files in a single tree+commit (no partial-commit risk)
+    const commitMsg = work.files.length === 1
+      ? work.files[0].message
+      : `SAMS(${agentName}): ${work.title} — ${work.files.length} file`;
+    await writeFilesAtomic(work.files.map((f) => ({ path: f.path, content: f.content })), work.branch, commitMsg);
+    broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}` });
     if (s.openPRs) {
       const pr = await createPullRequest({
         branch: work.branch,

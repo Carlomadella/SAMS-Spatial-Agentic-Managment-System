@@ -72,8 +72,9 @@ collega.
 - [ ] 💡 **`run_tests` in sandbox** — strumento che lancia davvero la suite e fa
       autocorreggere l'agente sui fallimenti reali (oggi l'auto-verifica è solo
       "mentale" via prompt: l'agente *dice* di aver controllato i test).
-- [ ] 💡 **Gate su CI** — non aprire/mergiare finché GitHub Actions non è verde (i tool
-      `gh_list_ci` ci sono già; manca il loop che li usa per decidere).
+- [x] ✅ **Gate su CI + `gh_ci_jobs`** — tool `gh_ci_jobs(run_id)` che restituisce job +
+      step falliti di un run CI; system prompt aggiornato a insegnare agli agenti il ciclo
+      "controlla CI → leggi failure → correggi → ri-controlla → mergia solo se verde".
 - [x] ✅ **Segnalare il troncamento del loop** — quando l'agente esaurisce i `MAX_STEPS`
       senza chiamare `done`, emette un WARN esplicito invece di concludere in silenzio.
 
@@ -81,8 +82,10 @@ collega.
 - [x] ✅ **Retry/backoff centralizzato** in `http.ts` (onora `Retry-After`) per i metodi
       idempotenti (GET/HEAD); POST/PATCH/PUT non vengono ritentati per non duplicare
       scritture. _Resta da fare:_ commit multi-file atomico (sotto).
-- [ ] 💡 **Commit multi-file atomico** via Git Data API (tree+commit) invece di N PUT
+- [x] ✅ **Commit multi-file atomico** via Git Data API (tree+commit) invece di N PUT
       sequenziali sull'endpoint Contents (evita commit parziali e conflitti di `sha`).
+      Nuovo tool `gh_write_files` (array di file → un commit); flusso di approvazione
+      aggiornato a usare `writeFilesAtomic`.
 - [x] ✅ **GitHub: merge / è-mergeabile / stato check** — strumenti `gh_pr_status`
       (mergeable + check CI, sola lettura) e `gh_merge_pr` (merge/squash/rebase).
 - [ ] 💡 **Notion: database** (creare/aggiornare righe), non solo pagine.
@@ -160,6 +163,16 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-28 — implementazione: CI gate + commit atomico ✅ (scommessa #2 completa)
+- **`gh_write_files`** — tool agente per commit atomico di N file via Git tree API
+  (`writeFilesAtomic` in github.ts: get-ref → get-commit → post-tree → post-commit → patch-ref);
+  flusso `/api/approve` aggiornato a usare lo stesso `writeFilesAtomic`.
+- **`gh_ci_jobs(run_id)`** — tool agente che restituisce job + step con flag "← FALLITO"
+  per ogni step fallito; usa `GET /actions/runs/{id}/jobs`.
+- **System prompt** (`composeSystem`) aggiornato: gli agenti sanno usare `gh_ci_jobs` per
+  diagnosticare la CI e correggere prima di mergiare. Scommessa #2 completa.
+- Test totali: **126** (84 server, 42 frontend). Build e lint puliti.
 
 ### 2026-06-28 — implementazione: Live Simulation mode ✅ (scommessa #3 completa)
 Agenti autonomi che pescano GitHub issues con label configurabile (default `sams`):

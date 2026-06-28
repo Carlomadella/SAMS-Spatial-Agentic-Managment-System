@@ -65,7 +65,7 @@ export function composeSystem(o: {
       ? `Per Notion: leggi con notion_read e scrivi SOLO con notion_write (trova la pagina per titolo); leggi prima di scrivere per evitare duplicati. `
       : `Notion non è configurato: non puoi scrivere su Notion. `) +
     (o.repoEnabled
-      ? `Per i file di codice del repository usa gli strumenti gh_*. Dopo ogni gh_write_file su file di codice, leggi con gh_read_file i file di test correlati (*.test.ts, *.spec.ts, directory __tests__/) e verifica mentalmente che la tua implementazione li superi; se trovi discrepanze, correggi prima di chiamare done. `
+      ? `Per i file di codice del repository usa gli strumenti gh_*. Quando scrivi più file usa gh_write_files (commit atomico) invece di più gh_write_file consecutivi. Dopo aver scritto del codice, leggi con gh_read_file i file di test correlati (*.test.ts, *.spec.ts, __tests__/) e verifica che la tua implementazione li superi; se trovi discrepanze, correggi. Se esiste una PR, usa gh_pr_status per controllare la CI: se i check non sono tutti green usa gh_ci_jobs con l'id del run fallito per leggere quali step sono falliti, correggi e riscrivi i file. Mergia solo quando CI è verde. `
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
     (o.relayEnabled
       ? `Se un altro agente deve continuare il lavoro (es: il Revisore revisioni il codice, il Tester scriva i test), usa relay_task specificando il ruolo (Tester/Revisore/Documentatore/Architetto) o nome dell'agente, poi chiama done. `

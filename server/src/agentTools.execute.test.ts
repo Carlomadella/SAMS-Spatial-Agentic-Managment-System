@@ -54,6 +54,31 @@ describe("executeTool — control tools", () => {
     expect(await executeTool("nope", {}, ctx)).toBe("strumento sconosciuto: nope");
   });
 
+  it("gh_write_files returns ERRORE on empty or invalid file list", async () => {
+    const { ctx } = mkCtx();
+    expect(await executeTool("gh_write_files", { files: [], message: "x" }, ctx)).toMatch(/ERRORE/);
+    expect(await executeTool("gh_write_files", { files: "not-an-array", message: "x" }, ctx)).toMatch(/ERRORE/);
+  });
+
+  it("gh_write_files stages files when requireApproval=true (no network)", async () => {
+    const { ctx } = mkCtx({ requireApproval: true, branchReady: true });
+    const res = await executeTool("gh_write_files", {
+      files: [{ path: "a.ts", content: "// a" }, { path: "b.ts", content: "// b" }],
+      message: "feat: two files",
+    }, ctx);
+    expect(res).toContain("staged");
+    expect(ctx.stagedFiles).toHaveLength(2);
+    expect(ctx.stagedFiles[0].path).toBe("a.ts");
+    expect(ctx.stagedFiles[1].path).toBe("b.ts");
+  });
+
+  it("gh_ci_jobs rejects invalid run_id without hitting the network", async () => {
+    const { ctx } = mkCtx();
+    expect(await executeTool("gh_ci_jobs", { run_id: "abc" }, ctx)).toMatch(/ERRORE/);
+    expect(await executeTool("gh_ci_jobs", { run_id: 0 }, ctx)).toMatch(/ERRORE/);
+    expect(await executeTool("gh_ci_jobs", { run_id: -1 }, ctx)).toMatch(/ERRORE/);
+  });
+
   it("validates pr_number before hitting the network", async () => {
     const { ctx } = mkCtx();
     expect(await executeTool("gh_read_pr", { pr_number: "#12" }, ctx)).toBe("ERRORE: pr_number non valido");
