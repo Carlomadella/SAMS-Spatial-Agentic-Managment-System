@@ -367,15 +367,23 @@ async function fetchUrlText(url: string): Promise<string> {
   }
   const raw = await httpResp.text();
   const ct = httpResp.headers.get("content-type") ?? "";
-  const content = ct.includes("html")
-    ? raw
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<style[\s\S]*?<\/style>/gi, " ")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => ({ "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">" }[m] ?? m))
-        .replace(/\s+/g, " ")
-        .trim()
-    : raw;
+
+  if (!ct.includes("html")) return truncate(raw, WEB_FETCH_LIMIT);
+
+  // Extract page title for context
+  const titleMatch = raw.match(/<title[^>]*>([^<]{1,200})<\/title>/i);
+  const pageTitle = titleMatch ? titleMatch[1].trim() : "";
+
+  // Strip scripts, styles, then all tags; decode common entities
+  const ENTITIES: Record<string, string> = { "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
+  const bodyText = raw
+    .replace(/<(script|style|nav|header|footer|aside)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (m) => ENTITIES[m] ?? m)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const content = pageTitle ? `[${pageTitle}]\n\n${bodyText}` : bodyText;
   return truncate(content, WEB_FETCH_LIMIT);
 }
 
