@@ -6,32 +6,9 @@ import { AgentInspector } from "./AgentInspector";
 import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { LiveSimPanel } from "./LiveSimPanel";
+import { Terminal } from "./Terminal";
 import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
-
-function TerminalView() {
-  const environment = useStore((s) => s.environment);
-  return (
-    <div className="h-full overflow-y-auto px-3 py-2 font-mono text-[12px] leading-relaxed text-slate-300">
-      <div className="text-mut">SAMS runtime · spatial agentic shell</div>
-      <div>
-        <span className="text-emerald-400">sams@workspace</span>
-        <span className="text-mut">:</span>
-        <span className="text-brand-soft">~/{environment}</span>
-        <span className="text-mut">$ </span>
-        agents --status
-      </div>
-      <div className="text-mut">› use the Agent panel to spawn, command and dispatch agents.</div>
-      <div className="flex items-center">
-        <span className="text-emerald-400">sams@workspace</span>
-        <span className="text-mut">:</span>
-        <span className="text-brand-soft">~/{environment}</span>
-        <span className="text-mut">$ </span>
-        <span className="ml-0.5 inline-block h-3.5 w-2 animate-pulse-soft bg-slate-300" />
-      </div>
-    </div>
-  );
-}
 
 function OutputView() {
   return (
@@ -145,7 +122,7 @@ export function BottomPanel() {
       {/* content + inspector */}
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {bottomTab === "terminal" && <TerminalView />}
+          {bottomTab === "terminal" && <Terminal />}
           {bottomTab === "output" && <OutputView />}
           {bottomTab === "eventlog" && <EventLog />}
           {bottomTab === "tasks" && <TasksPanel />}
