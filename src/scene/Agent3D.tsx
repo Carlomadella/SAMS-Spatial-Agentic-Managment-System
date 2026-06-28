@@ -48,6 +48,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const headGroupRef = useRef<THREE.Group>(null);
   const idleTimer = useRef(0); // seconds idle, drives look-around animation
 
+  const [hovered, setHovered] = useState(false);
+
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
   const updateProgress = useStore((s) => s.updateProgress);
@@ -239,9 +241,11 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         onPointerOver={(e) => {
           e.stopPropagation();
           document.body.style.cursor = "pointer";
+          setHovered(true);
         }}
         onPointerOut={() => {
           document.body.style.cursor = "default";
+          setHovered(false);
         }}
       >
         {/* legs stay planted while the body bobs */}
@@ -360,6 +364,55 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           </group>
         </group>
       </group>
+
+      {/* hover tooltip with quick stats */}
+      {hovered && !selected && (
+        <Html position={[0.72, 1.7, 0]} distanceFactor={10} zIndexRange={[80, 60]} pointerEvents="none">
+          <div className="pointer-events-none w-[148px] select-none rounded-xl border border-white/10 bg-ink-900/96 p-2 text-[11px] shadow-panel">
+            <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-slate-100">
+              <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[agent.status] }} />
+              {agent.name}
+            </div>
+            <div className="flex justify-between text-mut">
+              <span>Stato</span>
+              <span className="capitalize text-slate-200">{agent.status}</span>
+            </div>
+            {agent.energy != null && (
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-mut">Energia</span>
+                <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${agent.energy}%`,
+                      background: agent.energy > 60 ? "#22c55e" : agent.energy > 30 ? "#eab308" : "#ef4444",
+                    }}
+                  />
+                </div>
+                <span className="text-mut">{agent.energy}%</span>
+              </div>
+            )}
+            {agent.task && (
+              <div className="mt-1 flex justify-between text-mut">
+                <span>Task</span>
+                <span className="max-w-[80px] truncate text-right text-slate-200">{agent.task.title}</span>
+              </div>
+            )}
+            {agent.task && (
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-mut">Progress</span>
+                <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-brand"
+                    style={{ width: `${agent.task.progress}%` }}
+                  />
+                </div>
+                <span className="text-mut">{agent.task.progress}%</span>
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
 
       {/* speech bubble — the agent's latest action */}
       {bubble && (
