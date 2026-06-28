@@ -164,6 +164,29 @@ collega.
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
 
+### 2026-06-28 — frontend: i pannelli finti diventano reali
+Giro dedicato al frontend: ogni pannello placeholder della shell IDE ora è
+funzionante, ognuno con la logica pura estratta e testata.
+
+- **Terminal** (era output statico finto) → **console interattiva** sulle stesse
+  azioni dello store: `help`, `status/agents`, `spawn`, `assign`, `select`,
+  `clear-task`, `env`, `sim start/stop`, `tasks`, `clear`. History con ↑/↓,
+  autoscroll, caret. Risoluzione agente in `lib/agentMatch.ts` (nome esatto →
+  colore → prefisso → substring), 7 test.
+- **Search** (era input morto) → ricerca live raggruppata su agenti (nome/ruolo/
+  task), workflow (nome/descrizione) e file (path); click su agente lo seleziona.
+  `lib/search.ts` puro (8 test) + `flattenFiles` in `lib/fileTree.ts` (2 test).
+- **Output** (erano 3 righe hardcoded) → **console build/runtime** derivata dallo
+  stato reale (header connesso/offline, slot agenti, ready/waiting) + stream di
+  eventi SUCCESS/WARN/ERROR. `lib/output.ts` puro, 6 test.
+- **Extensions** → niente più flag hardcoded: stato live per Agent Runtime,
+  Event Stream (SSE), Live Simulation (badge "Live" pulsante).
+- **Problems** → righe cliccabili che selezionano l'agente, icone/chip per
+  severità (blocked/review).
+
+Test frontend **60 → 81** (helper puri: agentMatch, search, output, fileTree).
+Build, lint e test server invariati e verdi.
+
 ### 2026-06-28 — pass di qualità: caccia ai bug + hardening dei test
 Dopo i nuovi pannelli (Explorer interattivo, Source Control con Git Graph,
 History), un giro di **bug hunt multi-sottosistema** (3 review paralleli, ogni
