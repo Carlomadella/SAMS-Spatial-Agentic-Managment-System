@@ -364,6 +364,57 @@ app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => 
   res.json({ ok: true, issueNumber });
 });
 
+// GitHub webhook — receives push / pull_request / workflow_run events and
+// re-broadcasts them as SAMS WireEvents so the frontend can react in real time.
+// To connect: in GitHub → Repo Settings → Webhooks → add http://host/api/webhook/github
+// (Content-Type: application/json; no Secret needed for local use).
+app.post("/api/webhook/github", (req: Request, res: Response) => {
+  const event = req.headers["x-github-event"] as string | undefined;
+  if (!event) { res.status(400).json({ error: "x-github-event header missing" }); return; }
+  res.json({ ok: true });
+
+  const body = req.body as Record<string, unknown>;
+  const repo = (body.repository as { full_name?: string } | undefined)?.full_name ?? "?";
+
+  if (event === "push") {
+    const ref = (body.ref as string | undefined) ?? "";
+    const branch = ref.replace("refs/heads/", "");
+    const pusher = (body.pusher as { name?: string } | undefined)?.name ?? "?";
+    const commits = Array.isArray(body.commits) ? (body.commits as unknown[]).length : 0;
+    broadcast({
+      agentId: "github",
+      agentName: "GitHub",
+      level: "INFO",
+      message: `Push su ${repo}/${branch} da ${pusher} (${commits} commit${commits !== 1 ? "s" : ""})`,
+    });
+  } else if (event === "pull_request") {
+    const action = body.action as string | undefined;
+    const pr = body.pull_request as { title?: string; html_url?: string; number?: number } | undefined;
+    if (pr && (action === "opened" || action === "closed" || action === "merged")) {
+      broadcast({
+        agentId: "github",
+        agentName: "GitHub",
+        level: "SUCCESS",
+        message: `PR #${pr.number ?? "?"} ${action}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
+      });
+    }
+  } else if (event === "workflow_run") {
+    const run = body.workflow_run as { name?: string; conclusion?: string; html_url?: string } | undefined;
+    const action = body.action as string | undefined;
+    if (run && action === "completed") {
+      const ok = run.conclusion === "success";
+      broadcast({
+        agentId: "github",
+        agentName: "GitHub",
+        level: ok ? "SUCCESS" : "ERROR",
+        message: `CI "${run.name ?? "?"}" ${ok ? "✅ passata" : "❌ fallita"} — ${run.html_url ?? ""}`,
+      });
+    }
+  } else {
+    log.debug("GitHub webhook ignorato", { event });
+  }
+});
+
 // Commit Garden lives inside the SAMS runtime (no separate app/port).
 registerGardenRoutes(app);
 
