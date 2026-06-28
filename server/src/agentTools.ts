@@ -13,6 +13,7 @@ import {
   createPullRequest,
   getWorkflowJobs,
   listCIRuns,
+  triggerWorkflow,
   listFiles,
   listPullRequests,
   mergePullRequest,
@@ -31,6 +32,8 @@ import {
 } from "./notion";
 import { setPending } from "./pendingBuffer";
 import { logTask } from "./db";
+import { emptyGarden, water } from "./garden/model";
+import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
@@ -189,6 +192,19 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
           type: "object",
           properties: { run_id: { type: "number", description: "ID del workflow run (dalla colonna id di gh_list_ci)" } },
           required: ["run_id"],
+        },
+      },
+      {
+        name: "gh_trigger_workflow",
+        description: "Avvia manualmente un workflow CI (GitHub Actions workflow_dispatch) su un branch per eseguire i test o la build. Dopo l'avvio usa gh_list_ci per trovare il run_id e gh_ci_jobs per controllare i risultati.",
+        schema: {
+          type: "object",
+          properties: {
+            workflow: { type: "string", description: "Nome del file workflow (es. ci.yml) o ID numerico" },
+            ref: { type: "string", description: "Branch su cui avviare il workflow" },
+            inputs: { type: "object", description: "Input opzionali per il workflow (se previsti)" },
+          },
+          required: ["workflow", "ref"],
         },
       },
     );
@@ -441,6 +457,17 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });
+    } else if (name === "gh_trigger_workflow") {
+      const wf = str(args.workflow);
+      const ref = str(args.ref);
+      if (!wf || !ref) { result = "ERRORE: workflow e ref sono obbligatori"; }
+      else {
+        const inputs = args.inputs && typeof args.inputs === "object" && !Array.isArray(args.inputs)
+          ? (args.inputs as Record<string, string>)
+          : undefined;
+        result = await triggerWorkflow(wf, ref, inputs);
+        emit({ agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" avviato su ${ref}` });
+      }
     } else if (name === "gh_ci_jobs") {
       const runId = Number(args.run_id);
       if (!Number.isFinite(runId) || runId <= 0) { result = "ERRORE: run_id non valido"; }
@@ -504,6 +531,15 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   return result;
 }
 
+/** Water the SAMS garden for a given agent (1 watering per completed task). Best-effort. */
+async function waterAgentGarden(agentName: string): Promise<void> {
+  const store = getStore();
+  const user = `sams-${agentName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const prev = (await store.get(user)) ?? emptyGarden(user);
+  await store.put(water(prev, 1, new Date().toISOString(), today));
+}
+
 /**
  * Shared post-loop wrap-up: emit the summary, either pause for approval (when
  * files were staged) or emit the final status, open a PR if files were pushed,
@@ -543,6 +579,11 @@ export async function finalizeTask(
     message: didSomething ? "Lavoro completato" : "Concluso senza modifiche — controlla strumenti/istruzioni",
     tokens: opts.totalTokens,
   });
+
+  // Task completato → annaffia il giardino dell'agente (collega il lavoro reale alla simulazione).
+  if (didSomething) {
+    waterAgentGarden(agentName).catch(() => {});
+  }
 
   logTask({
     agentId, agentName,

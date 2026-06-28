@@ -97,6 +97,42 @@ describe("executeTool — control tools", () => {
   });
 });
 
+describe("executeTool — gh_trigger_workflow", () => {
+  it("returns ERRORE when workflow or ref is missing", async () => {
+    const { ctx } = mkCtx();
+    expect(await executeTool("gh_trigger_workflow", { workflow: "", ref: "main" }, ctx)).toMatch(/ERRORE/);
+    expect(await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "" }, ctx)).toMatch(/ERRORE/);
+    expect(await executeTool("gh_trigger_workflow", {}, ctx)).toMatch(/ERRORE/);
+  });
+
+  it("calls triggerWorkflow and emits INFO on success", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))));
+    const { ctx, events } = mkCtx();
+    const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "sams/alice/fix" }, ctx);
+    expect(res).toContain("ci.yml");
+    expect(res).toContain("sams/alice/fix");
+    expect(res).toContain("gh_list_ci");
+    const last = events.at(-1)!;
+    expect(last.level).toBe("INFO");
+    expect(last.message).toContain("ci.yml");
+  });
+
+  it("passes optional inputs to the workflow", async () => {
+    let capturedBody: unknown;
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(String(init.body));
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }));
+    const { ctx } = mkCtx();
+    await executeTool("gh_trigger_workflow", {
+      workflow: "test.yml",
+      ref: "main",
+      inputs: { env: "staging" },
+    }, ctx);
+    expect((capturedBody as { inputs: { env: string } }).inputs.env).toBe("staging");
+  });
+});
+
 describe("executeTool — web_fetch", () => {
   it("rejects a non-http(s) URL without fetching", async () => {
     const { ctx } = mkCtx();

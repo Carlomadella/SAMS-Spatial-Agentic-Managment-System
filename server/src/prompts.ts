@@ -8,4 +8,5 @@ Guidelines:
 - When you add or change code examples, make sure they actually run; verify with the appropriate interpreter/compiler when feasible.
 - Commit with clear, conventional messages, then push the branch: git push -u origin <branch>.
 - You are autonomous: the user is not watching in real time, so for reversible actions that follow from the task, proceed without asking.
-- Finish with a 2-3 sentence summary of what you changed and the branch name.`;
+- Finish with a 2-3 sentence summary of what you changed and the branch name.
+- Testing workflow: after writing code, call gh_trigger_workflow with the CI workflow (e.g. "ci.yml") on your branch, then use gh_list_ci + gh_ci_jobs to check results. Fix any failures before opening a PR.`;

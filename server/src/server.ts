@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
+import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
@@ -17,6 +18,19 @@ import { db, recentTasks, taskStats } from "./db";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
+
+/** Optional Bearer-token guard. If SAMS_TOKEN is set, mutating routes require the header. */
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const token = getSettings().runtimeToken;
+  if (!token) { next(); return; }
+  const auth = req.headers.authorization ?? "";
+  if (auth !== `Bearer ${token}`) {
+    log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip });
+    res.status(401).json({ error: "Token mancante o non valido" });
+    return;
+  }
+  next();
+}
 
 // Explicit, permissive CORS for the local UI (covers SSE + preflight).
 app.use((req: Request, res: Response, next) => {
@@ -96,7 +110,7 @@ app.get("/api/file", async (req: Request, res: Response) => {
 });
 
 /** Save settings entered in the app (keys, repo, model…). */
-app.post("/api/settings", (req: Request, res: Response) => {
+app.post("/api/settings", requireAuth, (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
   if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq") patch.provider = body.provider;
@@ -160,7 +174,7 @@ app.get("/api/events", (req: Request, res: Response) => {
   req.on("close", cleanup);
 });
 
-app.post("/api/assign", (req: Request, res: Response) => {
+app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
   const body = req.body as AssignBody;
   if (!body?.agentId || !body?.title) {
     res.status(400).json({ error: "agentId and title are required" });
@@ -186,7 +200,7 @@ app.post("/api/assign", (req: Request, res: Response) => {
 });
 
 /** Approve staged files: create branch, commit each file, optionally open a PR. */
-app.post("/api/approve/:agentId", async (req: Request, res: Response) => {
+app.post("/api/approve/:agentId", requireAuth, async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   const work = getPending(agentId);
   if (!work) {
@@ -222,7 +236,7 @@ app.post("/api/approve/:agentId", async (req: Request, res: Response) => {
 });
 
 /** Reject staged files: discard buffer, agent returns to idle. */
-app.post("/api/reject/:agentId", (req: Request, res: Response) => {
+app.post("/api/reject/:agentId", requireAuth, (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   clearPending(agentId);
   broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
@@ -235,7 +249,7 @@ app.get("/api/sim/status", (_req: Request, res: Response) => {
   res.json(simStatus());
 });
 
-app.post("/api/sim/start", (req: Request, res: Response) => {
+app.post("/api/sim/start", requireAuth, (req: Request, res: Response) => {
   const label =
     typeof req.body?.label === "string" && req.body.label.trim()
       ? req.body.label.trim()
@@ -245,7 +259,7 @@ app.post("/api/sim/start", (req: Request, res: Response) => {
   res.json(simStatus());
 });
 
-app.post("/api/sim/stop", (_req: Request, res: Response) => {
+app.post("/api/sim/stop", requireAuth, (_req: Request, res: Response) => {
   stopSim();
   broadcast({ agentId: "sim", agentName: "sim", level: "WARN", message: "🔴 Live Sim fermata" });
   res.json(simStatus());
@@ -344,19 +358,17 @@ app.use((err: Error & { type?: string; status?: number }, _req: Request, res: Re
     res.status(413).json({ error: "Payload troppo grande" });
     return;
   }
-  console.error("Errore non gestito:", err);
+  log.error("Errore non gestito", { msg: err.message ?? String(err) });
   res.status(500).json({ error: "Errore interno del runtime" });
 });
 
 // Last-resort safety net so a stray rejection logs instead of crashing silently.
-process.on("unhandledRejection", (reason) => console.error("UnhandledRejection:", reason));
+process.on("unhandledRejection", (reason) => log.error("UnhandledRejection", { reason: String(reason) }));
 
 const { port, githubRepo } = getSettings();
 app.listen(port, () => {
-  console.log(`SAMS runtime → http://localhost:${port}`);
-  console.log(`  repo:  ${githubRepo}`);
-  console.log(`  ready: ${isReady()}`);
+  log.info(`SAMS runtime avviato`, { url: `http://localhost:${port}`, repo: githubRepo, ready: isReady() });
   void initGardenStore()
-    .then((k) => console.log(`  garden store: ${k}`))
-    .catch((err) => console.error("  garden store init fallito:", err));
+    .then((k) => log.info("Garden store pronto", { backend: k }))
+    .catch((err) => log.error("Garden store init fallito", { error: (err as Error).message }));
 });

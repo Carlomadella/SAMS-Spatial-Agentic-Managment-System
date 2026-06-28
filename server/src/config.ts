@@ -28,6 +28,7 @@ export interface Settings {
   requireApproval: boolean;
   notionToken: string;
   notionPageId: string;
+  runtimeToken: string;
   port: number;
 }
 
@@ -49,6 +50,7 @@ function fromEnv(): Settings {
     requireApproval: (process.env.SAMS_REQUIRE_APPROVAL ?? "false") !== "false",
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
+    runtimeToken: process.env.SAMS_TOKEN ?? "",
     port: parsePort(process.env.PORT),
   };
 }
@@ -93,6 +95,7 @@ function persist(): void {
     requireApproval: s.requireApproval,
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
+    runtimeToken: s.runtimeToken,
   };
   // 0o600: the file holds API tokens in plaintext — keep it owner-only.
   fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
@@ -123,6 +126,7 @@ export type SettingsPatch = Partial<
     | "requireApproval"
     | "notionToken"
     | "notionPageId"
+    | "runtimeToken"
   >
 >;
 
@@ -176,5 +180,6 @@ export function publicStatus() {
     hasNotionToken: s.notionToken.length > 0,
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,
+    hasToken: s.runtimeToken.length > 0,
   };
 }

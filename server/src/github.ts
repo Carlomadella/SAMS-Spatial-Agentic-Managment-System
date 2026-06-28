@@ -346,6 +346,23 @@ export async function getWorkflowJobs(runId: number): Promise<string> {
     .join("\n");
 }
 
+/**
+ * Trigger a GitHub Actions workflow via workflow_dispatch on the given ref.
+ * `workflow` can be a filename (e.g. "ci.yml") or a numeric workflow ID.
+ * Returns a hint telling the agent where to find the run via gh_list_ci.
+ */
+export async function triggerWorkflow(
+  workflow: string,
+  ref: string,
+  inputs?: Record<string, string>,
+): Promise<string> {
+  await gh(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`, {
+    method: "POST",
+    body: JSON.stringify({ ref, inputs: inputs ?? {} }),
+  });
+  return `Workflow "${workflow}" avviato sul branch "${ref}". Usa gh_list_ci branch="${ref}" per trovare il run_id, poi gh_ci_jobs per i dettagli.`;
+}
+
 /** Add a label to an issue (best-effort). */
 export async function addIssueLabel(issueNumber: number, label: string): Promise<void> {
   await gh(`/issues/${issueNumber}/labels`, {
