@@ -18,6 +18,15 @@ function fmtUptime(s: number): string {
   return `${Math.floor(s / 3600)}h`;
 }
 
+const STATUS_COLOR: Record<string, string> = {
+  working: "#38bdf8",
+  review:  "#fbbf24",
+  blocked: "#fb7185",
+  done:    "#34d399",
+  awaiting_approval: "#a78bfa",
+  idle:    "#475569",
+};
+
 export function SystemOverview() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -25,6 +34,15 @@ export function SystemOverview() {
   const backendOnline = useStore((s) => s.backendOnline);
 
   const active = agents.filter((a) => a.status !== "idle").length;
+
+  const statusCounts = agents.reduce<Record<string, number>>((acc, a) => {
+    acc[a.status] = (acc[a.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const avgEnergy = agents.length
+    ? Math.round(agents.reduce((s, a) => s + (a.energy ?? 100), 0) / agents.length)
+    : 100;
 
   // Poll runtime metrics while the backend is online (defensive: ignore failures).
   const [metrics, setMetrics] = useState<RuntimeMetrics | null>(null);
@@ -89,17 +107,49 @@ export function SystemOverview() {
         })}
       </div>
 
+      {/* status distribution bar */}
+      {agents.length > 0 && (
+        <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full" title="Distribuzione stati">
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <div
+              key={status}
+              className="transition-all"
+              style={{
+                width: `${(count / agents.length) * 100}%`,
+                background: STATUS_COLOR[status] ?? "#475569",
+              }}
+              title={`${status}: ${count}`}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between text-[11px] text-mut">
         <span className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-emerald-400" />
-          {active} / {agents.length} Agents Active
+          {active} / {agents.length} Active
         </span>
-        <span className="font-mono">100%</span>
+        <span className="font-mono" title="Energia media">
+          ⚡ {avgEnergy}%
+        </span>
       </div>
+
+      {/* per-status quick count */}
+      {agents.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-mut">
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <span key={status} className="flex items-center gap-0.5">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
+              {count} {status}
+            </span>
+          ))}
+        </div>
+      )}
 
       {metrics && (
         <div className="mt-1.5 flex items-center justify-between font-mono text-[10px] text-mut">
           <span title="Task completati / avviati">✔ {metrics.tasksCompleted}/{metrics.tasksStarted}</span>
+          <span title="Token totali usati">{(metrics.lifetime?.tokens ?? 0) > 0 ? `⬡ ${((metrics.lifetime!.tokens) / 1000).toFixed(1)}k tok` : ""}</span>
           <span title="Errori" className={cn(metrics.errors > 0 && "text-rose-400")}>⚠ {metrics.errors}</span>
           <span title="Uptime runtime">↑ {fmtUptime(metrics.uptimeSec)}</span>
         </div>
