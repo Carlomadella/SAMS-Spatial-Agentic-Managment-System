@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Trash2, X as XIcon } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
@@ -38,7 +38,19 @@ export function AgentInspector() {
 
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
   const titleRef = useRef<HTMLInputElement>(null);
+
+  function toggleStep(i: number) {
+    setCheckedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  }
+
+  // Reset checked steps when the agent or task changes
+  useEffect(() => { setCheckedSteps(new Set()); }, [agent?.id, agent?.task?.title]);
 
   function applyTemplate(id: string) {
     const tpl = TASK_TEMPLATES.find((t) => t.id === id);
@@ -209,17 +221,43 @@ export function AgentInspector() {
             <Field label="Task" value={agent.task.title} />
             <Field label="Branch" mono value={agent.task.branch} />
 
-            {/* step-by-step plan from announce_plan */}
+            {/* step-by-step plan from announce_plan — clickable to mark steps done */}
             {(agent.task.plan?.length ?? 0) > 0 && (
               <div className="mt-2 rounded-md border border-brand/20 bg-brand/5 px-2 py-1.5">
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-brand/70">Piano</div>
-                <ol className="space-y-0.5">
-                  {agent.task.plan!.map((step, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-300">
-                      <span className="mt-0.5 shrink-0 font-mono text-[10px] text-brand/60">{i + 1}.</span>
-                      <span className="leading-relaxed">{step}</span>
-                    </li>
-                  ))}
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Piano</span>
+                  <span className="text-[10px] text-mut">
+                    {checkedSteps.size}/{agent.task.plan!.length} completati
+                  </span>
+                </div>
+                <ol className="space-y-1">
+                  {agent.task.plan!.map((step, i) => {
+                    const done = checkedSteps.has(i);
+                    return (
+                      <li
+                        key={i}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={done}
+                        onClick={() => toggleStep(i)}
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggleStep(i)}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-1.5 rounded px-1 py-0.5 text-[11px] transition-colors hover:bg-brand/10",
+                          done ? "text-mut" : "text-slate-300",
+                        )}
+                      >
+                        <span className={cn(
+                          "mt-0.5 shrink-0 font-mono text-[10px]",
+                          done ? "text-emerald-500" : "text-brand/60",
+                        )}>
+                          {done ? "✓" : `${i + 1}.`}
+                        </span>
+                        <span className={cn("leading-relaxed", done && "line-through opacity-60")}>
+                          {step}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             )}
