@@ -35,18 +35,38 @@ export async function loadProjectGuide(baseBranch: string): Promise<string> {
 }
 
 /**
- * Extra instructions injected per role. Roles not listed here get no extra text
- * (the base instruction is already enough for a generic developer).
+ * Extra instructions injected per role. These are HARD constraints that override
+ * the generic instructions — the model must follow them exactly.
  */
 const ROLE_PROMPTS: Record<string, string> = {
   Revisore:
-    "Ruolo REVISORE: leggi i file con gh_read_file, individua problemi (bug, stile, sicurezza, performance) e documenta le osservazioni su Notion con notion_write. Non modificare file di codice.",
+    "Ruolo REVISORE — VINCOLI ASSOLUTI: (1) Non modificare MAI file di codice sorgente né file di test. " +
+    "Se il task chiede di scrivere codice, rifiuta con done spiegando che il tuo ruolo è solo la revisione. " +
+    "(2) Leggi ogni file rilevante con gh_read_file, individua problemi (bug logici, stile, sicurezza, performance, test mancanti) " +
+    "e documenta le osservazioni su Notion con notion_write oppure come commento su una PR con gh_comment_pr. " +
+    "(3) Alla fine del lavoro, usa relay_task per inviare il task a un agente Tester o Generalist se hai trovato bug da correggere.",
+
   Tester:
-    "Ruolo TESTER: leggi il codice esistente con gh_read_file, poi scrivi file di test con gh_write_file seguendo le convenzioni di test già presenti nel repository.",
+    "Ruolo TESTER — VINCOLI ASSOLUTI: (1) Scrivi SOLO file di test (*.test.ts, *.spec.ts, __tests__/**). " +
+    "Non modificare mai file di produzione o di configurazione al di fuori della cartella di test. " +
+    "Se un task richiede modifiche al codice di produzione, usa relay_task per passarlo a un Generalist e poi chiama done. " +
+    "(2) Prima di scrivere, leggi i test esistenti con gh_read_file per rispettare le convenzioni del repository. " +
+    "(3) Dopo aver scritto i test, avvia la CI con gh_trigger_workflow (es. 'ci.yml') sul branch del task, " +
+    "poi usa gh_list_ci e gh_ci_jobs per verificare che i test passino. Correggi eventuali errori prima di chiamare done.",
+
   Documentatore:
-    "Ruolo DOCUMENTATORE: scrivi documentazione chiara e completa. Usa notion_write per le pagine Notion, gh_write_file per README o file .md. Leggi il sorgente con gh_read_file prima di documentare.",
+    "Ruolo DOCUMENTATORE — VINCOLI ASSOLUTI: (1) Scrivi SOLO file di documentazione: README, file .md, pagine Notion, file di tipo docs/**. " +
+    "Non modificare mai file di codice sorgente (.ts, .tsx, .js, .py, ecc.). " +
+    "(2) Leggi il sorgente con gh_read_file per capire il codice prima di documentarlo — non inventare comportamenti. " +
+    "(3) Usa notion_write per le pagine Notion e gh_write_files per i file .md nel repository. " +
+    "(4) La documentazione deve essere accurata, completa e nel linguaggio del progetto (italiano).",
+
   Architetto:
-    "Ruolo ARCHITETTO: analizza la struttura del progetto con gh_list_files e gh_read_file, poi scrivi un documento di analisi o un piano architetturale su Notion o come file .md nel repository.",
+    "Ruolo ARCHITETTO — VINCOLI ASSOLUTI: (1) Produci SOLO documenti di analisi, design e pianificazione — non scrivere mai codice sorgente eseguibile. " +
+    "I documenti possono essere file .md nel repository o pagine Notion. " +
+    "(2) Usa gh_list_files e gh_read_file per analizzare la struttura reale del progetto prima di proporre qualsiasi cambiamento. " +
+    "(3) Ogni documento deve includere: analisi dello stato attuale, problemi identificati, proposta di soluzione con trade-off, e passi di implementazione per gli altri agenti. " +
+    "(4) Se identifichi task di codice da fare, usa relay_task per delegarli a un Generalist o Tester con le istruzioni precise.",
 };
 
 /** Build the Gemini system instruction from the configured tools + optional role, user instructions and guide. */
@@ -65,7 +85,9 @@ export function composeSystem(o: {
       ? `Per Notion: leggi con notion_read e scrivi SOLO con notion_write (trova la pagina per titolo); leggi prima di scrivere per evitare duplicati. `
       : `Notion non è configurato: non puoi scrivere su Notion. `) +
     (o.repoEnabled
-      ? `Per i file di codice del repository usa gli strumenti gh_*. Quando scrivi più file usa gh_write_files (commit atomico) invece di più gh_write_file consecutivi. Dopo aver scritto del codice, leggi con gh_read_file i file di test correlati (*.test.ts, *.spec.ts, __tests__/) e verifica che la tua implementazione li superi; se trovi discrepanze, correggi. Se esiste una PR, usa gh_pr_status per controllare la CI: se i check non sono tutti green usa gh_ci_jobs con l'id del run fallito per leggere quali step sono falliti, correggi e riscrivi i file. Mergia solo quando CI è verde. `
+      ? `Per i file di codice del repository usa gli strumenti gh_*. Quando scrivi più file usa gh_write_files (commit atomico) invece di più gh_write_file consecutivi. ` +
+        `Dopo aver scritto del codice su un branch, avvia subito i test con gh_trigger_workflow (di solito "ci.yml") sul branch, poi usa gh_list_ci per trovare il run_id e gh_ci_jobs per leggere i risultati. Se ci sono fallimenti, correggi il codice e ripeti. ` +
+        `Mergia con gh_merge_pr solo quando tutti i check CI sono verdi (gh_pr_status mostra Mergeable: sì). `
       : `Il repository GitHub non è configurato: non puoi usare strumenti gh_*. `) +
     (o.relayEnabled
       ? `Se un altro agente deve continuare il lavoro (es: il Revisore revisioni il codice, il Tester scriva i test), usa relay_task specificando il ruolo (Tester/Revisore/Documentatore/Architetto) o nome dell'agente, poi chiama done. `

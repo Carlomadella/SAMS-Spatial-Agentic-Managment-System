@@ -10,11 +10,11 @@ describe("composeSystem", () => {
     expect(s).toContain("gh_*");
   });
 
-  it("includes auto-verifica instruction to read tests after writing code", () => {
+  it("includes CI workflow instruction to run tests after writing code", () => {
     const s = composeSystem({ agentName: "x", notionEnabled: false, repoEnabled: true });
-    expect(s).toContain("test");
-    expect(s).toContain("verifica");
-    expect(s).toContain("discrepanze");
+    expect(s).toContain("gh_trigger_workflow");
+    expect(s).toContain("gh_ci_jobs");
+    expect(s).toContain("gh_list_ci");
   });
 
   it("omits auto-verifica when repo is not configured", () => {
@@ -43,7 +43,7 @@ describe("composeSystem", () => {
   it("injects Revisore role instructions and discourages code edits", () => {
     const s = composeSystem({ agentName: "r", notionEnabled: true, repoEnabled: true, role: "Revisore" });
     expect(s).toContain("REVISORE");
-    expect(s).toContain("Non modificare file di codice");
+    expect(s).toContain("Non modificare MAI");
   });
 
   it("injects Tester role instructions about writing test files", () => {
