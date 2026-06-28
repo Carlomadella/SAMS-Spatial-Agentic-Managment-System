@@ -164,6 +164,38 @@ collega.
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
 
+### 2026-06-28 — pass di qualità: caccia ai bug + hardening dei test
+Dopo i nuovi pannelli (Explorer interattivo, Source Control con Git Graph,
+History), un giro di **bug hunt multi-sottosistema** (3 review paralleli, ogni
+finding verificato sul codice reale) ha trovato e risolto 10 bug latenti:
+
+- **Live Sim — ciclo claim**: i claim non venivano mai rilasciati quando una
+  issue si chiudeva su GitHub (leak permanente dello slot). Aggiunti TTL di
+  staleness (`CLAIM_TTL_MS`), `releaseIssue` owner-aware, endpoint
+  `/api/sim/release-by-agent/:agentId` (cabla il prima-morto `releaseByAgent`),
+  e in `SimBridge` una mappa di claim a livello-modulo (robusta al polling) per
+  non lasciare agenti bloccati in `awaiting_approval`/`review`.
+- **Live Sim — sync stato**: `connectBackend` ora riconcilia `simMode/label` da
+  `/api/sim/status` a ogni (ri)connessione: niente più divergenza client/server
+  dopo un reload. `poll()` non ripopola più dopo uno stop in volo.
+- **Store**: l'auto-clear di `done` ora controlla che l'agente sia *ancora* in
+  `done` (un riassegno entro 1.5s non cancella più il task nuovo);
+  `updateProgress` a 100% pianifica lo stesso auto-clear (niente agenti incastrati
+  in `done`, che bloccava il riciclo della sim).
+- **UI**: Explorer aveva un `<button>` dentro un `<button>` (HTML non valido) e un
+  `group-hover` senza antenato `group` → lo Spawn "+" era invisibile, ora è un
+  `div role=button`. IdleBridge usava `charCodeAt(0)` (uguale per ogni id
+  `agent-*` → stagger nullo); RelayBridge poteva crashare su `find()!`;
+  NotificationBridge non notificava i task passati per `review`.
+- **GitHub**: `writeFilesAtomic` ora rifiuta i segmenti `./..` (parità con
+  `cleanPath`); `pullRequestStatus` interroga anche le combined commit-status
+  legacy, non solo le check-runs (gate-on-green corretto anche con CI vecchie).
+
+Poi **hardening dei test**: estratta la logica più rischiosa dei nuovi componenti
+in helper puri e testati (`lib/gitGraph.ts` algoritmo delle corsie,
+`lib/agentColor.ts`, `lib/fileTree.ts`). Test frontend **42 → 60**, server
+**84 → 89**. Build e lint puliti.
+
 ### 2026-06-28 — implementazione: CI gate + commit atomico ✅ (scommessa #2 completa)
 - **`gh_write_files`** — tool agente per commit atomico di N file via Git tree API
   (`writeFilesAtomic` in github.ts: get-ref → get-commit → post-tree → post-commit → patch-ref);
