@@ -1,6 +1,7 @@
 import { MapPin, Package, Search } from "lucide-react";
 import { Explorer } from "./Explorer";
 import { ResizeHandle } from "./ResizeHandle";
+import { ScmView } from "./ScmView";
 import { useStore } from "../store/useStore";
 import { ZONES } from "../data/world";
 
@@ -62,21 +63,6 @@ function CadView() {
   );
 }
 
-function ScmView() {
-  const environment = useStore((s) => s.environment);
-  return (
-    <div className="flex h-full flex-col">
-      <PanelHeader title="Source Control" />
-      <div className="px-3 text-[12px] leading-relaxed text-mut">
-        <p>
-          Branch <span className="font-mono text-slate-300">main</span> · environment{" "}
-          <span className="font-mono text-slate-300">{environment}</span>.
-        </p>
-        <p className="mt-2">Use the Security Gate panel on the right to review, commit and push.</p>
-      </div>
-    </div>
-  );
-}
 
 function ExtensionsView() {
   const exts = [
