@@ -30,6 +30,14 @@ function cleanPath(filePath: string): string {
   return parts.map(encodeURIComponent).join("/");
 }
 
+/** Like cleanPath but for the Git Trees API, which takes a RAW (un-encoded) path
+ *  in the JSON body. Still strips leading slashes and rejects `.`/`..` segments. */
+export function safeTreePath(filePath: string): string {
+  const parts = filePath.replace(/^\/+/, "").split("/").filter(Boolean);
+  if (parts.some((p) => p === ".." || p === ".")) throw new Error(`Percorso non valido: "${filePath}"`);
+  return parts.join("/");
+}
+
 async function gh(pathSuffix: string, init?: RequestInit): Promise<unknown> {
   return jsonFetch(`${repoBase()}${pathSuffix}`, { ...init, headers: headers() }, "GitHub");
 }
@@ -175,24 +183,36 @@ export async function pullRequestStatus(prNumber: number): Promise<string> {
     state: string; mergeable: boolean | null; mergeable_state: string;
     head: { sha: string }; draft?: boolean;
   };
-  const checks = (await gh(`/commits/${encodeURIComponent(pr.head.sha)}/check-runs`)) as {
-    total_count?: number;
-    check_runs?: Array<{ name: string; status: string; conclusion: string | null }>;
-  };
+  // Query BOTH CI reporting mechanisms: the modern Checks API (GitHub Actions and
+  // most apps) and the legacy combined commit-status API (Travis/Jenkins/Circle and
+  // other older integrations). Gating on only one can miss a red/green signal.
+  const [checks, combined] = (await Promise.all([
+    gh(`/commits/${encodeURIComponent(pr.head.sha)}/check-runs`),
+    gh(`/commits/${encodeURIComponent(pr.head.sha)}/status`),
+  ])) as [
+    { check_runs?: Array<{ name: string; status: string; conclusion: string | null }> },
+    { state?: string; statuses?: Array<{ context: string; state: string }> },
+  ];
   const runs = checks.check_runs ?? [];
-  const summary = runs.length
-    ? runs
-        .map((c) => {
-          const icon = c.conclusion === "success" ? "✅" : c.conclusion === "failure" ? "❌" : c.status === "completed" ? "•" : "🔄";
-          return `  ${icon} ${c.name}${c.conclusion ? ` (${c.conclusion})` : ` (${c.status})`}`;
-        })
-        .join("\n")
-    : "  (nessun check)";
+  const statuses = combined.statuses ?? [];
+
+  const lines = [
+    ...runs.map((c) => {
+      const icon = c.conclusion === "success" ? "✅" : c.conclusion === "failure" ? "❌" : c.status === "completed" ? "•" : "🔄";
+      return `  ${icon} ${c.name}${c.conclusion ? ` (${c.conclusion})` : ` (${c.status})`}`;
+    }),
+    ...statuses.map((s) => {
+      const icon = s.state === "success" ? "✅" : s.state === "failure" || s.state === "error" ? "❌" : "🔄";
+      return `  ${icon} ${s.context} (${s.state})`;
+    }),
+  ];
+  const total = runs.length + statuses.length;
+  const summary = total ? lines.join("\n") : "  (nessun check)";
   const mergeable = pr.mergeable === null ? "in calcolo" : pr.mergeable ? "sì" : "no";
   return [
     `PR #${prNumber}: stato ${pr.state}${pr.draft ? " (draft)" : ""}`,
     `Mergeable: ${mergeable} | stato: ${pr.mergeable_state}`,
-    `Check CI (${runs.length}):\n${summary}`,
+    `Check CI (${total}):\n${summary}`,
   ].join("\n");
 }
 
@@ -276,7 +296,7 @@ export async function writeFilesAtomic(
     body: JSON.stringify({
       base_tree: headCommit.tree.sha,
       tree: files.map((f) => ({
-        path: f.path.replace(/^\/+/, ""),
+        path: safeTreePath(f.path),
         mode: "100644",
         type: "blob",
         content: f.content,

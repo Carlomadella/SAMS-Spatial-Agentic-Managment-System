@@ -7,7 +7,7 @@ import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, writeFilesAtomic } from "./github";
-import { claimIssue, getClaims, getSimLabel, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
+import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
@@ -295,9 +295,27 @@ app.post("/api/sim/release/:issueNumber", (req: Request, res: Response) => {
     res.status(400).json({ error: "issueNumber non valido" });
     return;
   }
-  releaseIssue(issueNumber);
+  // Optional agentId makes the release owner-aware (won't steal another agent's claim).
+  const agentId = typeof req.body?.agentId === "string" ? req.body.agentId.trim() : undefined;
+  releaseIssue(issueNumber, agentId || undefined);
   void removeIssueLabel(issueNumber, "sams:in-progress").catch(() => {});
   res.json({ ok: true });
+});
+
+// Release whatever issue an agent currently holds — robust to the client having
+// lost track of the issue number (e.g. the issue was closed on GitHub and dropped
+// out of the polled list). This is the primary completion-driven release path.
+app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => {
+  const agentId = (req.params.agentId as string)?.trim();
+  if (!agentId) {
+    res.status(400).json({ error: "agentId richiesto" });
+    return;
+  }
+  const issueNumber = releaseByAgent(agentId);
+  if (issueNumber !== undefined) {
+    void removeIssueLabel(issueNumber, "sams:in-progress").catch(() => {});
+  }
+  res.json({ ok: true, issueNumber });
 });
 
 // Commit Garden lives inside the SAMS runtime (no separate app/port).

@@ -131,8 +131,11 @@ function RelayBridge() {
         } else {
           useStore.getState().assignTask(target.id, title, relay.branch);
           if (backendEnabled) {
-            const fresh = useStore.getState().agents.find((a) => a.id === target.id)!;
-            assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions).catch(() => {});
+            // target may have been removed during the 200ms delay — guard the lookup
+            const fresh = useStore.getState().agents.find((a) => a.id === target.id);
+            if (fresh) {
+              assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions).catch(() => {});
+            }
           }
         }
         useStore.getState().log({
@@ -175,8 +178,10 @@ function IdleBridge() {
     // seed timers for agents already idle on mount (stagger to avoid synchronised drift)
     for (const a of useStore.getState().agents) {
       if (isIdleEligible(a)) {
-        // deterministic per-agent delay so agents don't all walk at once
-        const jitter = (a.id.charCodeAt(0) % 8) * 1000;
+        // deterministic per-agent delay so agents don't all walk at once.
+        // Use the last char: every id shares the "agent-" prefix, so charCodeAt(0)
+        // would be identical for all and defeat the stagger.
+        const jitter = (a.id.charCodeAt(a.id.length - 1) % 8) * 1000;
         setTimeout(() => schedule(a.id), jitter);
       }
     }
@@ -210,9 +215,11 @@ function NotificationBridge() {
       for (const agent of state.agents) {
         const prevAgent = prev.agents.find((a) => a.id === agent.id);
         if (!prevAgent) continue;
-        const wasWorking = prevAgent.status === "working" && prevAgent.task;
-        const isIdle = agent.status === "idle" || agent.status === "done";
-        if (wasWorking && isIdle) {
+        // Treat both "working" and "review" as in-progress so tasks that pass
+        // through review (working→review→done) still notify on completion.
+        const wasActive = (prevAgent.status === "working" || prevAgent.status === "review") && prevAgent.task;
+        const isDone = agent.status === "idle" || agent.status === "done";
+        if (wasActive && isDone) {
           const taskTitle = prevAgent.task?.title ?? "Task completato";
           const fire = () =>
             new Notification(`✅ ${agent.name}`, {

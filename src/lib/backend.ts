@@ -210,6 +210,24 @@ export interface SimIssueRemote {
   claimedBy?: string;
 }
 
+export interface SimStatusRemote {
+  enabled: boolean;
+  label: string;
+  claimedCount: number;
+}
+
+/** Read the server's authoritative Live Sim state (so client and server agree
+ *  after a reload or reconnect). Returns null if unreachable. */
+export async function fetchSimStatus(): Promise<SimStatusRemote | null> {
+  try {
+    const res = await fetch(`${BASE}/api/sim/status`);
+    if (!res.ok) return null;
+    return (await res.json()) as SimStatusRemote;
+  } catch {
+    return null;
+  }
+}
+
 /** Start Live Sim mode on the server. */
 export async function startSimMode(label = "sams"): Promise<void> {
   await fetch(`${BASE}/api/sim/start`, {
@@ -249,9 +267,20 @@ export async function claimSimIssue(issueNumber: number, agentId: string): Promi
   }
 }
 
-/** Release a previously claimed issue. */
-export async function releaseSimIssue(issueNumber: number): Promise<void> {
-  await fetch(`${BASE}/api/sim/release/${issueNumber}`, { method: "POST" }).catch(() => {});
+/** Release a previously claimed issue. Passing agentId makes it owner-aware. */
+export async function releaseSimIssue(issueNumber: number, agentId?: string): Promise<void> {
+  await fetch(`${BASE}/api/sim/release/${issueNumber}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agentId: agentId ?? "" }),
+  }).catch(() => {});
+}
+
+/** Release whatever issue an agent holds (robust to a lost issue number). */
+export async function releaseSimByAgent(agentId: string): Promise<void> {
+  await fetch(`${BASE}/api/sim/release-by-agent/${encodeURIComponent(agentId)}`, {
+    method: "POST",
+  }).catch(() => {});
 }
 
 let source: EventSource | null = null;
@@ -262,6 +291,14 @@ export function connectBackend(): () => void {
   source.onopen = () => {
     useStore.getState().setBackendOnline(true);
     void refreshRuntimeStatus();
+    // Reconcile sim state with the server: it's the source of truth, so a reload
+    // or reconnect doesn't leave the client thinking the sim is off while the
+    // server keeps running it (or vice-versa).
+    void fetchSimStatus().then((st) => {
+      if (!st) return;
+      useStore.getState().setSimMode(st.enabled);
+      useStore.getState().setSimLabel(st.label);
+    });
   };
   source.onerror = () => useStore.getState().setBackendOnline(false);
   source.onmessage = (ev) => {

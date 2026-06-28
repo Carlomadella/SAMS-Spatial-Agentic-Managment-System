@@ -146,9 +146,14 @@ function AgentsSection() {
 
   return (
     <div className="mb-2">
-      <button
+      {/* Header is a div (not a button) so the inner Spawn button is valid HTML.
+          `group` enables the inner button's group-hover reveal. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-mut transition-colors hover:text-slate-300"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}
+        className="group flex w-full cursor-pointer select-none items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-mut transition-colors hover:text-slate-300"
       >
         <span className="flex items-center gap-1.5">
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -163,7 +168,7 @@ function AgentsSection() {
         >
           <Plus size={12} />
         </button>
-      </button>
+      </div>
 
       {open && (
         <div className="mt-0.5 flex flex-col gap-0.5 px-1">

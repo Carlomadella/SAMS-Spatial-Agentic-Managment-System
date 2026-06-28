@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CLAIM_TTL_MS,
   claimIssue,
   getClaims,
   getSimLabel,
@@ -74,6 +75,49 @@ describe("simLoop — claim / release", () => {
 
   it("releaseByAgent returns undefined when agent had no claim", () => {
     expect(releaseByAgent("nobody")).toBeUndefined();
+  });
+});
+
+describe("simLoop — owner-aware release", () => {
+  beforeEach(() => startSim());
+
+  it("releaseIssue with a non-owner agentId does NOT release the claim", () => {
+    claimIssue(5, "agent-a");
+    releaseIssue(5, "agent-b"); // not the owner — must be ignored
+    expect(claimIssue(5, "agent-c")).toBe(false); // still held by agent-a
+    expect(getClaims().get(5)?.agentId).toBe("agent-a");
+  });
+
+  it("releaseIssue with the owner agentId releases the claim", () => {
+    claimIssue(5, "agent-a");
+    releaseIssue(5, "agent-a");
+    expect(claimIssue(5, "agent-c")).toBe(true);
+  });
+
+  it("releaseIssue without an agentId releases unconditionally", () => {
+    claimIssue(5, "agent-a");
+    releaseIssue(5);
+    expect(getClaims().size).toBe(0);
+  });
+});
+
+describe("simLoop — stale claim takeover (TTL)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    startSim();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("a fresh claim cannot be taken over", () => {
+    claimIssue(8, "agent-a");
+    expect(claimIssue(8, "agent-b")).toBe(false);
+  });
+
+  it("a claim older than CLAIM_TTL_MS can be taken over by another agent", () => {
+    claimIssue(8, "agent-a");
+    vi.advanceTimersByTime(CLAIM_TTL_MS + 1);
+    expect(claimIssue(8, "agent-b")).toBe(true);
+    expect(getClaims().get(8)?.agentId).toBe("agent-b");
   });
 });
 

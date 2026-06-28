@@ -1,7 +1,26 @@
 import { useEffect } from "react";
-import { approveChanges, assignRemote, claimSimIssue, fetchSimIssues, releaseSimIssue } from "../lib/backend";
+import {
+  approveChanges,
+  assignRemote,
+  claimSimIssue,
+  fetchSimIssues,
+  releaseSimByAgent,
+  releaseSimIssue,
+} from "../lib/backend";
 import { useStore } from "../store/useStore";
 import type { Agent } from "../types";
+
+/**
+ * Tracks which sim issue each agent is currently working, keyed by agentId.
+ *
+ * This is deliberately kept OUTSIDE the store's `simIssues` (which the 30 s poll
+ * overwrites wholesale from GitHub): if an issue is closed mid-task it drops out
+ * of the polled list, and gating auto-approve / auto-clear on that volatile list
+ * would leave a working agent stranded. This map only changes when the bridge
+ * itself assigns or releases a claim, so it's a reliable "is this agent sim-driven
+ * right now?" signal.
+ */
+const simClaims = new Map<string, number>();
 
 /**
  * Invisible bridge that powers the Live Simulation mode.
@@ -27,6 +46,7 @@ export function SimBridge() {
         timer = setInterval(() => void poll(), 30_000);
       } else if (wasOn && !isOn) {
         if (timer !== null) { clearInterval(timer); timer = null; }
+        simClaims.clear(); // sim stopped — drop any tracked claims
       }
     });
 
@@ -60,25 +80,26 @@ export function SimBridge() {
           void handleIdle(agent);
         }
 
-        // Agent entered awaiting_approval while sim is on → auto-approve
+        // Agent entered awaiting_approval while sim-driven → auto-approve
         if (
           agent.status === "awaiting_approval" &&
           prevAgent.status !== "awaiting_approval" &&
-          (agent.pendingFiles?.length ?? 0) > 0
+          (agent.pendingFiles?.length ?? 0) > 0 &&
+          simClaims.has(agent.id)
         ) {
-          const hasClaim = state.simIssues.some((i) => i.claimedBy === agent.id);
-          if (hasClaim) void autoApprove(agent.id);
+          void autoApprove(agent.id);
         }
 
-        // Agent reached "review" while holding a sim claim → auto-clear after a pause
-        if (agent.status === "review" && prevAgent.status !== "review") {
-          const hasClaim = state.simIssues.some((i) => i.claimedBy === agent.id);
-          if (hasClaim) {
-            setTimeout(() => {
-              const fresh = useStore.getState().agents.find((a) => a.id === agent.id);
-              if (fresh?.status === "review") useStore.getState().clearTask(agent.id);
-            }, 2500);
-          }
+        // Agent reached "review" while sim-driven → auto-clear after a short pause
+        if (
+          agent.status === "review" &&
+          prevAgent.status !== "review" &&
+          simClaims.has(agent.id)
+        ) {
+          setTimeout(() => {
+            const fresh = useStore.getState().agents.find((a) => a.id === agent.id);
+            if (fresh?.status === "review") useStore.getState().clearTask(agent.id);
+          }, 2500);
         }
       }
     });
@@ -89,7 +110,11 @@ export function SimBridge() {
 
 async function poll(): Promise<void> {
   const issues = await fetchSimIssues();
-  useStore.getState().setSimIssues(issues);
+  // The sim may have been stopped while this request was in flight — don't
+  // repopulate the panel with stale issues after a stop.
+  const s = useStore.getState();
+  if (!s.simMode || !s.backendOnline) return;
+  s.setSimIssues(issues);
 }
 
 async function autoApprove(agentId: string): Promise<void> {
@@ -100,15 +125,20 @@ async function handleIdle(agent: Agent): Promise<void> {
   const s = useStore.getState();
   if (!s.simMode || !s.backendOnline || !s.runtimeReady) return;
 
-  // Release any issue previously held by this agent
-  const previous = s.simIssues.find((i) => i.claimedBy === agent.id);
-  if (previous) {
-    useStore.getState().setSimIssues(
-      useStore.getState().simIssues.map((i) =>
-        i.number === previous.number ? { ...i, claimedBy: undefined } : i,
-      ),
-    );
-    void releaseSimIssue(previous.number);
+  // Release any issue previously held by this agent. Use the agent-keyed server
+  // endpoint so it works even if we've lost track of the issue number (e.g. the
+  // issue was closed on GitHub and dropped out of the polled list).
+  if (simClaims.has(agent.id)) {
+    const prevNumber = simClaims.get(agent.id);
+    simClaims.delete(agent.id);
+    void releaseSimByAgent(agent.id);
+    if (prevNumber !== undefined) {
+      useStore.getState().setSimIssues(
+        useStore.getState().simIssues.map((i) =>
+          i.number === prevNumber ? { ...i, claimedBy: undefined } : i,
+        ),
+      );
+    }
   }
 
   // Pick next unclaimed issue
@@ -119,7 +149,8 @@ async function handleIdle(agent: Agent): Promise<void> {
   const ok = await claimSimIssue(available.number, agent.id);
   if (!ok) return; // another agent beat us to it
 
-  // Mark as claimed in the store immediately so other concurrent handlers skip it
+  // Track + mark as claimed in the store immediately so other concurrent handlers skip it
+  simClaims.set(agent.id, available.number);
   useStore.getState().setSimIssues(
     useStore.getState().simIssues.map((i) =>
       i.number === available.number ? { ...i, claimedBy: agent.id } : i,
@@ -129,7 +160,8 @@ async function handleIdle(agent: Agent): Promise<void> {
   // Re-check agent is still idle (it might have received a task in the meantime)
   const fresh = useStore.getState().agents.find((a) => a.id === agent.id);
   if (!fresh || fresh.status !== "idle") {
-    void releaseSimIssue(available.number);
+    simClaims.delete(agent.id);
+    void releaseSimIssue(available.number, agent.id); // owner-aware
     useStore.getState().setSimIssues(
       useStore.getState().simIssues.map((i) =>
         i.number === available.number ? { ...i, claimedBy: undefined } : i,

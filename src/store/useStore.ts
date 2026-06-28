@@ -293,11 +293,13 @@ export const useStore = create<State>()(
       };
       get().log({ agentId: id, agentName: a.name, color: a.color, level: STATUS_LEVEL[status], message: msg[status] });
     }
-    // When explicitly marked done, clear the task after a short visual pause
+    // When explicitly marked done, clear the task after a short visual pause.
+    // Guard on the agent STILL being "done": if it was reassigned within the
+    // window the timeout must not wipe the fresh task.
     if (status === "done") {
       setTimeout(() => {
         const agent = get().agents.find((x) => x.id === id);
-        if (agent?.task) get().clearTask(id);
+        if (agent?.status === "done" && agent.task) get().clearTask(id);
       }, 1500);
     }
   },
@@ -345,6 +347,13 @@ export const useStore = create<State>()(
     }));
     if (willComplete) {
       get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task complete: ${a.task.title}` });
+      // Mirror setStatus: reaching 100% sets status "done", so schedule the same
+      // guarded auto-clear or the agent would sit in "done" forever (and never
+      // recycle in sim mode, which only picks up idle agents).
+      setTimeout(() => {
+        const agent = get().agents.find((x) => x.id === id);
+        if (agent?.status === "done" && agent.task) get().clearTask(id);
+      }, 1500);
     }
   },
 
