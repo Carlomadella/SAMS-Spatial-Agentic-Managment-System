@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { fetchHistory, type TaskHistoryRow } from "../lib/backend";
-import { AGENT_COLORS, AGENT_HEX, type AgentColor } from "../types";
+import { colorFromAgentId } from "../lib/agentColor";
 import { cn } from "../lib/utils";
 
 function fmtTime(ts: number): string {
@@ -11,15 +11,6 @@ function fmtTime(ts: number): string {
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
-}
-
-/** Try to recover an agent color from its ID (e.g. "agent-blue" → blue). */
-function colorFromAgentId(id: string): string {
-  const match = /^agent-([a-z]+)$/.exec(id);
-  if (match && AGENT_COLORS.includes(match[1] as AgentColor)) {
-    return AGENT_HEX[match[1] as AgentColor];
-  }
-  return "#8a93a6";
 }
 
 const STATUS_CHIP: Record<string, string> = {

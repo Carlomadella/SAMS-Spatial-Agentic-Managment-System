@@ -1,90 +1,17 @@
 import { useState } from "react";
 import { ExternalLink, GitCommit } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { type TaskRecord } from "../types";
+import { buildGraph } from "../lib/gitGraph";
 import { clock, cn } from "../lib/utils";
 
 // ---------------------------------------------------------------------------
-// Layout constants
+// Layout constants (rendering-only — the lane algorithm lives in lib/gitGraph.ts)
 // ---------------------------------------------------------------------------
 
 const LANE_W = 16;   // px between lane centres
 const ROW_H  = 28;   // px per commit row
 const DOT_R  = 4;    // commit circle radius
 const X0     = 10;   // centre of lane 0
-
-const GRAPH_COLORS = [
-  "#3b82f6", "#22c55e", "#f97316", "#a855f7",
-  "#ef4444", "#eab308", "#06b6d4", "#ec4899",
-];
-
-// ---------------------------------------------------------------------------
-// Data model
-// ---------------------------------------------------------------------------
-
-interface GNode {
-  id: string;
-  branch: string;
-  title: string;
-  agentName: string;
-  status: string;
-  createdAt: number;
-  lane: number;
-  row: number; // 0 = top (newest)
-  tokens?: number;
-  url?: string;
-}
-
-interface GraphData {
-  nodes: GNode[];
-  laneCount: number;
-  /** lane → [minRow, maxRow] in display order (minRow = newest = top) */
-  laneRange: Map<number, [number, number]>;
-  laneColors: Map<number, string>;
-  laneLabels: Map<number, string>;
-}
-
-function buildGraph(tasks: TaskRecord[]): GraphData {
-  // Assign lanes in chronological order so branches keep a stable index
-  const chrono = [...tasks].sort((a, b) => a.createdAt - b.createdAt);
-
-  const branchToLane = new Map<string, number>();
-  let nextLane = 0;
-  for (const t of chrono) {
-    const branch = t.branch || "main";
-    if (!branchToLane.has(branch)) branchToLane.set(branch, nextLane++);
-  }
-
-  // Display order: newest first → row 0 at top
-  const nodes: GNode[] = [...chrono].reverse().map((t, row) => ({
-    id: t.id,
-    branch: t.branch || "main",
-    title: t.title,
-    agentName: t.agentName,
-    status: t.status,
-    createdAt: t.createdAt,
-    lane: branchToLane.get(t.branch || "main")!,
-    row,
-    tokens: t.tokens,
-    url: t.url,
-  }));
-
-  const laneRange = new Map<number, [number, number]>();
-  for (const n of nodes) {
-    const r = laneRange.get(n.lane);
-    if (!r) laneRange.set(n.lane, [n.row, n.row]);
-    else laneRange.set(n.lane, [Math.min(r[0], n.row), Math.max(r[1], n.row)]);
-  }
-
-  const laneColors = new Map<number, string>();
-  const laneLabels = new Map<number, string>();
-  for (const [branch, lane] of branchToLane.entries()) {
-    laneColors.set(lane, GRAPH_COLORS[lane % GRAPH_COLORS.length]);
-    laneLabels.set(lane, branch);
-  }
-
-  return { nodes, laneCount: nextLane, laneRange, laneColors, laneLabels };
-}
 
 // ---------------------------------------------------------------------------
 // Per-row SVG  (renders the "lane column" for one commit row)

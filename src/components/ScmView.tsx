@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { STATIC_TREE } from "../data/seed";
-import { AGENT_HEX, type Agent, type EnvironmentName, type FileNode } from "../types";
+import { AGENT_HEX, type Agent, type EnvironmentName } from "../types";
 import { approveChanges, rejectChanges } from "../lib/backend";
+import { flattenBadgedFiles } from "../lib/fileTree";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { GitGraph } from "./GitGraph";
 import { cn } from "../lib/utils";
@@ -38,16 +39,6 @@ const STATUS_BAR: Record<string, string> = {
   awaiting_approval: "bg-violet-400 animate-pulse-soft",
   idle: "bg-slate-600",
 };
-
-function flattenBadgedFiles(nodes: FileNode[], prefix = ""): Array<{ path: string; badge: string }> {
-  const out: Array<{ path: string; badge: string }> = [];
-  for (const n of nodes) {
-    const fullPath = prefix ? `${prefix}/${n.name}` : n.name;
-    if (n.kind === "file" && n.badge) out.push({ path: fullPath, badge: n.badge });
-    if (n.children) out.push(...flattenBadgedFiles(n.children, fullPath));
-  }
-  return out;
-}
 
 function SectionHeader({
   label,
