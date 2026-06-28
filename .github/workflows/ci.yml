@@ -34,5 +34,5 @@ jobs:
       - name: Typecheck server
         run: npm --prefix server run typecheck
 
-      - name: Test server
-        run: npm --prefix server test
+      - name: Test server (with coverage)
+        run: npm --prefix server run test:coverage

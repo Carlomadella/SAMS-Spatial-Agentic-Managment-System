@@ -11,5 +11,14 @@ export default defineConfig({
         external: [/node:sqlite/],
       },
     },
+    coverage: {
+      provider: "v8",
+      include: ["src/agentTools.ts", "src/http.ts", "src/garden/model.ts", "src/db.ts"],
+      thresholds: {
+        lines: 60,
+        functions: 70,
+        branches: 58,
+      },
+    },
   },
 });
