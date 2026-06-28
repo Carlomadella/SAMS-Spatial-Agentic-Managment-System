@@ -12,6 +12,7 @@ import {
   type LogLevel,
   type PendingFile,
   type QueuedTask,
+  type SimIssue,
   type TaskRecord,
   type Toast,
   type Vec2,
@@ -55,6 +56,12 @@ interface State {
   backendOnline: boolean;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
+  /** Live Sim: agents pick GitHub issues automatically when enabled */
+  simMode: boolean;
+  /** GitHub label filter for Live Sim (default "sams") */
+  simLabel: string;
+  /** Current issues fetched from GitHub for the Live Sim */
+  simIssues: SimIssue[];
   /** cumulative Gemini tokens used across tasks this workspace */
   tokensUsed: number;
   /** transient on-screen notifications */
@@ -110,6 +117,9 @@ interface State {
   // --- actions: runtime (managed agents) ---
   setBackendOnline: (online: boolean) => void;
   setRuntimeReady: (ready: boolean) => void;
+  setSimMode: (on: boolean) => void;
+  setSimLabel: (label: string) => void;
+  setSimIssues: (issues: SimIssue[]) => void;
   pushToast: (level: LogLevel, message: string) => void;
   dismissToast: (id: string) => void;
   applyRemote: (e: {
@@ -193,6 +203,9 @@ export const useStore = create<State>()(
   bottomHeight: 248,
   backendOnline: false,
   runtimeReady: false,
+  simMode: false,
+  simLabel: "sams",
+  simIssues: [],
   tokensUsed: 0,
   toasts: [],
   pendingRelays: [],
@@ -422,6 +435,9 @@ export const useStore = create<State>()(
 
   setBackendOnline: (online) => set({ backendOnline: online }),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
+  setSimMode: (on) => set({ simMode: on }),
+  setSimLabel: (label) => set({ simLabel: label }),
+  setSimIssues: (issues) => set({ simIssues: issues }),
 
   pushToast: (level, message) => {
     const id = uid("toast");

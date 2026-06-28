@@ -39,7 +39,7 @@ collega.
 |---|-----------|--------|--------|-------|
 | 1 | **Fondamenta dati + sicurezza** — SQLite + test sullo store | Abilitatore nascosto (storico, metriche, multi-utente) e rete di sicurezza sulla logica più delicata | 🟡 | ✅ |
 | 2 | **Fiducia** — diff preview in-app + `run_tests` reali + gate CI | Senza fiducia resta una demo; con essa diventa usabile su repo veri | 🟡 | 🏗️ |
-| 3 | **Autonomia** — Live simulation mode | Trasforma il prodotto dal claim alla realtà; richiede #1 e #2 come base | 🔴 | 💡 |
+| 3 | **Autonomia** — Live simulation mode | Trasforma il prodotto dal claim alla realtà; richiede #1 e #2 come base | 🔴 | ✅ |
 
 > Sequenza voluta: prima le fondamenta (#1), poi la fiducia (#2), infine
 > l'autonomia (#3) che ha bisogno di entrambe.
@@ -47,9 +47,11 @@ collega.
 ---
 
 ## 🧠 Intelligenza & autonomia degli agenti
-- [ ] 💡 **Live simulation mode** (scommessa #3) — gli agenti pescano task da soli da
+- [x] ✅ **Live simulation mode** (scommessa #3) — gli agenti pescano task da soli da
       una coda (GitHub issues con label `sams`), lavorano, aprono PR, tornano idle e ne
-      prendono un altro. Da "tu comandi" a "tu supervisioni".
+      prendono un altro. Da "tu comandi" a "tu supervisioni". _Implementato:_ tab "Live Sim"
+      nel BottomPanel; `simLoop.ts` con claim atomico server-side; `SimBridge` che
+      auto-approva, auto-libera e auto-assegna; 123 test totali.
 - [ ] 💡 **Bisogni/mood** — energia che cala con task lunghi, pausa caffè in lounge,
       umore legato all'esito (PR mergiata = festa, CI rossa = testa bassa). Comunica lo
       stato reale e dà vita alla scena.
@@ -158,6 +160,21 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-28 — implementazione: Live Simulation mode ✅ (scommessa #3 completa)
+Agenti autonomi che pescano GitHub issues con label configurabile (default `sams`):
+- **`simLoop.ts`** (server) — claim atomico in-memory (`Map<issueNumber, {agentId, claimedAt}>`);
+  Node.js single-threaded garantisce atomicità senza lock esterni. Label `sams:in-progress`
+  aggiunta/rimossa su GitHub come effetto collaterale visibile.
+- **6 endpoint REST** — `/api/sim/start`, `/api/sim/stop`, `/api/sim/status`,
+  `/api/sim/issues`, `/api/sim/claim/:n`, `/api/sim/release/:n`.
+- **`SimBridge.tsx`** (frontend) — bridge invisibile che: (1) polling 30 s;
+  (2) rilevamento `wasActive → isNowIdle` via `useStore.subscribe`; (3) auto-approve
+  dei file staged così il ciclo non si blocca sull'approvazione manuale; (4) auto-clear
+  dello status `review` → `idle` per riavviare il loop.
+- **`LiveSimPanel.tsx`** — tab "Live Sim" nel BottomPanel con toggle start/stop, lista
+  issues con claim status e link GitHub, istruzioni inline.
+- **11 test per `simLoop.ts`** — test totali: **123** (81 server, 42 frontend).
 
 ### 2026-06-27 — implementazione (giro 3): diff preview ✅ (scommessa #2 avviata)
 Diff preview reale in 3 sotto-passi: (1) `lib/diff.ts` LCS puro + test;

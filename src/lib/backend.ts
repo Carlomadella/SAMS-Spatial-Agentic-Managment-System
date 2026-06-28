@@ -199,6 +199,61 @@ export async function rejectChanges(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, { method: "POST" });
 }
 
+// --- Live Simulation mode ------------------------------------------------
+
+export interface SimIssueRemote {
+  number: number;
+  title: string;
+  body: string | null;
+  html_url: string;
+  labels: string[];
+  claimedBy?: string;
+}
+
+/** Start Live Sim mode on the server. */
+export async function startSimMode(label = "sams"): Promise<void> {
+  await fetch(`${BASE}/api/sim/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label }),
+  });
+}
+
+/** Stop Live Sim mode on the server. */
+export async function stopSimMode(): Promise<void> {
+  await fetch(`${BASE}/api/sim/stop`, { method: "POST" });
+}
+
+/** Fetch open issues available for the Live Sim (with claim info). */
+export async function fetchSimIssues(): Promise<SimIssueRemote[]> {
+  try {
+    const res = await fetch(`${BASE}/api/sim/issues`);
+    if (!res.ok) return [];
+    return (await res.json()) as SimIssueRemote[];
+  } catch {
+    return [];
+  }
+}
+
+/** Atomically claim an issue for an agent. Returns true if claimed successfully. */
+export async function claimSimIssue(issueNumber: number, agentId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/api/sim/claim/${issueNumber}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agentId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Release a previously claimed issue. */
+export async function releaseSimIssue(issueNumber: number): Promise<void> {
+  await fetch(`${BASE}/api/sim/release/${issueNumber}`, { method: "POST" }).catch(() => {});
+}
+
 let source: EventSource | null = null;
 
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */

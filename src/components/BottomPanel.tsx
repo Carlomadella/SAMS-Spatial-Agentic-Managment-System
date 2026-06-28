@@ -1,10 +1,11 @@
-import { AlertTriangle, ChevronDown, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Cpu, Trash2 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import type { BottomTab } from "../types";
 import { EventLog } from "./EventLog";
 import { AgentInspector } from "./AgentInspector";
 import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
+import { LiveSimPanel } from "./LiveSimPanel";
 import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
 
@@ -65,13 +66,14 @@ function ProblemsView() {
   );
 }
 
-const TABS: { id: BottomTab; label: string }[] = [
+const TABS: { id: BottomTab; label: string; sim?: true }[] = [
   { id: "terminal", label: "Terminal" },
   { id: "output", label: "Output" },
   { id: "eventlog", label: "Event Log" },
   { id: "tasks", label: "Tasks" },
   { id: "history", label: "History" },
   { id: "problems", label: "Problems" },
+  { id: "livesim", label: "Live Sim", sim: true },
 ];
 
 export function BottomPanel() {
@@ -82,6 +84,7 @@ export function BottomPanel() {
   const clearTasks = useStore((s) => s.clearTasks);
   const bottomHeight = useStore((s) => s.bottomHeight);
   const setBottomHeight = useStore((s) => s.setBottomHeight);
+  const simMode = useStore((s) => s.simMode);
   const problemCount = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
   );
@@ -104,7 +107,13 @@ export function BottomPanel() {
                 bottomTab === t.id ? "bg-white/[0.04] text-white" : "text-mut hover:bg-white/[0.02] hover:text-slate-300",
               )}
             >
+              {t.sim && (
+                <Cpu size={11} className={cn("shrink-0", simMode ? "text-emerald-400" : "")} />
+              )}
               {t.label}
+              {t.sim && simMode && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-soft" />
+              )}
               {t.id === "problems" && problemCount > 0 && (
                 <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-300">
                   {problemCount}
@@ -142,6 +151,7 @@ export function BottomPanel() {
           {bottomTab === "tasks" && <TasksPanel />}
           {bottomTab === "history" && <HistoryPanel />}
           {bottomTab === "problems" && <ProblemsView />}
+          {bottomTab === "livesim" && <LiveSimPanel />}
         </div>
         <div className="w-80 shrink-0 border-l border-line bg-ink-900/70">
           <AgentInspector />

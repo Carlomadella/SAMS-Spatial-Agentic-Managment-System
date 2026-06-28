@@ -218,6 +218,57 @@ export async function commentOnPullRequest(prNumber: number, body: string): Prom
   })) as { html_url: string };
 }
 
+/** A GitHub issue (not a PR). */
+export interface GithubIssue {
+  number: number;
+  title: string;
+  body: string | null;
+  html_url: string;
+  labels: string[];
+}
+
+/** List open issues (not PRs) with an optional label filter (up to 10). */
+export async function listIssues(label?: string): Promise<GithubIssue[]> {
+  const q = label
+    ? `?state=open&labels=${encodeURIComponent(label)}&per_page=10`
+    : `?state=open&per_page=10`;
+  const data = (await gh(`/issues${q}`)) as Array<{
+    number: number;
+    title: string;
+    body: string | null;
+    html_url: string;
+    pull_request?: unknown;
+    labels: Array<{ name: string }>;
+  }>;
+  return data
+    .filter((i) => !i.pull_request)
+    .map((i) => ({
+      number: i.number,
+      title: i.title,
+      body: i.body,
+      html_url: i.html_url,
+      labels: i.labels.map((l) => l.name),
+    }));
+}
+
+/** Add a label to an issue (best-effort). */
+export async function addIssueLabel(issueNumber: number, label: string): Promise<void> {
+  await gh(`/issues/${issueNumber}/labels`, {
+    method: "POST",
+    body: JSON.stringify({ labels: [label] }),
+  });
+}
+
+/** Remove a label from an issue (silent on 404). */
+export async function removeIssueLabel(issueNumber: number, label: string): Promise<void> {
+  try {
+    await gh(`/issues/${issueNumber}/labels/${encodeURIComponent(label)}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return;
+    throw err;
+  }
+}
+
 /** List the 5 most recent CI workflow runs (optionally filtered to a branch). */
 export async function listCIRuns(branch?: string): Promise<string> {
   const q = branch ? `?branch=${encodeURIComponent(branch)}&per_page=5` : `?per_page=5`;

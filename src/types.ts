@@ -156,4 +156,15 @@ export type ActivityView =
   | "cad"
   | "extensions";
 
-export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history";
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history" | "livesim";
+
+/** A GitHub issue available to the Live Sim, with optional claim info. */
+export interface SimIssue {
+  number: number;
+  title: string;
+  body: string | null;
+  html_url: string;
+  labels: string[];
+  /** agentId that has claimed this issue, if any */
+  claimedBy?: string;
+}

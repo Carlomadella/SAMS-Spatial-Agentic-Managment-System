@@ -12,6 +12,7 @@ import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./lib/orchestration";
@@ -335,6 +336,7 @@ export default function App() {
       <IdleBridge />
       <NotificationBridge />
       <ResponsiveBridge />
+      <SimBridge />
     </div>
   );
 }

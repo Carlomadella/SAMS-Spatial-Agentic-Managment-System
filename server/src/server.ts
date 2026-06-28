@@ -6,7 +6,8 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
-import { createBranch, createPullRequest, readFile, writeFile } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, writeFile } from "./github";
+import { claimIssue, getClaims, getSimLabel, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
@@ -223,6 +224,77 @@ app.post("/api/reject/:agentId", (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   clearPending(agentId);
   broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
+  res.json({ ok: true });
+});
+
+// --- Live Simulation mode ------------------------------------------------
+
+app.get("/api/sim/status", (_req: Request, res: Response) => {
+  res.json(simStatus());
+});
+
+app.post("/api/sim/start", (req: Request, res: Response) => {
+  const label =
+    typeof req.body?.label === "string" && req.body.label.trim()
+      ? req.body.label.trim()
+      : "sams";
+  startSim(label);
+  broadcast({ agentId: "sim", agentName: "sim", level: "INFO", message: `🟢 Live Sim avviata · label: ${label}` });
+  res.json(simStatus());
+});
+
+app.post("/api/sim/stop", (_req: Request, res: Response) => {
+  stopSim();
+  broadcast({ agentId: "sim", agentName: "sim", level: "WARN", message: "🔴 Live Sim fermata" });
+  res.json(simStatus());
+});
+
+app.get("/api/sim/issues", async (_req: Request, res: Response) => {
+  if (!isReady()) {
+    res.status(503).json({ error: "Runtime non pronto" });
+    return;
+  }
+  try {
+    const issues = await listIssues(getSimLabel());
+    const claims = getClaims();
+    res.json(issues.map((i) => ({ ...i, claimedBy: claims.get(i.number)?.agentId })));
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post("/api/sim/claim/:issueNumber", (req: Request, res: Response) => {
+  const issueNumber = Number(req.params.issueNumber);
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+    res.status(400).json({ error: "issueNumber non valido" });
+    return;
+  }
+  const agentId = typeof req.body?.agentId === "string" ? req.body.agentId.trim() : "";
+  if (!agentId) {
+    res.status(400).json({ error: "agentId richiesto" });
+    return;
+  }
+  if (!simEnabled()) {
+    res.status(409).json({ error: "Sim non attiva" });
+    return;
+  }
+  if (!claimIssue(issueNumber, agentId)) {
+    res.status(409).json({ error: "Issue già reclamata" });
+    return;
+  }
+  // Best-effort: add in-progress label in background (never blocks the response)
+  void addIssueLabel(issueNumber, "sams:in-progress").catch(() => {});
+  res.json({ ok: true, issueNumber, agentId });
+});
+
+app.post("/api/sim/release/:issueNumber", (req: Request, res: Response) => {
+  const issueNumber = Number(req.params.issueNumber);
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+    res.status(400).json({ error: "issueNumber non valido" });
+    return;
+  }
+  releaseIssue(issueNumber);
+  void removeIssueLabel(issueNumber, "sams:in-progress").catch(() => {});
   res.json({ ok: true });
 });
 
