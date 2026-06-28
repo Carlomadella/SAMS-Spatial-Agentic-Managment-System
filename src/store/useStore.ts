@@ -553,6 +553,14 @@ export const useStore = create<State>()(
       else if (e.level === "SUCCESS" && /\bPR\b|pull request|notion|https?:\/\//i.test(e.message))
         get().pushToast("SUCCESS", e.message);
     }
+    // notify when an agent reaches a terminal state
+    if (e.status === "done" || e.status === "review") {
+      const name = e.agentName ?? e.agentId;
+      get().pushToast("SUCCESS", e.status === "done" ? `✓ ${name} ha completato il task` : `⏳ ${name} — task in revisione`);
+    } else if (e.status === "blocked") {
+      const name = e.agentName ?? e.agentId;
+      get().pushToast("ERROR", `⚠ ${name} bloccato`);
+    }
   },
     }),
     {
