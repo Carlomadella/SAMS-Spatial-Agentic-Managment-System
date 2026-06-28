@@ -7,6 +7,7 @@ import {
   FileCode2,
   GitBranch,
   GitCommit,
+  GitFork,
   X,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
@@ -14,6 +15,7 @@ import { STATIC_TREE } from "../data/seed";
 import { AGENT_HEX, type Agent, type EnvironmentName, type FileNode } from "../types";
 import { approveChanges, rejectChanges } from "../lib/backend";
 import { StagedFileDiff } from "./StagedFileDiff";
+import { GitGraph } from "./GitGraph";
 import { cn } from "../lib/utils";
 
 const BADGE_CLS: Record<string, string> = {
@@ -143,6 +145,7 @@ export function ScmView() {
   const environment = useStore((s) => s.environment);
   const setEnvironment = useStore((s) => s.setEnvironment);
 
+  const [showGraph, setShowGraph] = useState(false);
   const [showBranches, setShowBranches] = useState(true);
   const [showChanges, setShowChanges] = useState(false);
 
@@ -157,6 +160,20 @@ export function ScmView() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">
           Source Control
         </span>
+        <button
+          onClick={() => setShowGraph((v) => !v)}
+          title="Git Graph"
+          aria-label="Mostra Git Graph"
+          className={cn(
+            "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+            showGraph
+              ? "bg-brand/20 text-brand-soft"
+              : "text-mut hover:bg-ink-700 hover:text-slate-300",
+          )}
+        >
+          <GitFork size={12} />
+          Git Graph
+        </button>
       </div>
 
       {/* branch + env row */}
@@ -178,8 +195,15 @@ export function ScmView() {
         </select>
       </div>
 
-      {/* scrollable body */}
-      <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+      {/* Git Graph view */}
+      {showGraph && (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <GitGraph />
+        </div>
+      )}
+
+      {/* Normal SCM body */}
+      {!showGraph && <div className="min-h-0 flex-1 overflow-y-auto pb-4">
 
         {/* ── Pending approvals ── */}
         {pendingAgents.length > 0 && (
@@ -280,7 +304,7 @@ export function ScmView() {
             </p>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
