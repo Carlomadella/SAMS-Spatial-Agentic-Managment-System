@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Boxes,
+  ClipboardList,
   Maximize2,
   MapPin,
   MousePointer2,
@@ -15,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ZONES } from "../data/world";
+import { assignRemote } from "../lib/backend";
 import { titleCase } from "../lib/utils";
 
 interface Command {
@@ -95,13 +97,35 @@ export function CommandPalette() {
     return list;
   }, [agents, selectedAgentId]);
 
+  const quickAssign = useMemo<Command | null>(() => {
+    const q = query.trim();
+    if (!q) return null;
+    const sel = agents.find((a) => a.id === selectedAgentId);
+    if (!sel) return null;
+    const backendOnline = useStore.getState().backendOnline;
+    if (!backendOnline) return null;
+    return {
+      id: "__quick_assign__",
+      label: `Assign "${q}" → ${sel.name}`,
+      hint: "quick task",
+      icon: ClipboardList,
+      keywords: "",
+      run: () => {
+        assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions).catch(() => {});
+      },
+    };
+  }, [query, agents, selectedAgentId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return commands;
-    return commands.filter(
-      (c) => `${c.label} ${c.hint ?? ""} ${c.keywords ?? ""}`.toLowerCase().includes(q),
-    );
-  }, [commands, query]);
+    const base = q
+      ? commands.filter(
+          (c) => `${c.label} ${c.hint ?? ""} ${c.keywords ?? ""}`.toLowerCase().includes(q),
+        )
+      : commands;
+    if (quickAssign) return [quickAssign, ...base];
+    return base;
+  }, [commands, query, quickAssign]);
 
   useEffect(() => {
     if (open) {
