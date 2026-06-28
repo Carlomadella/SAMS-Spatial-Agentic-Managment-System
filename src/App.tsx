@@ -297,9 +297,32 @@ export default function App() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      const editing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement).isContentEditable;
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCommandOpen(!useStore.getState().commandOpen);
+        return;
+      }
+
+      // Tab / Shift+Tab: cycle through agents (skip when typing in a field)
+      if (e.key === "Tab" && !editing && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        const { agents, selectedAgentId, selectAgent } = useStore.getState();
+        if (!agents.length) return;
+        const idx = agents.findIndex((a) => a.id === selectedAgentId);
+        const next = e.shiftKey
+          ? (idx - 1 + agents.length) % agents.length
+          : (idx + 1) % agents.length;
+        selectAgent(agents[next].id);
+        return;
+      }
+
+      // Escape: deselect agent
+      if (e.key === "Escape" && !editing) {
+        useStore.getState().selectAgent(null);
+        return;
       }
     }
     window.addEventListener("keydown", onKey);
