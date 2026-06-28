@@ -7,18 +7,9 @@ import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { LiveSimPanel } from "./LiveSimPanel";
 import { Terminal } from "./Terminal";
+import { OutputView } from "./OutputView";
 import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
-
-function OutputView() {
-  return (
-    <div className="h-full overflow-y-auto px-3 py-2 font-mono text-[12px] leading-relaxed text-slate-300">
-      <div><span className="text-mut">[build]</span> spatial scene compiled in 142ms</div>
-      <div><span className="text-mut">[runtime]</span> 6 agent slots initialized</div>
-      <div><span className="text-emerald-400">[ready]</span> workspace online · SAMS connected</div>
-    </div>
-  );
-}
 
 function ProblemsView() {
   const agents = useStore((s) => s.agents);
