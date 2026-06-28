@@ -1,8 +1,27 @@
 import { useEffect, useRef } from "react";
+import { Download } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_HEX } from "../types";
 import { LEVEL_META } from "../lib/meta";
 import { clock } from "../lib/utils";
+
+function exportCsv(events: ReturnType<typeof useStore.getState>["events"]) {
+  const header = "timestamp,agent,level,message";
+  const rows = events.map((e) => [
+    new Date(e.ts).toISOString(),
+    `"${e.agentName.replace(/"/g, '""')}"`,
+    e.level,
+    `"${e.message.replace(/"/g, '""')}"`,
+  ].join(","));
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sams-events-${new Date().toISOString().slice(0, 16).replace("T", "_")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function EventLog() {
   const events = useStore((s) => s.events);
@@ -13,7 +32,19 @@ export function EventLog() {
   }, [events.length]);
 
   return (
-    <div className="h-full overflow-y-auto px-2 py-2 font-mono text-[12px] leading-relaxed">
+    <div className="flex h-full flex-col">
+    {events.length > 0 && (
+      <div className="flex shrink-0 justify-end border-b border-line/30 px-2 py-1">
+        <button
+          onClick={() => exportCsv(events)}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-mut hover:bg-ink-700 hover:text-slate-300"
+          title="Esporta log come CSV"
+        >
+          <Download size={10} /> CSV
+        </button>
+      </div>
+    )}
+    <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-[12px] leading-relaxed">
       {events.length === 0 && <div className="px-1 text-mut">No events yet.</div>}
       {events.map((e) => {
         const lvl = LEVEL_META[e.level];
@@ -36,6 +67,7 @@ export function EventLog() {
         );
       })}
       <div ref={endRef} />
+    </div>
     </div>
   );
 }
