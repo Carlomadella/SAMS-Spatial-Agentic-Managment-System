@@ -113,10 +113,13 @@ collega.
       (`{ t, level, msg, ...meta }`); LOG_LEVEL da env; usato in server.ts e auth middleware.
 
 ## 🎮 Mondo 3D (feel "The Sims")
-- [ ] 💡 **Pathfinding attorno ai mobili** (oggi i percorsi sono in linea retta e
-      attraversano le scrivanie).
-- [ ] 💡 **Camera cinematografica** che segue dolcemente l'agente selezionato con
-      inquadrature e transizioni (estende l'attuale `CameraFollow`).
+- [x] ✅ **Pathfinding attorno ai mobili** — `lib/pathfind.ts` (A* su griglia
+      8-connessa senza taglio d'angolo + string-pulling, funzione pura testata);
+      `OBSTACLES` in `data/world.ts`; `Agent3D` segue i waypoint girando agli angoli.
+      Niente più percorsi in linea retta attraverso le scrivanie.
+- [x] ✅ **Camera cinematografica** che segue dolcemente l'agente selezionato:
+      ricentro + dolly-in d'inquadratura alla selezione, tracking morbido durante il
+      cammino, ritorno al centro alla deselezione (estende `CameraFollow`).
 - [ ] 💡 **Mobili davvero vivi** — il monitor mostra il *diff reale* del file in
       scrittura; la media-wall i task in coda (oggi solo titolo + progresso).
 - [ ] 💡 **Replay cinematografico** di un task completato — ottimo per demo/condivisione.
@@ -157,8 +160,9 @@ collega.
 - [x] ✅ **Coverage in CI** — `@vitest/coverage-v8` con soglie lines≥60%, functions≥70%,
       branches≥58% sui moduli critici (`agentTools`, `http`, `garden/model`, `db`).
       CI aggiornato a usare `npm run test:coverage`.
-- [ ] 💡 **i18n** — oggi i messaggi mescolano IT/EN; estrarre le stringhe e scegliere una
-      lingua di default.
+- [x] ✅ **i18n** — lingua di default unica: **italiano**. Tutte le scritte
+      utente-visibili dell'interfaccia tradotte; etichette di stato centralizzate in
+      `STATUS_META` e riusate ovunque. Invariati nomi propri e token tecnici.
 
 ## ♿ UX / Accessibilità
 - [x] ✅ **Accessibilità tastiera** — Tab/Shift-Tab cicla tra agenti nel canvas (salta
@@ -177,6 +181,19 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-29 — Mondo 3D (pathfinding + camera) + i18n italiano
+- **Pathfinding attorno ai mobili** — gli agenti aggirano sofà, tavoli e scrivania
+  invece di attraversarli. `lib/pathfind.ts`: `findPath` puro (A* 8-connesso, no
+  corner-cutting, string-pulling line-of-sight, fallback a linea retta) + 5 test;
+  `OBSTACLES` (footprint AABB) in `data/world.ts`; `Agent3D` calcola il percorso al
+  cambio di target e segue i waypoint. Nessuna modifica a store/tipi.
+- **Camera cinematografica** — `CameraFollow` ora ricentra + fa dolly-in alla
+  selezione, segue l'agente mentre cammina, torna al centro alla deselezione; il
+  dolly agisce solo durante la transizione così orbit/zoom restano liberi.
+- **i18n → italiano** — tutte le scritte dell'interfaccia portate in italiano
+  (24 file UI + dati seed/world); etichette di stato centralizzate in `STATUS_META`.
+  Aggiornate le asserzioni di `output.test.ts`. Test client 87 → 92.
 
 ### 2026-06-29 — Notion database + fix lint
 - **Fix lint**: `eslint.config.js` ignorava `dist`/`node_modules` ma non i file
