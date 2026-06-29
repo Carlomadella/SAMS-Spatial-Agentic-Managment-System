@@ -6,7 +6,7 @@ import { LEVEL_META } from "../lib/meta";
 import { clock } from "../lib/utils";
 
 function exportCsv(events: ReturnType<typeof useStore.getState>["events"]) {
-  const header = "timestamp,agent,level,message";
+  const header = "data,agente,livello,messaggio";
   const rows = events.map((e) => [
     new Date(e.ts).toISOString(),
     `"${e.agentName.replace(/"/g, '""')}"`,

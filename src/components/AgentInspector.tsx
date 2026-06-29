@@ -11,6 +11,15 @@ import { StagedFileDiff } from "./StagedFileDiff";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
+/** Italian labels for the agent moods (shown in the energy tooltip). */
+const MOOD_LABEL: Record<string, string> = {
+  happy: "felice",
+  focused: "concentrato",
+  tired: "stanco",
+  proud: "orgoglioso",
+  frustrated: "frustrato",
+};
+
 const AGENT_ROLES = [
   { id: "Generalist", label: "Generalista", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
   { id: "Revisore", label: "Revisore", desc: "Legge il codice e documenta osservazioni su Notion; non modifica file" },
@@ -146,7 +155,7 @@ export function AgentInspector() {
             />
           </div>
           <span className="text-[10px] text-mut w-7 text-right shrink-0">{agent.energy}%</span>
-          <span className="text-[11px]" title={`Mood: ${agent.mood ?? "happy"}`}>
+          <span className="text-[11px]" title={`Umore: ${MOOD_LABEL[agent.mood ?? "happy"]}`}>
             {agent.mood === "happy" ? "😊"
               : agent.mood === "focused" ? "🎯"
               : agent.mood === "tired" ? "😴"
