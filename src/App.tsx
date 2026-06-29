@@ -173,10 +173,10 @@ function AudioBridge() {
     const nightId = setInterval(() => audio.setAmbientNight(isNightNow()), 60000);
 
     // Event sounds — track the newest event id so trimming (slice(-300)) is safe.
-    let lastId = useStore.getState().events.at(-1)?.id ?? null;
+    let lastId = useStore.getState().events.slice(-1)[0]?.id ?? null;
     const unsub = useStore.subscribe((state) => {
       const evs = state.events;
-      const newest = evs.at(-1);
+      const newest = evs[evs.length - 1];
       if (!newest || newest.id === lastId) return;
       let start = 0;
       for (let i = evs.length - 1; i >= 0; i--) {

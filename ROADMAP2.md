@@ -134,11 +134,20 @@ collega.
       risvegliandosi al mattino o con un task. `LifeBridge`/`randomWalkPoint`/`BEDS`.
 - [x] ✅ **Socializzazione** — due agenti liberi vicini ogni tanto si parlano e si
       aiutano (scambio di battute come fumetti). `TalkBridge`.
-- [ ] 💡 **Mobili davvero vivi** — il monitor mostra il *diff reale* del file in
-      scrittura; la media-wall i task in coda (oggi solo titolo + progresso).
+- [x] ✅ **Mobili davvero vivi** — il monitor della scrivania studio mostra il file
+      *reale* che l'agente al lavoro sta scrivendo (contenuto staged + cursore), o il
+      piano quando nessun file è ancora staged; la media-wall (TV) mostra la coda dei
+      task di tutti gli agenti. Logica pura in `lib/sceneDisplays.ts` (`monitorView`/
+      `queueBoard`), 8 test.
 - [ ] 💡 **Replay cinematografico** di un task completato — ottimo per demo/condivisione.
-- [ ] 💡 **Animazioni extra** — disegnare sulla lavagna, caffè, stretching.
-- [ ] 💡 **Suoni ambientali** legati al ciclo giorno/notte già esistente.
+- [x] ✅ **Animazioni extra** — gli agenti liberi fanno micro-attività in base a dove
+      stanno: caffè in cucina (☕), schizzi alla lavagna (✏️), stretching altrove (🤸).
+      Pose in `Agent3D` layerate sopra l'idle; `LifeBridge` instrada ogni tanto verso
+      cucina/lavagna.
+- [x] ✅ **Suoni ambientali** — motore WebAudio sintetizzato (`lib/audio.ts`, zero asset):
+      room tone più caldo di notte, ticchettio tastiera mentre si lavora, chime sui task
+      completati, buzz sugli errori; `AudioBridge` + toggle speaker (muto di default,
+      persistito).
 
 ## 🌿 Commit Garden
 - [x] ✅ **Garden connesso agli agenti** — `waterAgentGarden(agentName)` in `finalizeTask`:
@@ -152,8 +161,10 @@ collega.
 
 ## 🤝 Collaborazione & multi-utente
 - [ ] 💡 **Presence in tempo reale** — più utenti vedono gli stessi agenti muoversi.
-- [ ] 💡 **Visualizzazione degli handoff** — una "linea" 3D quando un agente fa
-      `relay_task` verso un altro.
+- [x] ✅ **Visualizzazione degli handoff** — un arco 3D tratteggiato del colore del
+      mittente con un impulso che viaggia da chi delega a chi riceve quando parte un
+      `relay_task` (più whoosh audio); svanisce dopo ~3s. Stato `handoffs` nello store;
+      `HandoffArc`/`Handoffs` in `OfficeScene`.
 - [ ] 💡 **Ruoli/permessi** sul workspace (chi assegna task, chi solo osserva).
 - [ ] 💡 **Marketplace di "template agente"** (ruolo + istruzioni + modello) condivisibili.
 
@@ -195,6 +206,23 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-29 — il mondo 3D prende vita: mobili, animazioni, suoni, handoff
+Quattro item del "feel The Sims" chiusi in sequenza (un commit ciascuno, sempre
+con typecheck + lint + test verdi). Prima, una piccola messa a punto dei comandi:
+all'avvio non si è più agganciati a un agente; click sinistro sul pavimento muove
+l'agente selezionato, click destro lo sblocca e libera la camera.
+- **Mobili davvero vivi** — `lib/sceneDisplays.ts` (`monitorView`/`queueBoard`, puri,
+  8 test): il monitor della scrivania mostra il file reale in scrittura (contenuto
+  staged + cursore) o il piano; la TV mostra la coda dei task di tutti gli agenti.
+- **Animazioni extra** — micro-attività degli agenti liberi guidate dalla posizione
+  (caffè ☕ / lavagna ✏️ / stretching 🤸) in `Agent3D`; `LifeBridge` instrada a
+  cucina/lavagna.
+- **Suoni ambientali** — `lib/audio.ts` (WebAudio sintetizzato, zero asset): room tone
+  giorno/notte, tastiera, chime/buzz sugli eventi; `AudioBridge` + toggle muto persistito.
+- **Visualizzazione handoff** — arco 3D tratteggiato con impulso viaggiante sul
+  `relay_task` (+ whoosh); stato `handoffs` nello store, `HandoffArc`/`Handoffs` in scena.
+- Test client: 96 → 104. Typecheck, lint, suite: verdi.
 
 ### 2026-06-29 — la casa prende vita: 3 stanze + agenti che vivono
 - **Casa a 3 stanze** — `world.ts` rifatto: ROOM espanso (−13..13 × −7..7), tre
