@@ -18,7 +18,7 @@ export interface PathOpts {
 }
 
 // Defaults mirror ROOM in data/world.ts (kept here to avoid a circular import).
-const DEFAULT_BOUNDS: Rect = { minX: -13, maxX: 13, minZ: -7, maxZ: 7 };
+const DEFAULT_BOUNDS: Rect = { minX: -13, maxX: 13, minZ: -9, maxZ: 9 };
 const DEFAULT_CELL = 0.5;
 const DEFAULT_RADIUS = 0.55;
 

@@ -755,6 +755,122 @@ export function SecurityGate({ position = [0, 0, 0], rotation = [0, 0, 0] }: Pro
   );
 }
 
+// ---------------------------------------------------------------------------
+// Kitchen
+// ---------------------------------------------------------------------------
+
+export function KitchenCounter({ position = [0, 0, 0], rotation = [0, 0, 0], length = 10 }: PropProps & { length?: number }) {
+  const COUNTER = "#e7e1d4";
+  const doors = Math.max(1, Math.round(length / 0.9));
+  return (
+    <group position={position} rotation={rotation}>
+      {/* cabinet body */}
+      <RoundedBox args={[length, 0.85, 0.7]} radius={0.03} smoothness={4} position={[0, 0.45, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={OAK} roughness={0.6} />
+      </RoundedBox>
+      {/* countertop */}
+      <RoundedBox args={[length + 0.1, 0.08, 0.78]} radius={0.03} smoothness={4} position={[0, 0.9, 0]} castShadow>
+        <meshStandardMaterial color={COUNTER} roughness={0.4} metalness={0.1} />
+      </RoundedBox>
+      {/* cabinet doors + handles */}
+      {Array.from({ length: doors }).map((_, i) => {
+        const x = -length / 2 + (i + 0.5) * (length / doors);
+        return (
+          <group key={i}>
+            <mesh position={[x, 0.45, 0.36]}>
+              <planeGeometry args={[length / doors - 0.06, 0.74]} />
+              <meshStandardMaterial color={OAK_LIGHT} roughness={0.55} />
+            </mesh>
+            <mesh position={[x + length / doors / 2 - 0.08, 0.45, 0.38]}>
+              <boxGeometry args={[0.03, 0.16, 0.03]} />
+              <meshStandardMaterial color={METAL} metalness={0.6} roughness={0.3} />
+            </mesh>
+          </group>
+        );
+      })}
+      {/* sink */}
+      <mesh position={[length / 2 - 1.2, 0.92, 0]}>
+        <boxGeometry args={[0.7, 0.04, 0.5]} />
+        <meshStandardMaterial color="#b9c0c8" metalness={0.7} roughness={0.25} />
+      </mesh>
+      <mesh position={[length / 2 - 1.2, 1.06, -0.15]} castShadow>
+        <cylinderGeometry args={[0.025, 0.025, 0.28, 10]} />
+        <meshStandardMaterial color={METAL} metalness={0.7} roughness={0.25} />
+      </mesh>
+      {/* stove top */}
+      <mesh position={[-length / 2 + 1.2, 0.95, 0]}>
+        <boxGeometry args={[0.7, 0.03, 0.6]} />
+        <meshStandardMaterial color="#1c2026" roughness={0.4} />
+      </mesh>
+      {[[-0.16, -0.14], [0.16, -0.14], [-0.16, 0.14], [0.16, 0.14]].map(([dx, dz], i) => (
+        <mesh key={i} position={[-length / 2 + 1.2 + dx, 0.97, dz]}>
+          <torusGeometry args={[0.08, 0.015, 8, 20]} />
+          <meshStandardMaterial color="#33373d" roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function Fridge({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[1.0, 2.1, 0.8]} radius={0.06} smoothness={4} position={[0, 1.05, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#d7dade" metalness={0.5} roughness={0.35} />
+      </RoundedBox>
+      {/* door split */}
+      <mesh position={[0, 1.45, 0.41]}>
+        <planeGeometry args={[0.94, 0.02]} />
+        <meshStandardMaterial color="#b6babf" />
+      </mesh>
+      {/* handles */}
+      {[0.75, 1.95].map((y, i) => (
+        <mesh key={i} position={[0.38, y - 0.3, 0.43]} castShadow>
+          <boxGeometry args={[0.05, 0.5, 0.05]} />
+          <meshStandardMaterial color={METAL} metalness={0.7} roughness={0.3} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function KitchenIsland({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[2.4, 0.85, 1.2]} radius={0.03} smoothness={4} position={[0, 0.45, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={WALNUT} roughness={0.6} />
+      </RoundedBox>
+      <RoundedBox args={[2.5, 0.08, 1.3]} radius={0.03} smoothness={4} position={[0, 0.9, 0]} castShadow>
+        <meshStandardMaterial color="#e7e1d4" roughness={0.4} metalness={0.1} />
+      </RoundedBox>
+      {/* two stools */}
+      {[-0.6, 0.6].map((x, i) => (
+        <group key={i} position={[x, 0, 0.95]}>
+          <mesh position={[0, 0.62, 0]} castShadow>
+            <cylinderGeometry args={[0.18, 0.18, 0.08, 16]} />
+            <meshStandardMaterial color="#b07a5e" roughness={0.7} />
+          </mesh>
+          <mesh position={[0, 0.32, 0]} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 0.6, 10]} />
+            <meshStandardMaterial color={METAL} metalness={0.5} roughness={0.4} />
+          </mesh>
+        </group>
+      ))}
+      {/* fruit bowl */}
+      <mesh position={[0.5, 0.97, 0]} castShadow>
+        <cylinderGeometry args={[0.2, 0.14, 0.12, 16]} />
+        <meshStandardMaterial color="#cdd6dd" roughness={0.4} />
+      </mesh>
+      {[[0.45, "#d8504a"], [0.55, "#e8a33d"], [0.5, "#6fae5a"]].map(([x, c], i) => (
+        <mesh key={i} position={[x as number, 1.05, (i - 1) * 0.07]}>
+          <sphereGeometry args={[0.07, 12, 12]} />
+          <meshStandardMaterial color={c as string} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function Bed({ position = [0, 0, 0], rotation = [0, 0, 0], color = "#6b8f8a" }: PropProps & { color?: string }) {
   return (
     <group position={position} rotation={rotation}>

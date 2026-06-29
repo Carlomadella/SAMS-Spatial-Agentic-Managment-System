@@ -55,9 +55,20 @@ describe("findPath", () => {
   });
 
   it("steers through the doorways and around the real furniture", () => {
-    // from the living room, across two dividing walls, into the studio
-    const start: Vec2 = [0, 5];
-    const goal: Vec2 = [-9, -2];
+    // from the living room (front-left) into the studio (back-left), crossing walls
+    const start: Vec2 = [-6, 5];
+    const goal: Vec2 = [-9, -3];
+    const path = findPath(start, goal, OBSTACLES);
+    expect(path[path.length - 1]).toEqual(goal);
+    for (const p of sampleRoute(start, path)) {
+      for (const r of OBSTACLES) expect(inside(p, r)).toBe(false);
+    }
+  });
+
+  it("never crosses a wall between diagonally opposite rooms", () => {
+    // studio (back-left) → camera (front-right): must use doorways/atrium, no wall-clipping
+    const start: Vec2 = [-9, -4];
+    const goal: Vec2 = [8, 8];
     const path = findPath(start, goal, OBSTACLES);
     expect(path[path.length - 1]).toEqual(goal);
     for (const p of sampleRoute(start, path)) {

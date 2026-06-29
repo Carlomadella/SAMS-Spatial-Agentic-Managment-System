@@ -5,79 +5,99 @@ import { isPointClear, type Rect } from "../lib/pathfind";
 // Static house layout. Coordinate system:
 //   x : left (−) ──► right (+)
 //   z : back (−) ──► front (+)
-// The floor is centered on the origin. The house has three rooms side by side,
-// separated by two internal walls that leave a doorway open at the front:
-//   Studio (work)  |  Salotto (living)  |  Camera (bedroom)
+// The house is a 2×2 of rooms around a central atrium (a cross of corridors):
+//   Studio (back-left) | Cucina (back-right)
+//   Salotto (front-left) | Camera (front-right)
+// Two cross walls (x≈0 and z≈0) separate the quadrants, broken by doorways and
+// a central opening (the atrium) so every room connects to the others.
 // ---------------------------------------------------------------------------
 
 export const ROOM = {
   minX: -13,
   maxX: 13,
-  minZ: -7,
-  maxZ: 7,
+  minZ: -9,
+  maxZ: 9,
   wallHeight: 3.2,
 } as const;
 
 export const ROOM_WIDTH = ROOM.maxX - ROOM.minX;
 export const ROOM_DEPTH = ROOM.maxZ - ROOM.minZ;
 
-/** X of the two internal dividing walls. */
-export const PARTITIONS_X = [-4.5, 4.5] as const;
-/** The dividing walls stop here (toward the front), leaving a doorway. */
-export const DOORWAY_Z = 2.0;
+const WT = 0.16; // half-thickness of the internal walls
 
-/** Walkable interior of each room (inset from the walls) — used for wandering. */
-export const ROOMS: Record<"studio" | "salotto" | "camera", Rect> = {
-  studio:  { minX: -12.3, maxX: -5.0, minZ: -6.3, maxZ: 6.3 },
-  salotto: { minX: -3.9, maxX: 3.9, minZ: -6.3, maxZ: 6.3 },
-  camera:  { minX: 5.0, maxX: 12.3, minZ: -2.6, maxZ: 6.3 },
+/**
+ * Internal wall segments. Rendered as boxes AND used as pathfinding obstacles
+ * (single source of truth → a wall you can see is a wall you can't cross). The
+ * gaps between segments are doorways / the central atrium opening.
+ */
+export const WALLS: Rect[] = [
+  // vertical cross wall at x≈0 — wide doorways (~2.6) at z=±5, atrium gap at the centre
+  { minX: -WT, maxX: WT, minZ: -9, maxZ: -6.3 },
+  { minX: -WT, maxX: WT, minZ: -3.7, maxZ: -1.2 },
+  { minX: -WT, maxX: WT, minZ: 1.2, maxZ: 3.7 },
+  { minX: -WT, maxX: WT, minZ: 6.3, maxZ: 9 },
+  // horizontal cross wall at z≈0 — wide doorways (~2.6) at x=±5, atrium gap at the centre
+  { minX: -13, maxX: -6.3, minZ: -WT, maxZ: WT },
+  { minX: -3.7, maxX: -1.2, minZ: -WT, maxZ: WT },
+  { minX: 1.2, maxX: 3.7, minZ: -WT, maxZ: WT },
+  { minX: 6.3, maxX: 13, minZ: -WT, maxZ: WT },
+];
+
+/** Walkable interior of each room quadrant (inset from walls) — for wandering. */
+export const ROOMS: Record<"studio" | "cucina" | "salotto" | "camera", Rect> = {
+  studio:  { minX: -12.3, maxX: -0.9, minZ: -8.3, maxZ: -0.9 },
+  cucina:  { minX: 0.9, maxX: 12.3, minZ: -8.3, maxZ: -0.9 },
+  salotto: { minX: -12.3, maxX: -0.9, minZ: 0.9, maxZ: 8.3 },
+  camera:  { minX: 0.9, maxX: 12.3, minZ: 0.9, maxZ: 8.3 },
 };
 
 /** Points of interest the user can dispatch agents to (one per room + reading nook). */
 export const ZONES: Zone[] = [
-  { id: "desk", label: "Scrivania", sublabel: "Studio · lavoro", position: [-8.5, -2.2] },
-  { id: "whiteboard", label: "Angolo lettura", sublabel: "Idee e pianificazione", position: [-8.5, 4.4] },
-  { id: "lounge", label: "Salotto", sublabel: "Relax", position: [0, 3.6] },
-  { id: "bedroom", label: "Camera", sublabel: "Riposo", position: [8.7, -0.6] },
+  { id: "desk", label: "Scrivania", sublabel: "Studio · lavoro", position: [-8.5, -2.6] },
+  { id: "whiteboard", label: "Angolo lettura", sublabel: "Idee e pianificazione", position: [-2.6, -7] },
+  { id: "kitchen", label: "Cucina", sublabel: "Pausa", position: [7, -2.6] },
+  { id: "lounge", label: "Salotto", sublabel: "Relax", position: [-7, 2.4] },
+  { id: "bedroom", label: "Camera", sublabel: "Riposo", position: [2, 2.2] },
 ];
 
 export const ZONE_BY_ID: Record<string, Zone> = Object.fromEntries(
   ZONES.map((z) => [z.id, z]),
 );
 
-/** Where freshly spawned agents appear (living-room entrance, front-centre). */
-export const SPAWN_POINT: Vec2 = [0, 5.6];
+/** Where freshly spawned agents appear (living-room, front-left). */
+export const SPAWN_POINT: Vec2 = [-6, 7.5];
 
-/** Bed positions in the bedroom (where agents lie down to sleep at night). */
+/** One bed per agent (six), in two rows in the bedroom quadrant. */
 export const BEDS: Vec2[] = [
-  [6.4, -4.4],
-  [9.0, -4.4],
-  [11.5, -4.4],
+  [3.0, 2.4], [6.5, 2.4], [10.0, 2.4],
+  [3.0, 6.0], [6.5, 6.0], [10.0, 6.0],
 ];
 
 /**
- * Floor footprints (axis-aligned) of the internal walls and bulky furniture
- * agents should walk around rather than through. The pathfinder inflates these
- * by the agent's clearance radius, so the footprints here are the raw extents.
+ * Floor footprints of the internal walls + bulky furniture agents must walk
+ * around. The pathfinder inflates these by the agent clearance radius.
  */
 export const OBSTACLES: Rect[] = [
-  // internal dividing walls (open at the front, z > DOORWAY_Z)
-  { minX: -4.7, maxX: -4.3, minZ: ROOM.minZ, maxZ: DOORWAY_Z }, // studio | salotto
-  { minX: 4.3, maxX: 4.7, minZ: ROOM.minZ, maxZ: DOORWAY_Z }, //   salotto | camera
+  ...WALLS,
 
-  // --- Studio (work) ---
-  { minX: -11.3, maxX: -8.7, minZ: -4.7, maxZ: -3.3 }, // Desk @ (-10,-4)
-  { minX: -7.7, maxX: -5.3, minZ: -4.7, maxZ: -3.3 }, //  Desk @ (-6.5,-4)
+  // --- Studio (back-left): two desks against the back wall ---
+  { minX: -10.2, maxX: -7.8, minZ: -8.5, maxZ: -7.2 }, // Desk @ (-9,-7.85)
+  { minX: -5.7, maxX: -3.3, minZ: -8.5, maxZ: -7.2 }, //  Desk @ (-4.5,-7.85)
 
-  // --- Salotto (living) ---
-  { minX: -3.0, maxX: 0.0, minZ: -1.7, maxZ: -0.3 }, // Sofa @ (-1.5,-1)
-  { minX: -2.3, maxX: -0.7, minZ: 0.4, maxZ: 1.4 }, //  CoffeeTable @ (-1.5,0.9)
-  { minX: 1.3, maxX: 2.7, minZ: 0.3, maxZ: 1.7 }, //    Armchair @ (2,1)
+  // --- Cucina (back-right): counter along the back + island ---
+  { minX: 1.4, maxX: 11.6, minZ: -8.6, maxZ: -7.7 }, // counter run @ back
+  { minX: 4.6, maxX: 8.4, minZ: -4.6, maxZ: -3.0 }, //  island @ (6.5,-3.8)
 
-  // --- Camera (bedroom) — three beds against the back wall ---
-  { minX: 5.65, maxX: 7.15, minZ: -6.0, maxZ: -3.2 }, // Bed @ (6.4,-4.4)
-  { minX: 8.25, maxX: 9.75, minZ: -6.0, maxZ: -3.2 }, // Bed @ (9.0,-4.4)
-  { minX: 10.75, maxX: 12.25, minZ: -6.0, maxZ: -3.2 }, // Bed @ (11.5,-4.4)
+  // --- Salotto (front-left): sofa + coffee table + armchair ---
+  { minX: -9.0, maxX: -6.0, minZ: 1.6, maxZ: 3.0 }, // Sofa @ (-7.5,2.3)
+  { minX: -8.3, maxX: -6.7, minZ: 3.7, maxZ: 4.7 }, // CoffeeTable @ (-7.5,4.2)
+  { minX: -4.7, maxX: -3.3, minZ: 3.6, maxZ: 5.0 }, // Armchair @ (-4,4.3)
+
+  // --- Camera (front-right): six beds (1.5×2.6 footprints) ---
+  ...[
+    [3.0, 2.4], [6.5, 2.4], [10.0, 2.4],
+    [3.0, 6.0], [6.5, 6.0], [10.0, 6.0],
+  ].map(([x, z]) => ({ minX: x - 0.75, maxX: x + 0.75, minZ: z - 1.3, maxZ: z + 1.3 })),
 ];
 
 /**

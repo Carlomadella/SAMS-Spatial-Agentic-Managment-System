@@ -32,7 +32,7 @@ describe("clampToRoom", () => {
   });
 
   it("clamps points beyond the walls to the padded bounds", () => {
-    expect(clampToRoom([100, 100])).toEqual([12.4, 6.4]);
-    expect(clampToRoom([-100, -100])).toEqual([-12.4, -6.4]);
+    expect(clampToRoom([100, 100])).toEqual([12.4, 8.4]);
+    expect(clampToRoom([-100, -100])).toEqual([-12.4, -8.4]);
   });
 });

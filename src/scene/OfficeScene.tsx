@@ -9,7 +9,10 @@ import {
   CoffeeTable,
   Desk,
   FloorLamp,
+  Fridge,
   FrontDoor,
+  KitchenCounter,
+  KitchenIsland,
   Plant,
   Rug,
   SideTable,
@@ -26,11 +29,10 @@ import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
 import { useStore } from "../store/useStore";
 import {
-  DOORWAY_Z,
-  PARTITIONS_X,
   ROOM,
   ROOM_DEPTH,
   ROOM_WIDTH,
+  WALLS,
   ZONES,
 } from "../data/world";
 import type { Vec2, Zone } from "../types";
@@ -45,7 +47,7 @@ function Floor() {
   const downPos = useRef<{ x: number; y: number } | null>(null);
   const wood = useMemo(() => {
     const t = woodFloorTexture();
-    t.repeat.set(6.5, 3.5);
+    t.repeat.set(6.5, 4.5);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.needsUpdate = true;
     return t;
@@ -120,22 +122,18 @@ function Floor() {
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
 
-      {/* two internal dividing walls — full height at the back, open doorway at the front */}
-      {PARTITIONS_X.map((x) => {
-        const len = DOORWAY_Z - ROOM.minZ; // solid part, from back wall to the doorway
-        const cz = (ROOM.minZ + DOORWAY_Z) / 2;
+      {/* internal walls — rendered straight from the WALLS data so what you see is
+          exactly what the pathfinder treats as solid (gaps are doorways) */}
+      {WALLS.map((w, i) => {
+        const cx = (w.minX + w.maxX) / 2;
+        const cz = (w.minZ + w.maxZ) / 2;
+        const sx = w.maxX - w.minX;
+        const sz = w.maxZ - w.minZ;
         return (
-          <group key={x}>
-            <mesh position={[x, ROOM.wallHeight / 2, cz]} castShadow receiveShadow>
-              <boxGeometry args={[0.22, ROOM.wallHeight, len]} />
-              <meshStandardMaterial color={WALL} roughness={0.9} />
-            </mesh>
-            {/* doorway header so the opening reads as a door, not a gap */}
-            <mesh position={[x, ROOM.wallHeight - 0.25, DOORWAY_Z + 0.9]} castShadow>
-              <boxGeometry args={[0.22, 0.5, 1.8]} />
-              <meshStandardMaterial color={WALL} roughness={0.9} />
-            </mesh>
-          </group>
+          <mesh key={i} position={[cx, ROOM.wallHeight / 2, cz]} castShadow receiveShadow>
+            <boxGeometry args={[sx, ROOM.wallHeight, sz]} />
+            <meshStandardMaterial color={WALL} roughness={0.9} />
+          </mesh>
         );
       })}
 
@@ -221,7 +219,7 @@ function GardenDoor() {
     useStore.getState().setGardenOpen(true);
   };
   return (
-    <group position={[-3.4, 0, ROOM.minZ + 0.16]}>
+    <group position={[-6, 0, ROOM.minZ + 0.16]}>
       <mesh position={[0, 1.2, 0]} castShadow>
         <boxGeometry args={[1.5, 2.4, 0.18]} />
         <meshStandardMaterial color="#2f6d45" roughness={0.6} />
@@ -335,25 +333,32 @@ function SceneContents() {
 
       <Floor />
 
-      {/* ── Studio (work room, left) ── */}
-      <Desk position={[-10, 0, -4]} />
-      <Desk position={[-6.5, 0, -4]} />
-      <Bookshelf position={[-11.5, 0, -6.55]} />
-      <FloorLamp position={[-5.4, 0, 3.6]} />
-      <Plant position={[-12, 0, 5]} />
-      <WallArt position={[-9, 1.9, -6.83]} color="#6b8f8a" />
-      <WallSconce position={[-12.78, 2.15, 0]} rotation={[0, Math.PI / 2, 0]} />
+      {/* ── Studio — back-left quadrant ── */}
+      <Desk position={[-9, 0, -7.85]} />
+      <Desk position={[-4.5, 0, -7.85]} />
+      <Bookshelf position={[-12, 0, -8.55]} />
+      <FloorLamp position={[-11, 0, -1.6]} />
+      <Plant position={[-1.6, 0, -7.5]} />
+      <WallArt position={[-7, 1.9, -8.84]} color="#6b8f8a" />
+      <WallSconce position={[-12.82, 2.15, -4]} rotation={[0, Math.PI / 2, 0]} />
 
-      {/* ── Salotto (living room, centre) ── */}
-      <Rug position={[-1.4, 0, 1.2]} />
-      <Sofa position={[-1.5, 0, -1]} />
-      <CoffeeTable position={[-1.5, 0, 0.9]} />
-      <Armchair position={[2, 0, 1]} rotation={[0, -1.1, 0]} />
-      <SideTable position={[3.4, 0, -0.6]} />
-      <TableLamp position={[3.4, 0.59, -0.6]} />
-      <TVUnit position={[0, 0, -6.55]} />
+      {/* ── Cucina — back-right quadrant ── */}
+      <KitchenCounter position={[6.5, 0, -8.2]} length={10} />
+      <Fridge position={[12.2, 0, -7.6]} rotation={[0, -Math.PI / 2, 0]} />
+      <KitchenIsland position={[6.5, 0, -3.8]} />
+      <WallSconce position={[3, 2.15, -8.84]} />
+      <WallSconce position={[10, 2.15, -8.84]} />
+
+      {/* ── Salotto — front-left quadrant ── */}
+      <Rug position={[-7.5, 0, 3.8]} />
+      <Sofa position={[-7.5, 0, 2.3]} />
+      <CoffeeTable position={[-7.5, 0, 4.2]} />
+      <Armchair position={[-4, 0, 4.3]} rotation={[0, 0.8, 0]} />
+      <SideTable position={[-9.4, 0, 2]} />
+      <TableLamp position={[-9.4, 0.59, 2]} />
+      <TVUnit position={[-12.5, 0, 4.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* live task ticker on the TV screen */}
-      <Html position={[0, 1.15, -6.2]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
+      <Html position={[-12.0, 1.55, 4.5]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
         <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
           <div className="mb-0.5 text-[8px] uppercase tracking-widest text-green-700">◉ SAMS live</div>
           {workingAgent?.task ? (
@@ -371,19 +376,21 @@ function SceneContents() {
           )}
         </div>
       </Html>
-      <WallArt position={[-3.2, 1.85, -6.83]} />
-      <WallClock position={[2.6, 2.0, -6.83]} />
-      <WallSconce position={[3.6, 2.15, -6.78]} />
+      <WallArt position={[-9, 1.9, 0.25]} />
+      <WallClock position={[-12.84, 2.1, 6.5]} rotation={[0, Math.PI / 2, 0]} />
+      <FrontDoor position={[-11, 0, 8.6]} />
 
-      {/* ── Camera (bedroom, right) ── */}
-      <Bed position={[6.4, 0, -4.4]} color="#6b8f8a" />
-      <Bed position={[9.0, 0, -4.4]} color="#b07a5e" />
-      <Bed position={[11.5, 0, -4.4]} color="#8a6f9e" />
-      <Sideboard position={[12.5, 0, 1.6]} rotation={[0, Math.PI / 2, 0]} />
-      <Window position={[9, 1.5, -6.84]} />
-      <Plant position={[12, 0, 5.4]} />
-      <WallSconce position={[6.4, 2.15, -6.78]} />
-      <FrontDoor position={[12.78, 0, 4]} rotation={[0, -Math.PI / 2, 0]} />
+      {/* ── Camera — front-right quadrant (six beds, one per agent) ── */}
+      {([
+        [3.0, 2.4, "#6b8f8a"], [6.5, 2.4, "#b07a5e"], [10.0, 2.4, "#8a6f9e"],
+        [3.0, 6.0, "#5a8fb0"], [6.5, 6.0, "#b0975a"], [10.0, 6.0, "#8aae6a"],
+      ] as [number, number, string][]).map(([x, z, c], i) => (
+        <Bed key={i} position={[x, 0, z]} color={c} />
+      ))}
+      <Sideboard position={[12.4, 0, 5]} rotation={[0, -Math.PI / 2, 0]} />
+      <Window position={[12.84, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
+      <WallSconce position={[12.82, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
+      <Plant position={[1.3, 0, 8.2]} />
 
       <GardenDoor />
 

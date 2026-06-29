@@ -15,7 +15,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
-import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./lib/orchestration";
+import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
 import { BEDS, isNightNow, randomWalkPoint } from "./data/world";
 import type { Vec2 } from "./types";
 
@@ -153,10 +153,15 @@ function RelayBridge() {
   return null;
 }
 
+/** Agents that aren't actively working a task are "free" to live their life. */
+function isFreeAgent(a: { status: string; target: Vec2 | null }): boolean {
+  return a.status !== "working" && a.status !== "awaiting_approval" && !a.target;
+}
+
 /**
- * Gives idle agents a life: by day they wander to a random spot in the house
- * every so often; after 23:00 they head to a bed and sleep until morning (or
- * until you give them a task). Runs on a slow tick so movement feels organic.
+ * Gives every free agent a life: by day they wander to a random spot in the
+ * house every so often; after 23:00 they head to a bed and sleep until morning
+ * (or until you give them a task). Runs on a slow tick so movement feels organic.
  */
 function LifeBridge() {
   useEffect(() => {
@@ -165,14 +170,14 @@ function LifeBridge() {
     const tick = () => {
       const st = useStore.getState();
       const night = isNightNow();
-      const idle = st.agents.filter((a) => isIdleEligible(a) && !a.target);
-      for (const a of idle) {
+      const free = st.agents.filter(isFreeAgent);
+      for (const a of free) {
         if (night) {
           // settle into a bed (stable per-agent assignment) and stay there asleep
           const idx = st.agents.findIndex((x) => x.id === a.id);
           const bed = BEDS[idx % BEDS.length];
           if (!near(a.position, bed)) st.moveAgent(a.id, bed);
-        } else if (Math.random() < 0.45) {
+        } else if (Math.random() < 0.5) {
           // daytime: occasionally roam to another room
           st.moveAgent(a.id, randomWalkPoint());
         }
@@ -180,7 +185,59 @@ function LifeBridge() {
     };
 
     tick();
-    const id = setInterval(tick, 6000);
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, []);
+  return null;
+}
+
+// Short collaborative exchanges shown as speech bubbles when two free agents meet.
+const CHATTER: [string, string][] = [
+  ["Come procede il tuo task?", "Sto sistemando un bug, mi dai una mano?"],
+  ["Hai visto quell'errore nei test?", "Sì, proviamo a risolverlo insieme."],
+  ["Mi serve un parere su questa funzione.", "Certo, guardiamola insieme."],
+  ["Questo refactor mi sta dando filo da torcere.", "Ti aiuto, dividiamo il lavoro."],
+  ["Secondo te qui conviene una PR?", "Sì, apriamola e la rivediamo a quattro occhi."],
+  ["Pausa caffè in cucina?", "Volentieri, poi torniamo al codice."],
+];
+
+/**
+ * Socialisation: now and then two nearby free agents turn to chat — a short
+ * back-and-forth shown as speech bubbles (the agents "help each other"). Purely
+ * visual; reuses the event log so the bubbles surface over each agent.
+ */
+function TalkBridge() {
+  useEffect(() => {
+    const tick = () => {
+      if (isNightNow()) return; // everyone's asleep
+      const st = useStore.getState();
+      const free = st.agents.filter(isFreeAgent);
+      if (free.length < 2 || Math.random() > 0.5) return;
+
+      // pick the two closest free agents
+      let best: [typeof free[number], typeof free[number]] | null = null;
+      let bestD = Infinity;
+      for (let i = 0; i < free.length; i++) {
+        for (let j = i + 1; j < free.length; j++) {
+          const d = Math.hypot(
+            free[i].position[0] - free[j].position[0],
+            free[i].position[1] - free[j].position[1],
+          );
+          if (d < bestD) { bestD = d; best = [free[i], free[j]]; }
+        }
+      }
+      if (!best || bestD > 9) return;
+
+      const [a, b] = best;
+      const [lineA, lineB] = CHATTER[Math.floor(Math.random() * CHATTER.length)];
+      const log = st.log;
+      log({ agentId: a.id, agentName: a.name, color: a.color, level: "INFO", message: `💬 ${a.name} → ${b.name}: ${lineA}` });
+      setTimeout(() => {
+        const fresh = useStore.getState().agents.find((x) => x.id === b.id);
+        if (fresh) log({ agentId: b.id, agentName: fresh.name, color: fresh.color, level: "INFO", message: `💬 ${fresh.name} → ${a.name}: ${lineB}` });
+      }, 2600);
+    };
+    const id = setInterval(tick, 11000);
     return () => clearInterval(id);
   }, []);
   return null;
@@ -346,6 +403,7 @@ export default function App() {
       <QueueBridge />
       <RelayBridge />
       <LifeBridge />
+      <TalkBridge />
       <NotificationBridge />
       <ResponsiveBridge />
       <SimBridge />
