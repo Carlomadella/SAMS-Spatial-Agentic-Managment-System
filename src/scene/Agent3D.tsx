@@ -3,10 +3,10 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
-import { AGENT_HEX, type Agent, type AgentStatus } from "../types";
+import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
-import { OBSTACLES, isNightNow } from "../data/world";
+import { OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -20,6 +20,9 @@ const STATUS_HEX: Record<AgentStatus, string> = {
 };
 
 const SPEED = 2.7; // world units / second
+
+/** Idle "life" micro-activities, derived from where a free agent is standing. */
+type Activity = null | "coffee" | "sketch" | "stretch";
 
 function dampAngle(current: number, target: number, lambda: number, dt: number) {
   let diff = target - current;
@@ -59,6 +62,29 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     return () => clearInterval(id);
   }, []);
   const sleeping = nightTime && agent.status === "idle" && !agent.task;
+
+  // Micro-activities for free agents: a coffee in the kitchen, a sketch at the
+  // whiteboard, or an occasional stretch elsewhere. Purely visual, re-evaluated
+  // on a slow tick from the agent's committed position.
+  const [activity, setActivity] = useState<Activity>(null);
+  const activityRef = useRef<Activity>(null);
+  activityRef.current = activity;
+  useEffect(() => {
+    const pick = () => {
+      if (nightTime || agent.status !== "idle" || agent.target || agent.task) {
+        setActivity(null);
+        return;
+      }
+      const [x, z] = agent.position;
+      const near = (p: Vec2) => Math.hypot(x - p[0], z - p[1]) < 3;
+      if (near(ZONE_BY_ID.kitchen.position)) setActivity("coffee");
+      else if (near(ZONE_BY_ID.whiteboard.position)) setActivity("sketch");
+      else setActivity((a) => (a === "stretch" ? null : Math.random() < 0.3 ? "stretch" : null));
+    };
+    pick();
+    const id = setInterval(pick, 2600);
+    return () => clearInterval(id);
+  }, [agent.status, agent.target, agent.task, agent.position, nightTime]);
 
   // Waypoints that steer around furniture; last entry is always the destination.
   // Recomputed only when a new target is set (position is committed, not per-frame).
@@ -209,6 +235,34 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       } else {
         armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, swing * 0.9, 0.2);
         armRRef.current.rotation.z = THREE.MathUtils.lerp(armRRef.current.rotation.z, 0, 0.1);
+      }
+    }
+
+    // micro-activity poses, layered over the idle arms (only when standing still)
+    const act = activityRef.current;
+    if (act && !moving && !sleepPose && !isTyping) {
+      if (act === "stretch") {
+        // both arms reach overhead, a gentle lean back
+        const s = (Math.sin(t * 1.6) + 1) * 0.5; // 0..1
+        const up = -2.2 - s * 0.25;
+        if (armLRef.current) armLRef.current.rotation.x = THREE.MathUtils.lerp(armLRef.current.rotation.x, up, 0.08);
+        if (armRRef.current) armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, up, 0.08);
+        if (charRef.current) charRef.current.rotation.x = THREE.MathUtils.lerp(charRef.current.rotation.x, -0.16, 0.07);
+      } else if (act === "coffee") {
+        // right hand rises to the mouth in slow sips
+        const sip = Math.max(0, Math.sin(t * 1.5));
+        if (armRRef.current) {
+          armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, -0.5 - sip * 1.3, 0.12);
+          armRRef.current.rotation.z = THREE.MathUtils.lerp(armRRef.current.rotation.z, 0.28, 0.1);
+        }
+        if (headGroupRef.current) headGroupRef.current.rotation.x = THREE.MathUtils.lerp(headGroupRef.current.rotation.x, sip * 0.2, 0.1);
+      } else if (act === "sketch") {
+        // right hand up at the board, drawing back and forth
+        const draw = Math.sin(t * 6) * 0.28;
+        if (armRRef.current) {
+          armRRef.current.rotation.x = THREE.MathUtils.lerp(armRRef.current.rotation.x, -1.45 + draw, 0.15);
+          armRRef.current.rotation.z = THREE.MathUtils.lerp(armRRef.current.rotation.z, 0.18, 0.1);
+        }
       }
     }
 
@@ -453,6 +507,15 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           <div className="pointer-events-none relative max-w-[180px] select-none rounded-2xl border border-white/10 bg-ink-900/95 px-2.5 py-1.5 text-center text-[11px] leading-snug text-slate-100 shadow-panel">
             {bubble}
             <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-white/10 bg-ink-900/95" />
+          </div>
+        </Html>
+      )}
+
+      {/* micro-activity emoji (coffee / sketch / stretch) */}
+      {activity && !sleeping && !bubble && (
+        <Html position={[0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
+          <div className="pointer-events-none select-none text-[15px] drop-shadow">
+            {activity === "coffee" ? "☕" : activity === "sketch" ? "✏️" : "🤸"}
           </div>
         </Html>
       )}

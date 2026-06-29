@@ -16,7 +16,7 @@ import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
-import { BEDS, isNightNow, randomWalkPoint } from "./data/world";
+import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import type { Vec2 } from "./types";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
@@ -178,8 +178,14 @@ function LifeBridge() {
           const bed = BEDS[idx % BEDS.length];
           if (!near(a.position, bed)) st.moveAgent(a.id, bed);
         } else if (Math.random() < 0.5) {
-          // daytime: occasionally roam to another room
-          st.moveAgent(a.id, randomWalkPoint());
+          // daytime: roam — sometimes specifically for a coffee or to the
+          // whiteboard (where Agent3D plays the matching micro-animation).
+          const r = Math.random();
+          const dest =
+            r < 0.22 ? ZONE_BY_ID.kitchen.position
+            : r < 0.4 ? ZONE_BY_ID.whiteboard.position
+            : randomWalkPoint();
+          st.moveAgent(a.id, dest);
         }
       }
     };
