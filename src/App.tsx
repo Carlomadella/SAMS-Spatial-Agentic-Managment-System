@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Hand, HelpCircle, Loader2, Move3d, MousePointerClick, PanelBottom, X } from "lucide-react";
+import { Hand, HelpCircle, Loader2, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -17,6 +17,7 @@ import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
+import * as audio from "./lib/audio";
 import type { Vec2 } from "./types";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
@@ -151,6 +152,91 @@ function RelayBridge() {
     });
   }, []);
   return null;
+}
+
+/**
+ * Synthesised ambience: a soft room tone (warmer at night), keyboard ticks
+ * while agents type, a chime on completion and a buzz on errors. Audio is
+ * suspended by the browser until the first user gesture, which we resume here.
+ */
+function AudioBridge() {
+  useEffect(() => {
+    const kick = () => audio.resume();
+    window.addEventListener("pointerdown", kick);
+    window.addEventListener("keydown", kick);
+
+    audio.startAmbient();
+    audio.setAmbientNight(isNightNow());
+    const nightId = setInterval(() => audio.setAmbientNight(isNightNow()), 60000);
+
+    // Event sounds — track the newest event id so trimming (slice(-300)) is safe.
+    let lastId = useStore.getState().events.at(-1)?.id ?? null;
+    const unsub = useStore.subscribe((state) => {
+      const evs = state.events;
+      const newest = evs.at(-1);
+      if (!newest || newest.id === lastId) return;
+      let start = 0;
+      for (let i = evs.length - 1; i >= 0; i--) {
+        if (evs[i].id === lastId) { start = i + 1; break; }
+      }
+      for (let i = start; i < evs.length; i++) {
+        if (evs[i].level === "SUCCESS") audio.playChime();
+        else if (evs[i].level === "ERROR") audio.playError();
+      }
+      lastId = newest.id;
+    });
+
+    // Typing ambience while someone is working (daytime only).
+    const typeId = setInterval(() => {
+      if (isNightNow()) return;
+      if (useStore.getState().agents.some((a) => a.status === "working") && Math.random() < 0.55) {
+        audio.playKeystroke();
+      }
+    }, 240);
+
+    return () => {
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("keydown", kick);
+      clearInterval(nightId);
+      clearInterval(typeId);
+      unsub();
+      audio.stopAmbient();
+    };
+  }, []);
+  return null;
+}
+
+/** Floating speaker toggle to mute/unmute the synthesised ambience. */
+function SoundToggle() {
+  const [muted, setMuted] = useState(() => {
+    const s = localStorage.getItem("sams.muted");
+    return s == null ? audio.isMuted() : s !== "0";
+  });
+  useEffect(() => {
+    // apply a restored "sound on" preference once (avoids eagerly creating the
+    // AudioContext when sound stays muted, the default).
+    if (!muted) audio.setMuted(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const toggle = () => {
+    const next = !muted;
+    audio.setMuted(next);
+    setMuted(next);
+    try {
+      localStorage.setItem("sams.muted", next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+  return (
+    <button
+      onClick={toggle}
+      title={muted ? "Attiva i suoni" : "Disattiva i suoni"}
+      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
+    >
+      {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+    </button>
+  );
 }
 
 /** Agents that aren't actively working a task are "free" to live their life. */
@@ -392,6 +478,7 @@ export default function App() {
               <OfficeScene />
             </Suspense>
             <StageHint />
+            <SoundToggle />
             <ReopenPanelButton />
           </div>
           {bottomOpen && <BottomPanel />}
@@ -410,6 +497,7 @@ export default function App() {
       <RelayBridge />
       <LifeBridge />
       <TalkBridge />
+      <AudioBridge />
       <NotificationBridge />
       <ResponsiveBridge />
       <SimBridge />
