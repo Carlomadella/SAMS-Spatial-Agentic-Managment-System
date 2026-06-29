@@ -755,6 +755,40 @@ export function SecurityGate({ position = [0, 0, 0], rotation = [0, 0, 0] }: Pro
   );
 }
 
+export function Bed({ position = [0, 0, 0], rotation = [0, 0, 0], color = "#6b8f8a" }: PropProps & { color?: string }) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* frame */}
+      <RoundedBox args={[1.4, 0.3, 2.4]} radius={0.06} smoothness={4} position={[0, 0.25, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={WALNUT} roughness={0.6} />
+      </RoundedBox>
+      {/* mattress */}
+      <RoundedBox args={[1.3, 0.22, 2.2]} radius={0.1} smoothness={4} position={[0, 0.46, 0]} castShadow>
+        <meshStandardMaterial color="#eae3d6" roughness={0.9} />
+      </RoundedBox>
+      {/* duvet covering the lower two-thirds */}
+      <RoundedBox args={[1.32, 0.16, 1.5]} radius={0.08} smoothness={4} position={[0, 0.56, 0.35]} castShadow>
+        <meshStandardMaterial color={color} roughness={0.9} />
+      </RoundedBox>
+      {/* pillow at the head (−z) */}
+      <RoundedBox args={[1.1, 0.16, 0.5]} radius={0.1} smoothness={4} position={[0, 0.58, -0.85]} castShadow>
+        <meshStandardMaterial color="#f5f1e8" roughness={0.95} />
+      </RoundedBox>
+      {/* headboard */}
+      <RoundedBox args={[1.4, 0.8, 0.14]} radius={0.06} smoothness={4} position={[0, 0.62, -1.18]} castShadow>
+        <meshStandardMaterial color={WALNUT} roughness={0.6} />
+      </RoundedBox>
+      {/* legs */}
+      {[[-0.6, -1.1], [0.6, -1.1], [-0.6, 1.1], [0.6, 1.1]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.1, z]} castShadow>
+          <boxGeometry args={[0.1, 0.2, 0.1]} />
+          <meshStandardMaterial color={WALNUT} roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function LoungeSofa({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
   return (
     <group position={position} rotation={rotation}>

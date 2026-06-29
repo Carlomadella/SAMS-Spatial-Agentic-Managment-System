@@ -54,11 +54,13 @@ describe("findPath", () => {
     expect(path[path.length - 1]).toEqual([0, 4]);
   });
 
-  it("steers around the real office furniture and reaches the goal", () => {
-    // straight across the sofa/coffee-table cluster
-    const path = findPath([4.5, 4.2], [-6.4, -3.4], OBSTACLES);
-    expect(path[path.length - 1]).toEqual([-6.4, -3.4]);
-    for (const p of sampleRoute([4.5, 4.2], path)) {
+  it("steers through the doorways and around the real furniture", () => {
+    // from the living room, across two dividing walls, into the studio
+    const start: Vec2 = [0, 5];
+    const goal: Vec2 = [-9, -2];
+    const path = findPath(start, goal, OBSTACLES);
+    expect(path[path.length - 1]).toEqual(goal);
+    for (const p of sampleRoute(start, path)) {
       for (const r of OBSTACLES) expect(inside(p, r)).toBe(false);
     }
   });

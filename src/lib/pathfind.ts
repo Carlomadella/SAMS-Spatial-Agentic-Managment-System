@@ -18,7 +18,7 @@ export interface PathOpts {
 }
 
 // Defaults mirror ROOM in data/world.ts (kept here to avoid a circular import).
-const DEFAULT_BOUNDS: Rect = { minX: -9, maxX: 9, minZ: -6, maxZ: 6 };
+const DEFAULT_BOUNDS: Rect = { minX: -13, maxX: 13, minZ: -7, maxZ: 7 };
 const DEFAULT_CELL = 0.5;
 const DEFAULT_RADIUS = 0.55;
 
@@ -54,6 +54,13 @@ function segHitsRect(ax: number, az: number, bx: number, bz: number, r: Rect): b
 /** True when the straight segment a→b clears every (inflated) obstacle. */
 function lineClear(a: Vec2, b: Vec2, inflated: Rect[]): boolean {
   return !inflated.some((r) => segHitsRect(a[0], a[1], b[0], b[1], r));
+}
+
+/** True when a point is at least `radius` away from every obstacle footprint. */
+export function isPointClear(p: Vec2, obstacles: Rect[], radius = DEFAULT_RADIUS): boolean {
+  return !obstacles.some(
+    (r) => p[0] >= r.minX - radius && p[0] <= r.maxX + radius && p[1] >= r.minZ - radius && p[1] <= r.maxZ + radius,
+  );
 }
 
 /** Drop intermediate waypoints that a straight line-of-sight can skip (funnel). */

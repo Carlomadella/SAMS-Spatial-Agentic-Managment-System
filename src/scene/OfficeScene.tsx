@@ -4,6 +4,7 @@ import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Armchair,
+  Bed,
   Bookshelf,
   CoffeeTable,
   Desk,
@@ -25,6 +26,8 @@ import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
 import { useStore } from "../store/useStore";
 import {
+  DOORWAY_Z,
+  PARTITIONS_X,
   ROOM,
   ROOM_DEPTH,
   ROOM_WIDTH,
@@ -42,7 +45,7 @@ function Floor() {
   const downPos = useRef<{ x: number; y: number } | null>(null);
   const wood = useMemo(() => {
     const t = woodFloorTexture();
-    t.repeat.set(4.5, 3);
+    t.repeat.set(6.5, 3.5);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.needsUpdate = true;
     return t;
@@ -103,7 +106,7 @@ function Floor() {
         infiniteGrid={false}
       />
 
-      {/* walls (back + left form an open L, matching the iso diorama) */}
+      {/* outer walls: back + left + right (front stays open for the iso view) */}
       <mesh position={[0, ROOM.wallHeight / 2, ROOM.minZ - 0.15]} receiveShadow>
         <boxGeometry args={[ROOM_WIDTH + 2, ROOM.wallHeight, 0.3]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
@@ -112,6 +115,29 @@ function Floor() {
         <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 2]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
+      <mesh position={[ROOM.maxX + 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
+        <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 2]} />
+        <meshStandardMaterial color={WALL} roughness={0.9} />
+      </mesh>
+
+      {/* two internal dividing walls — full height at the back, open doorway at the front */}
+      {PARTITIONS_X.map((x) => {
+        const len = DOORWAY_Z - ROOM.minZ; // solid part, from back wall to the doorway
+        const cz = (ROOM.minZ + DOORWAY_Z) / 2;
+        return (
+          <group key={x}>
+            <mesh position={[x, ROOM.wallHeight / 2, cz]} castShadow receiveShadow>
+              <boxGeometry args={[0.22, ROOM.wallHeight, len]} />
+              <meshStandardMaterial color={WALL} roughness={0.9} />
+            </mesh>
+            {/* doorway header so the opening reads as a door, not a gap */}
+            <mesh position={[x, ROOM.wallHeight - 0.25, DOORWAY_Z + 0.9]} castShadow>
+              <boxGeometry args={[0.22, 0.5, 1.8]} />
+              <meshStandardMaterial color={WALL} roughness={0.9} />
+            </mesh>
+          </group>
+        );
+      })}
 
       {/* wainscoting on the lower third of each inner wall face */}
       <mesh position={[0, 0.55, ROOM.minZ + 0.03]}>
@@ -195,7 +221,7 @@ function GardenDoor() {
     useStore.getState().setGardenOpen(true);
   };
   return (
-    <group position={[8, 0, ROOM.minZ + 0.16]}>
+    <group position={[-3.4, 0, ROOM.minZ + 0.16]}>
       <mesh position={[0, 1.2, 0]} castShadow>
         <boxGeometry args={[1.5, 2.4, 0.18]} />
         <meshStandardMaterial color="#2f6d45" roughness={0.6} />
@@ -235,7 +261,7 @@ function GardenDoor() {
   );
 }
 
-/** Animates the directional light and scene background on a 2-minute day/night cycle. */
+/** Drives the directional light and scene background from the REAL time of day. */
 function DayNightCycle() {
   const dirRef = useRef<THREE.DirectionalLight>(null);
   const ambRef = useRef<THREE.AmbientLight>(null);
@@ -250,15 +276,11 @@ function DayNightCycle() {
   const gndNight = useMemo(() => new THREE.Color("#0e1020"), []);
   const bgTemp   = useMemo(() => new THREE.Color("#f3ece0"), []);
 
-  const PERIOD = 120; // seconds for a full cycle
-  // Start at t=0.5 (noon) so the scene opens in daylight
-  const elapsed = useRef(PERIOD * 0.5);
-
   const { scene } = useThree();
 
-  useFrame((_, delta) => {
-    elapsed.current = (elapsed.current + delta) % PERIOD;
-    const t = elapsed.current / PERIOD; // 0..1
+  useFrame(() => {
+    const now = new Date();
+    const t = (now.getHours() + now.getMinutes() / 60) / 24; // 0..1 across the real day
     // sunAngle: -π/2 at midnight (t=0), π/2 at noon (t=0.5)
     const sunAngle = t * Math.PI * 2 - Math.PI / 2;
     const sunY = Math.sin(sunAngle);          // -1 (night) … +1 (noon)
@@ -313,21 +335,25 @@ function SceneContents() {
 
       <Floor />
 
-      {/* cozy living-room layout (faces the open corner of the iso diorama) */}
-      <Rug position={[-1.4, 0, 1.8]} />
-      <Sofa position={[-1.4, 0, -0.2]} />
-      <CoffeeTable position={[-1.4, 0, 1.8]} />
-      <Armchair position={[2.4, 0, 1.9]} rotation={[0, -1.1, 0]} />
-      <SideTable position={[-3.6, 0, 0.2]} />
-      <TableLamp position={[-3.6, 0.59, 0.2]} />
-      <FloorLamp position={[1.7, 0, -1.4]} />
+      {/* ── Studio (work room, left) ── */}
+      <Desk position={[-10, 0, -4]} />
+      <Desk position={[-6.5, 0, -4]} />
+      <Bookshelf position={[-11.5, 0, -6.55]} />
+      <FloorLamp position={[-5.4, 0, 3.6]} />
+      <Plant position={[-12, 0, 5]} />
+      <WallArt position={[-9, 1.9, -6.83]} color="#6b8f8a" />
+      <WallSconce position={[-12.78, 2.15, 0]} rotation={[0, Math.PI / 2, 0]} />
 
-      {/* pieces along the back / left walls */}
-      <Sideboard position={[-6.6, 0, -5.45]} />
-      <Bookshelf position={[-2.4, 0, -5.5]} />
-      <TVUnit position={[3.6, 0, -5.5]} />
-      {/* live task ticker on TV screen */}
-      <Html position={[3.6, 1.15, -5.18]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
+      {/* ── Salotto (living room, centre) ── */}
+      <Rug position={[-1.4, 0, 1.2]} />
+      <Sofa position={[-1.5, 0, -1]} />
+      <CoffeeTable position={[-1.5, 0, 0.9]} />
+      <Armchair position={[2, 0, 1]} rotation={[0, -1.1, 0]} />
+      <SideTable position={[3.4, 0, -0.6]} />
+      <TableLamp position={[3.4, 0.59, -0.6]} />
+      <TVUnit position={[0, 0, -6.55]} />
+      {/* live task ticker on the TV screen */}
+      <Html position={[0, 1.15, -6.2]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
         <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
           <div className="mb-0.5 text-[8px] uppercase tracking-widest text-green-700">◉ SAMS live</div>
           {workingAgent?.task ? (
@@ -345,23 +371,20 @@ function SceneContents() {
           )}
         </div>
       </Html>
-      <Window position={[6.9, 1.5, -5.84]} />
+      <WallArt position={[-3.2, 1.85, -6.83]} />
+      <WallClock position={[2.6, 2.0, -6.83]} />
+      <WallSconce position={[3.6, 2.15, -6.78]} />
 
-      {/* gallery wall + ambiance */}
-      <WallArt position={[-0.4, 1.85, -5.83]} />
-      <WallArt position={[-7.0, 1.95, -5.83]} color="#6b8f8a" />
-      <WallClock position={[1.1, 2.0, -5.83]} />
-      <WallSconce position={[-4.9, 2.15, -5.78]} />
-      <WallSconce position={[5.6, 2.15, -5.78]} />
-      {/* a sconce on the left wall too */}
-      <WallSconce position={[-8.78, 2.15, 2.4]} rotation={[0, Math.PI / 2, 0]} />
+      {/* ── Camera (bedroom, right) ── */}
+      <Bed position={[6.4, 0, -4.4]} color="#6b8f8a" />
+      <Bed position={[9.0, 0, -4.4]} color="#b07a5e" />
+      <Bed position={[11.5, 0, -4.4]} color="#8a6f9e" />
+      <Sideboard position={[12.5, 0, 1.6]} rotation={[0, Math.PI / 2, 0]} />
+      <Window position={[9, 1.5, -6.84]} />
+      <Plant position={[12, 0, 5.4]} />
+      <WallSconce position={[6.4, 2.15, -6.78]} />
+      <FrontDoor position={[12.78, 0, 4]} rotation={[0, -Math.PI / 2, 0]} />
 
-      {/* a small work desk tucked in the corner + greenery */}
-      <Desk position={[6.2, 0, 3.4]} rotation={[0, -Math.PI / 2, 0]} />
-      <Plant position={[-7.9, 0, -1.6]} />
-      <Plant position={[5.6, 0, 4.2]} />
-
-      <FrontDoor position={[8.5, 0, 1.2]} rotation={[0, -Math.PI / 2, 0]} />
       <GardenDoor />
 
       {ZONES.map((z) => (
