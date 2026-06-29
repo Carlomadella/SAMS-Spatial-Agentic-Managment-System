@@ -3,6 +3,7 @@ import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Trash2, X 
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
+import { levelFromXp } from "../lib/skill";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
@@ -193,6 +194,26 @@ export function AgentInspector() {
           </button>
         </div>
       )}
+
+      {/* level / rank — earned by completing tasks */}
+      {agent.xp != null && (() => {
+        const lv = levelFromXp(agent.xp);
+        return (
+          <div className="mt-1.5 flex items-center gap-2" title={`${lv.xpForNext != null ? `${lv.xpIntoLevel}/${lv.xpForNext} XP al prossimo livello` : "Livello massimo"}`}>
+            <span className="text-[10px] text-mut w-12 shrink-0">Livello</span>
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+              ⭐ Lv{lv.level}
+            </span>
+            <div className="relative flex-1 h-1.5 rounded-full bg-ink-700 overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-amber-400 transition-all duration-700"
+                style={{ width: `${Math.round(lv.progress * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-mut shrink-0">{lv.name}</span>
+          </div>
+        );
+      })()}
 
       {/* inline rename */}
       <input

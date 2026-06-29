@@ -22,6 +22,7 @@ import {
 import { SEED_AGENTS, seedEvents } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
+import { XP_PER_TASK } from "../lib/skill";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -256,6 +257,7 @@ export const useStore = create<State>()(
       energy: 100,
       hunger: 0,
       mood: "happy",
+      xp: 0,
     };
     set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
     log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agente creato nell'area di lavoro" });
@@ -380,7 +382,9 @@ export const useStore = create<State>()(
         const newEnergy = Math.max(0, x.energy - energyDrain);
         const newStatus = p >= 100 ? "done" as const : x.status;
         const newMood = moodFor(newStatus, newEnergy, x.hunger, x.mood);
-        return { ...x, task: { ...x.task, progress: p }, status: newStatus, energy: newEnergy, mood: newMood };
+        const completed = p >= 100 && x.task.progress < 100;
+        const xp = completed ? x.xp + XP_PER_TASK : x.xp;
+        return { ...x, task: { ...x.task, progress: p }, status: newStatus, energy: newEnergy, mood: newMood, xp };
       }),
       tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
     }));
@@ -540,7 +544,8 @@ export const useStore = create<State>()(
               const energy = e.status === "idle"
                 ? Math.min(100, a.energy + 15)
                 : Math.max(0, a.energy - energyDrain);
-              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.hunger, a.mood) };
+              const xp = newStatus === "done" && a.status !== "done" ? a.xp + XP_PER_TASK : a.xp;
+              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.hunger, a.mood), xp };
             })
           : s.agents;
 
@@ -637,6 +642,7 @@ export const useStore = create<State>()(
             if (a.taskQueue === undefined) a.taskQueue = [];
             if (typeof a.energy !== "number") a.energy = 100;
             if (typeof a.hunger !== "number") a.hunger = 0;
+            if (typeof a.xp !== "number") a.xp = 0;
             // pending files are transient — never restore across reloads
             a.pendingFiles = undefined;
             // if agent was awaiting_approval before reload, reset to idle

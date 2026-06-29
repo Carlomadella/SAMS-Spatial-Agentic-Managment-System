@@ -121,6 +121,9 @@ export interface Agent {
   hunger: number;
   /** Emotional state — changes based on task outcomes, energy and hunger. */
   mood: AgentMood;
+  /** Cumulative experience points; each completed task grants XP_PER_TASK.
+   * Drives the agent's level/rank (see lib/skill.ts). */
+  xp: number;
 }
 
 export interface LogEvent {

@@ -201,12 +201,24 @@ collega.
 
 ## 🃏 Wild cards
 - [ ] 💡 **Narrazione vocale** di cosa fanno gli agenti (TTS sugli eventi SSE).
-- [ ] 💡 **Skill tree** — gli agenti sbloccano abilità/decorazioni completando task.
+- [x] ✅ **Skill tree** — gli agenti guadagnano XP completando task (`Agent.xp`,
+      +30 per task in `updateProgress`/`applyRemote`) e salgono di rango
+      (Novizio→Apprendista→Esperto→Veterano→Maestro). Curva pura in `lib/skill.ts`
+      (`levelFromXp`, 6 test); badge ⭐Lv nell'etichetta 3D + riga Livello con barra XP
+      nell'AgentInspector.
 - [ ] 💡 **Ufficio multiplayer** — più umani nello stesso workspace in tempo reale.
 
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-30 — skill tree (XP/livelli da task completati)
+- **Skill tree** — nuovo `Agent.xp`: ogni task completato dà +30 XP
+  (`updateProgress` quando arriva a 100, `applyRemote` quando lo stato passa a `done`).
+  Curva e ranghi in `lib/skill.ts` (`levelFromXp`: Novizio→Apprendista→Esperto→Veterano→
+  Maestro), funzione pura con 6 test. UI: badge ⭐Lv nell'etichetta dell'agente in scena +
+  riga "Livello" con barra XP nell'AgentInspector. Migrazione persist back-fill di `xp`;
+  seed con XP vari per mostrare i ranghi. Test client 108 → 117. Typecheck, lint, build: verdi.
 
 ### 2026-06-29 — fame/nutrimento + pulizia seed
 - **Via le task fittizie dal seed** — gli agenti partono tutti `idle` senza task finte

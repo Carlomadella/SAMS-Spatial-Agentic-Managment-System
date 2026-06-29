@@ -44,3 +44,7 @@ pnpm-debug.log*
 coverage
 .cache
 test-results/
+
+# graphify (knowledge graph — generated locally, never commit)
+graph.html
+graphify-out/

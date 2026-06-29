@@ -241,6 +241,30 @@ describe("hunger", () => {
   });
 });
 
+describe("xp / level", () => {
+  it("completing a task grants XP", () => {
+    const id = firstId();
+    useStore.setState((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, xp: 0 } : a)) }));
+    useStore.getState().assignTask(id, "Build a thing", "feature/x");
+    const before = agent(id)!.xp;
+    useStore.getState().updateProgress(id, 100);
+    expect(agent(id)!.xp).toBe(before + 30);
+  });
+
+  it("partial progress does not grant XP", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "Build", "b");
+    const before = agent(id)!.xp;
+    useStore.getState().updateProgress(id, 60);
+    expect(agent(id)!.xp).toBe(before);
+  });
+
+  it("addAgent starts at 0 XP (level 1)", () => {
+    const id = useStore.getState().addAgent("blue");
+    expect(agent(id)!.xp).toBe(0);
+  });
+});
+
 describe("agent lifecycle", () => {
   it("addAgent appends a uniquely-named agent and selects it", () => {
     const before = useStore.getState().agents.length;

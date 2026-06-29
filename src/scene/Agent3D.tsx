@@ -6,6 +6,7 @@ import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
+import { levelFromXp } from "../lib/skill";
 import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
@@ -558,6 +559,9 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-ink-900/90 px-2.5 py-1 text-[12px] font-medium text-slate-100 shadow-panel">
             <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[agent.status] }} />
             {agent.name}
+            <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-amber-300" title={levelFromXp(agent.xp).name}>
+              ⭐{levelFromXp(agent.xp).level}
+            </span>
             {agent.status === "working" && (
               <span className="flex gap-0.5">
                 {[0, 1, 2].map((i) => (
