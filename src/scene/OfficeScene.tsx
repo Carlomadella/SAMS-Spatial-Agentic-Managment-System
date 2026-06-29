@@ -375,23 +375,54 @@ function SceneContents() {
   );
 }
 
-/** Gently shifts the OrbitControls target to stay near the selected agent when it walks. */
+/**
+ * Cinematic follow camera. On selection it smoothly recenters on the agent and
+ * dollies in to a framing distance; while the agent walks it gently tracks it;
+ * on deselection it eases back to the room centre. The dolly only runs during
+ * the brief transition so manual orbit/zoom stays free afterwards.
+ */
 function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: THREE.Vector3; update(): void } | null> }) {
-  // Scratch vector reused every frame — never allocate inside useFrame.
+  const { camera } = useThree();
+  // Scratch vectors reused every frame — never allocate inside useFrame.
   const agentVec = useMemo(() => new THREE.Vector3(), []);
-  useFrame(() => {
+  const offset = useMemo(() => new THREE.Vector3(), []);
+  const roomCenter = useMemo(() => new THREE.Vector3(0, 0.8, 0), []);
+  const prevSelected = useRef<string | null>(null);
+  const transition = useRef(0); // 1 → 0 over the cinematic ease-in/out
+
+  useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
+    const d = Math.min(delta, 0.05);
     const { selectedAgentId, agents } = useStore.getState();
-    if (!selectedAgentId) return;
-    const agent = agents.find((a) => a.id === selectedAgentId);
-    if (!agent) return;
-    const dest = agent.target ?? agent.position;
-    agentVec.set(dest[0], 0.8, dest[1]);
-    // Only nudge when the agent has moved significantly away from the camera target —
-    // this way manual orbiting stays stable while walking is gently tracked.
-    if (controls.target.distanceTo(agentVec) > 2) {
-      controls.target.lerp(agentVec, 0.03);
+
+    // A change of selection (including deselect) starts a smooth ~0.8 s move.
+    if (selectedAgentId !== prevSelected.current) {
+      prevSelected.current = selectedAgentId;
+      transition.current = 1;
+    }
+
+    if (selectedAgentId) {
+      const agent = agents.find((a) => a.id === selectedAgentId);
+      if (!agent) return;
+      const dest = agent.target ?? agent.position;
+      agentVec.set(dest[0], 0.9, dest[1]);
+      // Snappier recentering during the transition, gentle tracking afterwards.
+      controls.target.lerp(agentVec, transition.current > 0 ? 0.07 : 0.03);
+      // Dolly toward a framing distance only while transitioning.
+      if (transition.current > 0) {
+        offset.copy(camera.position).sub(controls.target);
+        const dist = offset.length() || 1;
+        const framed = THREE.MathUtils.clamp(dist, 9, 13);
+        offset.setLength(THREE.MathUtils.lerp(dist, framed, 0.05));
+        camera.position.copy(controls.target).add(offset);
+        transition.current = Math.max(0, transition.current - d / 0.8);
+      }
+      controls.update();
+    } else if (transition.current > 0) {
+      // Deselected: ease the camera target back to the room centre.
+      controls.target.lerp(roomCenter, 0.05);
+      transition.current = Math.max(0, transition.current - d / 0.8);
       controls.update();
     }
   });
