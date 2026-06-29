@@ -20,7 +20,7 @@ export const SEED_AGENTS: Agent[] = [
     taskQueue: [],
     energy: 68,
     hunger: 30,
-    mood: "happy",
+    mood: "focused",
   },
   {
     id: "agent-green",
@@ -52,7 +52,7 @@ export const SEED_AGENTS: Agent[] = [
     taskQueue: [],
     energy: 55,
     hunger: 68,
-    mood: "tired",
+    mood: "focused",
   },
   {
     id: "agent-purple",
@@ -68,7 +68,7 @@ export const SEED_AGENTS: Agent[] = [
     taskQueue: [],
     energy: 45,
     hunger: 40,
-    mood: "tired",
+    mood: "focused",
   },
   {
     id: "agent-yellow",

@@ -233,11 +233,11 @@ describe("hunger", () => {
     expect(agent(id)!.hunger).toBe(25);
   });
 
-  it("a starving agent turns tired even at full energy", () => {
+  it("a starving agent turns hungry even at full energy", () => {
     const id = firstId();
     setHunger(id, 85);
     useStore.getState().setStatus(id, "idle"); // energy 100 would normally be happy
-    expect(agent(id)!.mood).toBe("tired");
+    expect(agent(id)!.mood).toBe("hungry");
   });
 });
 

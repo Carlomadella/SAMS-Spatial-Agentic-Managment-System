@@ -39,7 +39,7 @@ export type AgentStatus =
   | "awaiting_approval";
 
 /** Emotional state of an agent — changes based on task outcomes and energy level. */
-export type AgentMood = "happy" | "focused" | "tired" | "proud" | "frustrated";
+export type AgentMood = "happy" | "focused" | "tired" | "hungry" | "proud" | "frustrated";
 
 /** A file the agent wants to commit, staged for user approval. */
 export interface PendingFile {

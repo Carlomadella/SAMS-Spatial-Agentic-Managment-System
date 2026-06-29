@@ -245,7 +245,7 @@ function SoundToggle() {
 /**
  * Hunger is a slow Sims-style need: every agent gets a little hungrier over time.
  * Assigning a task "feeds" them (see assignTask), so keeping agents busy keeps
- * them fed — a starving agent turns tired (see moodFor).
+ * them fed — a starving agent turns "hungry" (see moodFor).
  */
 function HungerBridge() {
   useEffect(() => {

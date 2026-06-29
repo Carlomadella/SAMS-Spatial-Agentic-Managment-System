@@ -175,9 +175,9 @@ function uniqueName(agents: Agent[], color: AgentColor): string {
 function moodFor(status: AgentStatus, energy: number, hunger: number, prevMood: AgentMood): AgentMood {
   if (status === "blocked") return "frustrated";
   if (status === "done" || status === "review") return "proud";
-  if (hunger >= 80) return "tired"; // starving wears the agent down
+  if (hunger >= 80) return "hungry"; // starving has its own mood, distinct from tired
   if (status === "idle") return energy >= 70 ? "happy" : "focused";
-  if (energy < 30) return "tired";
+  if (energy < 30) return "tired"; // low energy = worn out
   if (status === "working" || status === "awaiting_approval") return "focused";
   return prevMood;
 }

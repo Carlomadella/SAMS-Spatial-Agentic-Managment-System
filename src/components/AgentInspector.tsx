@@ -17,6 +17,7 @@ const MOOD_LABEL: Record<string, string> = {
   happy: "felice",
   focused: "concentrato",
   tired: "stanco",
+  hungry: "affamato",
   proud: "orgoglioso",
   frustrated: "frustrato",
 };
@@ -161,6 +162,7 @@ export function AgentInspector() {
             {agent.mood === "happy" ? "😊"
               : agent.mood === "focused" ? "🎯"
               : agent.mood === "tired" ? "😴"
+              : agent.mood === "hungry" ? "🤤"
               : agent.mood === "proud" ? "🌟"
               : agent.mood === "frustrated" ? "😤"
               : "😊"}
