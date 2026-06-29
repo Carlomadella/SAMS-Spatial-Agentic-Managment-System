@@ -79,7 +79,7 @@ function PendingCard({ agent }: { agent: Agent }) {
         agentName: agent.name,
         color: agent.color,
         level: "ERROR",
-        message: `Approve failed: ${(err as Error).message}`,
+        message: `Approvazione fallita: ${(err as Error).message}`,
       });
     } finally {
       setBusy(false);

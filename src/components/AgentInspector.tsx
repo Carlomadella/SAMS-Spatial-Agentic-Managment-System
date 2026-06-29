@@ -239,7 +239,7 @@ export function AgentInspector() {
             <button
               onClick={() => {
                 approveChanges(agent.id).catch((err: Error) =>
-                  log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Approve: ${err.message}` }),
+                  log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Approvazione: ${err.message}` }),
                 );
               }}
               className="btn btn-primary flex-1"

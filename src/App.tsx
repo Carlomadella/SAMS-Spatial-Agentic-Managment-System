@@ -98,7 +98,7 @@ function QueueBridge() {
                       agentName: fresh.name,
                       color: fresh.color,
                       level: "ERROR",
-                      message: `Queue: ${err.message}`,
+                      message: `Coda: ${err.message}`,
                     }),
                 );
               }

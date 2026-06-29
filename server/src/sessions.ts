@@ -35,7 +35,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
     ],
   });
 
-  emit({ agentId, agentName, level: "INFO", message: `Session ${session.id} creata su ${s.githubRepo}` });
+  emit({ agentId, agentName, level: "INFO", message: `Sessione ${session.id} creata su ${s.githubRepo}` });
 
   // Stream-first, then send the kickoff message (so we don't miss early events).
   const stream = await client.beta.sessions.events.stream(session.id);

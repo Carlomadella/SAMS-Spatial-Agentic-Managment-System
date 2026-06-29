@@ -533,7 +533,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       if (!Number.isFinite(runId) || runId <= 0) { result = "ERRORE: run_id non valido"; }
       else {
         result = await getWorkflowJobs(runId);
-        emit({ agentId, agentName, progress, level: "INFO", message: `Job CI run #${runId}` });
+        emit({ agentId, agentName, progress, level: "INFO", message: `Job CI del run #${runId}` });
       }
     } else if (name === "notion_read") {
       const { title: resolved, text } = await readPageByTitle(str(args.page_title));

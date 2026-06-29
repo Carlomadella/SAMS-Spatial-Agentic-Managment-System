@@ -247,7 +247,7 @@ export const useStore = create<State>()(
       mood: "happy",
     };
     set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
-    log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agent spawned into workspace" });
+    log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agente creato nell'area di lavoro" });
     return id;
   },
 
@@ -257,7 +257,7 @@ export const useStore = create<State>()(
       agents: s.agents.filter((x) => x.id !== id),
       selectedAgentId: s.selectedAgentId === id ? null : s.selectedAgentId,
     }));
-    if (a) get().log({ agentId: null, agentName: a.name, color: a.color, level: "WARN", message: "Agent removed from workspace" });
+    if (a) get().log({ agentId: null, agentName: a.name, color: a.color, level: "WARN", message: "Agente rimosso dall'area di lavoro" });
   },
 
   selectAgent: (id) => set({ selectedAgentId: id }),
@@ -287,7 +287,7 @@ export const useStore = create<State>()(
     const a = get().agents.find((x) => x.id === id);
     if (!zone || !a) return;
     get().moveAgent(id, zone.position);
-    get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Heading to ${zone.label} · ${zone.sublabel}` });
+    get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `In viaggio verso ${zone.label} · ${zone.sublabel}` });
   },
 
   setStatus: (id, status) => {
@@ -301,12 +301,12 @@ export const useStore = create<State>()(
     }));
     if (a) {
       const msg: Record<AgentStatus, string> = {
-        idle: "Now idle · no active tasks",
-        working: "Resumed work",
-        review: "Waiting for review",
-        blocked: "Blocked · needs attention",
-        done: "Marked task as done",
-        awaiting_approval: "Awaiting approval",
+        idle: "Ora inattivo · nessun task",
+        working: "Lavoro ripreso",
+        review: "In attesa di revisione",
+        blocked: "Bloccato · richiede attenzione",
+        done: "Task segnato come completato",
+        awaiting_approval: "In attesa di approvazione",
       };
       get().log({ agentId: id, agentName: a.name, color: a.color, level: STATUS_LEVEL[status], message: msg[status] });
     }
@@ -346,7 +346,7 @@ export const useStore = create<State>()(
     // walk to a fitting zone so work visibly "happens" somewhere
     const zone = ZONE_BY_ID[zoneForTitle(title)];
     if (zone) get().moveAgent(id, zone.position);
-    get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Started task: ${title}` });
+    get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Task avviato: ${title}` });
   },
 
   updateProgress: (id, progress) => {
@@ -367,7 +367,7 @@ export const useStore = create<State>()(
       tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
     }));
     if (willComplete) {
-      get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task complete: ${a.task.title}` });
+      get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task completato: ${a.task.title}` });
       setTimeout(() => {
         const agent = get().agents.find((x) => x.id === id);
         if (agent?.status === "done" && agent.task) get().clearTask(id);
@@ -384,7 +384,7 @@ export const useStore = create<State>()(
         return { ...x, task: null, status: "idle", energy, mood: moodFor("idle", energy, x.mood) };
       }),
     }));
-    if (a) get().log({ agentId: id, agentName: a.name, color: a.color, level: "IDLE", message: "Cleared task · now idle" });
+    if (a) get().log({ agentId: id, agentName: a.name, color: a.color, level: "IDLE", message: "Task annullato · ora inattivo" });
   },
 
   renameAgent: (id, name) =>
@@ -433,7 +433,7 @@ export const useStore = create<State>()(
 
   setEnvironment: (env) => {
     set({ environment: env });
-    get().log({ agentId: null, agentName: "system", color: null, level: "INFO", message: `Switched environment → ${env}` });
+    get().log({ agentId: null, agentName: "sistema", color: null, level: "INFO", message: `Ambiente cambiato → ${env}` });
   },
 
   resetWorld: () =>
