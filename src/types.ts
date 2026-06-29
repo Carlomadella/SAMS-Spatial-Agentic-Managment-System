@@ -131,6 +131,15 @@ export interface LogEvent {
   message: string;
 }
 
+/** A short-lived task handoff between two agents, drawn as a 3D arc. */
+export interface Handoff {
+  id: string;
+  fromId: string;
+  toId: string;
+  /** epoch ms when the handoff fired (drives the animation + expiry) */
+  ts: number;
+}
+
 /** A fixed point of interest in the office the user can dispatch agents to. */
 export interface Zone {
   id: string;

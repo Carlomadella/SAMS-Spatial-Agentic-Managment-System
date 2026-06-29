@@ -128,6 +128,9 @@ function RelayBridge() {
         const { agents } = useStore.getState();
         const target = findRelayTarget(agents, relay.target);
         if (!target) return;
+        // draw the 3D handoff arc from sender → target and play a whoosh
+        useStore.getState().addHandoff(relay.fromId, target.id);
+        audio.playWhoosh();
         const title = composeRelayTitle(relay);
         if (target.task) {
           useStore.getState().enqueueTask(target.id, { title, branch: relay.branch });

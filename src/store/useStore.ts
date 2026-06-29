@@ -9,6 +9,7 @@ import {
   type AgentStatus,
   type BottomTab,
   type EnvironmentName,
+  type Handoff,
   type LogEvent,
   type LogLevel,
   type PendingFile,
@@ -90,6 +91,9 @@ interface State {
   pendingRelays: Array<{ target: string; title: string; branch: string; context: string; fromName: string; fromId: string }>;
   pushRelay: (r: { target: string; title: string; branch: string; context: string; fromName: string; fromId: string }) => void;
   shiftRelay: () => void;
+  /** Short-lived handoff arcs drawn in the 3D scene. */
+  handoffs: Handoff[];
+  addHandoff: (fromId: string, toId: string) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -220,6 +224,7 @@ export const useStore = create<State>()(
   tokensUsed: 0,
   toasts: [],
   pendingRelays: [],
+  handoffs: [],
 
   log: (e) =>
     set((s) => ({
@@ -427,6 +432,13 @@ export const useStore = create<State>()(
 
   pushRelay: (r) => set((s) => ({ pendingRelays: [...s.pendingRelays, r] })),
   shiftRelay: () => set((s) => ({ pendingRelays: s.pendingRelays.slice(1) })),
+  addHandoff: (fromId, toId) =>
+    set((s) => ({
+      handoffs: [
+        ...s.handoffs.filter((h) => Date.now() - h.ts < 6000),
+        { id: uid("ho"), fromId, toId, ts: Date.now() },
+      ].slice(-8),
+    })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),

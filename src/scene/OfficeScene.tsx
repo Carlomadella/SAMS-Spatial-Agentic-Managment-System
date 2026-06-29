@@ -1,6 +1,6 @@
 import React, { Suspense, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
+import { Grid, Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Armchair,
@@ -329,6 +329,66 @@ function DayNightCycle() {
   );
 }
 
+const HANDOFF_LIFE = 3.2; // seconds an arc stays on screen
+
+/** A single relay arc: a dashed bezier from sender→target with a travelling pulse. */
+function HandoffArc({ from, to, color, born }: { from: Vec2; to: Vec2; color: string; born: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const pulseRef = useRef<THREE.Mesh>(null);
+  const curve = useMemo(() => {
+    const a = new THREE.Vector3(from[0], 1.7, from[1]);
+    const b = new THREE.Vector3(to[0], 1.7, to[1]);
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    mid.y += 2.0 + a.distanceTo(b) * 0.14;
+    return new THREE.QuadraticBezierCurve3(a, mid, b);
+  }, [from, to]);
+  const points = useMemo(() => curve.getPoints(36), [curve]);
+
+  useFrame(() => {
+    const age = (Date.now() - born) / 1000;
+    const k = age / HANDOFF_LIFE;
+    if (groupRef.current) groupRef.current.visible = k < 1;
+    if (pulseRef.current) {
+      const p = curve.getPoint(Math.min(1, age / 1.1)); // pulse rides from sender to target
+      pulseRef.current.position.copy(p);
+      pulseRef.current.scale.setScalar(Math.max(0.01, 0.16 * (1 - Math.min(1, k))));
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <Line points={points} color={color} lineWidth={2.5} transparent opacity={0.5} dashed dashSize={0.3} gapSize={0.18} />
+      <mesh ref={pulseRef}>
+        <sphereGeometry args={[0.16, 14, 14]} />
+        <meshBasicMaterial color={color} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Draws every active task handoff as an animated 3D arc between the two agents. */
+function Handoffs() {
+  const handoffs = useStore((s) => s.handoffs);
+  const agents = useStore((s) => s.agents);
+  const locate = (id: string): Vec2 | null => {
+    const a = agents.find((x) => x.id === id);
+    return a ? a.target ?? a.position : null;
+  };
+  return (
+    <>
+      {handoffs.map((h) => {
+        const from = locate(h.fromId);
+        const to = locate(h.toId);
+        if (!from || !to) return null;
+        const sender = agents.find((x) => x.id === h.fromId);
+        return (
+          <HandoffArc key={h.id} from={from} to={to} color={sender ? AGENT_HEX[sender.color] : "#ffffff"} born={h.ts} />
+        );
+      })}
+    </>
+  );
+}
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -439,6 +499,8 @@ function SceneContents() {
       {agents.map((a) => (
         <Agent3D key={a.id} agent={a} selected={a.id === selectedAgentId} />
       ))}
+
+      <Handoffs />
     </>
   );
 }
