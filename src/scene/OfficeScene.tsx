@@ -27,6 +27,8 @@ import {
 } from "./Furniture";
 import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
+import { monitorView, queueBoard } from "../lib/sceneDisplays";
+import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
   ROOM,
@@ -331,6 +333,8 @@ function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const workingAgent = agents.find((a) => a.status === "working" && a.task) ?? null;
+  const monitor = monitorView(workingAgent);
+  const queue = queueBoard(agents);
 
   return (
     <>
@@ -341,6 +345,33 @@ function SceneContents() {
       {/* ── Studio — back-left quadrant ── */}
       <Desk position={[-9, 0, -7.85]} />
       <Desk position={[-4.5, 0, -7.85]} />
+      {/* live desk monitor — the file the working agent is writing right now */}
+      <Html position={[-9, 1.62, -8.04]} center distanceFactor={6} zIndexRange={[9, 0]} pointerEvents="none">
+        <div className="pointer-events-none w-[230px] select-none overflow-hidden rounded-[3px] bg-[#0b0f17] p-1.5 font-mono shadow-inner ring-1 ring-inset ring-sky-900/50">
+          {monitor ? (
+            <>
+              <div className="mb-1 flex items-center gap-1 text-[8px] uppercase tracking-wider text-sky-600">
+                <span className={monitor.status === "writing" ? "text-emerald-400" : "text-amber-400"}>
+                  {monitor.status === "writing" ? "✎ scrive" : "✷ pianifica"}
+                </span>
+                <span className="truncate text-slate-500">{monitor.path}</span>
+              </div>
+              {monitor.lines.map((l, i) => (
+                <div key={i} className="flex gap-1 text-[9px] leading-[1.35]">
+                  <span className="w-3 shrink-0 text-right text-slate-700">{i + 1}</span>
+                  <span className="truncate text-sky-200/90">
+                    {l}
+                    {i === monitor.lines.length - 1 && <span className="ml-0.5 animate-pulse text-emerald-300">█</span>}
+                  </span>
+                </div>
+              ))}
+              <div className="mt-1 text-[7px] text-slate-600">— {monitor.agentName} · {monitor.branch}</div>
+            </>
+          ) : (
+            <div className="py-3 text-center text-[9px] text-slate-700">// nessun agente al lavoro</div>
+          )}
+        </div>
+      </Html>
       <Bookshelf position={[-12, 0, -8.55]} />
       <FloorLamp position={[-11, 0, -1.6]} />
       <Plant position={[-1.6, 0, -7.5]} />
@@ -362,22 +393,24 @@ function SceneContents() {
       <SideTable position={[-9.4, 0, 2]} />
       <TableLamp position={[-9.4, 0.59, 2]} />
       <TVUnit position={[-12.5, 0, 4.5]} rotation={[0, Math.PI / 2, 0]} />
-      {/* live task ticker on the TV screen */}
+      {/* media wall — the "up next" board: tasks queued across all agents */}
       <Html position={[-12.0, 1.55, 4.5]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
         <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
-          <div className="mb-0.5 text-[8px] uppercase tracking-widest text-green-700">◉ SAMS live</div>
-          {workingAgent?.task ? (
-            <>
-              <div className="truncate text-[10px] leading-tight text-green-300">{workingAgent.task.title}</div>
-              <div className="mt-1 flex items-center gap-1">
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-green-950">
-                  <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${workingAgent.task.progress}%` }} />
+          <div className="mb-1 flex items-center justify-between text-[8px] uppercase tracking-widest text-green-700">
+            <span>◉ in coda</span>
+            <span>{queue.length}</span>
+          </div>
+          {queue.length ? (
+            <div className="flex flex-col gap-0.5">
+              {queue.map((q, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: AGENT_HEX[q.color] }} />
+                  <span className="truncate text-[9px] leading-tight text-green-300/90">{q.title}</span>
                 </div>
-                <span className="text-[8px] text-green-700">{workingAgent.task.progress}%</span>
-              </div>
-            </>
+              ))}
+            </div>
           ) : (
-            <div className="text-[9px] text-green-800">nessun task attivo_</div>
+            <div className="py-2 text-[9px] text-green-800">nessun task in coda_</div>
           )}
         </div>
       </Html>
