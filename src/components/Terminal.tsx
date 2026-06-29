@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
 import { assignRemote, backendEnabled, startSimMode, stopSimMode } from "../lib/backend";
 import { resolveAgentByToken } from "../lib/agentMatch";
+import { hasUnfilledPlaceholders } from "../lib/validation";
 import type { EnvironmentName } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -125,6 +126,7 @@ export function Terminal() {
         const who = rest[0];
         const task = rest.slice(1).join(" ");
         if (!who || !task) { push({ kind: "err", text: "uso: assign <agente> <task…>" }); break; }
+        if (hasUnfilledPlaceholders(task)) { push({ kind: "err", text: "il task contiene segnaposto non compilati ({…}) — sostituiscili prima di assegnare" }); break; }
         const a = resolveAgentByToken(s.agents, who);
         if (!a) { push({ kind: "err", text: `agente non trovato: ${who}` }); break; }
         s.assignTask(a.id, task, "");

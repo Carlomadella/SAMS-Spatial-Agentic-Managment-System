@@ -8,3 +8,12 @@
 export function isValidRepo(repo: string): boolean {
   return /^[\w.-]+\/[\w.-]+$/.test(repo.trim());
 }
+
+/**
+ * True when the text still contains an unfilled task-template placeholder such as
+ * `{argomento}` or `{pagina}`. Used to block assigning a template before its
+ * placeholders are replaced with real values.
+ */
+export function hasUnfilledPlaceholders(text: string): boolean {
+  return /\{[^}]+\}/.test(text);
+}

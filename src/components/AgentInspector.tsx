@@ -6,13 +6,11 @@ import { STATUS_META } from "../lib/meta";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
+import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
-
-/** Matches an unfilled task template placeholder, e.g. {argomento} or {pagina}. */
-const PLACEHOLDER_RE = /\{[^}]+\}/;
 
 /** Italian labels for the agent moods (shown in the energy tooltip). */
 const MOOD_LABEL: Record<string, string> = {
@@ -404,14 +402,14 @@ export function AgentInspector() {
             placeholder="feature/branch"
             className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
           />
-          {(PLACEHOLDER_RE.test(title) || PLACEHOLDER_RE.test(branch)) && (
+          {(hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)) && (
             <p className="text-[11px] leading-snug text-amber-400">
               Compila i segnaposto tra parentesi graffe (es. <code className="rounded bg-ink-700 px-1">{"{argomento}"}</code>,{" "}
               <code className="rounded bg-ink-700 px-1">{"{pagina}"}</code>) prima di assegnare il task.
             </p>
           )}
           <button
-            disabled={!title.trim() || PLACEHOLDER_RE.test(title) || PLACEHOLDER_RE.test(branch)}
+            disabled={!title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)}
             onClick={() => {
               const t = title.trim();
               const b = branch.trim();

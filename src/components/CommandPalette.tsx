@@ -17,6 +17,7 @@ import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
+import { hasUnfilledPlaceholders } from "../lib/validation";
 import { titleCase } from "../lib/utils";
 
 interface Command {
@@ -110,6 +111,7 @@ export function CommandPalette() {
   const quickAssign = useMemo<Command | null>(() => {
     const q = query.trim();
     if (!q) return null;
+    if (hasUnfilledPlaceholders(q)) return null; // don't assign an unfilled template
     const sel = agents.find((a) => a.id === selectedAgentId);
     if (!sel) return null;
     const backendOnline = useStore.getState().backendOnline;

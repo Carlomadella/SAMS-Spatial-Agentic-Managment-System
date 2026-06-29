@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidRepo } from "./validation";
+import { hasUnfilledPlaceholders, isValidRepo } from "./validation";
 
 describe("isValidRepo", () => {
   it("accepts a well-formed owner/repo slug", () => {
@@ -19,5 +19,22 @@ describe("isValidRepo", () => {
     expect(isValidRepo("owner /repo")).toBe(false);
     expect(isValidRepo("owner/repo name")).toBe(false);
     expect(isValidRepo("owner/")).toBe(false);
+  });
+});
+
+describe("hasUnfilledPlaceholders", () => {
+  it("detects an unfilled template placeholder", () => {
+    expect(hasUnfilledPlaceholders('Scrivi una guida su {argomento} nella pagina "{pagina}"')).toBe(true);
+    expect(hasUnfilledPlaceholders("Aggiungi test per {modulo}")).toBe(true);
+  });
+
+  it("returns false once placeholders are filled or absent", () => {
+    expect(hasUnfilledPlaceholders('Scrivi una guida su React nella pagina "Note"')).toBe(false);
+    expect(hasUnfilledPlaceholders("Correggi il bug del login")).toBe(false);
+    expect(hasUnfilledPlaceholders("")).toBe(false);
+  });
+
+  it("ignores empty braces (not a placeholder)", () => {
+    expect(hasUnfilledPlaceholders("usa interface{} in Go")).toBe(false);
   });
 });
