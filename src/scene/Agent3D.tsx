@@ -5,6 +5,8 @@ import * as THREE from "three";
 import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus } from "../types";
 import { useStore } from "../store/useStore";
+import { findPath } from "../lib/pathfind";
+import { OBSTACLES } from "../data/world";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
 const STATUS_HEX: Record<AgentStatus, string> = {
@@ -47,8 +49,19 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const celebrate = useRef(0); // 1 → 0 over ~0.5s, drives a bounce
   const headGroupRef = useRef<THREE.Group>(null);
   const idleTimer = useRef(0); // seconds idle, drives look-around animation
+  const wpIndex = useRef(0); // index into the current path's waypoints
 
   const [hovered, setHovered] = useState(false);
+
+  // Waypoints that steer around furniture; last entry is always the destination.
+  // Recomputed only when a new target is set (position is committed, not per-frame).
+  const path = useMemo(
+    () => (agent.target ? findPath(agent.position, agent.target, OBSTACLES) : []),
+    [agent.target, agent.position],
+  );
+  useEffect(() => {
+    wpIndex.current = 0;
+  }, [path]);
 
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
@@ -92,14 +105,21 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     if (!g) return;
     const d = Math.min(delta, 0.05); // guard against tab-switch spikes
 
-    const dest = agent.target ?? agent.position;
+    // Walk toward the current waypoint; the final waypoint is the destination.
+    const hasPath = agent.target != null && path.length > 0;
+    const wp = hasPath ? path[Math.min(wpIndex.current, path.length - 1)] : agent.position;
+    const dest = wp;
     const dx = dest[0] - cur.current.x;
     const dz = dest[1] - cur.current.z;
     const dist = Math.hypot(dx, dz);
     const moving = dist > 0.03;
 
-    if (agent.target && dist < 0.06) {
-      useStore.getState().arriveAgent(agent.id);
+    if (hasPath && dist < 0.08) {
+      if (wpIndex.current < path.length - 1) {
+        wpIndex.current++; // turn the corner toward the next waypoint
+      } else {
+        useStore.getState().arriveAgent(agent.id); // reached the destination
+      }
     }
 
     if (dist > 1e-4) {

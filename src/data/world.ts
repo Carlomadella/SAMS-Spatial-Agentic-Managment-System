@@ -1,4 +1,5 @@
 import type { Zone, Vec2 } from "../types";
+import type { Rect } from "../lib/pathfind";
 
 // ---------------------------------------------------------------------------
 // Static office layout. Coordinate system:
@@ -34,6 +35,22 @@ export const ZONE_BY_ID: Record<string, Zone> = Object.fromEntries(
 
 /** Where freshly spawned agents appear (near the entrance, front-right). */
 export const SPAWN_POINT: Vec2 = [4.5, 4.2];
+
+/**
+ * Floor footprints (axis-aligned) of the bulky furniture agents should walk
+ * around rather than through. Mirrors the layout in OfficeScene; only the pieces
+ * standing in the walkable middle of the room are listed (items flush against the
+ * back/left walls are out of every path). The pathfinder inflates these by the
+ * agent's clearance radius, so the footprints here are the raw extents.
+ */
+export const OBSTACLES: Rect[] = [
+  { minX: -2.9, maxX: 0.1, minZ: -0.95, maxZ: 0.55 }, // Sofa  @ (-1.4,-0.2)
+  { minX: -2.3, maxX: -0.5, minZ: 1.3, maxZ: 2.3 }, //   CoffeeTable @ (-1.4,1.8)
+  { minX: 1.8, maxX: 3.0, minZ: 1.3, maxZ: 2.5 }, //     Armchair @ (2.4,1.9)
+  { minX: -4.0, maxX: -3.2, minZ: -0.2, maxZ: 0.6 }, //  SideTable @ (-3.6,0.2)
+  { minX: 1.4, maxX: 2.0, minZ: -1.7, maxZ: -1.1 }, //   FloorLamp @ (1.7,-1.4)
+  { minX: 5.2, maxX: 7.2, minZ: 2.1, maxZ: 4.7 }, //     Desk @ (6.2,3.4)
+];
 
 /**
  * Pick a fitting zone for a task from keywords in its title, so an agent walks
