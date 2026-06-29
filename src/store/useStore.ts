@@ -195,7 +195,7 @@ export const useStore = create<State>()(
   events: seedEvents(),
   tasks: [],
   environment: "staging",
-  selectedAgentId: "agent-blue",
+  selectedAgentId: null,
 
   activity: "explorer",
   bottomTab: "eventlog",
@@ -440,7 +440,7 @@ export const useStore = create<State>()(
     set({
       agents: SEED_AGENTS.map((a) => ({ ...a })),
       events: seedEvents(),
-      selectedAgentId: "agent-blue",
+      selectedAgentId: null,
       environment: "staging",
     }),
 

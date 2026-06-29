@@ -62,9 +62,14 @@ function Floor() {
     if (!start) return;
     const moved = Math.hypot(e.nativeEvent.clientX - start.x, e.nativeEvent.clientY - start.y);
     if (moved > 6) return; // it was an orbit drag, not a click
-    const { selectedAgentId, moveAgent } = useStore.getState();
+    const { selectedAgentId, moveAgent, selectAgent } = useStore.getState();
     if (!selectedAgentId) return;
     e.stopPropagation();
+    if (e.nativeEvent.button === 2) {
+      // right-click on the floor unlocks from the agent (also frees the camera)
+      selectAgent(null);
+      return;
+    }
     moveAgent(selectedAgentId, [e.point.x, e.point.z] as Vec2);
   }
 
@@ -468,6 +473,7 @@ export function OfficeScene() {
       dpr={[1, 2]}
       camera={{ position: [13, 11, 14], fov: 32 }}
       gl={{ antialias: true }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <color attach="background" args={["#f3ece0"]} />
       <fog attach="fog" args={["#f3ece0", 30, 58]} />

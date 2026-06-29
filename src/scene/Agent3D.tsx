@@ -226,6 +226,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   });
 
   function onSelect(e: ThreeEvent<PointerEvent>) {
+    if (e.nativeEvent.button !== 0) return; // left-click locks; right-click is the unlock gesture
     e.stopPropagation();
     selectAgent(agent.id);
   }
