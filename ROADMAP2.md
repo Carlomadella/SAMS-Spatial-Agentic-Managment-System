@@ -68,10 +68,11 @@ collega.
       nell'inspector con visualizzazione e cancellazione; API REST GET/DELETE `/api/memory/:id`.
 - [ ] 💡 **Meta-agente** 🤯 — un agente il cui repo target *è SAMS stesso*: propone
       migliorie e apre PR sul progetto. Auto-miglioramento dimostrabile.
-- [ ] 💡 **Fame / nutrimento** 🍽️ — ogni agente ha un livello di *fame* che cresce
-      nel tempo; assegnargli un task lo sfama. Per tenerli "nutriti" devi dargli
-      lavoro: un bisogno alla Sims che lega il gameplay alla produttività reale.
-      (Si affianca a [[energia/mood]] già esistenti.)
+- [x] ✅ **Fame / nutrimento** 🍽️ — `Agent.hunger` (0 sazio … 100 affamato) cresce nel
+      tempo (`HungerBridge`, +1 ogni 7s → `growHunger`); assegnare un task **sfama**
+      (−45 in `assignTask`) e c'è uno spuntino manuale (`feedAgent`, pulsante 🍽️
+      nell'inspector). Un agente affamato (≥80) diventa `tired` (`moodFor` esteso con la
+      fame). Barra Fame nell'AgentInspector + indicatore 🍽️ in 3D quando ≥75. 4 test.
 
 ## 🔒 Fiducia & verifica (scommessa #2)
 - [x] ✅ **Diff preview in-app** — il pannello di approvazione mostra un vero diff
@@ -206,6 +207,18 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-29 — fame/nutrimento + pulizia seed
+- **Via le task fittizie dal seed** — gli agenti partono tutti `idle` senza task finte
+  (prima blue/purple erano "working" per sempre e non andavano a letto). Un agente con
+  una task **vera** resta a lavorare; gli altri di notte vanno a dormire — e ora si
+  **sdraiano** sul letto (Agent3D: `bodyRef` + posa orizzontale; sleeping basato sulla
+  posizione sul letto).
+- **Fame / nutrimento** 🍽️ — nuovo bisogno alla Sims: `Agent.hunger` cresce nel tempo
+  (`HungerBridge`/`growHunger`), assegnare un task sfama (`assignTask` −45), spuntino
+  manuale `feedAgent`. `moodFor` esteso: affamato ≥80 → `tired`. UI: barra Fame +
+  pulsante nell'AgentInspector, indicatore 🍽️ in scena. Migrazione persist back-fill di
+  `hunger`/`energy`. Test client 104 → 108. Typecheck, lint, build: verdi.
 
 ### 2026-06-29 — il mondo 3D prende vita: mobili, animazioni, suoni, handoff
 Quattro item del "feel The Sims" chiusi in sequenza (un commit ciascuno, sempre

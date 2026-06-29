@@ -19,6 +19,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 68,
+    hunger: 30,
     mood: "happy",
   },
   {
@@ -34,6 +35,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 80,
+    hunger: 52,
     mood: "happy",
   },
   {
@@ -49,6 +51,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 55,
+    hunger: 68,
     mood: "tired",
   },
   {
@@ -64,6 +67,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 45,
+    hunger: 40,
     mood: "tired",
   },
   {
@@ -79,6 +83,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 90,
+    hunger: 18,
     mood: "happy",
   },
   {
@@ -94,6 +99,7 @@ export const SEED_AGENTS: Agent[] = [
     task: null,
     taskQueue: [],
     energy: 100,
+    hunger: 12,
     mood: "happy",
   },
 ];

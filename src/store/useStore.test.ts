@@ -208,6 +208,39 @@ describe("energy & mood", () => {
   });
 });
 
+describe("hunger", () => {
+  const setHunger = (id: string, h: number) =>
+    useStore.setState((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, hunger: h } : a)) }));
+
+  it("growHunger raises every agent's hunger, capped at 100", () => {
+    const id = firstId();
+    setHunger(id, 99);
+    useStore.getState().growHunger(5);
+    expect(agent(id)!.hunger).toBe(100);
+  });
+
+  it("feedAgent lowers hunger, floored at 0", () => {
+    const id = firstId();
+    setHunger(id, 20);
+    useStore.getState().feedAgent(id, 50);
+    expect(agent(id)!.hunger).toBe(0);
+  });
+
+  it("assigning a task feeds the agent by 45", () => {
+    const id = firstId();
+    setHunger(id, 70);
+    useStore.getState().assignTask(id, "Fix the bug", "feature/x");
+    expect(agent(id)!.hunger).toBe(25);
+  });
+
+  it("a starving agent turns tired even at full energy", () => {
+    const id = firstId();
+    setHunger(id, 85);
+    useStore.getState().setStatus(id, "idle"); // energy 100 would normally be happy
+    expect(agent(id)!.mood).toBe("tired");
+  });
+});
+
 describe("agent lifecycle", () => {
   it("addAgent appends a uniquely-named agent and selects it", () => {
     const before = useStore.getState().agents.length;

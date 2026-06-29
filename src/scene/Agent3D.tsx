@@ -536,6 +536,13 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         </Html>
       )}
 
+      {/* hunger indicator — a hungry agent shows a plate until fed */}
+      {agent.hunger >= 75 && !sleeping && (
+        <Html position={[-0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
+          <div className="pointer-events-none select-none text-[14px] drop-shadow">🍽️</div>
+        </Html>
+      )}
+
       {/* sleeping indicator */}
       {sleeping && (
         <Html position={[0.4, 2.5, 0]} center distanceFactor={10} zIndexRange={[70, 50]} pointerEvents="none">

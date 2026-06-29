@@ -44,6 +44,7 @@ export function AgentInspector() {
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
+  const feedAgent = useStore((s) => s.feedAgent);
   const log = useStore((s) => s.log);
 
   const [title, setTitle] = useState("");
@@ -164,6 +165,30 @@ export function AgentInspector() {
               : agent.mood === "frustrated" ? "😤"
               : "😊"}
           </span>
+        </div>
+      )}
+
+      {/* hunger — grows over time; assigning a task (or a snack) feeds the agent */}
+      {agent.hunger != null && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-[10px] text-mut w-12 shrink-0">Fame</span>
+          <div className="relative flex-1 h-1.5 rounded-full bg-ink-700 overflow-hidden" title={agent.hunger >= 80 ? "Affamato" : agent.hunger >= 50 ? "Un po' affamato" : "Sazio"}>
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+              style={{
+                width: `${agent.hunger}%`,
+                background: agent.hunger >= 70 ? "#ef4444" : agent.hunger >= 40 ? "#eab308" : "#22c55e",
+              }}
+            />
+          </div>
+          <span className="text-[10px] text-mut w-7 text-right shrink-0">{agent.hunger}%</span>
+          <button
+            onClick={() => feedAgent(agent.id, 35)}
+            title="Dai uno spuntino"
+            className="text-[11px] leading-none transition-transform hover:scale-110 active:scale-95"
+          >
+            🍽️
+          </button>
         </div>
       )}
 

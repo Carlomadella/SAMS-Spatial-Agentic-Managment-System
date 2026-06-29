@@ -116,7 +116,10 @@ export interface Agent {
   pendingFiles?: PendingFile[];
   /** 0..100. Decreases during long tasks, recovers while idle. */
   energy: number;
-  /** Emotional state — changes based on task outcomes and energy level. */
+  /** 0..100 hunger (0 = sazio, 100 = affamato). Grows over time; assigning a
+   * task "feeds" the agent — keeping them fed means keeping them busy. */
+  hunger: number;
+  /** Emotional state — changes based on task outcomes, energy and hunger. */
   mood: AgentMood;
 }
 

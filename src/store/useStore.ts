@@ -82,6 +82,10 @@ interface State {
   assignTask: (id: string, title: string, branch: string) => void;
   updateProgress: (id: string, progress: number) => void;
   clearTask: (id: string) => void;
+  /** Increase every agent's hunger over time (driven by HungerBridge). */
+  growHunger: (amount: number) => void;
+  /** Reduce a single agent's hunger (e.g. a manual "snack"). */
+  feedAgent: (id: string, amount: number) => void;
   renameAgent: (id: string, name: string) => void;
   enqueueTask: (id: string, task: QueuedTask) => void;
   shiftQueue: (id: string) => void;
@@ -167,10 +171,11 @@ function uniqueName(agents: Agent[], color: AgentColor): string {
   return `${base}-${i}`;
 }
 
-/** Compute mood from status + energy — outcome signals take priority. */
-function moodFor(status: AgentStatus, energy: number, prevMood: AgentMood): AgentMood {
+/** Compute mood from status, energy and hunger — outcome signals take priority. */
+function moodFor(status: AgentStatus, energy: number, hunger: number, prevMood: AgentMood): AgentMood {
   if (status === "blocked") return "frustrated";
   if (status === "done" || status === "review") return "proud";
+  if (hunger >= 80) return "tired"; // starving wears the agent down
   if (status === "idle") return energy >= 70 ? "happy" : "focused";
   if (energy < 30) return "tired";
   if (status === "working" || status === "awaiting_approval") return "focused";
@@ -249,6 +254,7 @@ export const useStore = create<State>()(
       task: null,
       taskQueue: [],
       energy: 100,
+      hunger: 0,
       mood: "happy",
     };
     set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
@@ -301,7 +307,7 @@ export const useStore = create<State>()(
       agents: s.agents.map((x) => {
         if (x.id !== id) return x;
         const energy = status === "idle" ? Math.min(100, x.energy + 15) : x.energy;
-        return { ...x, status, energy, mood: moodFor(status, energy, x.mood) };
+        return { ...x, status, energy, mood: moodFor(status, energy, x.hunger, x.mood) };
       }),
     }));
     if (a) {
@@ -341,11 +347,18 @@ export const useStore = create<State>()(
       createdAt: Date.now(),
     };
     set((s) => ({
-      agents: s.agents.map((x) =>
-        x.id === id
-          ? { ...x, status: "working", task: { title, branch: branch || "main", progress: 0 } }
-          : x,
-      ),
+      agents: s.agents.map((x) => {
+        if (x.id !== id) return x;
+        // a fresh task feeds the agent (a need à la The Sims): keep them busy to keep them fed
+        const hunger = Math.max(0, x.hunger - 45);
+        return {
+          ...x,
+          status: "working",
+          task: { title, branch: branch || "main", progress: 0 },
+          hunger,
+          mood: moodFor("working", x.energy, hunger, x.mood),
+        };
+      }),
       tasks: [...s.tasks, rec].slice(-100),
     }));
     // walk to a fitting zone so work visibly "happens" somewhere
@@ -366,7 +379,7 @@ export const useStore = create<State>()(
         if (x.id !== id || !x.task) return x;
         const newEnergy = Math.max(0, x.energy - energyDrain);
         const newStatus = p >= 100 ? "done" as const : x.status;
-        const newMood = moodFor(newStatus, newEnergy, x.mood);
+        const newMood = moodFor(newStatus, newEnergy, x.hunger, x.mood);
         return { ...x, task: { ...x.task, progress: p }, status: newStatus, energy: newEnergy, mood: newMood };
       }),
       tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
@@ -386,11 +399,28 @@ export const useStore = create<State>()(
       agents: s.agents.map((x) => {
         if (x.id !== id) return x;
         const energy = Math.min(100, x.energy + 15);
-        return { ...x, task: null, status: "idle", energy, mood: moodFor("idle", energy, x.mood) };
+        return { ...x, task: null, status: "idle", energy, mood: moodFor("idle", energy, x.hunger, x.mood) };
       }),
     }));
     if (a) get().log({ agentId: id, agentName: a.name, color: a.color, level: "IDLE", message: "Task annullato · ora inattivo" });
   },
+
+  growHunger: (amount) =>
+    set((s) => ({
+      agents: s.agents.map((x) => {
+        const hunger = clamp(x.hunger + amount, 0, 100);
+        return { ...x, hunger, mood: moodFor(x.status, x.energy, hunger, x.mood) };
+      }),
+    })),
+
+  feedAgent: (id, amount) =>
+    set((s) => ({
+      agents: s.agents.map((x) => {
+        if (x.id !== id) return x;
+        const hunger = clamp(x.hunger - amount, 0, 100);
+        return { ...x, hunger, mood: moodFor(x.status, x.energy, hunger, x.mood) };
+      }),
+    })),
 
   renameAgent: (id, name) =>
     set((s) => ({
@@ -510,7 +540,7 @@ export const useStore = create<State>()(
               const energy = e.status === "idle"
                 ? Math.min(100, a.energy + 15)
                 : Math.max(0, a.energy - energyDrain);
-              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.mood) };
+              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.hunger, a.mood) };
             })
           : s.agents;
 
@@ -605,6 +635,8 @@ export const useStore = create<State>()(
             // back-fill fields added after initial persist (migration)
             if (a.instructions === undefined) a.instructions = "";
             if (a.taskQueue === undefined) a.taskQueue = [];
+            if (typeof a.energy !== "number") a.energy = 100;
+            if (typeof a.hunger !== "number") a.hunger = 0;
             // pending files are transient — never restore across reloads
             a.pendingFiles = undefined;
             // if agent was awaiting_approval before reload, reset to idle

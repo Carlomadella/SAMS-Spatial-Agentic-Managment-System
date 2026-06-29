@@ -242,6 +242,19 @@ function SoundToggle() {
   );
 }
 
+/**
+ * Hunger is a slow Sims-style need: every agent gets a little hungrier over time.
+ * Assigning a task "feeds" them (see assignTask), so keeping agents busy keeps
+ * them fed — a starving agent turns tired (see moodFor).
+ */
+function HungerBridge() {
+  useEffect(() => {
+    const id = setInterval(() => useStore.getState().growHunger(1), 7000);
+    return () => clearInterval(id);
+  }, []);
+  return null;
+}
+
 /** Agents that aren't actively working a task are "free" to live their life. */
 function isFreeAgent(a: { status: string; target: Vec2 | null }): boolean {
   return a.status !== "working" && a.status !== "awaiting_approval" && !a.target;
@@ -502,6 +515,7 @@ export default function App() {
       <RelayBridge />
       <LifeBridge />
       <TalkBridge />
+      <HungerBridge />
       <AudioBridge />
       <NotificationBridge />
       <ResponsiveBridge />
