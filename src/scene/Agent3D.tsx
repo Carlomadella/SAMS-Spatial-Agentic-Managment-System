@@ -6,7 +6,7 @@ import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
-import { OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
+import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -39,6 +39,7 @@ function shade(hex: string, amt: number) {
 
 export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
+  const bodyRef = useRef<THREE.Group>(null); // whole body: tips over to lie on the bed
   const charRef = useRef<THREE.Group>(null); // upper body: bob + lean
   const ringRef = useRef<THREE.Mesh>(null);
   const armLRef = useRef<THREE.Group>(null);
@@ -61,7 +62,11 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     const id = setInterval(() => setNightTime(isNightNow()), 30000);
     return () => clearInterval(id);
   }, []);
-  const sleeping = nightTime && agent.status === "idle" && !agent.task;
+  // Asleep when it's night and the agent has settled onto a bed (no matter its
+  // task status — at night everyone sleeps). Position-based so working agents
+  // that walked to bed also lie down.
+  const atBed = BEDS.some((b) => Math.hypot(agent.position[0] - b[0], agent.position[1] - b[1]) < 1.2);
+  const sleeping = nightTime && !agent.target && atBed;
 
   // Micro-activities for free agents: a coffee in the kitchen, a sketch at the
   // whiteboard, or an occasional stretch elsewhere. Purely visual, re-evaluated
@@ -170,8 +175,18 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     }
 
     const t = state.clock.elapsedTime;
-    const isTyping = agent.status === "working" && !moving;
     const sleepPose = sleeping && !moving; // asleep and settled in place
+    const isTyping = agent.status === "working" && !moving && !sleepPose;
+
+    // Lie down on the bed when asleep: tip the whole body onto its back, lift it
+    // onto the mattress and slide it toward the headboard; otherwise stand upright.
+    if (bodyRef.current) {
+      bodyRef.current.rotation.x = THREE.MathUtils.lerp(bodyRef.current.rotation.x, sleepPose ? -Math.PI / 2 : 0, 0.1);
+      bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, sleepPose ? 0.62 : 0, 0.1);
+      bodyRef.current.position.z = THREE.MathUtils.lerp(bodyRef.current.position.z, sleepPose ? 0.7 : 0, 0.1);
+    }
+    // a sleeping body lies straight along the bed (which runs north–south, z axis)
+    if (sleepPose) g.rotation.y = dampAngle(g.rotation.y, 0, 6, d);
 
     // Trigger a bounce when the agent finishes a task (working → review/done)
     if (agent.status !== prevStatus.current) {
@@ -198,8 +213,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     if (headGroupRef.current) {
       const lookY = !sleepPose && agent.status === "idle" && !moving ? Math.sin(t * 0.45) * idleFactor * 0.45 : 0;
       headGroupRef.current.rotation.y = THREE.MathUtils.lerp(headGroupRef.current.rotation.y, lookY, 0.04);
-      // nod the head down when asleep
-      headGroupRef.current.rotation.x = THREE.MathUtils.lerp(headGroupRef.current.rotation.x, sleepPose ? 0.5 : 0, 0.05);
+      // tuck the chin gently toward the pillow when asleep (body already horizontal)
+      headGroupRef.current.rotation.x = THREE.MathUtils.lerp(headGroupRef.current.rotation.x, sleepPose ? 0.18 : 0, 0.05);
     }
 
     // upper body: gentle breathing while asleep, otherwise bob with mood/activity
@@ -210,7 +225,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       charRef.current.position.y = bob + celebrateBump;
       charRef.current.rotation.x = THREE.MathUtils.lerp(
         charRef.current.rotation.x,
-        sleepPose ? 0.34 : moving ? 0.1 : isTyping ? 0.16 : 0,
+        sleepPose ? 0 : moving ? 0.1 : isTyping ? 0.16 : 0,
         0.09,
       );
     }
@@ -324,6 +339,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
 
       {/* the character (whole body is the click target) */}
       <group
+        ref={bodyRef}
         onPointerDown={onSelect}
         onPointerOver={(e) => {
           e.stopPropagation();

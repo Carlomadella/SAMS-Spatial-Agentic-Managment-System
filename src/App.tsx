@@ -259,16 +259,18 @@ function LifeBridge() {
     const tick = () => {
       const st = useStore.getState();
       const night = isNightNow();
+      // Only "free" agents live a life: an agent on a real task keeps working,
+      // day or night — it doesn't get dragged to bed.
       const free = st.agents.filter(isFreeAgent);
       for (const a of free) {
         if (night) {
-          // settle into a bed (stable per-agent assignment) and stay there asleep
+          // settle into a stable per-agent bed and sleep there
           const idx = st.agents.findIndex((x) => x.id === a.id);
           const bed = BEDS[idx % BEDS.length];
           if (!near(a.position, bed)) st.moveAgent(a.id, bed);
         } else if (Math.random() < 0.5) {
-          // daytime: roam — sometimes specifically for a coffee or to the
-          // whiteboard (where Agent3D plays the matching micro-animation).
+          // daytime: roam — sometimes for a coffee or to the whiteboard (where
+          // Agent3D plays the matching micro-animation).
           const r = Math.random();
           const dest =
             r < 0.22 ? ZONE_BY_ID.kitchen.position
