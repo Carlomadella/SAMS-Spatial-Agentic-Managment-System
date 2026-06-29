@@ -16,6 +16,8 @@ import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./lib/orchestration";
+import { BEDS, isNightNow, randomWalkPoint } from "./data/world";
+import type { Vec2 } from "./types";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
 // IDE shell paints immediately.
@@ -152,54 +154,34 @@ function RelayBridge() {
 }
 
 /**
- * Sends idle agents to the lounge zone when they've had nothing to do for 15 s.
- * Cancels if the agent gets a task or enters a non-idle status before the timer fires.
+ * Gives idle agents a life: by day they wander to a random spot in the house
+ * every so often; after 23:00 they head to a bed and sleep until morning (or
+ * until you give them a task). Runs on a slow tick so movement feels organic.
  */
-function IdleBridge() {
+function LifeBridge() {
   useEffect(() => {
-    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const near = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.6;
 
-    function schedule(id: string) {
-      if (timers.has(id)) return;
-      timers.set(id, setTimeout(() => {
-        timers.delete(id);
-        const fresh = useStore.getState().agents.find((x) => x.id === id);
-        if (fresh && isIdleEligible(fresh) && !fresh.target) {
-          useStore.getState().sendToZone(fresh.id, "lounge");
+    const tick = () => {
+      const st = useStore.getState();
+      const night = isNightNow();
+      const idle = st.agents.filter((a) => isIdleEligible(a) && !a.target);
+      for (const a of idle) {
+        if (night) {
+          // settle into a bed (stable per-agent assignment) and stay there asleep
+          const idx = st.agents.findIndex((x) => x.id === a.id);
+          const bed = BEDS[idx % BEDS.length];
+          if (!near(a.position, bed)) st.moveAgent(a.id, bed);
+        } else if (Math.random() < 0.45) {
+          // daytime: occasionally roam to another room
+          st.moveAgent(a.id, randomWalkPoint());
         }
-      }, 15000));
-    }
-
-    function cancel(id: string) {
-      const t = timers.get(id);
-      if (t) { clearTimeout(t); timers.delete(id); }
-    }
-
-    // seed timers for agents already idle on mount (stagger to avoid synchronised drift)
-    for (const a of useStore.getState().agents) {
-      if (isIdleEligible(a)) {
-        // deterministic per-agent delay so agents don't all walk at once.
-        // Use the last char: every id shares the "agent-" prefix, so charCodeAt(0)
-        // would be identical for all and defeat the stagger.
-        const jitter = (a.id.charCodeAt(a.id.length - 1) % 8) * 1000;
-        setTimeout(() => schedule(a.id), jitter);
       }
-    }
-
-    const unsub = useStore.subscribe((s, prev) => {
-      for (const a of s.agents) {
-        const p = prev.agents.find((x) => x.id === a.id);
-        const wasElig = !!p && isIdleEligible(p);
-        const isElig = isIdleEligible(a);
-        if (isElig && !wasElig) schedule(a.id);
-        else if (!isElig) cancel(a.id);
-      }
-    });
-
-    return () => {
-      unsub();
-      timers.forEach(clearTimeout);
     };
+
+    tick();
+    const id = setInterval(tick, 6000);
+    return () => clearInterval(id);
   }, []);
   return null;
 }
@@ -363,7 +345,7 @@ export default function App() {
       <OnboardingWizard />
       <QueueBridge />
       <RelayBridge />
-      <IdleBridge />
+      <LifeBridge />
       <NotificationBridge />
       <ResponsiveBridge />
       <SimBridge />

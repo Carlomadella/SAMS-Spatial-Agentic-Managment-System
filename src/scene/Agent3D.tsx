@@ -6,7 +6,7 @@ import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
-import { OBSTACLES } from "../data/world";
+import { OBSTACLES, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -53,6 +53,12 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const wpIndex = useRef(0); // index into the current path's waypoints
 
   const [hovered, setHovered] = useState(false);
+  const [nightTime, setNightTime] = useState(isNightNow);
+  useEffect(() => {
+    const id = setInterval(() => setNightTime(isNightNow()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const sleeping = nightTime && agent.status === "idle" && !agent.task;
 
   // Waypoints that steer around furniture; last entry is always the destination.
   // Recomputed only when a new target is set (position is committed, not per-frame).
@@ -139,6 +145,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
 
     const t = state.clock.elapsedTime;
     const isTyping = agent.status === "working" && !moving;
+    const sleepPose = sleeping && !moving; // asleep and settled in place
 
     // Trigger a bounce when the agent finishes a task (working → review/done)
     if (agent.status !== prevStatus.current) {
@@ -155,25 +162,29 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     }
     const celebrateBump = celebrate.current > 0 ? Math.sin(celebrate.current * Math.PI) * 0.55 : 0;
 
-    // idle look-around: build up over 4 s, decay fast when agent gets busy
-    if (agent.status === "idle" && !moving) {
+    // idle look-around: build up over 4 s, decay fast when agent gets busy (never while asleep)
+    if (agent.status === "idle" && !moving && !sleepPose) {
       idleTimer.current = Math.min(idleTimer.current + d, 60);
     } else {
       idleTimer.current = Math.max(0, idleTimer.current - d * 3);
     }
     const idleFactor = Math.min(1, idleTimer.current / 4);
     if (headGroupRef.current) {
-      const lookY = agent.status === "idle" && !moving ? Math.sin(t * 0.45) * idleFactor * 0.45 : 0;
+      const lookY = !sleepPose && agent.status === "idle" && !moving ? Math.sin(t * 0.45) * idleFactor * 0.45 : 0;
       headGroupRef.current.rotation.y = THREE.MathUtils.lerp(headGroupRef.current.rotation.y, lookY, 0.04);
+      // nod the head down when asleep
+      headGroupRef.current.rotation.x = THREE.MathUtils.lerp(headGroupRef.current.rotation.x, sleepPose ? 0.5 : 0, 0.05);
     }
 
-    // upper body: bob slightly deeper when bored
-    const bob = moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * (0.02 + idleFactor * 0.012);
+    // upper body: gentle breathing while asleep, otherwise bob with mood/activity
+    const bob = sleepPose
+      ? Math.sin(t * 1.4) * 0.012
+      : moving ? Math.sin(t * 10) * 0.05 : isTyping ? Math.sin(t * 8) * 0.025 : Math.sin(t * 2.2) * (0.02 + idleFactor * 0.012);
     if (charRef.current) {
       charRef.current.position.y = bob + celebrateBump;
       charRef.current.rotation.x = THREE.MathUtils.lerp(
         charRef.current.rotation.x,
-        moving ? 0.1 : isTyping ? 0.16 : 0,
+        sleepPose ? 0.34 : moving ? 0.1 : isTyping ? 0.16 : 0,
         0.09,
       );
     }
@@ -201,9 +212,9 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       }
     }
 
-    // blink (eyes squash on their own y axis)
+    // blink (eyes squash on their own y axis) — closed while asleep
     const bt = (t + blinkPhase) % 3.6;
-    const ey = bt > 3.42 && bt < 3.54 ? 0.12 : 1;
+    const ey = sleepPose ? 0.1 : bt > 3.42 && bt < 3.54 ? 0.12 : 1;
     if (eyeLRef.current) eyeLRef.current.scale.y = ey;
     if (eyeRRef.current) eyeRRef.current.scale.y = ey;
 
@@ -441,6 +452,15 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           <div className="pointer-events-none relative max-w-[180px] select-none rounded-2xl border border-white/10 bg-ink-900/95 px-2.5 py-1.5 text-center text-[11px] leading-snug text-slate-100 shadow-panel">
             {bubble}
             <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-white/10 bg-ink-900/95" />
+          </div>
+        </Html>
+      )}
+
+      {/* sleeping indicator */}
+      {sleeping && (
+        <Html position={[0.4, 2.5, 0]} center distanceFactor={10} zIndexRange={[70, 50]} pointerEvents="none">
+          <div className="pointer-events-none select-none text-[15px] font-bold tracking-tight text-sky-200/90 drop-shadow">
+            z<span className="text-[12px]">z</span><span className="text-[9px]">z</span>
           </div>
         </Html>
       )}

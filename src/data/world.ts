@@ -123,3 +123,9 @@ export function randomWalkPoint(): Vec2 {
   const rooms = Object.keys(ROOMS) as (keyof typeof ROOMS)[];
   return randomRoomPoint(rooms[Math.floor(Math.random() * rooms.length)]);
 }
+
+/** Agents sleep at night: 23:00–07:00 local time. */
+export function isNightNow(): boolean {
+  const h = new Date().getHours();
+  return h >= 23 || h < 7;
+}
