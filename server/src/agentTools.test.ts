@@ -45,6 +45,8 @@ describe("buildToolSpecs gating", () => {
     const names = buildToolSpecs(baseSettings, { repoEnabled: false, notionEnabled: true }).map((t) => t.name);
     expect(names).toContain("notion_write");
     expect(names).toContain("notion_create_page");
+    expect(names).toContain("notion_add_row");
+    expect(names).toContain("notion_update_row");
     expect(names).not.toContain("gh_read_file");
   });
 

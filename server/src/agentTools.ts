@@ -24,11 +24,13 @@ import {
   writeFilesAtomic,
 } from "./github";
 import {
+  addDatabaseRow,
   appendTaskLog,
   appendToPageByTitle,
   createPage as notionCreatePage,
   readPageByTitle,
   replacePageByTitle,
+  updateDatabaseRow,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
 import { db, listMemory, logTask, setMemory } from "./db";
@@ -250,6 +252,39 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
             content: { type: "string", description: "Nuovo contenuto markdown completo" },
           },
           required: ["page_title", "content"],
+        },
+      },
+      {
+        name: "notion_add_row",
+        description:
+          "Aggiungi una riga a un database Notion (trovato per titolo). 'fields' mappa i nomi delle proprietà ai valori (stringhe); il tipo è dedotto dallo schema del database (title/rich_text/number/select/multi_select/url/checkbox/date). Le proprietà non presenti nello schema vengono ignorate.",
+        schema: {
+          type: "object",
+          properties: {
+            database_title: { type: "string", description: "Titolo del database Notion" },
+            fields: {
+              type: "object",
+              description: "Mappa nome-proprietà → valore (es. {\"Nome\": \"X\", \"Stato\": \"Fatto\"})",
+            },
+          },
+          required: ["database_title", "fields"],
+        },
+      },
+      {
+        name: "notion_update_row",
+        description:
+          "Aggiorna una riga esistente in un database Notion (trovato per titolo). La riga è individuata confrontando 'match' con la proprietà titolo (match esatto, poi contains case-insensitive). 'fields' mappa i nomi delle proprietà ai nuovi valori; il tipo è dedotto dallo schema. Le proprietà non presenti nello schema vengono ignorate.",
+        schema: {
+          type: "object",
+          properties: {
+            database_title: { type: "string", description: "Titolo del database Notion" },
+            match: { type: "string", description: "Valore del titolo della riga da aggiornare" },
+            fields: {
+              type: "object",
+              description: "Mappa nome-proprietà → nuovo valore (es. {\"Stato\": \"Fatto\"})",
+            },
+          },
+          required: ["database_title", "match", "fields"],
         },
       },
     );
@@ -519,6 +554,21 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       ctx.notionWrote = true;
       result = `Pagina "${replaced}" sostituita`;
       emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion ↺ "${replaced}"` });
+    } else if (name === "notion_add_row") {
+      const fields = (args.fields ?? {}) as Record<string, string>;
+      const dbTitle = str(args.database_title);
+      const row = await addDatabaseRow(dbTitle, fields);
+      ctx.notionWrote = true;
+      result = `Riga aggiunta al database "${row.resolvedTitle}": ${row.url}`;
+      emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion DB ← riga in "${row.resolvedTitle}"` });
+    } else if (name === "notion_update_row") {
+      const fields = (args.fields ?? {}) as Record<string, string>;
+      const dbTitle = str(args.database_title);
+      const match = str(args.match);
+      const row = await updateDatabaseRow(dbTitle, match, fields);
+      ctx.notionWrote = true;
+      result = `Riga "${match}" aggiornata nel database "${row.resolvedTitle}": ${row.url}`;
+      emit({ agentId, agentName, progress, level: "SUCCESS", message: `Notion DB ↺ riga "${match}" in "${row.resolvedTitle}"` });
     } else if (name === "remember") {
       const key = str(args.key);
       const value = str(args.value);

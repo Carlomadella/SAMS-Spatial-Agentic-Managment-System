@@ -262,6 +262,155 @@ export async function replacePageByTitle(title: string, content: string): Promis
   return page.title;
 }
 
+/** Find a database by (fuzzy) title shared with the integration. */
+export async function findDatabaseByTitle(title: string): Promise<{ id: string; title: string }> {
+  const data = (await notion(`/search`, {
+    method: "POST",
+    body: JSON.stringify({ query: title, filter: { value: "database", property: "object" }, page_size: 25 }),
+  })) as { results?: Array<Record<string, unknown>> };
+  const results = data.results ?? [];
+  if (results.length === 0) throw new Error(`database "${title}" non trovato o non condiviso con l'integrazione`);
+  const want = title.trim().toLowerCase();
+  const dbTitle = (db: Record<string, unknown>): string => {
+    const t = db.title as Array<{ plain_text?: string }> | undefined;
+    return Array.isArray(t) ? t.map((x) => x.plain_text ?? "").join("") : "";
+  };
+  const exact = results.find((d) => dbTitle(d).trim().toLowerCase() === want);
+  const chosen = exact ?? results.find((d) => dbTitle(d).toLowerCase().includes(want)) ?? results[0];
+  return { id: String(chosen.id), title: dbTitle(chosen) || title };
+}
+
+/** Database property schema: a map of property name → its Notion type. */
+export type DatabaseSchema = Record<string, { type?: string }>;
+
+/**
+ * Build a Notion `properties` object from a flat `fields` map of string values,
+ * inferring each property's type from the database schema (title / rich_text /
+ * number / select / multi_select / url / checkbox / date). Properties not present
+ * in the schema are ignored so a typo never aborts the whole write; a `number`
+ * field that isn't numeric is skipped rather than sent as NaN. Pure (no I/O) so
+ * it can be unit-tested directly.
+ */
+export function buildDatabaseProps(
+  schema: DatabaseSchema,
+  fields: Record<string, string>,
+): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  for (const [name, raw] of Object.entries(fields)) {
+    const def = schema[name];
+    if (!def?.type) continue; // unknown property — skip rather than fail
+    const value = String(raw);
+    switch (def.type) {
+      case "title":
+        props[name] = { title: [{ type: "text", text: { content: value.slice(0, 2000) } }] };
+        break;
+      case "rich_text":
+        props[name] = { rich_text: [{ type: "text", text: { content: value.slice(0, 2000) } }] };
+        break;
+      case "number": {
+        const n = Number(value);
+        if (!Number.isNaN(n)) props[name] = { number: n };
+        break;
+      }
+      case "select":
+        props[name] = { select: { name: value } };
+        break;
+      case "multi_select":
+        props[name] = { multi_select: value.split(",").map((v) => ({ name: v.trim() })).filter((v) => v.name) };
+        break;
+      case "url":
+        props[name] = { url: value };
+        break;
+      case "checkbox":
+        props[name] = { checkbox: /^(true|yes|sì|si|1|x)$/i.test(value.trim()) };
+        break;
+      case "date":
+        props[name] = { date: { start: value } };
+        break;
+      default:
+        break; // unsupported type — skip
+    }
+  }
+  return props;
+}
+
+/** Fetch a database's property schema (name → type). */
+async function fetchDatabaseSchema(dbId: string): Promise<DatabaseSchema> {
+  const meta = (await notion(`/databases/${pageId(dbId)}`)) as { properties?: DatabaseSchema };
+  return meta.properties ?? {};
+}
+
+/** Name of the (single) `title` property in a database schema, if any. */
+function titlePropName(schema: DatabaseSchema): string | undefined {
+  return Object.keys(schema).find((name) => schema[name]?.type === "title");
+}
+
+function pageUrl(page: { id: string; url?: string }): string {
+  return page.url ?? `https://notion.so/${page.id.replace(/-/g, "")}`;
+}
+
+/**
+ * Add a row to a Notion database (found by title). `fields` maps property names
+ * to string values; types are inferred from the schema via {@link buildDatabaseProps}.
+ */
+export async function addDatabaseRow(
+  databaseTitle: string,
+  fields: Record<string, string>,
+): Promise<{ url: string; resolvedTitle: string }> {
+  const db = await findDatabaseByTitle(databaseTitle);
+  const schema = await fetchDatabaseSchema(db.id);
+  const props = buildDatabaseProps(schema, fields);
+
+  const page = (await notion(`/pages`, {
+    method: "POST",
+    body: JSON.stringify({ parent: { database_id: pageId(db.id) }, properties: props }),
+  })) as { id: string; url?: string };
+  return { url: pageUrl(page), resolvedTitle: db.title };
+}
+
+/**
+ * Update an existing row in a Notion database (found by title). The row is located
+ * by matching `matchValue` against the database's title property (exact match,
+ * then case-insensitive `contains`). `fields` is applied with the same type
+ * inference as {@link addDatabaseRow}. Throws if no matching row is found.
+ */
+export async function updateDatabaseRow(
+  databaseTitle: string,
+  matchValue: string,
+  fields: Record<string, string>,
+): Promise<{ url: string; resolvedTitle: string }> {
+  const db = await findDatabaseByTitle(databaseTitle);
+  const schema = await fetchDatabaseSchema(db.id);
+  const titleProp = titlePropName(schema);
+  if (!titleProp) throw new Error(`database "${db.title}" non ha una proprietà di tipo title`);
+
+  const query = (await notion(`/databases/${pageId(db.id)}/query`, {
+    method: "POST",
+    body: JSON.stringify({
+      filter: { property: titleProp, title: { contains: matchValue } },
+      page_size: 25,
+    }),
+  })) as { results?: Array<{ id: string; properties?: Record<string, unknown> }> };
+  const rows = query.results ?? [];
+
+  const rowTitle = (row: { properties?: Record<string, unknown> }): string => {
+    const prop = row.properties?.[titleProp] as { title?: Array<{ plain_text?: string }> } | undefined;
+    return Array.isArray(prop?.title) ? prop.title.map((x) => x.plain_text ?? "").join("") : "";
+  };
+  const want = matchValue.trim().toLowerCase();
+  const target =
+    rows.find((r) => rowTitle(r).trim().toLowerCase() === want) ??
+    rows.find((r) => rowTitle(r).toLowerCase().includes(want));
+  if (!target) throw new Error(`nessuna riga con titolo "${matchValue}" nel database "${db.title}"`);
+
+  const props = buildDatabaseProps(schema, fields);
+  const page = (await notion(`/pages/${pageId(target.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ properties: props }),
+  })) as { id: string; url?: string };
+  return { url: pageUrl(page), resolvedTitle: db.title };
+}
+
 /** Append a one-line task-log bullet to the configured log page. */
 export async function appendTaskLog(entry: {
   agentName: string;

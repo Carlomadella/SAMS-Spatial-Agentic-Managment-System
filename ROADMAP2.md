@@ -93,7 +93,12 @@ collega.
       aggiornato a usare `writeFilesAtomic`.
 - [x] ✅ **GitHub: merge / è-mergeabile / stato check** — strumenti `gh_pr_status`
       (mergeable + check CI, sola lettura) e `gh_merge_pr` (merge/squash/rebase).
-- [ ] 💡 **Notion: database** (creare/aggiornare righe), non solo pagine.
+- [x] ✅ **Notion: database** (creare/aggiornare righe), non solo pagine. Due tool:
+      `notion_add_row` (aggiunge una riga a un DB trovato per titolo) e
+      `notion_update_row` (aggiorna una riga esistente, individuata per la proprietà
+      titolo). I tipi delle proprietà sono dedotti dallo schema del DB
+      (title/rich_text/number/select/multi_select/url/checkbox/date) dalla funzione
+      pura testata `buildDatabaseProps`; le proprietà fuori schema sono ignorate.
 - [ ] 💡 **Webhook in ingresso** — eventi GitHub (push/PR/CI) che svegliano gli agenti.
 - [ ] 💡 **Sfruttare gli MCP** — report su Google Drive, eventi su Calendar, grafiche su
       Canva come strumenti agente.
@@ -172,6 +177,19 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-29 — Notion database + fix lint
+- **Fix lint**: `eslint.config.js` ignorava `dist`/`node_modules` ma non i file
+  generati di coverage → 3 warning su `server/coverage/*.js`. Aggiunto `**/coverage`
+  agli `ignores`; `eslint .` di nuovo pulito.
+- **Notion DB (creare/aggiornare righe)** — completato l'item "Notion: database".
+  Logica di mapping `fields → properties` estratta nella funzione **pura** esportata
+  `buildDatabaseProps(schema, fields)` (riuso condiviso fra create e update),
+  con 7 test in `notion.test.ts` (un tipo per asserzione, skip schema/NaN/tipi non
+  supportati, troncamento 2000). Nuovo tool **`notion_update_row`** (oltre al già
+  presente `notion_add_row`): trova la riga per la proprietà titolo
+  (`/databases/{id}/query`, match esatto poi `contains`) e applica `PATCH /pages/{id}`.
+  Test di gating esteso. Test server: **101 → 108**. Typecheck, lint, test: verdi.
 
 ### 2026-06-28 — sessione 3: profondità e UX (14 migliorie)
 Feature implementate in sequenza (tutte con typecheck + test verdi):

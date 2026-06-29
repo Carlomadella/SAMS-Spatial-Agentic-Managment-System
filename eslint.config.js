@@ -14,6 +14,7 @@ export default tseslint.config(
       "dist",
       "node_modules",
       "server/node_modules",
+      "**/coverage",
       "**/*.tsbuildinfo",
       "playwright-report",
       "test-results",
