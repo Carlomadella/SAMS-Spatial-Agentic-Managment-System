@@ -12,7 +12,7 @@ import { StagedFileDiff } from "./StagedFileDiff";
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
 const AGENT_ROLES = [
-  { id: "Generalist", label: "Generalist", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
+  { id: "Generalist", label: "Generalista", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
   { id: "Revisore", label: "Revisore", desc: "Legge il codice e documenta osservazioni su Notion; non modifica file" },
   { id: "Tester", label: "Tester", desc: "Scrive file di test seguendo le convenzioni del repo" },
   { id: "Documentatore", label: "Documentatore", desc: "Aggiorna README, file .md e pagine Notion" },
@@ -80,7 +80,7 @@ export function AgentInspector() {
       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-mut">
         <MousePointerClick size={22} />
         <p className="text-[12px] leading-relaxed">
-          Select an agent in the scene, the minimap or the explorer to inspect and command it.
+          Seleziona un agente nella scena, nella minimappa o nell&apos;esploratore per ispezionarlo e comandarlo.
         </p>
       </div>
     );
@@ -105,7 +105,7 @@ export function AgentInspector() {
           ))}
         </select>
         <button
-          title="Remove agent"
+          title="Rimuovi agente"
           onClick={() => removeAgent(agent.id)}
           className="flex h-7 w-7 items-center justify-center rounded-md text-rose-300/80 hover:bg-rose-500/15 hover:text-rose-300"
         >
@@ -118,7 +118,7 @@ export function AgentInspector() {
         <select
           value={agent.role}
           onChange={(e) => setRole(agent.id, e.target.value)}
-          title="Agent role — shapes the system prompt"
+          title="Ruolo agente — modella il system prompt"
           className="chip cursor-pointer border border-line bg-ink-700 text-slate-300 outline-none focus:border-brand/50"
         >
           {AGENT_ROLES.map((r) => (
@@ -161,8 +161,8 @@ export function AgentInspector() {
       <input
         value={agent.name}
         onChange={(e) => renameAgent(agent.id, e.target.value)}
-        placeholder="Agent name…"
-        title="Click to rename"
+        placeholder="Nome agente…"
+        title="Clicca per rinominare"
         className="mt-2 w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-[13px] font-medium text-slate-300 outline-none transition-colors hover:border-line focus:border-brand/50 focus:bg-ink-800"
       />
 
@@ -307,7 +307,7 @@ export function AgentInspector() {
 
             <div className="mt-2">
               <div className="mb-1 flex items-center justify-between text-[11px]">
-                <span className="text-mut">Progress</span>
+                <span className="text-mut">Avanzamento</span>
                 <span className="font-mono text-slate-200">{agent.task.progress}%</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
@@ -328,7 +328,7 @@ export function AgentInspector() {
                 onClick={() => clearTask(agent.id)}
                 className="mt-1 text-[11px] text-mut hover:text-rose-300"
               >
-                Clear task
+                Annulla task
               </button>
             </div>
           </div>
@@ -383,7 +383,7 @@ export function AgentInspector() {
             ref={titleRef}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Task title…"
+            placeholder="Titolo del task…"
             className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
           />
           <input
@@ -417,7 +417,7 @@ export function AgentInspector() {
           >
             {agent.task
               ? <><Plus size={13} /> Aggiungi alla coda</>
-              : <><Send size={13} /> {backendEnabled ? "Assign task (live)" : "Assign task"}</>
+              : <><Send size={13} /> {backendEnabled ? "Assegna task (live)" : "Assegna task"}</>
             }
           </button>
         </div>
@@ -425,7 +425,7 @@ export function AgentInspector() {
 
       {/* status quick set */}
       <div className="mt-3">
-        <div className="mb-1.5 text-[11px] font-medium text-mut">Status</div>
+        <div className="mb-1.5 text-[11px] font-medium text-mut">Stato</div>
         <div className="flex flex-wrap gap-1">
           {STATUSES.map((s) => (
             <button
@@ -446,7 +446,7 @@ export function AgentInspector() {
 
       {/* dispatch */}
       <div className="mt-3">
-        <div className="mb-1.5 text-[11px] font-medium text-mut">Dispatch to zone</div>
+        <div className="mb-1.5 text-[11px] font-medium text-mut">Invia a una zona</div>
         <select
           value=""
           onChange={(e) => {
@@ -455,7 +455,7 @@ export function AgentInspector() {
           }}
           className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"
         >
-          <option value="">Send to…</option>
+          <option value="">Invia a…</option>
           {ZONES.map((z) => (
             <option key={z.id} value={z.id} className="bg-ink-800">
               {z.label} · {z.sublabel}

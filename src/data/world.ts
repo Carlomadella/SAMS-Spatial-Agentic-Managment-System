@@ -21,12 +21,12 @@ export const ROOM_DEPTH = ROOM.maxZ - ROOM.minZ;
 
 /** Points of interest the user can dispatch agents to. */
 export const ZONES: Zone[] = [
-  { id: "desk", label: "Work Desk", sublabel: "Active Compute", position: [1.2, 2.7] },
-  { id: "whiteboard", label: "Reading Nook", sublabel: "Ideas & Planning", position: [-1.8, -3.0] },
-  { id: "kanban", label: "Media Wall", sublabel: "Work Items", position: [5.4, -3.0] },
-  { id: "vault", label: "Sideboard", sublabel: "Secure Storage", position: [-6.4, -3.4] },
-  { id: "gate", label: "Front Door", sublabel: "Access Granted", position: [6.8, 0.6] },
-  { id: "lounge", label: "Lounge", sublabel: "Idle", position: [-5.4, 3.2] },
+  { id: "desk", label: "Scrivania", sublabel: "Calcolo attivo", position: [1.2, 2.7] },
+  { id: "whiteboard", label: "Angolo lettura", sublabel: "Idee e pianificazione", position: [-1.8, -3.0] },
+  { id: "kanban", label: "Parete media", sublabel: "Elementi di lavoro", position: [5.4, -3.0] },
+  { id: "vault", label: "Credenza", sublabel: "Archivio sicuro", position: [-6.4, -3.4] },
+  { id: "gate", label: "Porta d'ingresso", sublabel: "Accesso consentito", position: [6.8, 0.6] },
+  { id: "lounge", label: "Salotto", sublabel: "Inattivo", position: [-5.4, 3.2] },
 ];
 
 export const ZONE_BY_ID: Record<string, Zone> = Object.fromEntries(

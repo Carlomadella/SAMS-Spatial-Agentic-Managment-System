@@ -20,7 +20,7 @@ function CadView() {
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader title="Spatial CAD · Zones" />
+      <PanelHeader title="CAD spaziale · Zone" />
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
         {ZONES.map((z) => (
           <button
@@ -37,7 +37,7 @@ function CadView() {
           </button>
         ))}
         <p className="px-2 pt-2 text-[11px] leading-relaxed text-mut">
-          Select an agent, then pick a zone to dispatch it there.
+          Seleziona un agente, poi scegli una zona per inviarlo lì.
         </p>
       </div>
     </div>
@@ -53,11 +53,11 @@ function ExtensionsView() {
   // Each "extension" reflects a real capability and its live state, instead of
   // a hardcoded on/off flag.
   const exts: { name: string; desc: string; state: "on" | "live" | "off" }[] = [
-    { name: "Spatial CAD", desc: "3D office layout & zones", state: "on" },
-    { name: "Agent Runtime", desc: "Lifecycle & task scheduling", state: runtimeReady ? "on" : "off" },
-    { name: "Security Gate", desc: "Diff approval before commit", state: "on" },
-    { name: "Event Stream", desc: "Live workspace telemetry (SSE)", state: backendOnline ? "live" : "off" },
-    { name: "Live Simulation", desc: "Agents pull GitHub issues autonomously", state: simMode ? "live" : "off" },
+    { name: "CAD spaziale", desc: "Layout 3D dell'ufficio e zone", state: "on" },
+    { name: "Runtime agenti", desc: "Ciclo di vita e scheduling dei task", state: runtimeReady ? "on" : "off" },
+    { name: "Gate di sicurezza", desc: "Approvazione del diff prima del commit", state: "on" },
+    { name: "Stream eventi", desc: "Telemetria live dell'area di lavoro (SSE)", state: backendOnline ? "live" : "off" },
+    { name: "Simulazione live", desc: "Gli agenti prendono le issue GitHub in autonomia", state: simMode ? "live" : "off" },
   ];
 
   const chip: Record<string, string> = {
@@ -65,11 +65,11 @@ function ExtensionsView() {
     live: "bg-brand/15 text-brand-soft",
     off: "bg-ink-700 text-mut",
   };
-  const label: Record<string, string> = { on: "Enabled", live: "Live", off: "Off" };
+  const label: Record<string, string> = { on: "Attiva", live: "Live", off: "Off" };
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader title="Extensions" />
+      <PanelHeader title="Estensioni" />
       <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-3">
         {exts.map((e) => (
           <div key={e.name} className="flex items-start gap-2 rounded-md border border-line bg-ink-850 p-2">

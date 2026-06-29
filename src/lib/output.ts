@@ -26,15 +26,15 @@ export function buildOutputLines(
   const head: OutputLine[] = [
     {
       kind: "head",
-      text: `[runtime] ${status.backendOnline ? "connected" : "offline — local sandbox"}`,
+      text: `[runtime] ${status.backendOnline ? "connesso" : "offline — sandbox locale"}`,
     },
     {
       kind: "head",
-      text: `[runtime] ${status.agentCount} agent slot${status.agentCount === 1 ? "" : "s"} active`,
+      text: `[runtime] ${status.agentCount} slot agente attiv${status.agentCount === 1 ? "o" : "i"}`,
     },
     status.runtimeReady
-      ? { kind: "ok", text: "[ready] workspace online · SAMS connected" }
-      : { kind: "warn", text: "[waiting] runtime not provisioned — configure keys in Settings" },
+      ? { kind: "ok", text: "[pronto] area di lavoro online · SAMS connesso" }
+      : { kind: "warn", text: "[in attesa] runtime non provisionato — configura le chiavi in Impostazioni" },
   ];
 
   const stream = events

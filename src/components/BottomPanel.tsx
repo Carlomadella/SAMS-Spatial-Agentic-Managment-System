@@ -50,7 +50,7 @@ function ProblemsView() {
                 blocked ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-300",
               )}
             >
-              {blocked ? "blocked" : "review"}
+              {blocked ? "bloccato" : "in revisione"}
             </span>
           </button>
         );
@@ -60,12 +60,12 @@ function ProblemsView() {
 }
 
 const TABS: { id: BottomTab; label: string; sim?: true }[] = [
-  { id: "terminal", label: "Terminal" },
+  { id: "terminal", label: "Terminale" },
   { id: "output", label: "Output" },
-  { id: "eventlog", label: "Event Log" },
-  { id: "tasks", label: "Tasks" },
-  { id: "history", label: "History" },
-  { id: "problems", label: "Problems" },
+  { id: "eventlog", label: "Log eventi" },
+  { id: "tasks", label: "Task" },
+  { id: "history", label: "Cronologia" },
+  { id: "problems", label: "Problemi" },
   { id: "livesim", label: "Live Sim", sim: true },
 ];
 
@@ -121,7 +121,7 @@ export function BottomPanel() {
         <div className="flex items-center gap-1">
           {(bottomTab === "eventlog" || bottomTab === "tasks") && (
             <button
-              title="Clear"
+              title="Svuota"
               aria-label="Svuota"
               onClick={bottomTab === "eventlog" ? clearEvents : clearTasks}
               className="btn h-7 w-7 px-0"
@@ -129,7 +129,7 @@ export function BottomPanel() {
               <Trash2 size={14} />
             </button>
           )}
-          <button title="Hide panel" aria-label="Nascondi pannello" onClick={toggleBottom} className="btn h-7 w-7 px-0">
+          <button title="Nascondi pannello" aria-label="Nascondi pannello" onClick={toggleBottom} className="btn h-7 w-7 px-0">
             <ChevronDown size={16} />
           </button>
         </div>

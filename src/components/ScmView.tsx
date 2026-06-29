@@ -149,7 +149,7 @@ export function ScmView() {
       {/* panel title */}
       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">
-          Source Control
+          Controllo sorgente
         </span>
         <button
           onClick={() => setShowGraph((v) => !v)}
@@ -239,7 +239,7 @@ export function ScmView() {
                     {/* progress pill */}
                     {a.task!.progress >= 100 ? (
                       <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
-                        ✓ done
+                        ✓ completato
                       </span>
                     ) : (
                       <span className="rounded-full bg-ink-700 px-1.5 py-0.5 font-mono text-[9px] text-mut">

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { ExternalLink, GitCommit } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { buildGraph } from "../lib/gitGraph";
+import { STATUS_META } from "../lib/meta";
+import type { AgentStatus } from "../types";
 import { clock, cn } from "../lib/utils";
+
+const statusLabel = (s: string) => STATUS_META[s as AgentStatus]?.label ?? s;
 
 // ---------------------------------------------------------------------------
 // Layout constants (rendering-only — the lane algorithm lives in lib/gitGraph.ts)
@@ -172,7 +176,7 @@ export function GitGraph() {
                   className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold"
                   style={{ background: `${color}18`, color }}
                 >
-                  {n.status}
+                  {statusLabel(n.status)}
                 </span>
                 {n.url && (
                   <a

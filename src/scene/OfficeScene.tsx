@@ -341,7 +341,7 @@ function SceneContents() {
               </div>
             </>
           ) : (
-            <div className="text-[9px] text-green-800">no active task_</div>
+            <div className="text-[9px] text-green-800">nessun task attivo_</div>
           )}
         </div>
       </Html>

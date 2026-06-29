@@ -35,51 +35,51 @@ export function ActionsPanel() {
   }[] = [
     {
       icon: GitPullRequest,
-      title: "Open Pull Request",
-      sub: "Create PR for staged changes",
-      onClick: () => run("Opened pull request for staged changes", "INFO"),
+      title: "Apri pull request",
+      sub: "Crea una PR per le modifiche in staging",
+      onClick: () => run("Aperta pull request per le modifiche in staging", "INFO"),
     },
     {
       icon: GitCompare,
-      title: "Review Diff",
-      sub: "View changes and comments",
-      onClick: () => run("Opened diff review", "INFO"),
+      title: "Rivedi diff",
+      sub: "Visualizza modifiche e commenti",
+      onClick: () => run("Aperta revisione del diff", "INFO"),
     },
     {
       icon: GitCommitHorizontal,
-      title: "Commit All",
-      sub: "Stage and commit all changes",
-      onClick: () => run("Committed all staged changes", "SUCCESS"),
+      title: "Committa tutto",
+      sub: "Aggiungi e committa tutte le modifiche",
+      onClick: () => run("Committate tutte le modifiche in staging", "SUCCESS"),
     },
     {
       icon: UploadCloud,
-      title: "Push to Remote",
-      sub: `Push to origin/${environment}`,
-      onClick: () => run(`Pushed to origin/${environment}`, "SUCCESS"),
+      title: "Push al remoto",
+      sub: `Push su origin/${environment}`,
+      onClick: () => run(`Push effettuato su origin/${environment}`, "SUCCESS"),
     },
     {
       icon: ShieldCheck,
-      title: "Access Rules",
-      sub: "Manage gate permissions",
-      onClick: () => run("Reviewed access rules", "INFO"),
+      title: "Regole di accesso",
+      sub: "Gestisci i permessi del gate",
+      onClick: () => run("Riviste le regole di accesso", "INFO"),
     },
     {
       icon: GitMerge,
-      title: "Merge Workflow",
-      sub: "Merge into main workflow",
-      onClick: () => run("Merged into main workflow", "SUCCESS"),
+      title: "Unisci workflow",
+      sub: "Unisci nel workflow principale",
+      onClick: () => run("Unito nel workflow principale", "SUCCESS"),
     },
     {
       icon: CheckCircle2,
-      title: "Approve Gate",
-      sub: "Approve and deploy changes",
-      onClick: () => run("Security gate approved — deploying", "SUCCESS"),
+      title: "Approva gate",
+      sub: "Approva e distribuisci le modifiche",
+      onClick: () => run("Gate di sicurezza approvato — distribuzione in corso", "SUCCESS"),
     },
     {
       icon: Copy,
-      title: "Duplicate",
-      sub: "Create a copy of this gate",
-      onClick: () => run("Duplicated security gate", "INFO"),
+      title: "Duplica",
+      sub: "Crea una copia di questo gate",
+      onClick: () => run("Gate di sicurezza duplicato", "INFO"),
     },
   ];
 
@@ -89,17 +89,17 @@ export function ActionsPanel() {
       <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-emerald-400" />
-          <span className="text-[12px] font-semibold text-slate-100">Security Gate</span>
+          <span className="text-[12px] font-semibold text-slate-100">Gate di sicurezza</span>
         </div>
         <span className="chip bg-emerald-500/15 text-emerald-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Access Granted
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Accesso consentito
         </span>
       </div>
 
       {/* env switch */}
       <div className="px-3 py-2.5">
         <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-mut">
-          Source Control
+          Controllo sorgente
         </div>
         <div className="flex rounded-md border border-line bg-ink-850 p-0.5">
           {ENVS.map((e) => (
@@ -133,7 +133,7 @@ export function ActionsPanel() {
           </button>
         ))}
         <button className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-[12px] text-mut hover:bg-ink-700 hover:text-slate-200">
-          <MoreHorizontal size={16} /> More Actions
+          <MoreHorizontal size={16} /> Altre azioni
         </button>
       </div>
     </div>

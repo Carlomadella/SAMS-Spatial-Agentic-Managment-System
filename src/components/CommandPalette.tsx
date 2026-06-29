@@ -28,6 +28,16 @@ interface Command {
   run: () => void;
 }
 
+/** Italian names for the agent palette colors (shown in the command list). */
+const COLOR_IT: Record<string, string> = {
+  blue: "blu",
+  green: "verde",
+  orange: "arancione",
+  purple: "viola",
+  red: "rosso",
+  yellow: "giallo",
+};
+
 export function CommandPalette() {
   const open = useStore((s) => s.commandOpen);
   const setOpen = useStore((s) => s.setCommandOpen);
@@ -43,13 +53,13 @@ export function CommandPalette() {
     const sel = agents.find((a) => a.id === selectedAgentId);
     const list: Command[] = [];
 
-    list.push({ id: "add", label: "Spawn new agent", icon: Plus, keywords: "create add new", run: () => s.addAgent() });
+    list.push({ id: "add", label: "Crea nuovo agente", icon: Plus, keywords: "create add new crea aggiungi nuovo", run: () => s.addAgent() });
     for (const c of AGENT_COLORS) {
       list.push({
         id: `add-${c}`,
-        label: `Spawn ${c} agent`,
+        label: `Crea agente ${COLOR_IT[c] ?? c}`,
         icon: Plus,
-        keywords: `create ${c}`,
+        keywords: `create crea ${c} ${COLOR_IT[c] ?? ""}`,
         run: () => s.addAgent(c),
       });
     }
@@ -57,10 +67,10 @@ export function CommandPalette() {
     for (const a of agents) {
       list.push({
         id: `sel-${a.id}`,
-        label: `Select ${a.name}`,
+        label: `Seleziona ${a.name}`,
         hint: a.role,
         icon: MousePointer2,
-        keywords: "select focus agent",
+        keywords: "select focus agent seleziona",
         run: () => s.selectAgent(a.id),
       });
     }
@@ -69,10 +79,10 @@ export function CommandPalette() {
       for (const z of ZONES) {
         list.push({
           id: `zone-${z.id}`,
-          label: `Send ${sel.name} → ${z.label}`,
+          label: `Invia ${sel.name} → ${z.label}`,
           hint: z.sublabel,
           icon: MapPin,
-          keywords: "dispatch move send zone",
+          keywords: "dispatch move send zone invia sposta zona",
           run: () => s.sendToZone(sel.id, z.id),
         });
       }
@@ -81,18 +91,18 @@ export function CommandPalette() {
     (["dev", "staging", "prod"] as EnvironmentName[]).forEach((e) => {
       list.push({
         id: `env-${e}`,
-        label: `Switch environment → ${e}`,
+        label: `Cambia ambiente → ${e}`,
         icon: Server,
-        keywords: "environment env deploy",
+        keywords: "environment env deploy ambiente",
         run: () => s.setEnvironment(e),
       });
     });
 
-    list.push({ id: "cad", label: "Open Spatial CAD · Zones", icon: Boxes, keywords: "zones cad layout", run: () => s.setActivity("cad") });
-    list.push({ id: "focus", label: "Toggle focus mode (hide/show panels)", icon: Maximize2, keywords: "focus zen panels hide", run: () => s.toggleFocus() });
-    list.push({ id: "garden", label: "Open Commit Garden", icon: Sprout, keywords: "garden plant commit grow", run: () => s.setGardenOpen(true) });
-    list.push({ id: "clear", label: "Clear event log", icon: Trash2, keywords: "log clear", run: () => s.clearEvents() });
-    list.push({ id: "reset", label: "Reset workspace", icon: RotateCcw, keywords: "reset restore", run: () => s.resetWorld() });
+    list.push({ id: "cad", label: "Apri CAD spaziale · Zone", icon: Boxes, keywords: "zones cad layout zone", run: () => s.setActivity("cad") });
+    list.push({ id: "focus", label: "Modalità focus (mostra/nascondi pannelli)", icon: Maximize2, keywords: "focus zen panels hide pannelli", run: () => s.toggleFocus() });
+    list.push({ id: "garden", label: "Apri Commit Garden", icon: Sprout, keywords: "garden plant commit grow giardino", run: () => s.setGardenOpen(true) });
+    list.push({ id: "clear", label: "Svuota log eventi", icon: Trash2, keywords: "log clear svuota", run: () => s.clearEvents() });
+    list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
 
     return list;
   }, [agents, selectedAgentId]);
@@ -106,8 +116,8 @@ export function CommandPalette() {
     if (!backendOnline) return null;
     return {
       id: "__quick_assign__",
-      label: `Assign "${q}" → ${sel.name}`,
-      hint: "quick task",
+      label: `Assegna "${q}" → ${sel.name}`,
+      hint: "task rapido",
       icon: ClipboardList,
       keywords: "",
       run: () => {
@@ -175,12 +185,12 @@ export function CommandPalette() {
               setOpen(false);
             }
           }}
-          placeholder="Type a command or search…"
+          placeholder="Digita un comando o cerca…"
           className="w-full border-b border-line bg-transparent px-4 py-3.5 text-sm text-slate-100 outline-none placeholder:text-mut"
         />
         <div className="max-h-[50vh] overflow-y-auto p-1.5">
           {filtered.length === 0 && (
-            <div className="px-3 py-6 text-center text-[13px] text-mut">No matching commands</div>
+            <div className="px-3 py-6 text-center text-[13px] text-mut">Nessun comando corrispondente</div>
           )}
           {filtered.map((c, i) => {
             const Icon = c.icon;
@@ -201,10 +211,10 @@ export function CommandPalette() {
           })}
         </div>
         <div className="flex items-center gap-3 border-t border-line px-3 py-2 text-[11px] text-mut">
-          <span><kbd className="rounded bg-ink-700 px-1">↑</kbd> <kbd className="rounded bg-ink-700 px-1">↓</kbd> navigate</span>
-          <span><kbd className="rounded bg-ink-700 px-1">↵</kbd> run</span>
-          <span><kbd className="rounded bg-ink-700 px-1">esc</kbd> close</span>
-          <span className="ml-auto flex items-center gap-1"><Send size={11} /> {filtered.length} commands</span>
+          <span><kbd className="rounded bg-ink-700 px-1">↑</kbd> <kbd className="rounded bg-ink-700 px-1">↓</kbd> naviga</span>
+          <span><kbd className="rounded bg-ink-700 px-1">↵</kbd> esegui</span>
+          <span><kbd className="rounded bg-ink-700 px-1">esc</kbd> chiudi</span>
+          <span className="ml-auto flex items-center gap-1"><Send size={11} /> {filtered.length} comandi</span>
         </div>
       </div>
     </div>

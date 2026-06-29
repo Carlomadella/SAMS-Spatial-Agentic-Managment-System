@@ -18,7 +18,7 @@ export function StatusBar() {
   const runtime = !backendEnabled
     ? "Runtime: sandbox"
     : backendOnline
-      ? "Runtime: live"
+      ? "Runtime: attivo"
       : "Runtime: offline";
 
   return (
@@ -42,11 +42,11 @@ export function StatusBar() {
           </span>
         )}
         <span className="flex items-center gap-1">
-          <Users size={12} /> {agents.length} agents
+          <Users size={12} /> {agents.length} agenti
         </span>
         <span
           className="flex items-center gap-1"
-          title={backendEnabled ? "Managed-agents runtime" : "Set VITE_SAMS_BACKEND_URL to go live"}
+          title={backendEnabled ? "Runtime agenti gestiti" : "Imposta VITE_SAMS_BACKEND_URL per attivare"}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -59,7 +59,7 @@ export function StatusBar() {
         <span className="hidden sm:inline">LF</span>
         <span className="hidden sm:inline">YAML</span>
         <span className="flex items-center gap-1">
-          <Check size={12} /> SAMS: Connected
+          <Check size={12} /> SAMS: Connesso
         </span>
       </div>
     </footer>

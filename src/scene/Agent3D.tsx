@@ -7,6 +7,7 @@ import { AGENT_HEX, type Agent, type AgentStatus } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
 import { OBSTACLES } from "../data/world";
+import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
 const STATUS_HEX: Record<AgentStatus, string> = {
@@ -219,24 +220,24 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   }
 
   const items: RadialItem[] = [
-    { id: "work", label: "Set working", icon: Play, onClick: () => setStatus(agent.id, "working") },
-    { id: "review", label: "Send to review", icon: Eye, onClick: () => setStatus(agent.id, "review") },
+    { id: "work", label: "Metti al lavoro", icon: Play, onClick: () => setStatus(agent.id, "working") },
+    { id: "review", label: "Invia in revisione", icon: Eye, onClick: () => setStatus(agent.id, "review") },
     {
       id: "done",
-      label: "Mark done",
+      label: "Segna completato",
       icon: CheckCheck,
       onClick: () => (agent.task ? updateProgress(agent.id, 100) : setStatus(agent.id, "done")),
     },
     {
       id: "idle",
-      label: "Send to lounge",
+      label: "Manda nel salotto",
       icon: Moon,
       onClick: () => {
         sendToZone(agent.id, "lounge");
         setStatus(agent.id, "idle");
       },
     },
-    { id: "remove", label: "Remove agent", icon: Trash2, danger: true, onClick: () => removeAgent(agent.id) },
+    { id: "remove", label: "Rimuovi agente", icon: Trash2, danger: true, onClick: () => removeAgent(agent.id) },
   ];
 
   return (
@@ -395,7 +396,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
             </div>
             <div className="flex justify-between text-mut">
               <span>Stato</span>
-              <span className="capitalize text-slate-200">{agent.status}</span>
+              <span className="text-slate-200">{STATUS_META[agent.status].label}</span>
             </div>
             {agent.energy != null && (
               <div className="mt-1 flex items-center gap-1.5">
@@ -420,7 +421,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
             )}
             {agent.task && (
               <div className="mt-1 flex items-center gap-1.5">
-                <span className="text-mut">Progress</span>
+                <span className="text-mut">Avanzamento</span>
                 <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full bg-brand"

@@ -124,10 +124,10 @@ export function SettingsModal() {
 
   const keyChip =
     provider === "gemini"
-      ? { ok: !!status?.hasGeminiKey, label: "Gemini key" }
+      ? { ok: !!status?.hasGeminiKey, label: "Chiave Gemini" }
       : provider === "groq"
-        ? { ok: !!status?.hasGroqKey, label: "Groq key" }
-        : { ok: !!status?.hasAnthropicKey, label: "Anthropic key" };
+        ? { ok: !!status?.hasGroqKey, label: "Chiave Groq" }
+        : { ok: !!status?.hasAnthropicKey, label: "Chiave Anthropic" };
 
   return (
     <div
@@ -154,7 +154,7 @@ export function SettingsModal() {
         <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-3">
           <Chip ok={online} label={online ? "Runtime online" : "Runtime offline"} />
           <Chip ok={keyChip.ok} label={keyChip.label} />
-          <Chip ok={!!status?.hasGithubToken} label="GitHub token" />
+          <Chip ok={!!status?.hasGithubToken} label="Token GitHub" />
           {provider === "claude" && <Chip ok={!!status?.provisioned} label="Agenti pronti" />}
           <Chip ok={!!status?.notionReady} label="Notion" />
         </div>
@@ -166,8 +166,8 @@ export function SettingsModal() {
               onChange={(e) => changeProvider(e.target.value as Provider)}
               className="settings-input"
             >
-              <option value="gemini" className="bg-ink-800">Gemini — Google (free tier)</option>
-              <option value="groq" className="bg-ink-800">Groq — Llama 3.3 70B (free tier)</option>
+              <option value="gemini" className="bg-ink-800">Gemini — Google (piano gratuito)</option>
+              <option value="groq" className="bg-ink-800">Groq — Llama 3.3 70B (piano gratuito)</option>
               <option value="claude" className="bg-ink-800">Claude — Anthropic (a pagamento)</option>
             </select>
           </Field>

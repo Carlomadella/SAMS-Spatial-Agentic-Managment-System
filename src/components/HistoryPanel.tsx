@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 import { fetchHistory, type TaskHistoryRow } from "../lib/backend";
 import { colorFromAgentId } from "../lib/agentColor";
+import { STATUS_META } from "../lib/meta";
+import type { AgentStatus } from "../types";
 import { cn } from "../lib/utils";
+
+const statusLabel = (s: string) => STATUS_META[s as AgentStatus]?.label ?? s;
 
 function fmtTime(ts: number): string {
   const d = new Date(ts);
@@ -113,10 +117,10 @@ export function HistoryPanel() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded border border-line bg-ink-800 px-1 py-0.5 text-[10px] text-slate-200 outline-none"
           >
-            <option value="all">Tutti stati</option>
-            <option value="done">done</option>
-            <option value="review">review</option>
-            <option value="blocked">blocked</option>
+            <option value="all">Tutti gli stati</option>
+            <option value="done">Completato</option>
+            <option value="review">In revisione</option>
+            <option value="blocked">Bloccato</option>
           </select>
         </div>
       </div>
@@ -165,7 +169,7 @@ export function HistoryPanel() {
                 {/* right side: status + meta */}
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", chipCls)}>
-                    {r.status}
+                    {statusLabel(r.status)}
                   </span>
                   <div className="flex items-center gap-1.5 text-[9px] text-mut">
                     {r.tokens > 0 && (

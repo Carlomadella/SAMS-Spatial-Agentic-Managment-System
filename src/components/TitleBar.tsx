@@ -79,7 +79,7 @@ export function TitleBar() {
         className="group mx-auto flex h-8 w-full max-w-xl items-center gap-2 rounded-lg border border-line bg-ink-850 px-3 text-sm text-mut transition-colors hover:border-brand/40 hover:bg-ink-800"
       >
         <Search size={15} />
-        <span className="flex-1 text-left">Type a command or search…</span>
+        <span className="flex-1 text-left">Digita un comando o cerca…</span>
         <kbd className="flex items-center gap-0.5 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400">
           <Command size={10} /> K
         </kbd>
@@ -88,24 +88,24 @@ export function TitleBar() {
       {/* right actions */}
       <div className="flex items-center gap-1">
         <button onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
-          <Plus size={14} /> Agent
+          <Plus size={14} /> Agente
         </button>
         <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
           <Sprout size={16} />
         </IconBtn>
-        <IconBtn title={theme === "dark" ? "Light theme" : "Dark theme"} onClick={toggleTheme}>
+        <IconBtn title={theme === "dark" ? "Tema chiaro" : "Tema scuro"} onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
-        <IconBtn title="Runtime settings" onClick={() => setSettingsOpen(true)}>
+        <IconBtn title="Impostazioni runtime" onClick={() => setSettingsOpen(true)}>
           <Settings size={16} />
         </IconBtn>
-        <IconBtn title="Toggle Explorer" onClick={toggleLeft} active={leftOpen}>
+        <IconBtn title="Mostra/nascondi Esplora risorse" onClick={toggleLeft} active={leftOpen}>
           <PanelLeft size={16} />
         </IconBtn>
-        <IconBtn title="Toggle Panel" onClick={toggleBottom} active={bottomOpen}>
+        <IconBtn title="Mostra/nascondi pannello" onClick={toggleBottom} active={bottomOpen}>
           <PanelBottom size={16} />
         </IconBtn>
-        <IconBtn title="Toggle System Overview" onClick={toggleRight} active={rightOpen}>
+        <IconBtn title="Mostra/nascondi panoramica sistema" onClick={toggleRight} active={rightOpen}>
           <PanelRight size={16} />
         </IconBtn>
       </div>

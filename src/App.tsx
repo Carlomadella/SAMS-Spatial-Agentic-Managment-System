@@ -40,7 +40,7 @@ function StageHint() {
           setOpen(true);
           localStorage.removeItem("sams.hint");
         }}
-        title="Show tips"
+        title="Mostra suggerimenti"
         className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
       >
         <HelpCircle size={15} />
@@ -55,19 +55,19 @@ function StageHint() {
           setOpen(false);
           localStorage.setItem("sams.hint", "off");
         }}
-        title="Dismiss"
+        title="Nascondi"
         className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700"
       >
         <X size={12} />
       </button>
       <span className="flex items-center gap-1.5">
-        <MousePointerClick size={13} /> Click an agent to select &amp; command it
+        <MousePointerClick size={13} /> Clicca un agente per selezionarlo e comandarlo
       </span>
       <span className="flex items-center gap-1.5">
-        <Hand size={13} /> Click the floor to send it walking
+        <Hand size={13} /> Clicca sul pavimento per farlo camminare
       </span>
       <span className="flex items-center gap-1.5">
-        <Move3d size={13} /> Drag to orbit · scroll to zoom
+        <Move3d size={13} /> Trascina per ruotare · scorri per lo zoom
       </span>
     </div>
   );
@@ -270,11 +270,11 @@ function ReopenPanelButton() {
   return (
     <button
       onClick={() => setBottomTab("eventlog")}
-      title="Show the Event Log panel"
+      title="Mostra il pannello Log eventi"
       className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-line bg-ink-800/90 px-3 py-1.5 text-[11px] font-medium text-slate-200 shadow-panel backdrop-blur transition-all hover:border-brand/50 hover:bg-ink-700 hover:text-white active:scale-[0.97]"
     >
       <PanelBottom size={14} className="text-brand-soft" />
-      Event Log
+      Log eventi
     </button>
   );
 }

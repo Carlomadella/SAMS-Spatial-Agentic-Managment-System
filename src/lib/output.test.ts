@@ -12,18 +12,18 @@ const READY = { backendOnline: true, runtimeReady: true, agentCount: 3 };
 describe("buildOutputLines — header", () => {
   it("shows connected + slot count + ready when online", () => {
     const lines = buildOutputLines([], READY);
-    expect(lines[0].text).toContain("connected");
-    expect(lines[1].text).toContain("3 agent slots");
+    expect(lines[0].text).toContain("connesso");
+    expect(lines[1].text).toContain("3 slot agente attivi");
     expect(lines[2]).toMatchObject({ kind: "ok" });
-    expect(lines[2].text).toContain("[ready]");
+    expect(lines[2].text).toContain("[pronto]");
   });
 
   it("shows offline + waiting when not provisioned", () => {
     const lines = buildOutputLines([], { backendOnline: false, runtimeReady: false, agentCount: 1 });
     expect(lines[0].text).toContain("offline");
-    expect(lines[1].text).toContain("1 agent slot"); // singular
+    expect(lines[1].text).toContain("1 slot agente attivo"); // singolare
     expect(lines[2]).toMatchObject({ kind: "warn" });
-    expect(lines[2].text).toContain("[waiting]");
+    expect(lines[2].text).toContain("[in attesa]");
   });
 });
 

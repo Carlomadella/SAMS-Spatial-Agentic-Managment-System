@@ -16,7 +16,7 @@ export const SEED_AGENTS: Agent[] = [
     status: "working",
     position: [0, 3.0],
     target: null,
-    task: { title: "Implement authentication flow", branch: "feature/auth-flow", progress: 72 },
+    task: { title: "Implementa il flusso di autenticazione", branch: "feature/auth-flow", progress: 72 },
     taskQueue: [],
     energy: 68,
     mood: "focused",
@@ -31,7 +31,7 @@ export const SEED_AGENTS: Agent[] = [
     status: "done",
     position: [3.0, -2.4],
     target: null,
-    task: { title: "Run test suite", branch: "feature/auth-flow", progress: 100 },
+    task: { title: "Esegui la suite di test", branch: "feature/auth-flow", progress: 100 },
     taskQueue: [],
     energy: 80,
     mood: "proud",
@@ -46,7 +46,7 @@ export const SEED_AGENTS: Agent[] = [
     status: "review",
     position: [5.0, -1.6],
     target: null,
-    task: { title: "Waiting for review: PR #128", branch: "feature/payments", progress: 40 },
+    task: { title: "In attesa di revisione: PR #128", branch: "feature/payments", progress: 40 },
     taskQueue: [],
     energy: 55,
     mood: "focused",
@@ -61,7 +61,7 @@ export const SEED_AGENTS: Agent[] = [
     status: "working",
     position: [-1.6, -2.4],
     target: null,
-    task: { title: "Update workflow: code-review.flow", branch: "chore/flows", progress: 55 },
+    task: { title: "Aggiorna il workflow: code-review.flow", branch: "chore/flows", progress: 55 },
     taskQueue: [],
     energy: 45,
     mood: "tired",
@@ -76,7 +76,7 @@ export const SEED_AGENTS: Agent[] = [
     status: "done",
     position: [6.0, 1.4],
     target: null,
-    task: { title: "Deploy to staging environment", branch: "release/0.4", progress: 100 },
+    task: { title: "Distribuisci in ambiente di staging", branch: "release/0.4", progress: 100 },
     taskQueue: [],
     energy: 90,
     mood: "proud",
@@ -101,12 +101,12 @@ export const SEED_AGENTS: Agent[] = [
 /** Event log seeded to mirror a lively workspace. Timestamps are recent. */
 export function seedEvents(now = Date.now()): LogEvent[] {
   const rows: Array<[string, Agent["color"], LogEvent["level"], string]> = [
-    ["blue-agent", "blue", "INFO", "Started task: Implement authentication flow"],
-    ["green-agent", "green", "SUCCESS", "Tests passed: 24/24"],
-    ["orange-agent", "orange", "WARN", "Waiting for review: Pull Request #128"],
-    ["purple-agent", "purple", "INFO", "Updated workflow: code-review.flow"],
-    ["yellow-agent", "yellow", "SUCCESS", "Deployed to staging environment"],
-    ["red-agent", "red", "IDLE", "No active tasks"],
+    ["blue-agent", "blue", "INFO", "Task avviato: Implementa il flusso di autenticazione"],
+    ["green-agent", "green", "SUCCESS", "Test superati: 24/24"],
+    ["orange-agent", "orange", "WARN", "In attesa di revisione: Pull Request #128"],
+    ["purple-agent", "purple", "INFO", "Workflow aggiornato: code-review.flow"],
+    ["yellow-agent", "yellow", "SUCCESS", "Distribuito in ambiente di staging"],
+    ["red-agent", "red", "IDLE", "Nessun task attivo"],
   ];
   return rows.map((row, i) => {
     const [name, color, level, message] = row;
@@ -134,7 +134,7 @@ export const WORKFLOW_DEFS: WorkflowDef[] = [
   },
   {
     id: "wf-codereview",
-    name: "Code Review",
+    name: "Revisione codice",
     description: "Revisione approfondita delle PR aperte — bug, stile e sicurezza",
     taskTemplate: "Code Review: elenca le PR aperte con gh_list_prs, leggi quella più recente con gh_read_pr, analizza i file modificati con gh_read_file e documenta i problemi trovati (bug, stile, sicurezza, performance) su Notion",
     defaultRole: "Revisore",
@@ -142,7 +142,7 @@ export const WORKFLOW_DEFS: WorkflowDef[] = [
   },
   {
     id: "wf-deploy",
-    name: "Deploy Check",
+    name: "Controllo deploy",
     description: "Verifica lo stato CI/CD e apre una PR di deployment se tutto è verde",
     taskTemplate: "Deploy Check: controlla gli ultimi run CI con gh_list_ci, se tutto è verde apri una PR di deployment verso main, altrimenti documenta i problemi trovati",
     defaultRole: "Generalist",

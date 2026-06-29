@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store/useStore";
 import { ROOM, ROOM_DEPTH, ROOM_WIDTH, ZONES } from "../data/world";
-import { AGENT_HEX } from "../types";
+import { AGENT_HEX, type AgentStatus } from "../types";
+import { STATUS_META } from "../lib/meta";
 import { cn } from "../lib/utils";
 import { fetchMetrics, type RuntimeMetrics } from "../lib/backend";
+
+const statusLabel = (s: string) => STATUS_META[s as AgentStatus]?.label ?? s;
 
 function toPct(x: number, z: number) {
   return {
@@ -65,7 +68,7 @@ export function SystemOverview() {
     <div className="border-b border-line p-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">
-          System Overview
+          Panoramica sistema
         </span>
       </div>
 
@@ -118,7 +121,7 @@ export function SystemOverview() {
                 width: `${(count / agents.length) * 100}%`,
                 background: STATUS_COLOR[status] ?? "#475569",
               }}
-              title={`${status}: ${count}`}
+              title={`${statusLabel(status)}: ${count}`}
             />
           ))}
         </div>
@@ -127,7 +130,7 @@ export function SystemOverview() {
       <div className="mt-2 flex items-center justify-between text-[11px] text-mut">
         <span className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-emerald-400" />
-          {active} / {agents.length} Active
+          {active} / {agents.length} attivi
         </span>
         <span className="font-mono" title="Energia media">
           ⚡ {avgEnergy}%
@@ -140,7 +143,7 @@ export function SystemOverview() {
           {Object.entries(statusCounts).map(([status, count]) => (
             <span key={status} className="flex items-center gap-0.5">
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
-              {count} {status}
+              {count} {statusLabel(status)}
             </span>
           ))}
         </div>

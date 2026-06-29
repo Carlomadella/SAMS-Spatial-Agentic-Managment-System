@@ -4,12 +4,12 @@ export const STATUS_META: Record<
   AgentStatus,
   { label: string; text: string; dot: string; ring: string }
 > = {
-  idle: { label: "Idle", text: "text-mut", dot: "bg-slate-400", ring: "ring-slate-500/30" },
-  working: { label: "In Progress", text: "text-sky-300", dot: "bg-sky-400", ring: "ring-sky-500/40" },
-  review: { label: "In Review", text: "text-amber-300", dot: "bg-amber-400", ring: "ring-amber-500/40" },
-  blocked: { label: "Blocked", text: "text-rose-300", dot: "bg-rose-400", ring: "ring-rose-500/40" },
-  done: { label: "Done", text: "text-emerald-300", dot: "bg-emerald-400", ring: "ring-emerald-500/40" },
-  awaiting_approval: { label: "Awaiting Approval", text: "text-violet-300", dot: "bg-violet-400", ring: "ring-violet-500/40" },
+  idle: { label: "Inattivo", text: "text-mut", dot: "bg-slate-400", ring: "ring-slate-500/30" },
+  working: { label: "In corso", text: "text-sky-300", dot: "bg-sky-400", ring: "ring-sky-500/40" },
+  review: { label: "In revisione", text: "text-amber-300", dot: "bg-amber-400", ring: "ring-amber-500/40" },
+  blocked: { label: "Bloccato", text: "text-rose-300", dot: "bg-rose-400", ring: "ring-rose-500/40" },
+  done: { label: "Completato", text: "text-emerald-300", dot: "bg-emerald-400", ring: "ring-emerald-500/40" },
+  awaiting_approval: { label: "In attesa di approvazione", text: "text-violet-300", dot: "bg-violet-400", ring: "ring-violet-500/40" },
 };
 
 export const LEVEL_META: Record<LogLevel, { text: string; label: string; badge: string }> = {

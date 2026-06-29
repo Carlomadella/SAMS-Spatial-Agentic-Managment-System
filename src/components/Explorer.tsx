@@ -41,12 +41,12 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  idle: "idle",
-  working: "working…",
-  review: "review",
-  blocked: "blocked",
-  done: "done",
-  awaiting_approval: "waiting…",
+  idle: "inattivo",
+  working: "in corso…",
+  review: "in revisione",
+  blocked: "bloccato",
+  done: "completato",
+  awaiting_approval: "in attesa…",
 };
 
 const BADGE_CLS: Record<string, string> = {
@@ -157,13 +157,13 @@ function AgentsSection() {
       >
         <span className="flex items-center gap-1.5">
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-          Agents
+          Agenti
           <span className="rounded-full bg-ink-700 px-1.5 text-[9px]">{agents.length}</span>
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); addAgent(); }}
-          title="Spawn new agent"
-          aria-label="Spawn new agent"
+          title="Crea nuovo agente"
+          aria-label="Crea nuovo agente"
           className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ink-600 hover:text-white"
         >
           <Plus size={12} />
@@ -180,7 +180,7 @@ function AgentsSection() {
             className="mt-0.5 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-mut transition-colors hover:bg-ink-700/60 hover:text-slate-300"
           >
             <Plus size={12} />
-            Spawn agent
+            Crea agente
           </button>
         </div>
       )}
@@ -304,7 +304,7 @@ function WorkflowsSection() {
         className="flex w-full items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-mut transition-colors hover:text-slate-300"
       >
         {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        Workflows
+        Workflow
         <span className="rounded-full bg-ink-700 px-1.5 text-[9px]">{WORKFLOW_DEFS.length}</span>
       </button>
 
@@ -438,7 +438,7 @@ function FilesSection() {
   return (
     <div className="mb-2">
       <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-mut">
-        Files
+        File
       </div>
       <div className="px-1">
         {fileNodes.map((node) => (
@@ -458,10 +458,10 @@ export function Explorer() {
     <div className="flex h-full flex-col">
       {/* header */}
       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">Explorer</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">Esplora risorse</span>
         <button
-          title="Workspace settings"
-          aria-label="Impostazioni workspace"
+          title="Impostazioni area di lavoro"
+          aria-label="Impostazioni area di lavoro"
           className="rounded p-0.5 text-mut transition-colors hover:bg-ink-700 hover:text-slate-300"
         >
           <Settings2 size={13} />

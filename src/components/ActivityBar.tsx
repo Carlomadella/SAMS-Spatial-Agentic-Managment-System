@@ -5,11 +5,11 @@ import type { ActivityView } from "../types";
 import { cn } from "../lib/utils";
 
 const ITEMS: { id: ActivityView; icon: LucideIcon; label: string }[] = [
-  { id: "explorer", icon: Files, label: "Explorer" },
-  { id: "search", icon: Search, label: "Search" },
-  { id: "scm", icon: GitBranch, label: "Source Control" },
-  { id: "cad", icon: Boxes, label: "Spatial CAD" },
-  { id: "extensions", icon: Puzzle, label: "Extensions" },
+  { id: "explorer", icon: Files, label: "Esplora risorse" },
+  { id: "search", icon: Search, label: "Cerca" },
+  { id: "scm", icon: GitBranch, label: "Controllo sorgente" },
+  { id: "cad", icon: Boxes, label: "CAD spaziale" },
+  { id: "extensions", icon: Puzzle, label: "Estensioni" },
 ];
 
 export function ActivityBar() {
