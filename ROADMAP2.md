@@ -124,12 +124,16 @@ collega.
 - [x] ✅ **Camera cinematografica** che segue dolcemente l'agente selezionato:
       ricentro + dolly-in d'inquadratura alla selezione, tracking morbido durante il
       cammino, ritorno al centro alla deselezione (estende `CameraFollow`).
-- [x] ✅ **Casa a 3 stanze** — la stanza singola è diventata una casa (Studio ·
-      Salotto · Camera) divisa da muri interni con porte; arredo per stanza e letti.
-      Ciclo giorno/notte ora legato all'**ora reale** (di notte è buio).
-- [x] ✅ **Agenti vivi** — di giorno gli inattivi vagano per la casa; dopo le 23
-      vanno a letto e dormono (posa + "zzz"), risvegliandosi al mattino o con un task.
-      `LifeBridge` + `randomWalkPoint`/`BEDS`/`isNightNow`. Niente più agenti fermi.
+- [x] ✅ **Casa 2×2 con atrio** — quattro stanze attorno a un atrio centrale
+      (Studio · Cucina · Salotto · Camera), non in fila. Muri interni come **dati
+      condivisi** (`WALLS`): la stessa lista disegna i muri e genera gli ostacoli,
+      quindi un muro che vedi è invalicabile; porte larghe percorse dal pathfinder.
+      Sei letti (uno per agente). Ciclo giorno/notte su **ora reale**.
+- [x] ✅ **Agenti vivi** — di giorno TUTTI gli agenti liberi (status ≠ working)
+      vagano per la casa; dopo le 23 vanno a letto e dormono (posa + "zzz"),
+      risvegliandosi al mattino o con un task. `LifeBridge`/`randomWalkPoint`/`BEDS`.
+- [x] ✅ **Socializzazione** — due agenti liberi vicini ogni tanto si parlano e si
+      aiutano (scambio di battute come fumetti). `TalkBridge`.
 - [ ] 💡 **Mobili davvero vivi** — il monitor mostra il *diff reale* del file in
       scrittura; la media-wall i task in coda (oggi solo titolo + progresso).
 - [ ] 💡 **Replay cinematografico** di un task completato — ottimo per demo/condivisione.
