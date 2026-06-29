@@ -68,6 +68,10 @@ collega.
       nell'inspector con visualizzazione e cancellazione; API REST GET/DELETE `/api/memory/:id`.
 - [ ] 💡 **Meta-agente** 🤯 — un agente il cui repo target *è SAMS stesso*: propone
       migliorie e apre PR sul progetto. Auto-miglioramento dimostrabile.
+- [ ] 💡 **Fame / nutrimento** 🍽️ — ogni agente ha un livello di *fame* che cresce
+      nel tempo; assegnargli un task lo sfama. Per tenerli "nutriti" devi dargli
+      lavoro: un bisogno alla Sims che lega il gameplay alla produttività reale.
+      (Si affianca a [[energia/mood]] già esistenti.)
 
 ## 🔒 Fiducia & verifica (scommessa #2)
 - [x] ✅ **Diff preview in-app** — il pannello di approvazione mostra un vero diff
@@ -120,6 +124,12 @@ collega.
 - [x] ✅ **Camera cinematografica** che segue dolcemente l'agente selezionato:
       ricentro + dolly-in d'inquadratura alla selezione, tracking morbido durante il
       cammino, ritorno al centro alla deselezione (estende `CameraFollow`).
+- [x] ✅ **Casa a 3 stanze** — la stanza singola è diventata una casa (Studio ·
+      Salotto · Camera) divisa da muri interni con porte; arredo per stanza e letti.
+      Ciclo giorno/notte ora legato all'**ora reale** (di notte è buio).
+- [x] ✅ **Agenti vivi** — di giorno gli inattivi vagano per la casa; dopo le 23
+      vanno a letto e dormono (posa + "zzz"), risvegliandosi al mattino o con un task.
+      `LifeBridge` + `randomWalkPoint`/`BEDS`/`isNightNow`. Niente più agenti fermi.
 - [ ] 💡 **Mobili davvero vivi** — il monitor mostra il *diff reale* del file in
       scrittura; la media-wall i task in coda (oggi solo titolo + progresso).
 - [ ] 💡 **Replay cinematografico** di un task completato — ottimo per demo/condivisione.
@@ -181,6 +191,18 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-29 — la casa prende vita: 3 stanze + agenti che vivono
+- **Casa a 3 stanze** — `world.ts` rifatto: ROOM espanso (−13..13 × −7..7), tre
+  stanze (Studio/Salotto/Camera) separate da due muri interni con varco; nuove
+  `ZONES`, `BEDS`, `OBSTACLES` (muri+mobili), `ROOMS`/`randomWalkPoint`. Nuovo
+  componente `Bed`; `OfficeScene` con pareti+divisori e arredo per stanza;
+  `DEFAULT_BOUNDS` del pathfinder allineati. Ciclo giorno/notte ora su **ora reale**.
+- **Agenti vivi** — `LifeBridge` (al posto di `IdleBridge`): vagano di giorno,
+  dormono dopo le 23 in camera (posa di sonno + "zzz" in `Agent3D`), si svegliano
+  al mattino (07:00) o con un task. `isNightNow()`.
+- **Idea futura**: *fame/nutrimento* — i task sfamano gli agenti (aggiunta in cima).
+- Test client 95, server 108. Typecheck, lint: verdi.
 
 ### 2026-06-29 — Mondo 3D (pathfinding + camera) + i18n italiano
 - **Pathfinding attorno ai mobili** — gli agenti aggirano sofà, tavoli e scrivania
