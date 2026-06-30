@@ -11,6 +11,7 @@ import {
   createBranch,
   createIssue,
   createPullRequest,
+  currentRepo,
   getWorkflowJobs,
   listCIRuns,
   triggerWorkflow,
@@ -657,7 +658,7 @@ export async function finalizeTask(
       tokens: opts.totalTokens,
     });
     if (ctx.notionWrote && s.notionPageId) {
-      try { await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: s.githubRepo }); } catch { /* best-effort */ }
+      try { await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: currentRepo() }); } catch { /* best-effort */ }
     }
     return;
   }
@@ -701,7 +702,7 @@ export async function finalizeTask(
 
   if (didSomething && opts.notionEnabled && s.notionPageId) {
     try {
-      await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: s.githubRepo });
+      await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: currentRepo() });
     } catch {
       /* logging is best-effort */
     }

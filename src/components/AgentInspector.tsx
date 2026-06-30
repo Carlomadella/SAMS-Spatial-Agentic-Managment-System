@@ -7,6 +7,7 @@ import { levelFromXp } from "../lib/skill";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
+import { SAMS_REPO, META_IDEAS, metaRepo, buildMetaTask } from "../lib/metaAgent";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
@@ -44,6 +45,7 @@ export function AgentInspector() {
   const removeAgent = useStore((s) => s.removeAgent);
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
+  const setMeta = useStore((s) => s.setMeta);
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
@@ -144,7 +146,44 @@ export function AgentInspector() {
         <span className={cn("chip bg-ink-800", meta.text)}>
           <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} /> {meta.label}
         </span>
+        <button
+          onClick={() => setMeta(agent.id, !agent.meta)}
+          title="Meta-agente: i task lavorano sul repository di SAMS stesso (auto-miglioramento + PR)"
+          className={cn(
+            "chip cursor-pointer border",
+            agent.meta
+              ? "border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-200"
+              : "border-line bg-ink-700 text-slate-400 hover:text-slate-200",
+          )}
+        >
+          🤯 Meta
+        </button>
       </div>
+
+      {agent.meta && (
+        <div className="mt-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2.5 py-2">
+          <div className="text-[11px] font-semibold text-fuchsia-200">Meta-agente — repo: SAMS</div>
+          <p className="mt-0.5 text-[11px] text-fuchsia-200/70">
+            Ogni task di questo agente lavora su <code className="rounded bg-ink-800/60 px-1">{SAMS_REPO}</code> e propone migliorie al progetto.
+          </p>
+          <select
+            value=""
+            onChange={(e) => {
+              const idea = META_IDEAS.find((i) => i.id === e.target.value);
+              if (!idea) return;
+              const { title: t, branch: b } = buildMetaTask(idea);
+              setTitle(t);
+              setBranch(b);
+            }}
+            className="mt-1.5 w-full cursor-pointer rounded-md border border-fuchsia-400/30 bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-fuchsia-400/60"
+          >
+            <option value="" className="bg-ink-800">Proponi una miglioria a SAMS…</option>
+            {META_IDEAS.map((i) => (
+              <option key={i.id} value={i.id} className="bg-ink-800">{i.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* energy + mood */}
       {agent.energy != null && (
@@ -474,7 +513,7 @@ export function AgentInspector() {
                 // agent idle → start immediately
                 assignTask(agent.id, t, b);
                 if (backendEnabled) {
-                  assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions).catch((err: Error) =>
+                  assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions, metaRepo(agent)).catch((err: Error) =>
                     log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Runtime: ${err.message}` }),
                   );
                 }

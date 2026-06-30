@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
 import { assignRemote, backendEnabled, startSimMode, stopSimMode } from "../lib/backend";
+import { metaRepo } from "../lib/metaAgent";
 import { resolveAgentByToken } from "../lib/agentMatch";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import type { EnvironmentName } from "../types";
@@ -132,7 +133,7 @@ export function Terminal() {
         s.assignTask(a.id, task, "");
         push({ kind: "ok", text: `✓ ${a.name} ← ${task}` });
         if (backendEnabled && s.backendOnline && s.runtimeReady) {
-          assignRemote(a.id, a.name, task, undefined, a.role, a.instructions).catch((err: Error) =>
+          assignRemote(a.id, a.name, task, undefined, a.role, a.instructions, metaRepo(a)).catch((err: Error) =>
             push({ kind: "err", text: `runtime: ${err.message}` }),
           );
           push({ kind: "info", text: "  → inviato al runtime" });

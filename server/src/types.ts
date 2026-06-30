@@ -34,4 +34,7 @@ export interface AssignBody {
   role?: string;
   /** Standing instructions set by the user in the inspector; injected verbatim into the system prompt. */
   instructions?: string;
+  /** Per-task GitHub repo override (owner/repo). Used by the "meta-agente" to
+   *  target SAMS itself instead of the globally configured repository. */
+  repo?: string;
 }

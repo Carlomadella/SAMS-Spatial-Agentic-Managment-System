@@ -17,6 +17,7 @@ import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
+import { metaRepo } from "../lib/metaAgent";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { titleCase } from "../lib/utils";
 
@@ -123,7 +124,7 @@ export function CommandPalette() {
       icon: ClipboardList,
       keywords: "",
       run: () => {
-        assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions).catch(() => {});
+        assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions, metaRepo(sel)).catch(() => {});
       },
     };
   }, [query, agents, selectedAgentId]);

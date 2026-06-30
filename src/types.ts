@@ -124,6 +124,9 @@ export interface Agent {
   /** Cumulative experience points; each completed task grants XP_PER_TASK.
    * Drives the agent's level/rank (see lib/skill.ts). */
   xp: number;
+  /** Meta-agente: i suoi task lavorano sul repository di SAMS stesso (proposte
+   * di auto-miglioramento + PR), non sul repo globale configurato. */
+  meta?: boolean;
 }
 
 export interface LogEvent {

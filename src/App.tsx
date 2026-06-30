@@ -15,6 +15,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
+import { metaRepo } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
@@ -94,7 +95,7 @@ function QueueBridge() {
               useStore.getState().shiftQueue(fresh.id);
               useStore.getState().assignTask(fresh.id, next.title, next.branch);
               if (backendEnabled) {
-                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions).catch(
+                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(
                   (err: Error) =>
                     useStore.getState().log({
                       agentId: fresh.id,
@@ -140,7 +141,7 @@ function RelayBridge() {
             // target may have been removed during the 200ms delay — guard the lookup
             const fresh = useStore.getState().agents.find((a) => a.id === target.id);
             if (fresh) {
-              assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions).catch(() => {});
+              assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
             }
           }
         }

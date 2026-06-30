@@ -66,8 +66,14 @@ collega.
 - [x] ✅ **Memoria di progetto persistente** — tool `remember`/`recall` (universali);
       tabella SQLite `agent_memory`; memorie iniettate nel system prompt; pannello UI
       nell'inspector con visualizzazione e cancellazione; API REST GET/DELETE `/api/memory/:id`.
-- [ ] 💡 **Meta-agente** 🤯 — un agente il cui repo target *è SAMS stesso*: propone
-      migliorie e apre PR sul progetto. Auto-miglioramento dimostrabile.
+- [x] ✅ **Meta-agente** 🤯 — un agente il cui repo target *è SAMS stesso*: propone
+      migliorie e apre PR sul progetto. Toggle "🤯 Meta" nell'AgentInspector +
+      selettore di spunti (`META_IDEAS`: test, a11y, docs, roadmap, refactor). Il
+      retargeting del repo è per-task e concurrency-safe: `runWithRepo`/`currentRepo`
+      via `AsyncLocalStorage` in `github.ts`, pilotato dal campo `repo` di
+      `AssignBody` (validato in `/api/assign`). Logica pura in `lib/metaAgent.ts`
+      (`SAMS_REPO`, `metaRepo`, `slugifyBranch`, `buildMetaTask`). 13 nuovi test
+      (8 client + 5 server).
 - [x] ✅ **Fame / nutrimento** 🍽️ — `Agent.hunger` (0 sazio … 100 affamato) cresce nel
       tempo (`HungerBridge`, +1 ogni 7s → `growHunger`); assegnare un task **sfama**
       (−45 in `assignTask`) e c'è uno spuntino manuale (`feedAgent`, pulsante 🍽️
@@ -215,6 +221,23 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-30 — meta-agente (SAMS che migliora SAMS) + fix agenti bloccati
+- **Fix agenti bloccati** — blue/purple restavano immobili sopra il letto: erano
+  persistiti in `localStorage` come `working` (dal vecchio seed pre-fix), quindi
+  `isFreeAgent` li escludeva e `LifeBridge` non li animava mai. Ora `onRehydrate`
+  resetta ogni `working` stantio → `idle` (task azzerato); un task reale in volo si
+  ri-sincronizza dalla SSE.
+- **Meta-agente** 🤯 — un agente può lavorare sul repository di SAMS stesso.
+  Retargeting del repo per-task e concurrency-safe: `AsyncLocalStorage` in
+  `github.ts` (`runWithRepo`/`currentRepo`, `repoBase` ne legge l'override), pilotato
+  dal nuovo campo `repo` di `AssignBody` (validato `owner/repo` in `/api/assign`,
+  altrimenti fallback al repo globale). Lato client: flag `Agent.meta`, `setMeta`,
+  `lib/metaAgent.ts` puro (`SAMS_REPO`, `metaRepo`, `slugifyBranch`, `buildMetaTask`,
+  `META_IDEAS`), toggle "🤯 Meta" + selettore spunti nell'AgentInspector; tutti i
+  call-site di `assignRemote` passano `metaRepo(agent)` (tranne la Live Sim, le cui
+  issue vivono sul repo globale). 13 nuovi test (5 server, 8 client). Test client
+  125 → 133, server 108 → 113. Typecheck, lint, build: verdi.
 
 ### 2026-06-30 — eventi stagionali nel Commit Garden
 - **Eventi stagionali** 🎉 — nuovo `lib/seasonalEvents.ts`: `getSeasonalEvent(date)`

@@ -7,7 +7,7 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
-import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, writeFilesAtomic } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { getPending, clearPending } from "./pendingBuffer";
@@ -206,7 +206,13 @@ app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
 
   const { provider } = getSettings();
   const runner = provider === "gemini" ? runGeminiTask : provider === "groq" ? runGroqTask : runTask;
-  runner(body, broadcast).catch((err: unknown) => {
+  // A meta-agente task carries a repo override (owner/repo). Run the whole task
+  // inside that repo context so every GitHub call targets it instead of the
+  // global repository. Invalid overrides are ignored (fall back to global).
+  const repo = typeof body.repo === "string" && /^[\w.-]+\/[\w.-]+$/.test(body.repo) ? body.repo : null;
+  const start = () => runner(body, broadcast);
+  const work = repo ? runWithRepo(repo, start) : start();
+  work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
     broadcast({
       agentId: body.agentId,

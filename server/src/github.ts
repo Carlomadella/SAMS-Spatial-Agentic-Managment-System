@@ -1,7 +1,25 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { getSettings } from "./config";
 import { HttpError, jsonFetch } from "./http";
 
 const API = "https://api.github.com";
+
+// Per-task repository override. The "meta-agente" works on a different repo than
+// the global setting (SAMS itself). We can't mutate the global Settings because
+// several agents may run concurrently — instead each task runs inside an
+// AsyncLocalStorage context that carries its own target repo. `currentRepo()`
+// falls back to the global setting when no override is active.
+const repoStore = new AsyncLocalStorage<{ repo: string }>();
+
+/** Run `fn` with `repo` as the active GitHub target for the whole async tree. */
+export function runWithRepo<T>(repo: string, fn: () => T): T {
+  return repoStore.run({ repo }, fn);
+}
+
+/** The repository GitHub calls currently target (per-task override or global). */
+export function currentRepo(): string {
+  return repoStore.getStore()?.repo ?? getSettings().githubRepo;
+}
 
 function headers(): Record<string, string> {
   const s = getSettings();
@@ -15,7 +33,7 @@ function headers(): Record<string, string> {
 }
 
 function repoBase(): string {
-  const repo = getSettings().githubRepo;
+  const repo = currentRepo();
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
     throw new Error(`Repository GitHub non valido: "${repo}" (atteso owner/repo)`);
   }

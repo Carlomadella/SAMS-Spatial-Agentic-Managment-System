@@ -18,6 +18,7 @@ import { useStore } from "../store/useStore";
 import { STATIC_TREE, WORKFLOW_DEFS } from "../data/seed";
 import { AGENT_HEX, type Agent, type FileNode, type WorkflowDef } from "../types";
 import { assignRemote, backendEnabled } from "../lib/backend";
+import { metaRepo } from "../lib/metaAgent";
 import { cn } from "../lib/utils";
 
 function slugify(s: string): string {
@@ -220,7 +221,7 @@ function WorkflowRunner({
     assignTask(agent.id, wf.taskTemplate, branch);
     if (backendEnabled && backendOnline && runtimeReady) {
       try {
-        await assignRemote(agent.id, agent.name, wf.taskTemplate, branch, agent.role, agent.instructions);
+        await assignRemote(agent.id, agent.name, wf.taskTemplate, branch, agent.role, agent.instructions, metaRepo(agent));
       } catch {
         /* local assign already happened */
       }

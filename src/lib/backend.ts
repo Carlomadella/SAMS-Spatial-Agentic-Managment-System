@@ -166,11 +166,12 @@ export async function assignRemote(
   branch?: string,
   role?: string,
   instructions?: string,
+  repo?: string,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/assign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions }),
+    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo }),
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
