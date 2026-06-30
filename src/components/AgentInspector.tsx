@@ -8,6 +8,7 @@ import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, metaRepo, buildMetaTask } from "../lib/metaAgent";
+import { AGENT_TEMPLATES, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
@@ -46,6 +47,7 @@ export function AgentInspector() {
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
   const setMeta = useStore((s) => s.setMeta);
+  const applyTemplateAction = useStore((s) => s.applyTemplate);
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
@@ -157,6 +159,37 @@ export function AgentInspector() {
           )}
         >
           🤯 Meta
+        </button>
+        <select
+          value=""
+          onChange={(e) => {
+            const t = AGENT_TEMPLATES.find((x) => x.id === e.target.value);
+            if (!t) return;
+            applyTemplateAction(agent.id, t);
+            log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `Template applicato: ${t.emoji} ${t.name}` });
+          }}
+          title="Applica un template (ruolo + modello + istruzioni)"
+          className="chip cursor-pointer border border-line bg-ink-700 text-slate-300 outline-none focus:border-brand/50"
+        >
+          <option value="" className="bg-ink-800">📦 Template…</option>
+          {AGENT_TEMPLATES.map((t) => (
+            <option key={t.id} value={t.id} className="bg-ink-800">{t.emoji} {t.name}</option>
+          ))}
+        </select>
+        <button
+          onClick={async () => {
+            const json = serializeTemplate(templateFromAgent(agent, agent.name));
+            try {
+              await navigator.clipboard.writeText(json);
+              log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "SUCCESS", message: "Template copiato negli appunti (JSON)" });
+            } catch {
+              log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "WARN", message: "Copia non riuscita — appunti non disponibili" });
+            }
+          }}
+          title="Esporta la configurazione di questo agente come template JSON condivisibile"
+          className="chip cursor-pointer border border-line bg-ink-700 text-slate-400 hover:text-slate-200"
+        >
+          ⤓ Esporta
         </button>
       </div>
 

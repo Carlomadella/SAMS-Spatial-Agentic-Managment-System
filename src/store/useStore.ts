@@ -23,6 +23,7 @@ import { SEED_AGENTS, seedEvents } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
 import { XP_PER_TASK } from "../lib/skill";
+import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -77,6 +78,7 @@ interface State {
   setRole: (id: string, role: string) => void;
   setInstructions: (id: string, instructions: string) => void;
   setMeta: (id: string, meta: boolean) => void;
+  applyTemplate: (id: string, t: AgentTemplate) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
   sendToZone: (id: string, zoneId: string) => void;
@@ -284,6 +286,9 @@ export const useStore = create<State>()(
 
   setMeta: (id, meta) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, meta } : a)) })),
+
+  applyTemplate: (id, t) =>
+    set((s) => ({ agents: s.agents.map((a) => (a.id === id ? applyTemplate(a, t) : a)) })),
 
   moveAgent: (id, target) =>
     set((s) => ({
