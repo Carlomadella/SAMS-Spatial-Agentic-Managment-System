@@ -579,6 +579,7 @@ export function OfficeScene() {
         ref={controlsRef}
         target={[0, 0.8, 0]}
         enablePan={false}
+        zoomToCursor
         minDistance={9}
         maxDistance={34}
         maxPolarAngle={1.35}

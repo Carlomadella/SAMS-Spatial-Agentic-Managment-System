@@ -698,6 +698,7 @@ export function GardenScene({
       <OrbitControls
         target={[0, 1.4, 0]}
         enablePan={false}
+        zoomToCursor
         minDistance={6}
         maxDistance={28}
         maxPolarAngle={1.45}
