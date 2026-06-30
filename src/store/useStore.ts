@@ -99,6 +99,10 @@ interface State {
   pendingRelays: Array<{ target: string; title: string; branch: string; context: string; fromName: string; fromId: string }>;
   pushRelay: (r: { target: string; title: string; branch: string; context: string; fromName: string; fromId: string }) => void;
   shiftRelay: () => void;
+  /** Incoming-webhook "wakes": contextual tasks to assign to a free agent. */
+  pendingWakes: Array<{ title: string; branch?: string; reason: string }>;
+  pushWake: (w: { title: string; branch?: string; reason: string }) => void;
+  shiftWake: () => void;
   /** Short-lived handoff arcs drawn in the 3D scene. */
   handoffs: Handoff[];
   addHandoff: (fromId: string, toId: string) => void;
@@ -146,6 +150,7 @@ interface State {
     pendingFiles?: PendingFile[];
     relayTo?: { target: string; title: string; branch: string; context: string };
     plan?: string[];
+    wake?: { title: string; branch?: string; reason: string };
   }) => void;
 }
 
@@ -233,6 +238,7 @@ export const useStore = create<State>()(
   tokensUsed: 0,
   toasts: [],
   pendingRelays: [],
+  pendingWakes: [],
   handoffs: [],
 
   log: (e) =>
@@ -475,6 +481,9 @@ export const useStore = create<State>()(
 
   pushRelay: (r) => set((s) => ({ pendingRelays: [...s.pendingRelays, r] })),
   shiftRelay: () => set((s) => ({ pendingRelays: s.pendingRelays.slice(1) })),
+
+  pushWake: (w) => set((s) => ({ pendingWakes: [...s.pendingWakes, w] })),
+  shiftWake: () => set((s) => ({ pendingWakes: s.pendingWakes.slice(1) })),
   addHandoff: (fromId, toId) =>
     set((s) => ({
       handoffs: [
@@ -592,6 +601,11 @@ export const useStore = create<State>()(
     // Agent-to-agent relay: queue this for RelayBridge to process
     if (e.relayTo) {
       get().pushRelay({ ...e.relayTo, fromName: e.agentName ?? "?", fromId: e.agentId });
+    }
+
+    // Incoming webhook wake: queue this for WakeBridge to assign to a free agent
+    if (e.wake) {
+      get().pushWake(e.wake);
     }
 
     // Auto-clear task when runtime finishes without producing changes (status "idle"):

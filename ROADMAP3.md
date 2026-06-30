@@ -33,7 +33,7 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 | #   | Frontiera                                                            | Perché                                                                              | Effort | Stato |
 | --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ----- |
-| 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | 💡    |
+| 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | 🏗️    |
 | 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | 💡    |
 | 3   | **Mondo condiviso** — presence realtime + ruoli/permessi + multiplayer | Più persone nello stesso ufficio: da demo personale a strumento di squadra          | 🔴     | 💡    |
 
@@ -46,10 +46,13 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 ## 🌐 Mondo reattivo (frontiera #1)
 
-- [ ] 💡 ⬅️ **Webhook in ingresso** — un endpoint `/api/webhook/github` che riceve
-      eventi (push / PR aperta / CI fallita) e **sveglia** l'agente giusto con un task
-      contestuale (es. CI rossa → assegna un fix all'autore del branch). Firma HMAC
-      verificata; coda di eventi con de-dup.
+- [x] ✅ **Webhook in ingresso** — `/api/webhook/github` verifica la **firma HMAC-SHA256**
+      (`verifyGithubSignature`, raw body catturato in `express.json`), traduce l'evento con
+      `parseGithubEvent` puro (push / PR / workflow_run) e, su **CI fallita**, allega un
+      `wake` (task di fix contestuale col branch). Il `wake` viaggia sulla `WireEvent` →
+      `pendingWakes` nello store → `WakeBridge` lo assegna a un agente libero
+      (`pickFreeAgent`: il più riposato, o il meno carico se nessuno è libero). Segreto in
+      `GITHUB_WEBHOOK_SECRET`. 12 test (9 server + 3 `pickFreeAgent`).
 - [ ] 💡 ⬅️ **Sfruttare gli MCP** — esporre agli agenti, come strumenti, le
       integrazioni già disponibili: report su **Google Drive**, eventi su **Calendar**,
       grafiche su **Canva**. Un tool generico `mcp_call(server, tool, args)` con
@@ -135,6 +138,19 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-06-30 — webhook in ingresso (frontiera #1, primo pezzo)
+- **Webhook GitHub reattivo** 🔔 — il vecchio endpoint inline (solo notifica, niente
+  firma) diventa un modulo puro `server/src/webhook.ts`: `verifyGithubSignature`
+  (HMAC-SHA256 a tempo costante, raw body catturato dal `verify` di `express.json`;
+  segreto vuoto = verifica off per il locale) e `parseGithubEvent` (push / pull_request /
+  workflow_run → messaggio + livello). Novità: su **CI fallita** allega un `wake`
+  (titolo = "indaga e correggi la CI sul branch X", branch incluso). L'endpoint verifica
+  la firma (401 se errata), broadcasta il riassunto e, se c'è un wake, un evento `WARN`
+  che porta `wake` sulla `WireEvent`. Lato client: `RemoteUpdate.wake` → `pendingWakes`
+  nello store → nuovo `WakeBridge` che assegna il task a un agente scelto da
+  `pickFreeAgent` (puro: il più riposato fra i liberi, altrimenti il meno carico). 12 test
+  (9 server, 3 client). Test client 149 → 152, server 113 → 122. Typecheck, lint, build: verdi.
 
 ### 2026-06-30 — apertura Roadmap 3
 Nata dopo un blocco di lavoro sulla Roadmap 2 (eventi stagionali del giardino,

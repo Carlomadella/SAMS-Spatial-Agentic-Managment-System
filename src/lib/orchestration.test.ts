@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, shouldAutoStartQueue } from "./orchestration";
+import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, pickFreeAgent, shouldAutoStartQueue } from "./orchestration";
 import type { Agent } from "../types";
 
 function mkAgent(over: Partial<Agent> & { id: string }): Agent {
@@ -81,5 +81,28 @@ describe("canStartQueued / shouldAutoStartQueue", () => {
     expect(shouldAutoStartQueue(queued, { status: "working" })).toBe(true);
     expect(shouldAutoStartQueue(queued, { status: "idle" })).toBe(false); // already idle → no re-fire
     expect(shouldAutoStartQueue(queued, undefined)).toBe(true);
+  });
+});
+
+describe("pickFreeAgent", () => {
+  it("returns undefined with no agents", () => {
+    expect(pickFreeAgent([])).toBeUndefined();
+  });
+
+  it("prefers a free agent, the most rested one", () => {
+    const agents = [
+      mkAgent({ id: "busy", status: "working", task: { title: "t", branch: "b", progress: 10 }, energy: 100 }),
+      mkAgent({ id: "free-low", status: "idle", energy: 40 }),
+      mkAgent({ id: "free-high", status: "idle", energy: 90 }),
+    ];
+    expect(pickFreeAgent(agents)?.id).toBe("free-high");
+  });
+
+  it("falls back to the least-loaded agent when none are free", () => {
+    const agents = [
+      mkAgent({ id: "two", status: "working", task: { title: "t", branch: "b", progress: 0 }, taskQueue: [{ title: "q", branch: "b" }] }),
+      mkAgent({ id: "one", status: "working", task: { title: "t", branch: "b", progress: 0 }, taskQueue: [] }),
+    ];
+    expect(pickFreeAgent(agents)?.id).toBe("one");
   });
 });

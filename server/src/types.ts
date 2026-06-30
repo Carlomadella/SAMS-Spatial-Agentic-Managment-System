@@ -23,6 +23,8 @@ export interface WireEvent {
   relayTo?: { target: string; title: string; branch: string; context: string };
   /** step-by-step plan the agent announced before starting work */
   plan?: string[];
+  /** incoming-webhook "wake": a contextual task for the UI to assign to a free agent */
+  wake?: { title: string; branch?: string; reason: string };
 }
 
 export interface AssignBody {

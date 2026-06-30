@@ -42,6 +42,27 @@ export function canStartQueued(a: Pick<Agent, "status" | "task" | "taskQueue">):
 }
 
 /**
+ * Pick the agent that should take an incoming-webhook "wake" task. Prefers a
+ * genuinely idle/empty agent; failing that, the one with the shortest queue so
+ * the work still lands somewhere. Returns `undefined` only when there are no
+ * agents at all. A specific `branch` slightly favours an agent already named for
+ * the same kind of work isn't worth the complexity — we keep it role-agnostic.
+ */
+export function pickFreeAgent(agents: Agent[]): Agent | undefined {
+  if (agents.length === 0) return undefined;
+  const free = agents.filter(isIdleEligible);
+  if (free.length > 0) {
+    // Among free agents, the most rested feels the most "available".
+    return free.reduce((best, a) => (a.energy > best.energy ? a : best));
+  }
+  // Nobody's free: hand it to the least-loaded agent (shortest queue, then idlest).
+  return agents.reduce((best, a) => {
+    const load = (x: Agent) => (x.task ? 1 : 0) + (x.taskQueue?.length ?? 0);
+    return load(a) < load(best) ? a : best;
+  });
+}
+
+/**
  * Should the queue bridge auto-start the next task? True on the transition INTO
  * idle (so we react once, not every tick) while a queued task is waiting.
  */

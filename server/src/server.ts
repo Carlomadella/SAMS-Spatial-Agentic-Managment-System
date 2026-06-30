@@ -10,6 +10,7 @@ import { runGroqTask } from "./groq";
 import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
+import { parseGithubEvent, verifyGithubSignature } from "./webhook";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { initGardenStore } from "./garden/store";
@@ -43,7 +44,16 @@ app.use((req: Request, res: Response, next) => {
   }
   next();
 });
-app.use(express.json({ limit: "2mb" }));
+// Capture the raw body so the GitHub webhook can verify its HMAC signature
+// (which is computed over the exact bytes, not the re-serialised JSON).
+app.use(
+  express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      (req as Request & { rawBody?: string }).rawBody = buf.toString("utf8");
+    },
+  }),
+);
 
 /** Connected SSE clients (the SAMS browser UIs). */
 const clients = new Set<Response>();
@@ -370,54 +380,38 @@ app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => 
   res.json({ ok: true, issueNumber });
 });
 
-// GitHub webhook — receives push / pull_request / workflow_run events and
-// re-broadcasts them as SAMS WireEvents so the frontend can react in real time.
-// To connect: in GitHub → Repo Settings → Webhooks → add http://host/api/webhook/github
-// (Content-Type: application/json; no Secret needed for local use).
+// GitHub webhook — receives push / pull_request / workflow_run events. Verifies
+// the HMAC signature (if GITHUB_WEBHOOK_SECRET is set), re-broadcasts a summary
+// as a SAMS WireEvent, and on a CI failure attaches a "wake" suggestion so the
+// frontend can assign a contextual fix task to a free agent.
+// To connect: GitHub → Repo Settings → Webhooks → http://host/api/webhook/github
+// (Content-Type: application/json; set a Secret = GITHUB_WEBHOOK_SECRET).
 app.post("/api/webhook/github", (req: Request, res: Response) => {
   const event = req.headers["x-github-event"] as string | undefined;
   if (!event) { res.status(400).json({ error: "x-github-event header missing" }); return; }
+
+  const secret = getSettings().githubWebhookSecret;
+  const signature = req.headers["x-hub-signature-256"] as string | undefined;
+  const rawBody = (req as Request & { rawBody?: string }).rawBody ?? "";
+  if (!verifyGithubSignature(secret, rawBody, signature)) {
+    log.warn("Webhook GitHub rifiutato: firma non valida", { event });
+    res.status(401).json({ error: "firma non valida" });
+    return;
+  }
   res.json({ ok: true });
 
-  const body = req.body as Record<string, unknown>;
-  const repo = (body.repository as { full_name?: string } | undefined)?.full_name ?? "?";
+  const result = parseGithubEvent(event, req.body as Record<string, unknown>);
+  if (!result) { log.debug("GitHub webhook ignorato", { event }); return; }
 
-  if (event === "push") {
-    const ref = (body.ref as string | undefined) ?? "";
-    const branch = ref.replace("refs/heads/", "");
-    const pusher = (body.pusher as { name?: string } | undefined)?.name ?? "?";
-    const commits = Array.isArray(body.commits) ? (body.commits as unknown[]).length : 0;
+  broadcast({ agentId: "github", agentName: "GitHub", level: result.level, message: result.message });
+  if (result.wake) {
     broadcast({
       agentId: "github",
       agentName: "GitHub",
-      level: "INFO",
-      message: `Push su ${repo}/${branch} da ${pusher} (${commits} commit${commits !== 1 ? "s" : ""})`,
+      level: "WARN",
+      message: `🔔 Risveglio: ${result.wake.reason} — assegno un fix a un agente libero`,
+      wake: result.wake,
     });
-  } else if (event === "pull_request") {
-    const action = body.action as string | undefined;
-    const pr = body.pull_request as { title?: string; html_url?: string; number?: number } | undefined;
-    if (pr && (action === "opened" || action === "closed" || action === "merged")) {
-      broadcast({
-        agentId: "github",
-        agentName: "GitHub",
-        level: "SUCCESS",
-        message: `PR #${pr.number ?? "?"} ${action}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
-      });
-    }
-  } else if (event === "workflow_run") {
-    const run = body.workflow_run as { name?: string; conclusion?: string; html_url?: string } | undefined;
-    const action = body.action as string | undefined;
-    if (run && action === "completed") {
-      const ok = run.conclusion === "success";
-      broadcast({
-        agentId: "github",
-        agentName: "GitHub",
-        level: ok ? "SUCCESS" : "ERROR",
-        message: `CI "${run.name ?? "?"}" ${ok ? "✅ passata" : "❌ fallita"} — ${run.html_url ?? ""}`,
-      });
-    }
-  } else {
-    log.debug("GitHub webhook ignorato", { event });
   }
 });
 

@@ -16,7 +16,7 @@ import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { metaRepo } from "./lib/metaAgent";
-import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
+import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -154,6 +154,44 @@ function RelayBridge() {
           message: `← Handoff da ${relay.fromName}: ${relay.title}`,
         });
       }, 200);
+    });
+  }, []);
+  return null;
+}
+
+/**
+ * Incoming webhook → action. When the runtime forwards a "wake" (e.g. a CI
+ * failure), assign the contextual task to a free agent (or the least-loaded
+ * one), reusing the same local + backend assignment path as a manual task.
+ */
+function WakeBridge() {
+  useEffect(() => {
+    return useStore.subscribe((s) => {
+      if (s.pendingWakes.length === 0) return;
+      const wake = s.pendingWakes[0];
+      useStore.getState().shiftWake();
+      const { agents } = useStore.getState();
+      const target = pickFreeAgent(agents);
+      if (!target) return;
+      const branch = wake.branch || `fix/ci-${Date.now().toString(36)}`;
+      if (target.task) {
+        useStore.getState().enqueueTask(target.id, { title: wake.title, branch });
+      } else {
+        useStore.getState().assignTask(target.id, wake.title, branch);
+        if (backendEnabled) {
+          const fresh = useStore.getState().agents.find((a) => a.id === target.id);
+          if (fresh) {
+            assignRemote(fresh.id, fresh.name, wake.title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+          }
+        }
+      }
+      useStore.getState().log({
+        agentId: target.id,
+        agentName: target.name,
+        color: target.color,
+        level: "WARN",
+        message: `🔔 Svegliato da webhook (${wake.reason}) → ${target.name}`,
+      });
     });
   }, []);
   return null;
@@ -574,6 +612,7 @@ export default function App() {
       <OnboardingWizard />
       <QueueBridge />
       <RelayBridge />
+      <WakeBridge />
       <LifeBridge />
       <TalkBridge />
       <HungerBridge />
