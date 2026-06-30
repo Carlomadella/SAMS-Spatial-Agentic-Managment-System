@@ -647,6 +647,14 @@ export const useStore = create<State>()(
             a.pendingFiles = undefined;
             // if agent was awaiting_approval before reload, reset to idle
             if (a.status === "awaiting_approval") a.status = "idle";
+            // A persisted "working" status is always stale after a reload: no
+            // local runtime loop survives the page refresh to drive it. Reset it
+            // to idle (a genuine in-flight task re-syncs from the backend SSE).
+            // This also clears legacy seed agents that were "working" forever.
+            if (a.status === "working") {
+              a.status = "idle";
+              a.task = null;
+            }
           }
         }
       },
