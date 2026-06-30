@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Sprout } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState } from "../lib/garden";
+import { getSeasonalEvent } from "../lib/seasonalEvents";
 
 interface Badge { emoji: string; label: string }
 
@@ -190,6 +191,19 @@ export function GardenView() {
                   <ExternalLink size={13} /> Pagina
                 </a>
               </div>
+              {(() => {
+                const event = getSeasonalEvent();
+                if (!event) return null;
+                return (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
+                    <span className="text-lg leading-none">{event.emoji}</span>
+                    <div className="leading-tight">
+                      <div className="text-[12px] font-semibold text-emerald-900">{event.name}</div>
+                      <div className="text-[11px] text-emerald-900/60">{event.blurb}</div>
+                    </div>
+                  </div>
+                );
+              })()}
               {(() => {
                 const badges = computeBadges(garden);
                 if (badges.length === 0) return null;

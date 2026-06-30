@@ -157,7 +157,11 @@ collega.
 - [ ] 💡 **Immagine OG condivisibile** — esporta il giardino come PNG (canvas/OG meta)
       per i social. (Rimasto dalla Roadmap 1.)
 - [ ] 💡 **Giardini di team / organizzazione** — vista aggregata di tutti i contributor.
-- [ ] 💡 **Eventi stagionali** — fioriture speciali, decorazioni a tema.
+- [x] ✅ **Eventi stagionali** — ricorrenze datate (Capodanno, San Valentino,
+      fioritura di primavera, solstizio, Halloween, Natale) accendono particelle
+      festive del colore-accento attorno alla pianta (`FestiveParticles`) e un
+      badge nel pannello giardino. Logica pura `getSeasonalEvent(date)` in
+      `lib/seasonalEvents.ts` (range mutuamente esclusivi), 8 test.
 - [ ] ❄️ **Auto-innaffiatura via webhook** — opzionale (oggi refresh manuale, scelta voluta).
 
 ## 🤝 Collaborazione & multi-utente
@@ -211,6 +215,16 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-30 — eventi stagionali nel Commit Garden
+- **Eventi stagionali** 🎉 — nuovo `lib/seasonalEvents.ts`: `getSeasonalEvent(date)`
+  pura mappa il giorno corrente su una ricorrenza (Capodanno 1/1·31/12, San Valentino
+  14/2, fioritura 20–22/3, solstizio 20–22/6, Halloween 29–31/10, Natale 20–26/12) con
+  range mutuamente esclusivi (buco voluto 27–30/12 tra Natale e Capodanno). Ogni evento
+  porta `emoji`, colore `accent` e `blurb`. In scena `FestiveParticles` fa salire orb
+  luminosi del colore accento attorno alla pianta quando l'evento è attivo; nel pannello
+  giardino compare un badge con emoji + frase. 8 nuovi test. Test client 117 → 125.
+  Typecheck, lint, build: verdi.
 
 ### 2026-06-30 — skill tree (XP/livelli da task completati)
 - **Skill tree** — nuovo `Agent.xp`: ogni task completato dà +30 XP

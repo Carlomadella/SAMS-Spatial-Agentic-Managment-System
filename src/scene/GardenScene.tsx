@@ -4,6 +4,7 @@ import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { grassTexture } from "./textures";
 import { STAGE_LABEL, type GardenState, type Stage } from "../lib/garden";
+import { getSeasonalEvent } from "../lib/seasonalEvents";
 
 type Vec3 = [number, number, number];
 
@@ -221,6 +222,48 @@ function Snowflakes({ count = 50 }: { count?: number }) {
         <mesh key={i} position={[s.x, s.y, s.z]}>
           <sphereGeometry args={[0.035, 6, 6]} />
           <meshStandardMaterial color="#f0f6ff" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Particelle festive di un evento stagionale: orb luminosi del colore accento
+ *  che salgono lentamente attorno alla pianta e si riavvolgono in basso. */
+function FestiveParticles({ color, count = 26 }: { color: string; count?: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        x: (Math.random() * 2 - 1) * 4,
+        z: (Math.random() * 2 - 1) * 4,
+        y: Math.random() * 5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 0.7,
+        sway: 0.6 + Math.random() * 0.9,
+        r: 0.05 + Math.random() * 0.05,
+      })),
+    [count],
+  );
+  useFrame((state, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const d = Math.min(delta, 0.05);
+    g.children.forEach((child, i) => {
+      const s = seeds[i];
+      child.position.y += s.speed * d;
+      if (child.position.y > 5.5) child.position.y = 0.2;
+      child.position.x = s.x + Math.sin(t * s.sway + s.phase) * 0.45;
+      child.position.z = s.z + Math.cos(t * s.sway + s.phase) * 0.45;
+    });
+  });
+  return (
+    <group ref={ref}>
+      {seeds.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]}>
+          <sphereGeometry args={[s.r, 8, 8]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} roughness={0.5} toneMapped={false} />
         </mesh>
       ))}
     </group>
@@ -596,6 +639,7 @@ export function GardenScene({
   const biome  = useMemo(() => (garden ? getBiome(garden.user) : "oak"), [garden?.user]); // eslint-disable-line react-hooks/exhaustive-deps
   const palette = useMemo(() => computePalette(season, biome), [season, biome]);
   const seasonSky = SEASON_SKY[season];
+  const event = useMemo(() => getSeasonalEvent(), []);
 
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7, 14], fov: 38 }} gl={{ antialias: true }}>
@@ -630,6 +674,9 @@ export function GardenScene({
         {/* seasonal effects */}
         {season === "autumn" && <FallingLeaves />}
         {season === "winter" && <Snowflakes />}
+
+        {/* festive decoration for a dated seasonal event (Christmas, etc.) */}
+        {event && <FestiveParticles color={event.accent} />}
 
         {/* an open-L of fencing behind + to the left */}
         <PicketFence length={19} position={[0, 0, -9.3]} />
