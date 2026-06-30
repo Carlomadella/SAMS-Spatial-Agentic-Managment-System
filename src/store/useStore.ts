@@ -103,6 +103,9 @@ interface State {
   pendingWakes: Array<{ title: string; branch?: string; reason: string }>;
   pushWake: (w: { title: string; branch?: string; reason: string }) => void;
   shiftWake: () => void;
+  /** Opt-in: assign incoming-webhook "wakes" to a free agent automatically. */
+  webhookAutoAssign: boolean;
+  setWebhookAutoAssign: (v: boolean) => void;
   /** Short-lived handoff arcs drawn in the 3D scene. */
   handoffs: Handoff[];
   addHandoff: (fromId: string, toId: string) => void;
@@ -239,6 +242,7 @@ export const useStore = create<State>()(
   toasts: [],
   pendingRelays: [],
   pendingWakes: [],
+  webhookAutoAssign: false,
   handoffs: [],
 
   log: (e) =>
@@ -484,6 +488,7 @@ export const useStore = create<State>()(
 
   pushWake: (w) => set((s) => ({ pendingWakes: [...s.pendingWakes, w] })),
   shiftWake: () => set((s) => ({ pendingWakes: s.pendingWakes.slice(1) })),
+  setWebhookAutoAssign: (v) => set({ webhookAutoAssign: v }),
   addHandoff: (fromId, toId) =>
     set((s) => ({
       handoffs: [
@@ -645,6 +650,7 @@ export const useStore = create<State>()(
         environment: s.environment,
         selectedAgentId: s.selectedAgentId,
         tokensUsed: s.tokensUsed,
+        webhookAutoAssign: s.webhookAutoAssign,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,

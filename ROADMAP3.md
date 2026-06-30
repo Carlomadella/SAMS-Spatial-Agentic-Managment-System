@@ -48,11 +48,13 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 - [x] ✅ **Webhook in ingresso** — `/api/webhook/github` verifica la **firma HMAC-SHA256**
       (`verifyGithubSignature`, raw body catturato in `express.json`), traduce l'evento con
-      `parseGithubEvent` puro (push / PR / workflow_run) e, su **CI fallita**, allega un
-      `wake` (task di fix contestuale col branch). Il `wake` viaggia sulla `WireEvent` →
-      `pendingWakes` nello store → `WakeBridge` lo assegna a un agente libero
-      (`pickFreeAgent`: il più riposato, o il meno carico se nessuno è libero). Segreto in
-      `GITHUB_WEBHOOK_SECRET`. 12 test (9 server + 3 `pickFreeAgent`).
+      `parseGithubEvent` puro (push / PR / workflow_run) e allega un `wake` (task contestuale)
+      su due trigger: **CI fallita** (fix sul branch) e **review_requested** (rivedi la PR).
+      Il `wake` viaggia sulla `WireEvent` → `pendingWakes` → `WakeBridge` che lo assegna a un
+      agente libero (`pickFreeAgent`: il più riposato, o il meno carico). **Opt-in**: toggle
+      "Rispondi ai webhook GitHub" nel pannello Live Sim (spento di default → l'evento resta
+      solo nel log). Segreto in `GITHUB_WEBHOOK_SECRET`; setup documentato nel README. 14 test
+      (11 server + 3 `pickFreeAgent`).
 - [ ] 💡 ⬅️ **Sfruttare gli MCP** — esporre agli agenti, come strumenti, le
       integrazioni già disponibili: report su **Google Drive**, eventi su **Calendar**,
       grafiche su **Canva**. Un tool generico `mcp_call(server, tool, args)` con
@@ -138,6 +140,17 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-06-30 — webhook: opt-in, secondo trigger, README
+- **Auto-assegnazione opt-in** — il risveglio non è più sempre attivo: nuovo flag
+  `webhookAutoAssign` (default **off**, persistito) con toggle "Rispondi ai webhook
+  GitHub" nel pannello Live Sim. A toggle spento il `WakeBridge` non assegna nulla
+  (l'evento 🔔 resta nel log, azionabile a mano). Messaggio del runtime reso neutro.
+- **Secondo trigger** — `pull_request` con azione `review_requested` genera un `wake`
+  di review sulla PR (branch = head ref). 2 test in più (webhook server 9 → 11).
+- **README** — nuova sezione "Reactive mode": setup del webhook e avviso esplicito a
+  impostare `GITHUB_WEBHOOK_SECRET` quando il runtime è esposto su internet.
+- Typecheck, lint, build: verdi. Client 152, server 124.
 
 ### 2026-06-30 — webhook in ingresso (frontiera #1, primo pezzo)
 - **Webhook GitHub reattivo** 🔔 — il vecchio endpoint inline (solo notifica, niente

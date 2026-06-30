@@ -59,11 +59,27 @@ export function parseGithubEvent(event: string, body: Record<string, unknown>): 
 
   if (event === "pull_request") {
     const action = str(body.action);
-    const pr = body.pull_request as { title?: string; html_url?: string; number?: number } | undefined;
-    if (pr && (action === "opened" || action === "closed" || action === "merged")) {
+    const pr = body.pull_request as
+      | { title?: string; html_url?: string; number?: number; head?: { ref?: string } }
+      | undefined;
+    if (!pr) return null;
+    const num = pr.number ?? "?";
+    const head = pr.head?.ref;
+    if (action === "opened" || action === "closed" || action === "merged") {
       return {
         level: "SUCCESS",
-        message: `PR #${pr.number ?? "?"} ${action}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
+        message: `PR #${num} ${action}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
+      };
+    }
+    if (action === "review_requested" && head) {
+      return {
+        level: "WARN",
+        message: `Review richiesta su PR #${num}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
+        wake: {
+          title: `Rivedi la PR #${num} ("${pr.title ?? ""}") sul branch ${head}: leggi i file modificati con gh_read_pr/gh_read_file e commenta bug, stile, sicurezza e performance con gh_comment_pr.`,
+          branch: head,
+          reason: `review richiesta su PR #${num}`,
+        },
       };
     }
     return null;

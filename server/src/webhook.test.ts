@@ -39,6 +39,22 @@ describe("parseGithubEvent", () => {
   it("riconosce una PR aperta e ignora azioni non interessanti", () => {
     expect(parseGithubEvent("pull_request", { action: "opened", pull_request: { number: 7, title: "Feat" } })?.level).toBe("SUCCESS");
     expect(parseGithubEvent("pull_request", { action: "synchronize", pull_request: { number: 7 } })).toBeNull();
+    expect(parseGithubEvent("pull_request", { action: "opened", pull_request: { number: 7 } })?.wake).toBeUndefined();
+  });
+
+  it("sveglia una review su review_requested (con branch head)", () => {
+    const r = parseGithubEvent("pull_request", {
+      action: "review_requested",
+      pull_request: { number: 9, title: "Refactor", head: { ref: "feat/refactor" } },
+    });
+    expect(r?.level).toBe("WARN");
+    expect(r?.wake?.branch).toBe("feat/refactor");
+    expect(r?.wake?.title).toContain("PR #9");
+    expect(r?.wake?.reason).toContain("#9");
+  });
+
+  it("non sveglia una review se manca il branch head", () => {
+    expect(parseGithubEvent("pull_request", { action: "review_requested", pull_request: { number: 9 } })).toBeNull();
   });
 
   it("non sveglia nessuno quando la CI passa", () => {

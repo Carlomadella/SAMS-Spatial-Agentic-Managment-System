@@ -14,6 +14,8 @@ export function LiveSimPanel() {
   const agents = useStore((s) => s.agents);
   const backendOnline = useStore((s) => s.backendOnline);
   const runtimeReady = useStore((s) => s.runtimeReady);
+  const webhookAutoAssign = useStore((s) => s.webhookAutoAssign);
+  const setWebhookAutoAssign = useStore((s) => s.setWebhookAutoAssign);
   const [loading, setLoading] = useState(false);
   const [labelInput, setLabelInput] = useState(simLabel);
 
@@ -113,6 +115,22 @@ export function LiveSimPanel() {
         <p className="mt-1 text-[10px] text-mut">
           Issue aperte con questa label vengono assegnate automaticamente agli agenti liberi
         </p>
+
+        <label className="mt-3 flex cursor-pointer items-start gap-2">
+          <input
+            type="checkbox"
+            checked={webhookAutoAssign}
+            onChange={(e) => setWebhookAutoAssign(e.target.checked)}
+            className="mt-0.5 accent-emerald-500"
+          />
+          <span className="text-[11px] leading-snug text-slate-300">
+            Rispondi ai webhook GitHub
+            <span className="mt-0.5 block text-[10px] text-mut">
+              CI fallita o review richiesta → assegna in automatico un task contestuale a un
+              agente libero. Se spento, l'evento compare solo nel log.
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* Not ready warning */}

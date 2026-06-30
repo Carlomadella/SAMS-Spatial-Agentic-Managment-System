@@ -170,6 +170,9 @@ function WakeBridge() {
       if (s.pendingWakes.length === 0) return;
       const wake = s.pendingWakes[0];
       useStore.getState().shiftWake();
+      // Opt-in: when auto-assign is off, the suggestion already shows in the log
+      // (the runtime broadcast a 🔔 WARN) — we just don't act on it.
+      if (!useStore.getState().webhookAutoAssign) return;
       const { agents } = useStore.getState();
       const target = pickFreeAgent(agents);
       if (!target) return;

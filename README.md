@@ -130,6 +130,32 @@ agents are repo-agnostic. Keys and provisioned IDs are stored locally in
 `http://localhost:8787` by default (override with `VITE_SAMS_BACKEND_URL`). Full
 guide: [`server/README.md`](./server/README.md).
 
+## Reactive mode — incoming GitHub webhooks
+
+SAMS can **react** to your repo, not just push to it. Point a GitHub webhook at
+the runtime and events flow into the 3D world live:
+
+- **push / PR opened·closed·merged** → a summary line in the Event Log.
+- **CI failed** (`workflow_run`) → a 🔔 *wake*: a contextual fix task ("indaga e
+  correggi la CI sul branch X").
+- **review requested** (`pull_request`) → a 🔔 *wake*: a review task for that PR.
+
+A *wake* is **only auto-assigned** to a free agent when you opt in: enable
+**"Rispondi ai webhook GitHub"** in the **Live Sim** panel (off by default — when
+off, the suggestion just shows in the Event Log so you can act on it manually).
+
+**Setup:** GitHub → *Repo → Settings → Webhooks → Add webhook*
+
+- **Payload URL:** `https://<your-host>/api/webhook/github`
+- **Content type:** `application/json`
+- **Secret:** set one, and give the runtime the **same** value via
+  `GITHUB_WEBHOOK_SECRET` in `server/.env`.
+
+> ⚠️ **If the runtime is reachable from the internet, always set
+> `GITHUB_WEBHOOK_SECRET`.** The endpoint verifies GitHub's `x-hub-signature-256`
+> HMAC and rejects unsigned/forged requests with `401`. Leaving the secret empty
+> disables verification — convenient for `localhost`, unsafe when exposed.
+
 ## Commit Garden (a room you can enter)
 
 The office has a **🌿 garden door** (back-right wall; also the Sprout button in the

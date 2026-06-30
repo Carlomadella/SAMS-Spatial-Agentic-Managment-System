@@ -409,7 +409,7 @@ app.post("/api/webhook/github", (req: Request, res: Response) => {
       agentId: "github",
       agentName: "GitHub",
       level: "WARN",
-      message: `🔔 Risveglio: ${result.wake.reason} — assegno un fix a un agente libero`,
+      message: `🔔 ${result.wake.reason} — suggerito un task contestuale`,
       wake: result.wake,
     });
   }
