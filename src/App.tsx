@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Hand, HelpCircle, Loader2, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
+import { Hand, HelpCircle, Loader2, Megaphone, MicOff, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -19,6 +19,7 @@ import { metaRepo } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, shouldAutoStartQueue } from "./lib/orchestration";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
+import { narrationLine, narrator } from "./lib/narration";
 import type { Vec2 } from "./types";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
@@ -239,6 +240,64 @@ function SoundToggle() {
       className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
     >
       {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+    </button>
+  );
+}
+
+/**
+ * Voice narration: reads out *significant* workspace events (completions, PRs,
+ * errors, reviews) via the Web Speech API. Off by default; the toggle below
+ * flips `narrator`. Mirrors AudioBridge's newest-event tracking.
+ */
+function NarrationBridge() {
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    let lastId = useStore.getState().events.slice(-1)[0]?.id ?? null;
+    const unsub = useStore.subscribe((state) => {
+      if (!narrator.isEnabled()) return;
+      const evs = state.events;
+      const newest = evs[evs.length - 1];
+      if (!newest || newest.id === lastId) return;
+      let start = 0;
+      for (let i = evs.length - 1; i >= 0; i--) {
+        if (evs[i].id === lastId) { start = i + 1; break; }
+      }
+      for (let i = start; i < evs.length; i++) {
+        const line = narrationLine(evs[i]);
+        if (line) narrator.speak(line);
+      }
+      lastId = newest.id;
+    });
+    return () => {
+      unsub();
+      narrator.cancel();
+    };
+  }, []);
+  return null;
+}
+
+/** Floating toggle to enable/disable spoken narration of events. */
+function NarrationToggle() {
+  const [on, setOn] = useState(() => {
+    try { return localStorage.getItem("sams.narration") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    narrator.setEnabled(on);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const toggle = () => {
+    const next = !on;
+    narrator.setEnabled(next);
+    setOn(next);
+    try { localStorage.setItem("sams.narration", next ? "1" : "0"); } catch { /* ignore */ }
+  };
+  return (
+    <button
+      onClick={toggle}
+      title={on ? "Disattiva la narrazione vocale" : "Attiva la narrazione vocale"}
+      className="absolute right-12 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
+    >
+      {on ? <Megaphone size={15} /> : <MicOff size={15} />}
     </button>
   );
 }
@@ -498,6 +557,7 @@ export default function App() {
             </Suspense>
             <StageHint />
             <SoundToggle />
+            <NarrationToggle />
             <ReopenPanelButton />
           </div>
           {bottomOpen && <BottomPanel />}
@@ -518,6 +578,7 @@ export default function App() {
       <TalkBridge />
       <HungerBridge />
       <AudioBridge />
+      <NarrationBridge />
       <NotificationBridge />
       <ResponsiveBridge />
       <SimBridge />

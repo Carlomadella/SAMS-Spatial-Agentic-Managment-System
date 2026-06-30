@@ -210,7 +210,11 @@ collega.
 - [ ] 💡 **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono hardcoded).
 
 ## 🃏 Wild cards
-- [ ] 💡 **Narrazione vocale** di cosa fanno gli agenti (TTS sugli eventi SSE).
+- [x] ✅ **Narrazione vocale** di cosa fanno gli agenti (TTS sugli eventi) —
+      `lib/narration.ts`: `narrationLine(event)` puro decide cosa pronunciare
+      (completamenti, PR, errori, revisioni) e tace sul rumore (tool, 💭, 💬);
+      `narrator` singleton parla via Web Speech API (it-IT). `NarrationBridge` +
+      toggle 📣 flottante (spento di default, persistito). 8 test.
 - [x] ✅ **Skill tree** — gli agenti guadagnano XP completando task (`Agent.xp`,
       +30 per task in `updateProgress`/`applyRemote`) e salgono di rango
       (Novizio→Apprendista→Esperto→Veterano→Maestro). Curva pura in `lib/skill.ts`
@@ -221,6 +225,17 @@ collega.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 2)
+
+### 2026-06-30 — narrazione vocale (TTS) degli eventi
+- **Narrazione vocale** 📣 — nuovo `lib/narration.ts`: `narrationLine(event)` puro
+  mappa un evento su una frase italiana da pronunciare, o `null` se è rumore
+  (output di tool come `read`/`ls`, ragionamento 💭, chiacchiere 💬, IDLE, INFO,
+  WARN generici). Narra SUCCESS (incl. apertura PR), ERROR e revisione/blocco.
+  `stripForSpeech` ripulisce URL/inline-code/emoji e converte `#N`→"numero N".
+  Il `narrator` singleton parla via Web Speech API (`it-IT`, niente accesso al DOM
+  al load). `NarrationBridge` (come l'AudioBridge, traccia l'ultimo evento) +
+  toggle 📣 flottante accanto allo speaker, spento di default e persistito in
+  `localStorage`. 8 test. Test client 133 → 141. Typecheck, lint, build: verdi.
 
 ### 2026-06-30 — meta-agente (SAMS che migliora SAMS) + fix agenti bloccati
 - **Fix agenti bloccati** — blue/purple restavano immobili sopra il letto: erano
