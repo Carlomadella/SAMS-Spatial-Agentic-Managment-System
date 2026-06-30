@@ -15,6 +15,10 @@ qualità** che ha consolidato le fondamenta:
 Questa seconda roadmap parte da lì: meno "far funzionare le cose", più
 **profondità, fiducia e scala**.
 
+> ➡️ **Il capitolo successivo vive in [`ROADMAP3.md`](./ROADMAP3.md)** (il _mondo
+> condiviso_: webhook in ingresso, MCP, replay, giardini di team, presence
+> realtime, multiplayer). Gli item ancora aperti qui sono ereditati lì.
+
 > **Come si mantiene questo file**
 > Stesse regole della Roadmap 1: nuove idee in cima alle sezioni, stati aggiornati,
 > **Log datato** in fondo.
