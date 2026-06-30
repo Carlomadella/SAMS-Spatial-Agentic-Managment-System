@@ -33,7 +33,7 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 | #   | Frontiera                                                            | Perché                                                                              | Effort | Stato |
 | --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ----- |
-| 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | 🏗️    |
+| 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | ✅    |
 | 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | 💡    |
 | 3   | **Mondo condiviso** — presence realtime + ruoli/permessi + multiplayer | Più persone nello stesso ufficio: da demo personale a strumento di squadra          | 🔴     | 💡    |
 
@@ -55,10 +55,13 @@ sciolgono ciascuna un pezzo di questo isolamento.
       "Rispondi ai webhook GitHub" nel pannello Live Sim (spento di default → l'evento resta
       solo nel log). Segreto in `GITHUB_WEBHOOK_SECRET`; setup documentato nel README. 14 test
       (11 server + 3 `pickFreeAgent`).
-- [ ] 💡 ⬅️ **Sfruttare gli MCP** — esporre agli agenti, come strumenti, le
-      integrazioni già disponibili: report su **Google Drive**, eventi su **Calendar**,
-      grafiche su **Canva**. Un tool generico `mcp_call(server, tool, args)` con
-      allow-list configurabile.
+- [x] ✅ **Sfruttare gli MCP** — tool generico `mcp_call(server, tool, args)` con
+      **allow-list** (`SAMS_MCP_SERVERS` JSON: `name`/`url`/`token?`/`tools?`). Se non
+      è configurato nulla il tool non viene offerto. Modulo puro `server/src/mcp.ts`
+      (`parseMcpServers`, `findMcpServer`, `isMcpToolAllowed`, `extractMcpText`,
+      `parseJsonRpcResponse` — gestisce risposte JSON o SSE), transport HTTP JSON-RPC
+      `tools/call`. Esposto agli agenti Gemini e Groq, gated da `mcpEnabled`. 15 test.
+      Setup documentato nel README.
 - [ ] 💡 **Trigger temporali / routine** — task ricorrenti (es. "ogni mattina:
       riepilogo PR aperte su Notion"). Cron lato runtime con persistenza SQLite.
 - [ ] 💡 **Reazioni a catena** — il completamento di un task può emettere un evento
@@ -140,6 +143,19 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-06-30 — MCP come strumenti agente (frontiera #1 completa) ✅
+- **`mcp_call(server, tool, args)`** — gli agenti possono invocare tool di server
+  MCP esterni (Drive/Calendar/Canva…). Nuovo modulo puro `server/src/mcp.ts`:
+  `parseMcpServers` (allow-list da JSON, scarta voci malformate), `findMcpServer`,
+  `isMcpToolAllowed` (allow-list per-server dei tool), `describeMcpServers`,
+  `extractMcpText` (testo dal `content` MCP), `parseJsonRpcResponse` (JSON puro o
+  frame SSE), e `callMcpTool` (validazione → POST JSON-RPC `tools/call`, Bearer
+  opzionale, timeout, troncamento). Config `SAMS_MCP_SERVERS`; il tool è **gated**
+  (`mcpEnabled`) e non viene offerto se la lista è vuota. Cablato nei loop Gemini e
+  Groq (anche il guard "nessuno strumento" ora considera MCP). 15 test (14 modulo +
+  1 gating in agentTools). README: sezione "MCP tools". Con questo la **frontiera #1
+  (mondo reattivo) è completa**. Server test 124 → 139. Typecheck, lint: verdi.
 
 ### 2026-06-30 — webhook: opt-in, secondo trigger, README
 - **Auto-assegnazione opt-in** — il risveglio non è più sempre attivo: nuovo flag

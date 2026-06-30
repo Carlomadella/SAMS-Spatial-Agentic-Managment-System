@@ -1,6 +1,7 @@
 import { getSettings } from "./config";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
+import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import {
   MAX_STEPS,
@@ -125,6 +126,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
 
   const repoEnabled = s.githubToken.length > 0 && s.githubRepo.includes("/");
   const notionEnabled = notionConfigured();
+  const mcpEnabled = parseMcpServers(s.mcpServers).length > 0;
   const branch = body.branch?.trim() || makeBranch(agentName, title);
   const role = body.role?.trim() || "";
   const instructions = body.instructions?.trim() || "";
@@ -132,12 +134,12 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
 
   emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Groq (${groqModel()})` });
 
-  if (!repoEnabled && !notionEnabled) {
+  if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });
     return;
   }
 
-  const tools = toGroqTools(buildToolSpecs(s, { repoEnabled, notionEnabled }));
+  const tools = toGroqTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }));
 
   let guide = "";
   if (repoEnabled) {

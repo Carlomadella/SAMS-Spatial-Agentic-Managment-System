@@ -55,6 +55,17 @@ describe("buildToolSpecs gating", () => {
     expect(names).toEqual(["remember", "recall", "announce_plan", "web_fetch", "relay_task", "done"]);
   });
 
+  it("includes mcp_call only when MCP servers are configured, listing them", () => {
+    const off = buildToolSpecs(baseSettings, { repoEnabled: false, notionEnabled: false }).map((t) => t.name);
+    expect(off).not.toContain("mcp_call");
+
+    const s = { baseBranch: "main", mcpServers: JSON.stringify([{ name: "drive", url: "https://x" }]) } as Settings;
+    const specs = buildToolSpecs(s, { repoEnabled: false, notionEnabled: false, mcpEnabled: true });
+    const mcp = specs.find((t) => t.name === "mcp_call");
+    expect(mcp).toBeDefined();
+    expect(mcp?.description).toContain("drive");
+  });
+
   it("interpolates the base branch into gh tool descriptions", () => {
     const specs = buildToolSpecs({ baseBranch: "develop" } as Settings, { repoEnabled: true, notionEnabled: false });
     const read = specs.find((t) => t.name === "gh_read_file");

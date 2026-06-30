@@ -6,6 +6,7 @@
  * spec adapters, the tool dispatcher (executeTool) and the post-loop finalize.
  */
 import type { Settings } from "./config";
+import { callMcpTool, describeMcpServers, parseMcpServers } from "./mcp";
 import {
   commentOnPullRequest,
   createBranch,
@@ -76,8 +77,11 @@ export interface ToolSpec {
   schema: Record<string, unknown>;
 }
 
-/** Build the tool list for the configured capabilities (repo and/or Notion). */
-export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notionEnabled: boolean }): ToolSpec[] {
+/** Build the tool list for the configured capabilities (repo, Notion, MCP). */
+export function buildToolSpecs(
+  s: Settings,
+  caps: { repoEnabled: boolean; notionEnabled: boolean; mcpEnabled?: boolean },
+): ToolSpec[] {
   const specs: ToolSpec[] = [];
   if (caps.repoEnabled) {
     specs.push(
@@ -351,6 +355,24 @@ export function buildToolSpecs(s: Settings, caps: { repoEnabled: boolean; notion
       schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
     },
   );
+
+  if (caps.mcpEnabled) {
+    const servers = parseMcpServers(s.mcpServers);
+    specs.push({
+      name: "mcp_call",
+      description:
+        `Invoca un tool su un server MCP esterno (es. report su Drive, eventi su Calendar, grafiche su Canva). Server disponibili: ${describeMcpServers(servers)}.`,
+      schema: {
+        type: "object",
+        properties: {
+          server: { type: "string", description: "Nome del server MCP (vedi elenco nella descrizione)" },
+          tool: { type: "string", description: "Nome del tool da invocare sul server" },
+          args: { type: "object", description: "Argomenti del tool (oggetto chiave/valore)" },
+        },
+        required: ["server", "tool"],
+      },
+    });
+  }
   return specs;
 }
 
@@ -610,6 +632,16 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         agentId, agentName, progress, level: "SUCCESS",
         message: `→ Relay a ${relayTarget}: ${relayTitle}`,
         relayTo: { target: relayTarget, title: relayTitle, branch: relayBranch, context: relayCtx },
+      });
+    } else if (name === "mcp_call") {
+      const server = str(args.server);
+      const tool = str(args.tool);
+      const mcpArgs = (typeof args.args === "object" && args.args !== null ? args.args : {}) as Record<string, unknown>;
+      result = await callMcpTool(parseMcpServers(s.mcpServers), server, tool, mcpArgs);
+      emit({
+        agentId, agentName, progress,
+        level: result.startsWith("ERRORE") ? "WARN" : "INFO",
+        message: `MCP ${server}/${tool}`,
       });
     } else if (name === "done") {
       ctx.doneSummary = str(args.summary);

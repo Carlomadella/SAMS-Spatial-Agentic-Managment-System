@@ -156,6 +156,30 @@ off, the suggestion just shows in the Event Log so you can act on it manually).
 > HMAC and rejects unsigned/forged requests with `401`. Leaving the secret empty
 > disables verification — convenient for `localhost`, unsafe when exposed.
 
+## MCP tools — Drive / Calendar / Canva (and more)
+
+Agents can call external **MCP servers** through a single generic tool,
+`mcp_call(server, tool, args)` — e.g. write a report to Google Drive, create a
+Calendar event, or generate a Canva graphic. It's an **allow-list**: nothing is
+exposed unless you configure it, and the tool isn't even offered when the list is
+empty.
+
+Configure via `SAMS_MCP_SERVERS` in `server/.env` — a JSON array:
+
+```jsonc
+SAMS_MCP_SERVERS='[
+  { "name": "drive", "url": "https://your-mcp-host/drive", "token": "…",
+    "tools": ["files.create", "files.read"] },   // optional per-server allow-list
+  { "name": "calendar", "url": "https://your-mcp-host/calendar" }
+]'
+```
+
+Each entry needs a `name` and an `http(s)` `url` (an MCP server speaking JSON-RPC
+`tools/call`, plain-JSON or SSE response). `token` (optional) is sent as a Bearer
+header; `tools` (optional) restricts which tools that server may run. The agent
+sees the configured servers in the tool description and calls, e.g.,
+`mcp_call("drive", "files.create", { name: "report.md", content: "…" })`.
+
 ## Commit Garden (a room you can enter)
 
 The office has a **🌿 garden door** (back-right wall; also the Sprout button in the

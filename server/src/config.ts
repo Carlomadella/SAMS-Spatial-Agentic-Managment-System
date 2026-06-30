@@ -21,6 +21,9 @@ export interface Settings {
   baseBranch: string;
   /** Secret HMAC per verificare i webhook GitHub in ingresso (vuoto = verifica off). */
   githubWebhookSecret: string;
+  /** Server MCP esposti agli agenti come strumento `mcp_call`, come JSON array
+   *  (allow-list): [{ name, url, token?, tools? }]. Vuoto = tool non offerto. */
+  mcpServers: string;
   // claude managed-agents resources (provider="claude" only)
   agentId: string;
   environmentId: string;
@@ -46,6 +49,7 @@ function fromEnv(): Settings {
     githubRepo: process.env.GITHUB_REPO ?? "Carlomadella/Tutto-sulla-programmazione",
     baseBranch: process.env.GITHUB_BASE_BRANCH ?? "main",
     githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET ?? "",
+    mcpServers: process.env.SAMS_MCP_SERVERS ?? "",
     agentId: process.env.SAMS_AGENT_ID ?? "",
     environmentId: process.env.SAMS_ENVIRONMENT_ID ?? "",
     model: process.env.SAMS_MODEL ?? "gemini-2.5-flash",
@@ -92,6 +96,7 @@ function persist(): void {
     githubRepo: s.githubRepo,
     baseBranch: s.baseBranch,
     githubWebhookSecret: s.githubWebhookSecret,
+    mcpServers: s.mcpServers,
     agentId: s.agentId,
     environmentId: s.environmentId,
     model: s.model,

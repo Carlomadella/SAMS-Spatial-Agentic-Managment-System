@@ -3,6 +3,7 @@ import { geminiModel, generateWithRetryStream } from "./gemini";
 import { getSettings } from "./config";
 import { readFile } from "./github";
 import { notionConfigured } from "./notion";
+import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import { db, listMemory } from "./db";
 import {
@@ -123,6 +124,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   const repoEnabled = s.githubToken.length > 0 && s.githubRepo.includes("/");
   const notionEnabled = notionConfigured();
+  const mcpEnabled = parseMcpServers(s.mcpServers).length > 0;
   const branch = body.branch?.trim() || makeBranch(agentName, title);
   const role = body.role?.trim() || "";
   const instructions = body.instructions?.trim() || "";
@@ -130,12 +132,12 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
-  if (!repoEnabled && !notionEnabled) {
+  if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });
     return;
   }
 
-  const decls = toGeminiDecls(buildToolSpecs(s, { repoEnabled, notionEnabled })) as FunctionDeclaration[];
+  const decls = toGeminiDecls(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled })) as FunctionDeclaration[];
 
   // load optional project guidelines (AGENTS.md / CONVENTIONS.md / …) so the
   // agent follows the repo's conventions — a no-op if no such file exists.
