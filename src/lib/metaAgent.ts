@@ -75,3 +75,38 @@ export function buildMetaTask(idea: MetaIdea): { title: string; branch: string }
     branch: `sams/meta-${slugifyBranch(idea.id)}`,
   };
 }
+
+// --- Meta-agente proattivo ---------------------------------------------------
+// Un meta-agente idle propone da solo una miglioria a SAMS (opt-in), invece di
+// aspettare un comando. La logica di "quando" e "quale" è pura e testabile; il
+// bridge lato App esegue l'assegnazione vera.
+
+/** Intervallo minimo (ms) fra due proposte autonome dello stesso meta-agente. */
+export const META_PROPOSAL_COOLDOWN_MS = 90_000;
+
+/** Forma minima di un agente per decidere se può ricevere una proposta. */
+export interface MetaCandidate {
+  meta?: boolean;
+  status: string;
+  task: unknown | null;
+  taskQueue?: unknown[];
+}
+
+/**
+ * Vero se un meta-agente è libero (idle, senza task né coda) e il cooldown dalla
+ * sua ultima proposta è scaduto — quindi può proporre una miglioria adesso.
+ */
+export function shouldProposeMeta(agent: MetaCandidate, lastProposedAt: number | undefined, now: number): boolean {
+  if (!agent.meta) return false;
+  if (agent.status !== "idle") return false;
+  if (agent.task) return false;
+  if ((agent.taskQueue?.length ?? 0) > 0) return false;
+  if (lastProposedAt != null && now - lastProposedAt < META_PROPOSAL_COOLDOWN_MS) return false;
+  return true;
+}
+
+/** Sceglie uno spunto meta in rotazione deterministica (`seed` cresce a ogni uso). */
+export function pickMetaIdea(ideas: MetaIdea[], seed: number): MetaIdea {
+  const n = ideas.length;
+  return ideas[((seed % n) + n) % n];
+}

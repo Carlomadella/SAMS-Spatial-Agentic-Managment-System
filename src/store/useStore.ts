@@ -109,6 +109,9 @@ interface State {
   /** Opt-in: assign incoming-webhook "wakes" to a free agent automatically. */
   webhookAutoAssign: boolean;
   setWebhookAutoAssign: (v: boolean) => void;
+  /** Opt-in: idle meta-agents propose SAMS improvements on their own. */
+  metaProactive: boolean;
+  setMetaProactive: (v: boolean) => void;
   /** Short-lived handoff arcs drawn in the 3D scene. */
   handoffs: Handoff[];
   addHandoff: (fromId: string, toId: string) => void;
@@ -257,6 +260,7 @@ export const useStore = create<State>()(
   pendingRelays: [],
   pendingWakes: [],
   webhookAutoAssign: false,
+  metaProactive: false,
   handoffs: [],
   affinity: {},
   goals: [],
@@ -506,6 +510,7 @@ export const useStore = create<State>()(
   pushWake: (w) => set((s) => ({ pendingWakes: [...s.pendingWakes, w] })),
   shiftWake: () => set((s) => ({ pendingWakes: s.pendingWakes.slice(1) })),
   setWebhookAutoAssign: (v) => set({ webhookAutoAssign: v }),
+  setMetaProactive: (v) => set({ metaProactive: v }),
   addHandoff: (fromId, toId) =>
     set((s) => ({
       handoffs: [
@@ -687,6 +692,7 @@ export const useStore = create<State>()(
         selectedAgentId: s.selectedAgentId,
         tokensUsed: s.tokensUsed,
         webhookAutoAssign: s.webhookAutoAssign,
+        metaProactive: s.metaProactive,
         affinity: s.affinity,
         goals: s.goals,
         wallets: s.wallets,

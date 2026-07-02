@@ -125,8 +125,11 @@ sciolgono ciascuna un pezzo di questo isolamento.
       per task + un bonus se produce un risultato (PR/Notion/URL), `earnCoins`, `balanceOf`,
       `wealthRanking`, `formatCoins`. Lo store tiene e persiste i saldi; il `ProgressionBridge`
       accredita i gettoni al completamento. L'`AgentInspector` mostra il saldo 🪙. 6 test.
-- [ ] 💡 **Meta-agente proattivo** — il meta-agente (già esistente) propone migliorie a
-      SAMS _da solo_ quando è idle, non solo su comando. Estende la Live Sim al repo SAMS.
+- [x] ✅ **Meta-agente proattivo** — helper puri in `src/lib/metaAgent.ts` (`shouldProposeMeta`
+      — meta + idle + libero + cooldown; `pickMetaIdea` in rotazione deterministica). Nuovo flag
+      opt-in `metaProactive` (persistito, toggle nel pannello Live Sim). Il `MetaProactiveBridge`
+      fa proporre a un meta-agente idle 🤯 una miglioria a SAMS da solo (PR sul repo del progetto),
+      con cooldown per-agente e pausa notturna. 4 test.
 
 ## 🎮 Mondo 3D & feel
 
@@ -171,6 +174,22 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-03 — profondità simulativa completa (sezione #4 ✅): obiettivi, economia, meta proattivo
+Chiusi gli ultimi tre item della profondità simulativa (la #3 resta per ultima, come deciso).
+- **Obiettivi a lungo termine** 🎯 — `src/lib/goals.ts` (puro): un `Goal` è un progetto =
+  milestone di N task. Lo store tiene/persiste i goal; il nuovo `ProgressionBridge` avanza
+  l'obiettivo attivo a ogni task completato (transizione a "done") e festeggia alla milestone.
+  Sezione "Progetto" nell'`AgentInspector` con barra + form.
+- **Economia del token** 🪙 — `src/lib/economy.ts` (puro): portafoglio di gettoni per agente;
+  `coinsForCompletion` paga una base + bonus se il task produce una PR/risultato. Il
+  `ProgressionBridge` accredita al completamento; saldo mostrato nell'inspector.
+- **Meta-agente proattivo** 🤯 — helper puri in `metaAgent.ts` (`shouldProposeMeta`,
+  `pickMetaIdea`) + flag opt-in `metaProactive` (toggle nel Live Sim). Il `MetaProactiveBridge`
+  fa proporre a un meta-agente idle una miglioria a SAMS da solo, con cooldown e pausa notturna.
+- Test: +18 client (8 goals, 6 economy, +4 metaAgent). **Client 208 → 226**. Un solo
+  `ProgressionBridge` centralizza gli effetti del completamento (obiettivi + gettoni).
+  Typecheck, lint, build: verdi. Con questo la **profondità simulativa (#4) è completa**.
 
 ### 2026-07-03 — profondità simulativa (avvio) + auto-innaffiatura + garden a mini bosco
 Deciso di rimandare la frontiera #3 (mondo condiviso) e passare alla **profondità

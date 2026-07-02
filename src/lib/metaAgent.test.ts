@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { SAMS_REPO, META_IDEAS, metaRepo, slugifyBranch, buildMetaTask } from "./metaAgent";
+import {
+  SAMS_REPO,
+  META_IDEAS,
+  metaRepo,
+  slugifyBranch,
+  buildMetaTask,
+  shouldProposeMeta,
+  pickMetaIdea,
+  META_PROPOSAL_COOLDOWN_MS,
+  type MetaCandidate,
+} from "./metaAgent";
 
 describe("metaRepo", () => {
   it("punta a SAMS quando l'agente è meta", () => {
@@ -47,5 +57,35 @@ describe("META_IDEAS", () => {
       expect(i.label).toBeTruthy();
       expect(i.brief.length).toBeGreaterThan(20);
     }
+  });
+});
+
+describe("shouldProposeMeta", () => {
+  const base: MetaCandidate = { meta: true, status: "idle", task: null, taskQueue: [] };
+  const now = 1_000_000;
+
+  it("propone quando il meta-agente è libero e il cooldown è scaduto", () => {
+    expect(shouldProposeMeta(base, undefined, now)).toBe(true);
+    expect(shouldProposeMeta(base, now - META_PROPOSAL_COOLDOWN_MS, now)).toBe(true);
+  });
+
+  it("non propone a un agente non-meta o occupato", () => {
+    expect(shouldProposeMeta({ ...base, meta: false }, undefined, now)).toBe(false);
+    expect(shouldProposeMeta({ ...base, status: "working" }, undefined, now)).toBe(false);
+    expect(shouldProposeMeta({ ...base, task: { title: "x" } }, undefined, now)).toBe(false);
+    expect(shouldProposeMeta({ ...base, taskQueue: [{}] }, undefined, now)).toBe(false);
+  });
+
+  it("rispetta il cooldown dall'ultima proposta", () => {
+    expect(shouldProposeMeta(base, now - 1000, now)).toBe(false);
+  });
+});
+
+describe("pickMetaIdea", () => {
+  it("ruota in modo deterministico e gestisce seed negativi", () => {
+    expect(pickMetaIdea(META_IDEAS, 0)).toBe(META_IDEAS[0]);
+    expect(pickMetaIdea(META_IDEAS, META_IDEAS.length)).toBe(META_IDEAS[0]);
+    expect(pickMetaIdea(META_IDEAS, 1)).toBe(META_IDEAS[1]);
+    expect(pickMetaIdea(META_IDEAS, -1)).toBe(META_IDEAS[META_IDEAS.length - 1]);
   });
 });

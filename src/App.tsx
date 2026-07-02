@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Hand, HelpCircle, Loader2, Megaphone, MicOff, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
@@ -16,7 +16,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
-import { metaRepo } from "./lib/metaAgent";
+import { metaRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
 import { activeGoal } from "./lib/goals";
@@ -241,6 +241,41 @@ function ProgressionBridge() {
         }
       }
     });
+  }, []);
+  return null;
+}
+
+/**
+ * Proactive meta-agent (opt-in): every so often, an idle meta-agent proposes a
+ * SAMS self-improvement on its own — picking a rotating idea and assigning it to
+ * itself (targeting the SAMS repo). A per-agent cooldown avoids spamming; night
+ * time is skipped so agents "rest". Off by default (toggle in the Live Sim panel).
+ */
+function MetaProactiveBridge() {
+  const lastProposed = useRef<Map<string, number>>(new Map());
+  const seed = useRef(0);
+  useEffect(() => {
+    const tick = () => {
+      const st = useStore.getState();
+      if (!st.metaProactive || isNightNow()) return;
+      const now = Date.now();
+      for (const agent of st.agents) {
+        if (!shouldProposeMeta(agent, lastProposed.current.get(agent.id), now)) continue;
+        const idea = pickMetaIdea(META_IDEAS, seed.current++);
+        const { title, branch } = buildMetaTask(idea);
+        lastProposed.current.set(agent.id, now);
+        st.assignTask(agent.id, title, branch);
+        st.log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `🤯 Proposta autonoma: ${idea.label}` });
+        if (backendEnabled) {
+          const fresh = useStore.getState().agents.find((a) => a.id === agent.id);
+          if (fresh) {
+            assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+          }
+        }
+      }
+    };
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
   }, []);
   return null;
 }
@@ -678,6 +713,7 @@ function Workspace() {
       <RelayBridge />
       <WakeBridge />
       <ProgressionBridge />
+      <MetaProactiveBridge />
       <LifeBridge />
       <TalkBridge />
       <HungerBridge />

@@ -16,6 +16,8 @@ export function LiveSimPanel() {
   const runtimeReady = useStore((s) => s.runtimeReady);
   const webhookAutoAssign = useStore((s) => s.webhookAutoAssign);
   const setWebhookAutoAssign = useStore((s) => s.setWebhookAutoAssign);
+  const metaProactive = useStore((s) => s.metaProactive);
+  const setMetaProactive = useStore((s) => s.setMetaProactive);
   const [loading, setLoading] = useState(false);
   const [labelInput, setLabelInput] = useState(simLabel);
 
@@ -128,6 +130,22 @@ export function LiveSimPanel() {
             <span className="mt-0.5 block text-[10px] text-mut">
               CI fallita o review richiesta → assegna in automatico un task contestuale a un
               agente libero. Se spento, l'evento compare solo nel log.
+            </span>
+          </span>
+        </label>
+
+        <label className="mt-3 flex cursor-pointer items-start gap-2">
+          <input
+            type="checkbox"
+            checked={metaProactive}
+            onChange={(e) => setMetaProactive(e.target.checked)}
+            className="mt-0.5 accent-fuchsia-500"
+          />
+          <span className="text-[11px] leading-snug text-slate-300">
+            Meta-agente proattivo
+            <span className="mt-0.5 block text-[10px] text-mut">
+              Quando un meta-agente 🤯 è idle, propone da solo una miglioria a SAMS (una PR sul
+              repo del progetto). Se spento, agisce solo su comando.
             </span>
           </span>
         </label>
