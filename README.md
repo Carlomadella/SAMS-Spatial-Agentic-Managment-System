@@ -201,7 +201,10 @@ blooming), with a public profile page at `/u/:user`.
 
 It's **built into the SAMS runtime** (not a separate app), so a single
 `npm start` runs everything. Plants grow **only from real pushes** — there's no
-manual watering. Optional: a `GITHUB_TOKEN` raises GitHub's rate limit; set
+manual watering. With the **GitHub webhook** connected (see the reactive-mode
+section above), a `push` **auto-waters** the pusher's garden in real time (no need
+to reopen it); otherwise growth is picked up on the next refresh. Optional: a
+`GITHUB_TOKEN` raises GitHub's rate limit; set
 `DB_HOST`/`DB_USER`/… in `server/.env` for MySQL persistence (in-memory
 otherwise). Override the API origin with `VITE_GARDEN_API` if you host it apart.
 

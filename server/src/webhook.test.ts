@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
-import { verifyGithubSignature, parseGithubEvent } from "./webhook";
+import { verifyGithubSignature, parseGithubEvent, parsePushWatering } from "./webhook";
 
 const sign = (secret: string, body: string) =>
   "sha256=" + createHmac("sha256", secret).update(body, "utf8").digest("hex");
@@ -85,5 +85,34 @@ describe("parseGithubEvent", () => {
 
   it("ignora eventi sconosciuti", () => {
     expect(parseGithubEvent("issues", { action: "opened" })).toBeNull();
+  });
+});
+
+describe("parsePushWatering", () => {
+  it("innaffia chi ha spinto, contando i commit", () => {
+    const w = parsePushWatering({
+      sender: { login: "ada" },
+      pusher: { name: "Ada Lovelace" },
+      commits: [{}, {}, {}],
+      head_commit: { timestamp: "2026-07-02T10:00:00Z" },
+    });
+    expect(w).toEqual({ user: "ada", waterings: 3, latestSeen: "2026-07-02T10:00:00Z" });
+  });
+
+  it("preferisce sender.login ma ricade su pusher.name", () => {
+    expect(parsePushWatering({ pusher: { name: "linus" }, commits: [{}] })?.user).toBe("linus");
+  });
+
+  it("ignora i push senza commit (branch create/delete)", () => {
+    expect(parsePushWatering({ sender: { login: "ada" }, commits: [] })).toBeNull();
+    expect(parsePushWatering({ sender: { login: "ada" } })).toBeNull();
+  });
+
+  it("ritorna null senza un autore", () => {
+    expect(parsePushWatering({ commits: [{}] })).toBeNull();
+  });
+
+  it("tollera l'assenza dell'head commit", () => {
+    expect(parsePushWatering({ sender: { login: "ada" }, commits: [{}] })?.latestSeen).toBeNull();
   });
 });

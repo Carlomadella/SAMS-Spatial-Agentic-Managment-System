@@ -40,6 +40,33 @@ function str(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+/** Innaffiatura del Commit Garden derivata da un evento `push`. */
+export interface PushWatering {
+  /** Username GitHub di chi ha spinto (chiave del giardino). */
+  user: string;
+  /** Commit spinti (≈ innaffiature), coerente con il polling `fetchPushActivity`. */
+  waterings: number;
+  /** Timestamp dell'head commit: aggiorna `lastSeen` così il polling non riconta. */
+  latestSeen: string | null;
+}
+
+/**
+ * Estrae da un payload `push` chi innaffiare e di quanto. Ritorna null quando
+ * non c'è nulla da innaffiare (nessun commit, es. creazione/eliminazione branch,
+ * o autore mancante). Preferisce `sender.login` (username GitHub) al `pusher.name`
+ * (che è il nome git, non necessariamente la login).
+ */
+export function parsePushWatering(body: Record<string, unknown>): PushWatering | null {
+  const sender = body.sender as { login?: string } | undefined;
+  const pusher = body.pusher as { name?: string } | undefined;
+  const user = sender?.login ?? pusher?.name;
+  if (!user) return null;
+  const commits = Array.isArray(body.commits) ? body.commits.length : 0;
+  if (commits <= 0) return null; // push senza commit: niente innaffiatura
+  const head = body.head_commit as { timestamp?: string } | undefined;
+  return { user, waterings: commits, latestSeen: head?.timestamp ?? null };
+}
+
 /**
  * Traduce un evento webhook GitHub in un `WebhookResult`, o `null` se l'evento
  * non ci interessa. Per la CI fallita allega un `wake` (fix contestuale).

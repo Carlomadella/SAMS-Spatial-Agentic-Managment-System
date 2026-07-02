@@ -10,7 +10,8 @@ import { runGroqTask } from "./groq";
 import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
-import { parseGithubEvent, verifyGithubSignature } from "./webhook";
+import { parseGithubEvent, parsePushWatering, verifyGithubSignature } from "./webhook";
+import { emptyGarden, water } from "./garden/model";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
@@ -432,6 +433,31 @@ app.post("/api/webhook/github", (req: Request, res: Response) => {
     return;
   }
   res.json({ ok: true });
+
+  // Auto-innaffiatura: un push reale fa crescere il giardino di chi ha spinto,
+  // senza aspettare il refresh manuale. `latestSeen` = head commit, così il
+  // polling (fetchPushActivity) non riconta gli stessi commit.
+  if (event === "push") {
+    const w = parsePushWatering(req.body as Record<string, unknown>);
+    if (w) {
+      void (async () => {
+        try {
+          const store = getStore();
+          const prev = (await store.get(w.user)) ?? emptyGarden(w.user);
+          const next = water(prev, w.waterings, w.latestSeen, new Date().toISOString().slice(0, 10));
+          await store.put(next);
+          broadcast({
+            agentId: "github",
+            agentName: "GitHub",
+            level: "SUCCESS",
+            message: `🌱 Giardino di ${w.user} innaffiato (+${w.waterings}) → ${next.stage}`,
+          });
+        } catch (err) {
+          log.warn("Auto-innaffiatura fallita", { user: w.user, error: (err as Error).message });
+        }
+      })();
+    }
+  }
 
   const result = parseGithubEvent(event, req.body as Record<string, unknown>);
   if (!result) { log.debug("GitHub webhook ignorato", { event }); return; }

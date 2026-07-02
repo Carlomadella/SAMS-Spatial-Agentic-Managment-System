@@ -149,8 +149,10 @@ sciolgono ciascuna un pezzo di questo isolamento.
       rendering (React Testing Library) dei pannelli critici.
 - [ ] 💡 **Rate-limit & quota per-utente** — quando il workspace è condiviso, evitare
       che un utente saturi il runtime.
-- [ ] ❄️ ⬅️ **Auto-innaffiatura via webhook** — diventa naturale con la frontiera #1
-      (eventi GitHub → giardino). Oggi refresh manuale, scelta voluta.
+- [x] ✅ ⬅️ **Auto-innaffiatura via webhook** — un evento `push` innaffia in tempo reale il
+      giardino di chi ha spinto. `parsePushWatering` (puro) estrae autore (`sender.login`) e
+      commit; l'endpoint webhook aggiorna lo store e imposta `lastSeen` all'head commit così il
+      polling non riconta. 5 test.
 
 ---
 
