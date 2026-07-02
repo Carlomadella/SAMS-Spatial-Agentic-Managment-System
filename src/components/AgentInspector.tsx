@@ -6,6 +6,7 @@ import { STATUS_META } from "../lib/meta";
 import { levelFromXp } from "../lib/skill";
 import { affinityTier, bestFriend } from "../lib/relationships";
 import { activeGoal, goalProgress } from "../lib/goals";
+import { balanceOf, formatCoins } from "../lib/economy";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
@@ -43,6 +44,7 @@ export function AgentInspector() {
   const goals = useStore((s) => s.goals);
   const addGoal = useStore((s) => s.addGoal);
   const removeGoal = useStore((s) => s.removeGoal);
+  const wallets = useStore((s) => s.wallets);
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
   const assignTask = useStore((s) => s.assignTask);
@@ -295,6 +297,14 @@ export function AgentInspector() {
           </div>
         );
       })()}
+
+      {/* token economy — coins earned by completing work (more for a PR/result) */}
+      <div className="mt-1.5 flex items-center gap-2" title="Gettoni guadagnati completando task (bonus se producono una PR/risultato)">
+        <span className="text-[10px] text-mut w-12 shrink-0">Gettoni</span>
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+          🪙 {formatCoins(balanceOf(wallets, agent.id))}
+        </span>
+      </div>
 
       {/* relationships — the closest bond built by collaborating (relay + chatter) */}
       {(() => {

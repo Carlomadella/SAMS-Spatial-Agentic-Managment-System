@@ -120,8 +120,11 @@ sciolgono ciascuna un pezzo di questo isolamento.
       `isGoalComplete`. Lo store tiene e persiste i goal; il `ProgressionBridge` avanza
       l'obiettivo attivo a ogni task completato e festeggia (log + toast) alla milestone.
       L'`AgentInspector` ha una sezione "Progetto" con barra di avanzamento e form di creazione. 8 test.
-- [ ] 💡 **Economia del token come risorsa di gioco** — il budget token diventa una
-      "valuta": gli agenti che lavorano meglio (PR mergiate) ne guadagnano di più.
+- [x] ✅ **Economia del token come risorsa di gioco** — modulo puro `src/lib/economy.ts`:
+      ogni agente ha un portafoglio di "gettoni" (`Wallets`); `coinsForCompletion` paga una base
+      per task + un bonus se produce un risultato (PR/Notion/URL), `earnCoins`, `balanceOf`,
+      `wealthRanking`, `formatCoins`. Lo store tiene e persiste i saldi; il `ProgressionBridge`
+      accredita i gettoni al completamento. L'`AgentInspector` mostra il saldo 🪙. 6 test.
 - [ ] 💡 **Meta-agente proattivo** — il meta-agente (già esistente) propone migliorie a
       SAMS _da solo_ quando è idle, non solo su comando. Estende la Live Sim al repo SAMS.
 

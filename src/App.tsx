@@ -20,6 +20,7 @@ import { metaRepo } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
 import { activeGoal } from "./lib/goals";
+import { coinsForCompletion } from "./lib/economy";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -206,9 +207,10 @@ function WakeBridge() {
 }
 
 /**
- * Long-term goals: when an agent finishes a task (transition into "done"),
- * advance its active project by one and celebrate when the milestone is reached.
- * Single-fire per completion — "done" is transient and clears back to idle.
+ * Progression on task completion (transition into "done"): award economy coins
+ * (more for a task that produced a concrete result/PR) and advance the agent's
+ * active project, celebrating when the milestone is reached. Single-fire per
+ * completion — "done" is transient and clears back to idle.
  */
 function ProgressionBridge() {
   useEffect(() => {
@@ -217,6 +219,11 @@ function ProgressionBridge() {
         const prevAgent = prev.agents.find((a) => a.id === agent.id);
         if (!prevAgent) continue;
         if (prevAgent.status === "done" || agent.status !== "done") continue;
+
+        // Token economy: a completed task pays coins; producing a result (a PR /
+        // Notion link on the latest task record) pays a bonus.
+        const latest = [...useStore.getState().tasks].reverse().find((t) => t.agentId === agent.id);
+        useStore.getState().earnCoins(agent.id, coinsForCompletion({ hasResult: !!latest?.url }));
 
         const before = activeGoal(useStore.getState().goals, agent.id);
         if (!before) continue;

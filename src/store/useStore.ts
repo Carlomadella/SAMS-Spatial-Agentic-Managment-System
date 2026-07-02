@@ -26,6 +26,7 @@ import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
+import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -119,6 +120,9 @@ interface State {
   addGoal: (agentId: string, title: string, milestone: number) => void;
   advanceAgentGoal: (agentId: string, by?: number) => void;
   removeGoal: (id: string) => void;
+  /** Token economy: per-agent "coin" balances, earned by completing work. */
+  wallets: Wallets;
+  earnCoins: (agentId: string, amount: number) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -256,6 +260,7 @@ export const useStore = create<State>()(
   handoffs: [],
   affinity: {},
   goals: [],
+  wallets: {},
 
   log: (e) =>
     set((s) => ({
@@ -526,6 +531,7 @@ export const useStore = create<State>()(
     })),
   advanceAgentGoal: (agentId, by = 1) => set((s) => ({ goals: advanceGoalList(s.goals, agentId, by) })),
   removeGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
+  earnCoins: (agentId, amount) => set((s) => ({ wallets: earnCoinsMap(s.wallets, agentId, amount) })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
@@ -683,6 +689,7 @@ export const useStore = create<State>()(
         webhookAutoAssign: s.webhookAutoAssign,
         affinity: s.affinity,
         goals: s.goals,
+        wallets: s.wallets,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -698,6 +705,7 @@ export const useStore = create<State>()(
           // back-fill affinity + goals added after initial persist (migration)
           if (!state.affinity) state.affinity = {};
           if (!state.goals) state.goals = [];
+          if (!state.wallets) state.wallets = {};
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;
