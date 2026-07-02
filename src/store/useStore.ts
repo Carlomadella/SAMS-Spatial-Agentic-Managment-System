@@ -24,6 +24,7 @@ import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/worl
 import { clamp, uid } from "../lib/utils";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
+import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -109,6 +110,9 @@ interface State {
   /** Short-lived handoff arcs drawn in the 3D scene. */
   handoffs: Handoff[];
   addHandoff: (fromId: string, toId: string) => void;
+  /** Pairwise affinity built up by collaboration (relay handoffs + chatter). */
+  affinity: AffinityMap;
+  bumpAffinity: (a: string, b: string, delta?: number) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -244,6 +248,7 @@ export const useStore = create<State>()(
   pendingWakes: [],
   webhookAutoAssign: false,
   handoffs: [],
+  affinity: {},
 
   log: (e) =>
     set((s) => ({
@@ -496,6 +501,7 @@ export const useStore = create<State>()(
         { id: uid("ho"), fromId, toId, ts: Date.now() },
       ].slice(-8),
     })),
+  bumpAffinity: (a, b, delta = 1) => set((s) => ({ affinity: bumpAffinityMap(s.affinity, a, b, delta) })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
@@ -651,6 +657,7 @@ export const useStore = create<State>()(
         selectedAgentId: s.selectedAgentId,
         tokensUsed: s.tokensUsed,
         webhookAutoAssign: s.webhookAutoAssign,
+        affinity: s.affinity,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -663,6 +670,8 @@ export const useStore = create<State>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // back-fill affinity added after initial persist (migration)
+          if (!state.affinity) state.affinity = {};
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;

@@ -18,6 +18,7 @@ import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { metaRepo } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
+import { affinityBetween } from "./lib/relationships";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -133,6 +134,8 @@ function RelayBridge() {
         if (!target) return;
         // draw the 3D handoff arc from sender → target and play a whoosh
         useStore.getState().addHandoff(relay.fromId, target.id);
+        // repeated collaboration builds affinity between the two agents
+        useStore.getState().bumpAffinity(relay.fromId, target.id, 2);
         audio.playWhoosh();
         const title = composeRelayTitle(relay);
         if (target.task) {
@@ -426,21 +429,27 @@ function TalkBridge() {
       const free = st.agents.filter(isFreeAgent);
       if (free.length < 2 || Math.random() > 0.5) return;
 
-      // pick the two closest free agents
+      // pick a nearby pair, biased toward friends: among agents close enough to
+      // talk, prefer the pair with the strongest affinity (friends seek friends).
       let best: [typeof free[number], typeof free[number]] | null = null;
-      let bestD = Infinity;
+      let bestScore = Infinity;
       for (let i = 0; i < free.length; i++) {
         for (let j = i + 1; j < free.length; j++) {
           const d = Math.hypot(
             free[i].position[0] - free[j].position[0],
             free[i].position[1] - free[j].position[1],
           );
-          if (d < bestD) { bestD = d; best = [free[i], free[j]]; }
+          if (d > 9) continue; // must be near enough to chat
+          const aff = affinityBetween(st.affinity, free[i].id, free[j].id);
+          const score = d - aff * 0.5; // affinità "avvicina": gli amici parlano più spesso
+          if (score < bestScore) { bestScore = score; best = [free[i], free[j]]; }
         }
       }
-      if (!best || bestD > 9) return;
+      if (!best) return;
 
       const [a, b] = best;
+      // the exchange itself deepens their bond
+      st.bumpAffinity(a.id, b.id, 1);
       const [lineA, lineB] = CHATTER[Math.floor(Math.random() * CHATTER.length)];
       const log = st.log;
       log({ agentId: a.id, agentName: a.name, color: a.color, level: "INFO", message: `💬 ${a.name} → ${b.name}: ${lineA}` });

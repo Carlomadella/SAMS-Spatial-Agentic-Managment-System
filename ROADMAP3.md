@@ -109,8 +109,12 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 ## 🧠 Profondità simulativa (trasversale)
 
-- [ ] 💡 **Relazioni fra agenti** — la collaborazione ripetuta (`relay_task`, chiacchiere)
-      costruisce affinità; agenti "amici" si aiutano più spesso, formano coppie di lavoro.
+- [x] ✅ **Relazioni fra agenti** — modulo puro `src/lib/relationships.ts`: `AffinityMap` per
+      coppia (`pairKey` ordine-indipendente), `bumpAffinity`, `affinityTier` (sconosciuti →
+      inseparabili), `bestFriend`, `topPairs`. Lo store tiene e persiste l'affinità; i bridge la
+      incrementano su ogni handoff `relay_task` (+2) e chiacchierata (+1). Il `TalkBridge` è
+      **biasato verso gli amici** (l'affinità "avvicina" nel pairing → gli amici parlano più
+      spesso). L'inspector mostra il "Legame" più forte (miglior amico + tier). 8 test.
 - [ ] 💡 **Obiettivi a lungo termine** — un agente può avere un _progetto_ (più task
       collegati, una milestone) e una barra di avanzamento che persiste fra le sessioni.
 - [ ] 💡 **Economia del token come risorsa di gioco** — il budget token diventa una
@@ -161,6 +165,25 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-03 — profondità simulativa (avvio) + auto-innaffiatura + garden a mini bosco
+Deciso di rimandare la frontiera #3 (mondo condiviso) e passare alla **profondità
+simulativa** (trasversale), con due richieste concrete sul giardino.
+- **Relazioni fra agenti** 💚 — `src/lib/relationships.ts` (puro): affinità per coppia
+  (`AffinityMap`, `pairKey`, `bumpAffinity`, `affinityTier`, `bestFriend`, `topPairs`). Lo store
+  la tiene e la persiste; `RelayBridge` la incrementa a ogni handoff (+2) e `TalkBridge` a ogni
+  chiacchierata (+1). Il pairing delle chiacchiere è ora **biasato dall'affinità** (gli amici si
+  cercano più spesso). L'`AgentInspector` mostra il "Legame" più forte con tier.
+- **Auto-innaffiatura via webhook** 🌱 — un `push` innaffia in tempo reale il giardino di chi ha
+  spinto (`parsePushWatering`, puro); l'endpoint aggiorna lo store e sposta `lastSeen` all'head
+  commit così il polling non riconta. (Chiude un item ❄️ ereditato dalla Roadmap 2.)
+- **Garden come mini bosco** 🌳 — gli alberi dei contributor (fino a 12) sono sparsi su anelli
+  concentrici attorno alla pianta principale (`src/lib/forest.ts`, `forestSlots`, deterministico,
+  cono frontale libero) + alberi d'ambiente che infoltiscono la scena.
+- Test: +13 client (8 relationships, 5 forest) e +5 server (parsePushWatering).
+  **Client 195 → 208**, **server 144 → 149**. Typecheck (client+server), lint, build: verdi.
+- Rimangono aperti in profondità simulativa: obiettivi a lungo termine, economia del token,
+  meta-agente proattivo.
 
 ### 2026-07-02 — mondo raccontabile completo (frontiera #2 ✅): replay, team, dashboard
 Chiusi gli ultimi tre pezzi della frontiera #2.

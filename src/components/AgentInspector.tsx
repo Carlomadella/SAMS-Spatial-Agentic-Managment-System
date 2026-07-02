@@ -4,6 +4,7 @@ import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { levelFromXp } from "../lib/skill";
+import { affinityTier, bestFriend } from "../lib/relationships";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
@@ -37,6 +38,7 @@ const AGENT_ROLES = [
 export function AgentInspector() {
   const agent = useSelectedAgent();
   const agents = useStore((s) => s.agents);
+  const affinity = useStore((s) => s.affinity);
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
   const assignTask = useStore((s) => s.assignTask);
@@ -284,6 +286,26 @@ export function AgentInspector() {
               />
             </div>
             <span className="text-[10px] text-mut shrink-0">{lv.name}</span>
+          </div>
+        );
+      })()}
+
+      {/* relationships — the closest bond built by collaborating (relay + chatter) */}
+      {(() => {
+        const bf = bestFriend(affinity, agent.id, agents.map((a) => a.id));
+        const friend = bf && agents.find((a) => a.id === bf.id);
+        if (!bf || !friend) return null;
+        return (
+          <div
+            className="mt-1.5 flex items-center gap-2"
+            title={`Affinità ${bf.score} — costruita collaborando (relay_task, chiacchiere)`}
+          >
+            <span className="text-[10px] text-mut w-12 shrink-0">Legame</span>
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: AGENT_HEX[friend.color] }} />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-slate-300">{friend.name}</span>
+            <span className="shrink-0 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-pink-300">
+              💚 {affinityTier(bf.score)}
+            </span>
           </div>
         );
       })()}
