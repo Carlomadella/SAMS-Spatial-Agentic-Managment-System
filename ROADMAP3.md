@@ -152,8 +152,9 @@ sciolgono ciascuna un pezzo di questo isolamento.
       l'onboarding spiega i _concetti_, il tour mostra l'_UI_.
 - [ ] 💡 ⬅️ **Mobile usabile** — sotto i 768px i pannelli collassano ma scena+inspector
       non sono davvero usabili; ripensare il layout touch.
-- [ ] 💡 **Import di un template agente** dalla UI — completa il marketplace: incolla un
-      JSON (`parseTemplate` esiste già) per creare/configurare un agente.
+- [x] ✅ **Import di un template agente** dalla UI — sezione "Importa template" nell'`AgentInspector`:
+      incolla un JSON (riusa il puro `parseTemplate`, già testato) e scegli **Applica a questo** o
+      **Crea nuovo agente**; JSON non valido → errore inline. Completa il marketplace (export ↔ import).
 - [ ] 💡 **Palette comandi estesa** — azioni rapide per ogni feature nuova (applica
       template, esporta, avvia replay…).
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
+import { Check, Download, FileText, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
@@ -11,7 +11,7 @@ import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, metaRepo, buildMetaTask } from "../lib/metaAgent";
-import { AGENT_TEMPLATES, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
+import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
@@ -40,6 +40,7 @@ const AGENT_ROLES = [
 export function AgentInspector() {
   const agent = useSelectedAgent();
   const agents = useStore((s) => s.agents);
+  const addAgent = useStore((s) => s.addAgent);
   const affinity = useStore((s) => s.affinity);
   const goals = useStore((s) => s.goals);
   const addGoal = useStore((s) => s.addGoal);
@@ -66,6 +67,8 @@ export function AgentInspector() {
   const [branch, setBranch] = useState("");
   const [goalTitle, setGoalTitle] = useState("");
   const [goalMilestone, setGoalMilestone] = useState(3);
+  const [importJson, setImportJson] = useState("");
+  const [importErr, setImportErr] = useState(false);
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [memoriesOpen, setMemoriesOpen] = useState(false);
@@ -202,6 +205,56 @@ export function AgentInspector() {
           ⤓ Esporta
         </button>
       </div>
+
+      {/* import a shared template (JSON) — reuses the pure parseTemplate */}
+      <details className="mt-2 rounded-lg border border-line bg-ink-850/60">
+        <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
+          <span className="inline-flex items-center gap-1.5"><Download size={11} /> Importa template</span>
+          <span className="text-[10px] opacity-60">incolla un JSON</span>
+        </summary>
+        <div className="px-2.5 pb-2.5">
+          <textarea
+            value={importJson}
+            onChange={(e) => { setImportJson(e.target.value); setImportErr(false); }}
+            placeholder={'{"name":"…","role":"Tester","model":"Claude Sonnet","instructions":"…"}'}
+            rows={4}
+            className="w-full resize-y rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50"
+          />
+          {importErr && (
+            <p className="mt-1 text-[11px] text-rose-400">JSON non valido: servono almeno <code>role</code>, <code>model</code> e <code>instructions</code>.</p>
+          )}
+          <div className="mt-1.5 flex gap-2">
+            <button
+              disabled={!importJson.trim()}
+              onClick={() => {
+                const tpl = parseTemplate(importJson);
+                if (!tpl) { setImportErr(true); return; }
+                applyTemplateAction(agent.id, tpl);
+                setImportJson("");
+                log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `Template importato applicato: ${tpl.emoji} ${tpl.name}` });
+              }}
+              className="btn btn-primary flex-1"
+            >
+              Applica a questo
+            </button>
+            <button
+              disabled={!importJson.trim()}
+              onClick={() => {
+                const tpl = parseTemplate(importJson);
+                if (!tpl) { setImportErr(true); return; }
+                const id = addAgent();
+                applyTemplateAction(id, tpl);
+                selectAgent(id);
+                setImportJson("");
+                log({ agentId: id, agentName: tpl.name, color: null, level: "INFO", message: `Nuovo agente da template: ${tpl.emoji} ${tpl.name}` });
+              }}
+              className="btn flex-1"
+            >
+              Crea nuovo agente
+            </button>
+          </div>
+        </div>
+      </details>
 
       {agent.meta && (
         <div className="mt-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2.5 py-2">
