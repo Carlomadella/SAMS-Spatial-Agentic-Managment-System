@@ -13,7 +13,8 @@ import { HttpError } from "./http";
 import { parseGithubEvent, verifyGithubSignature } from "./webhook";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
-import { initGardenStore } from "./garden/store";
+import { getStore, initGardenStore } from "./garden/store";
+import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordEvent } from "./metrics";
 import { clearMemory, db, listMemory, recentTasks, taskStats } from "./db";
 import type { AssignBody, WireEvent } from "./types";
@@ -102,6 +103,38 @@ app.get("/api/metrics", (_req: Request, res: Response) => {
 /** Recent finished tasks from the durable log (newest first). */
 app.get("/api/history", (_req: Request, res: Response) => {
   res.json(recentTasks(db(), 20));
+});
+
+/**
+ * Read-only public snapshot of the world (runtime + metrics + garden), for a
+ * shareable dashboard. No mutating actions. Guarded by SAMS_READONLY_TOKEN when
+ * set (?token=…); open otherwise.
+ */
+app.get("/api/public", async (req: Request, res: Response) => {
+  const provided = typeof req.query.token === "string" ? req.query.token : undefined;
+  if (!readonlyAuthorized(getSettings().readonlyToken, provided)) {
+    res.status(401).json({ error: "Token di sola lettura mancante o non valido" });
+    return;
+  }
+  let lifetime = { total: 0, completed: 0, tokens: 0 };
+  try {
+    lifetime = taskStats(db());
+  } catch {
+    /* DB unavailable — since-boot metrics only */
+  }
+  let board: Awaited<ReturnType<ReturnType<typeof getStore>["top"]>> = [];
+  try {
+    board = await getStore().top(10);
+  } catch {
+    /* garden store unavailable — omit leaderboard */
+  }
+  res.json(
+    buildPublicSnapshot({
+      status: publicStatus(),
+      metrics: { ...metricsSnapshot({ clients: clients.size }), lifetime },
+      board,
+    }),
+  );
 });
 
 /** Current content of a repo file (the "before" side of a staged diff). */

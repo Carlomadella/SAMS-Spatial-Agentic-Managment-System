@@ -7,6 +7,7 @@ import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { LiveSimPanel } from "./LiveSimPanel";
 import { WorldDiaryPanel } from "./WorldDiaryPanel";
+import { ReplayPanel } from "./ReplayPanel";
 import { Terminal } from "./Terminal";
 import { OutputView } from "./OutputView";
 import { ResizeHandle } from "./ResizeHandle";
@@ -67,6 +68,7 @@ const TABS: { id: BottomTab; label: string; sim?: true }[] = [
   { id: "tasks", label: "Task" },
   { id: "history", label: "Cronologia" },
   { id: "diario", label: "Diario" },
+  { id: "replay", label: "Replay" },
   { id: "problems", label: "Problemi" },
   { id: "livesim", label: "Live Sim", sim: true },
 ];
@@ -146,6 +148,7 @@ export function BottomPanel() {
           {bottomTab === "tasks" && <TasksPanel />}
           {bottomTab === "history" && <HistoryPanel />}
           {bottomTab === "diario" && <WorldDiaryPanel />}
+          {bottomTab === "replay" && <ReplayPanel />}
           {bottomTab === "problems" && <ProblemsView />}
           {bottomTab === "livesim" && <LiveSimPanel />}
         </div>

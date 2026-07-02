@@ -1,9 +1,14 @@
-import { Suspense, lazy, useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, ImageDown, Loader2, RefreshCw, Sprout } from "lucide-react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ExternalLink, ImageDown, Loader2, RefreshCw, Sprout, Users } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState } from "../lib/garden";
-import { buildGardenOgCard, downloadOgCard } from "../lib/ogImage";
+import { buildGardenOgCard, buildWorkspaceOgCard, downloadOgCard } from "../lib/ogImage";
+import { buildTeamGarden } from "../lib/teamGarden";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
+
+const STAGE_EMOJI: Record<string, string> = {
+  seed: "🌰", sprout: "🌱", sapling: "🌿", bush: "🪴", tree: "🌳", blooming: "🌸",
+};
 
 interface Badge { emoji: string; label: string }
 
@@ -38,6 +43,9 @@ export function GardenView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [showTeam, setShowTeam] = useState(false);
+
+  const team = useMemo(() => buildTeamGarden(board), [board]);
 
   async function refreshBoard() {
     try {
@@ -234,9 +242,78 @@ export function GardenView() {
         </div>
 
         {board.length > 0 && (
-          <p className="mt-2 px-1 text-[11px] text-emerald-900/60">
-            🌳 I giardini più rigogliosi crescono sul prato — clicca un nome per visitarlo.
-          </p>
+          <>
+            <button
+              onClick={() => setShowTeam((v) => !v)}
+              className="mt-2 flex w-full items-center justify-between rounded-xl border border-emerald-700/15 bg-white/85 px-3 py-2 text-[12.5px] font-semibold text-emerald-800 shadow-sm backdrop-blur transition-colors hover:bg-white"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Users size={14} /> Giardino di team
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-600">
+                <span>{STAGE_EMOJI[team.teamStage]}</span>
+                <span className="text-[11px] font-medium">{team.members} · {team.teamStageLabel}</span>
+              </span>
+            </button>
+
+            {showTeam && (
+              <div className="mt-2 rounded-2xl border border-emerald-700/15 bg-white/85 p-4 shadow-[0_24px_60px_-30px_rgba(20,60,40,0.5)] backdrop-blur">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    [team.totalWaterings, "innaffiature"],
+                    [`${team.avgGrowth}%`, "crescita media"],
+                    [team.bestStreak, "streak record"],
+                  ].map(([v, l]) => (
+                    <div key={l}>
+                      <div className="text-[17px] font-bold text-[#16301f]">{v}</div>
+                      <div className="text-[9px] uppercase tracking-wide text-emerald-900/50">{l}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 mb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/50">Classifica</span>
+                  <button
+                    onClick={() =>
+                      void downloadOgCard(
+                        buildWorkspaceOgCard({
+                          agents: team.members,
+                          tasksCompleted: team.totalWaterings,
+                          prsOpened: team.bestStreak,
+                          tokensUsed: 0,
+                        }),
+                      )
+                    }
+                    title="Esporta un'immagine PNG del team"
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <ImageDown size={11} /> Immagine
+                  </button>
+                </div>
+
+                <ol className="space-y-1">
+                  {team.ranking.slice(0, 8).map((m, i) => (
+                    <li key={m.user}>
+                      <button
+                        onClick={() => void load(m.user)}
+                        className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-emerald-50"
+                      >
+                        <span className="w-4 shrink-0 text-[11px] font-bold text-emerald-900/40">{i + 1}</span>
+                        <span className="select-none">{STAGE_EMOJI[m.stage]}</span>
+                        <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#16301f]">{m.user}</span>
+                        {m.thirsty && <span title="Assetata">💧</span>}
+                        <span className="shrink-0 text-[11px] tabular-nums text-emerald-900/50">{m.waterings}×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            <p className="mt-2 px-1 text-[11px] text-emerald-900/60">
+              🌳 I giardini più rigogliosi crescono sul prato — clicca un nome per visitarlo.
+            </p>
+          </>
         )}
       </div>
     </div>

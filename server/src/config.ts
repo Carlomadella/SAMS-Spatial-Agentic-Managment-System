@@ -34,6 +34,8 @@ export interface Settings {
   notionToken: string;
   notionPageId: string;
   runtimeToken: string;
+  /** Token di sola lettura per la dashboard pubblica (vuoto = aperta). */
+  readonlyToken: string;
   port: number;
 }
 
@@ -58,6 +60,7 @@ function fromEnv(): Settings {
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
     runtimeToken: process.env.SAMS_TOKEN ?? "",
+    readonlyToken: process.env.SAMS_READONLY_TOKEN ?? "",
     port: parsePort(process.env.PORT),
   };
 }
@@ -105,6 +108,7 @@ function persist(): void {
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
     runtimeToken: s.runtimeToken,
+    readonlyToken: s.readonlyToken,
   };
   // 0o600: the file holds API tokens in plaintext — keep it owner-only.
   fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
@@ -190,5 +194,6 @@ export function publicStatus() {
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,
     hasToken: s.runtimeToken.length > 0,
+    hasReadonlyToken: s.readonlyToken.length > 0,
   };
 }

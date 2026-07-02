@@ -9,6 +9,7 @@ import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
 import { GardenView } from "./components/GardenView";
+import { PublicDashboard } from "./components/PublicDashboard";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -529,7 +530,17 @@ function ReopenPanelButton() {
   );
 }
 
+/** Read the `?public` flag once at module load — it never changes within a session. */
+const IS_PUBLIC = new URLSearchParams(window.location.search).has("public");
+
 export default function App() {
+  // Shareable read-only dashboard: a separate, self-contained view that doesn't
+  // mount the workspace (no SSE, no scene, no controls).
+  if (IS_PUBLIC) return <PublicDashboard />;
+  return <Workspace />;
+}
+
+function Workspace() {
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
   const bottomOpen = useStore((s) => s.bottomOpen);

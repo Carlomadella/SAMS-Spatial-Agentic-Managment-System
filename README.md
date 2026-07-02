@@ -180,6 +180,18 @@ header; `tools` (optional) restricts which tools that server may run. The agent
 sees the configured servers in the tool description and calls, e.g.,
 `mcp_call("drive", "files.create", { name: "report.md", content: "…" })`.
 
+## Public dashboard (read-only)
+
+Open `?public` (e.g. `http://localhost:5173/?public`) for a **shareable, read-only
+dashboard**: runtime status, task metrics and the Commit Garden leaderboard, with
+**no** controls to assign tasks. It polls `GET /api/public` every 10s.
+
+By default the endpoint is open. To gate it behind a link secret, set
+`SAMS_READONLY_TOKEN` in `server/.env`; the dashboard then needs the matching
+`&token=…` (`?public&token=…`). This is independent from `SAMS_TOKEN` (which
+guards the *mutating* routes) — the public snapshot never exposes secrets and
+can't change anything.
+
 ## Commit Garden (a room you can enter)
 
 The office has a **🌿 garden door** (back-right wall; also the Sprout button in the

@@ -34,7 +34,7 @@ sciolgono ciascuna un pezzo di questo isolamento.
 | #   | Frontiera                                                            | Perché                                                                              | Effort | Stato |
 | --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ----- |
 | 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | ✅    |
-| 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | 🏗️    |
+| 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | ✅    |
 | 3   | **Mondo condiviso** — presence realtime + ruoli/permessi + multiplayer | Più persone nello stesso ufficio: da demo personale a strumento di squadra          | 🔴     | 💡    |
 
 > Sequenza voluta: prima la **reattività** (autonomia che si auto-alimenta), poi
@@ -69,19 +69,25 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 ## 🎬 Mondo raccontabile (frontiera #2)
 
-- [ ] 💡 ⬅️ **Replay cinematografico** di un task completato — ricostruisce il percorso
-      dell'agente + le azioni chiave come una breve clip navigabile (timeline scrubbabile).
-      Ottimo per demo e condivisione.
+- [x] ✅ ⬅️ **Replay cinematografico** — modulo puro `src/lib/replay.ts`: `agentReplays`
+      raggruppa gli eventi per agente in una clip ciascuno; `buildReplay` ordina e calcola gli
+      offset relativi; `frameIndexAt` è il playhead; `frameEmoji`/`formatOffset` rifiniscono.
+      Tab "Replay" nel BottomPanel (`ReplayPanel`) con **timeline scrubbabile** + play/pausa che
+      rivede la sequenza di azioni. 8 test.
 - [x] ✅ ⬅️ **Immagine OG condivisibile** — modulo puro `src/lib/ogImage.ts`: modello card
       testabile (`buildGardenOgCard`, `buildWorkspaceOgCard`, `shade`, `ogFileName`) +
       `renderOgCard` che disegna su `<canvas>` una card 1200×630 (kicker, titolo, emoji, badge,
       3 statistiche, footer) e `downloadOgCard` che esporta il **PNG**. Bottone "Immagine" nel
       Commit Garden. Pronto per i social. 7 test.
-- [ ] 💡 ⬅️ **Giardini di team / organizzazione** — vista aggregata di tutti i
-      contributor (un prato con molte piante), con classifica e totali.
-- [ ] 💡 **Dashboard pubblica read-only** — un link condivisibile che mostra lo stato
-      del mondo (agenti, metriche, storico) **senza** poter assegnare task. Riusa
-      `publicStatus` + un token di sola lettura.
+- [x] ✅ ⬅️ **Giardini di team / organizzazione** — modulo puro `src/lib/teamGarden.ts`:
+      `buildTeamGarden` aggrega la leaderboard in totali (innaffiature, crescita media, streak
+      record), uno "stadio di squadra" (`teamStageFromGrowth`) e una classifica (`memberScore`).
+      Card "Giardino di team" in `GardenView` con classifica cliccabile + export immagine. 6 test.
+- [x] ✅ **Dashboard pubblica read-only** — modulo puro `server/src/publicView.ts`:
+      `buildPublicSnapshot` (runtime + metriche + top giardini, nessun segreto) e
+      `readonlyAuthorized` (token a tempo costante, aperto se non configurato). Route
+      `GET /api/public` gated da `SAMS_READONLY_TOKEN`. Lato client `PublicDashboard` mostrata su
+      `?public` (con `&token=…`), polling 10s, sola lettura. 5 test.
 - [x] ✅ **Diario del mondo** — modulo puro `src/lib/worldDiary.ts`: `classifyEvent`
       (PR / completati / bloccati / review / errori / pausa), `buildWorldDiary` (aggrega gli
       eventi della giornata locale per-agente), `tallyLine`/`headline` in italiano con fascia
@@ -149,6 +155,24 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-02 — mondo raccontabile completo (frontiera #2 ✅): replay, team, dashboard
+Chiusi gli ultimi tre pezzi della frontiera #2.
+- **Replay cinematografico** 🎬 — `src/lib/replay.ts` (puro): `agentReplays` raggruppa gli
+  eventi per agente, `buildReplay` li ordina in fotogrammi con offset relativo, `frameIndexAt`
+  è il playhead, `frameEmoji`/`formatOffset` rifiniscono. Nuovo tab **"Replay"** (`ReplayPanel`)
+  con timeline scrubbabile + play/pausa: rivedi la sequenza di azioni di un agente come una clip.
+- **Giardino di team** 🌳 — `src/lib/teamGarden.ts` (puro): `buildTeamGarden` aggrega la
+  leaderboard in totali (innaffiature, crescita media, streak record, assetati), uno stadio di
+  squadra (`teamStageFromGrowth`) e una classifica (`memberScore`). Card espandibile in
+  `GardenView` con classifica cliccabile ed export immagine (riusa `buildWorkspaceOgCard`).
+- **Dashboard pubblica read-only** 📊 — `server/src/publicView.ts` (puro): `buildPublicSnapshot`
+  (runtime + metriche + top giardini, zero segreti) e `readonlyAuthorized` (token a tempo
+  costante; aperto se non configurato). Route `GET /api/public` gated da `SAMS_READONLY_TOKEN`
+  (nuovo campo in `Settings`/`publicStatus`). Lato client `PublicDashboard` mostrata su `?public`
+  (con `&token=…`), che fa polling ogni 10s. README: sezione "Public dashboard".
+- Test: +14 client (6 teamGarden, 8 replay) e +5 server (publicView). **Client 181 → 195**,
+  **server 139 → 144**. Typecheck (client+server), lint, build: verdi.
 
 ### 2026-07-02 — mondo raccontabile: immagine OG + diario del mondo (frontiera #2, primi pezzi)
 - **Immagine OG condivisibile** 🖼️ — nuovo modulo puro `src/lib/ogImage.ts`. Il modello della

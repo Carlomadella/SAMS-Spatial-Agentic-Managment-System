@@ -92,6 +92,38 @@ export async function fetchFile(path: string, ref?: string): Promise<{ content: 
   }
 }
 
+/** Read-only snapshot of the world for the shareable public dashboard. */
+export interface PublicSnapshot {
+  generatedAt: number;
+  runtime: { provider: string; ready: boolean; repo: string; baseBranch: string; model: string };
+  metrics: {
+    tasksStarted: number;
+    tasksCompleted: number;
+    errors: number;
+    uptimeSec: number;
+    lifetimeTasks: number;
+    lifetimeCompleted: number;
+    lifetimeTokens: number;
+  };
+  garden: {
+    contributors: number;
+    totalWaterings: number;
+    top: { user: string; stage: string; growth: number; waterings: number }[];
+  };
+}
+
+/** Fetch the public read-only snapshot; null if unreachable or unauthorized. */
+export async function fetchPublicSnapshot(token?: string): Promise<PublicSnapshot | null> {
+  try {
+    const q = token ? `?token=${encodeURIComponent(token)}` : "";
+    const res = await fetch(`${BASE}/api/public${q}`);
+    if (!res.ok) return null;
+    return (await res.json()) as PublicSnapshot;
+  } catch {
+    return null;
+  }
+}
+
 /** Recent finished tasks from the runtime's durable log (empty if unreachable). */
 export async function fetchHistory(): Promise<TaskHistoryRow[]> {
   try {
