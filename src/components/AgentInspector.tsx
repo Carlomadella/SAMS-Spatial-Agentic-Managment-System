@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Trash2, X as XIcon } from "lucide-react";
+import { Check, FileText, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { levelFromXp } from "../lib/skill";
 import { affinityTier, bestFriend } from "../lib/relationships";
+import { activeGoal, goalProgress } from "../lib/goals";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
@@ -39,6 +40,9 @@ export function AgentInspector() {
   const agent = useSelectedAgent();
   const agents = useStore((s) => s.agents);
   const affinity = useStore((s) => s.affinity);
+  const goals = useStore((s) => s.goals);
+  const addGoal = useStore((s) => s.addGoal);
+  const removeGoal = useStore((s) => s.removeGoal);
   const selectAgent = useStore((s) => s.selectAgent);
   const setStatus = useStore((s) => s.setStatus);
   const assignTask = useStore((s) => s.assignTask);
@@ -58,6 +62,8 @@ export function AgentInspector() {
 
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
+  const [goalTitle, setGoalTitle] = useState("");
+  const [goalMilestone, setGoalMilestone] = useState(3);
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [memoriesOpen, setMemoriesOpen] = useState(false);
@@ -309,6 +315,68 @@ export function AgentInspector() {
           </div>
         );
       })()}
+
+      {/* long-term goal (project) — a milestone of N completed tasks that
+          persists across sessions; each completed task advances it */}
+      <details className="mt-2 rounded-lg border border-line bg-ink-850/60">
+        <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
+          <span className="inline-flex items-center gap-1.5"><Target size={11} /> Progetto</span>
+          <span className="text-[10px] opacity-60">obiettivo a lungo termine</span>
+        </summary>
+        <div className="px-2.5 pb-2.5">
+          {(() => {
+            const goal = activeGoal(goals, agent.id);
+            if (goal) {
+              return (
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-200" title={goal.title}>{goal.title}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-mut">{Math.min(goal.completed, goal.milestone)}/{goal.milestone}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all duration-700"
+                      style={{ width: `${Math.round(goalProgress(goal) * 100)}%` }}
+                    />
+                  </div>
+                  <button onClick={() => removeGoal(goal.id)} className="mt-1.5 text-[10px] text-mut hover:text-rose-300">
+                    Abbandona obiettivo
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-mut">Nessun progetto. Ogni task completato dall&apos;agente avvicina la milestone.</p>
+                <input
+                  value={goalTitle}
+                  onChange={(e) => setGoalTitle(e.target.value)}
+                  placeholder="Es. Rifattorizza il modulo auth"
+                  className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] text-mut">Task</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={goalMilestone}
+                    onChange={(e) => setGoalMilestone(Number(e.target.value))}
+                    className="w-16 rounded-md border border-line bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-brand/50"
+                  />
+                  <button
+                    disabled={!goalTitle.trim()}
+                    onClick={() => { addGoal(agent.id, goalTitle, goalMilestone); setGoalTitle(""); setGoalMilestone(3); }}
+                    className="btn btn-primary ml-auto"
+                  >
+                    Crea
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </details>
 
       {/* per-agent responses thread — read this agent's messages without digging
           through the shared event log */}

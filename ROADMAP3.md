@@ -115,8 +115,11 @@ sciolgono ciascuna un pezzo di questo isolamento.
       incrementano su ogni handoff `relay_task` (+2) e chiacchierata (+1). Il `TalkBridge` è
       **biasato verso gli amici** (l'affinità "avvicina" nel pairing → gli amici parlano più
       spesso). L'inspector mostra il "Legame" più forte (miglior amico + tier). 8 test.
-- [ ] 💡 **Obiettivi a lungo termine** — un agente può avere un _progetto_ (più task
-      collegati, una milestone) e una barra di avanzamento che persiste fra le sessioni.
+- [x] ✅ **Obiettivi a lungo termine** — modulo puro `src/lib/goals.ts`: un `Goal` è un
+      _progetto_ (milestone di N task) con `goalProgress`, `activeGoal`, `advanceGoal`,
+      `isGoalComplete`. Lo store tiene e persiste i goal; il `ProgressionBridge` avanza
+      l'obiettivo attivo a ogni task completato e festeggia (log + toast) alla milestone.
+      L'`AgentInspector` ha una sezione "Progetto" con barra di avanzamento e form di creazione. 8 test.
 - [ ] 💡 **Economia del token come risorsa di gioco** — il budget token diventa una
       "valuta": gli agenti che lavorano meglio (PR mergiate) ne guadagnano di più.
 - [ ] 💡 **Meta-agente proattivo** — il meta-agente (già esistente) propone migliorie a

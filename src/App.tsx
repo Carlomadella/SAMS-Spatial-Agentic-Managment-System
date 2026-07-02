@@ -19,6 +19,7 @@ import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { metaRepo } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
+import { activeGoal } from "./lib/goals";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -199,6 +200,39 @@ function WakeBridge() {
         level: "WARN",
         message: `🔔 Svegliato da webhook (${wake.reason}) → ${target.name}`,
       });
+    });
+  }, []);
+  return null;
+}
+
+/**
+ * Long-term goals: when an agent finishes a task (transition into "done"),
+ * advance its active project by one and celebrate when the milestone is reached.
+ * Single-fire per completion — "done" is transient and clears back to idle.
+ */
+function ProgressionBridge() {
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      for (const agent of state.agents) {
+        const prevAgent = prev.agents.find((a) => a.id === agent.id);
+        if (!prevAgent) continue;
+        if (prevAgent.status === "done" || agent.status !== "done") continue;
+
+        const before = activeGoal(useStore.getState().goals, agent.id);
+        if (!before) continue;
+        useStore.getState().advanceAgentGoal(agent.id);
+        const after = useStore.getState().goals.find((g) => g.id === before.id);
+        if (after?.done) {
+          useStore.getState().log({
+            agentId: agent.id,
+            agentName: agent.name,
+            color: agent.color,
+            level: "SUCCESS",
+            message: `🎯 Obiettivo raggiunto: ${after.title} (${after.milestone} task)`,
+          });
+          useStore.getState().pushToast("SUCCESS", `🎯 ${agent.name} ha raggiunto un obiettivo!`);
+        }
+      }
     });
   }, []);
   return null;
@@ -636,6 +670,7 @@ function Workspace() {
       <QueueBridge />
       <RelayBridge />
       <WakeBridge />
+      <ProgressionBridge />
       <LifeBridge />
       <TalkBridge />
       <HungerBridge />

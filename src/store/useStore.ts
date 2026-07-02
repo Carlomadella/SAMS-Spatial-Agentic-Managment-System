@@ -25,6 +25,7 @@ import { clamp, uid } from "../lib/utils";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
+import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -113,6 +114,11 @@ interface State {
   /** Pairwise affinity built up by collaboration (relay handoffs + chatter). */
   affinity: AffinityMap;
   bumpAffinity: (a: string, b: string, delta?: number) => void;
+  /** Long-term goals ("projects"): a milestone of N completed tasks per agent. */
+  goals: Goal[];
+  addGoal: (agentId: string, title: string, milestone: number) => void;
+  advanceAgentGoal: (agentId: string, by?: number) => void;
+  removeGoal: (id: string) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -249,6 +255,7 @@ export const useStore = create<State>()(
   webhookAutoAssign: false,
   handoffs: [],
   affinity: {},
+  goals: [],
 
   log: (e) =>
     set((s) => ({
@@ -502,6 +509,23 @@ export const useStore = create<State>()(
       ].slice(-8),
     })),
   bumpAffinity: (a, b, delta = 1) => set((s) => ({ affinity: bumpAffinityMap(s.affinity, a, b, delta) })),
+  addGoal: (agentId, title, milestone) =>
+    set((s) => ({
+      goals: [
+        ...s.goals,
+        {
+          id: uid("goal"),
+          agentId,
+          title: title.trim(),
+          milestone: Math.max(1, Math.round(milestone)),
+          completed: 0,
+          createdAt: Date.now(),
+          done: false,
+        },
+      ],
+    })),
+  advanceAgentGoal: (agentId, by = 1) => set((s) => ({ goals: advanceGoalList(s.goals, agentId, by) })),
+  removeGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
@@ -658,6 +682,7 @@ export const useStore = create<State>()(
         tokensUsed: s.tokensUsed,
         webhookAutoAssign: s.webhookAutoAssign,
         affinity: s.affinity,
+        goals: s.goals,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -670,8 +695,9 @@ export const useStore = create<State>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // back-fill affinity added after initial persist (migration)
+          // back-fill affinity + goals added after initial persist (migration)
           if (!state.affinity) state.affinity = {};
+          if (!state.goals) state.goals = [];
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;
