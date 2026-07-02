@@ -6,6 +6,7 @@ import { AgentInspector } from "./AgentInspector";
 import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { LiveSimPanel } from "./LiveSimPanel";
+import { WorldDiaryPanel } from "./WorldDiaryPanel";
 import { Terminal } from "./Terminal";
 import { OutputView } from "./OutputView";
 import { ResizeHandle } from "./ResizeHandle";
@@ -65,6 +66,7 @@ const TABS: { id: BottomTab; label: string; sim?: true }[] = [
   { id: "eventlog", label: "Log eventi" },
   { id: "tasks", label: "Task" },
   { id: "history", label: "Cronologia" },
+  { id: "diario", label: "Diario" },
   { id: "problems", label: "Problemi" },
   { id: "livesim", label: "Live Sim", sim: true },
 ];
@@ -143,6 +145,7 @@ export function BottomPanel() {
           {bottomTab === "eventlog" && <EventLog />}
           {bottomTab === "tasks" && <TasksPanel />}
           {bottomTab === "history" && <HistoryPanel />}
+          {bottomTab === "diario" && <WorldDiaryPanel />}
           {bottomTab === "problems" && <ProblemsView />}
           {bottomTab === "livesim" && <LiveSimPanel />}
         </div>

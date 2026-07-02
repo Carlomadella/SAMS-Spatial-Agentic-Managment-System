@@ -34,7 +34,7 @@ sciolgono ciascuna un pezzo di questo isolamento.
 | #   | Frontiera                                                            | Perché                                                                              | Effort | Stato |
 | --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ----- |
 | 1   | **Mondo reattivo** — webhook in ingresso + MCP come strumenti       | Gli agenti reagiscono al mondo reale (push/PR/CI, Drive/Calendar) senza che tu lo dica | 🟡     | ✅    |
-| 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | 💡    |
+| 2   | **Mondo raccontabile** — replay, immagine OG, giardini di team      | Trasforma il lavoro in qualcosa da _condividere_, non solo da guardare              | 🟡     | 🏗️    |
 | 3   | **Mondo condiviso** — presence realtime + ruoli/permessi + multiplayer | Più persone nello stesso ufficio: da demo personale a strumento di squadra          | 🔴     | 💡    |
 
 > Sequenza voluta: prima la **reattività** (autonomia che si auto-alimenta), poi
@@ -72,15 +72,21 @@ sciolgono ciascuna un pezzo di questo isolamento.
 - [ ] 💡 ⬅️ **Replay cinematografico** di un task completato — ricostruisce il percorso
       dell'agente + le azioni chiave come una breve clip navigabile (timeline scrubbabile).
       Ottimo per demo e condivisione.
-- [ ] 💡 ⬅️ **Immagine OG condivisibile** — esporta il Commit Garden (o un agente, o un
-      riepilogo task) come **PNG** via canvas/meta OG, pronto per i social.
+- [x] ✅ ⬅️ **Immagine OG condivisibile** — modulo puro `src/lib/ogImage.ts`: modello card
+      testabile (`buildGardenOgCard`, `buildWorkspaceOgCard`, `shade`, `ogFileName`) +
+      `renderOgCard` che disegna su `<canvas>` una card 1200×630 (kicker, titolo, emoji, badge,
+      3 statistiche, footer) e `downloadOgCard` che esporta il **PNG**. Bottone "Immagine" nel
+      Commit Garden. Pronto per i social. 7 test.
 - [ ] 💡 ⬅️ **Giardini di team / organizzazione** — vista aggregata di tutti i
       contributor (un prato con molte piante), con classifica e totali.
 - [ ] 💡 **Dashboard pubblica read-only** — un link condivisibile che mostra lo stato
       del mondo (agenti, metriche, storico) **senza** poter assegnare task. Riusa
       `publicStatus` + un token di sola lettura.
-- [ ] 💡 **Diario del mondo** — un feed narrativo (anche TTS, riusa `narration.ts`)
-      che racconta la giornata: "Stamattina blue ha aperto 2 PR, purple è andato in pausa…".
+- [x] ✅ **Diario del mondo** — modulo puro `src/lib/worldDiary.ts`: `classifyEvent`
+      (PR / completati / bloccati / review / errori / pausa), `buildWorldDiary` (aggrega gli
+      eventi della giornata locale per-agente), `tallyLine`/`headline` in italiano con fascia
+      oraria ("Stamattina blue ha aperto 2 PR…"). Nuovo tab "Diario" nel BottomPanel
+      (`WorldDiaryPanel`) con lettura vocale (riusa il `narrator` TTS). 12 test.
 
 ## 🤝 Mondo condiviso (frontiera #3)
 
@@ -143,6 +149,24 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-02 — mondo raccontabile: immagine OG + diario del mondo (frontiera #2, primi pezzi)
+- **Immagine OG condivisibile** 🖼️ — nuovo modulo puro `src/lib/ogImage.ts`. Il modello della
+  card è separato dal disegno: `buildGardenOgCard` (dallo stato del Commit Garden: stadio →
+  emoji/accent, innaffiature/streak/crescita) e `buildWorkspaceOgCard` (riepilogo workspace),
+  più `shade` (gradienti), `ogFileName` (slug). `renderOgCard` disegna la card 1200×630 su un
+  contesto 2D (kicker, titolo troncato a larghezza, emoji grande, badge pillola, 3 statistiche,
+  footer); `downloadOgCard` renderizza su canvas fuori schermo ed esporta il **PNG**. Bottone
+  "Immagine" accanto a "Pagina" nel `GardenView`.
+- **Diario del mondo** 📖 — nuovo modulo puro `src/lib/worldDiary.ts`. `classifyEvent` mappa i
+  `LogEvent` in categorie salienti (PR, completati, bloccati, review, errori, pausa);
+  `buildWorldDiary` aggrega gli eventi della **giornata locale** per-agente in frasi italiane
+  con fascia oraria e un `headline` di sintesi ("3 PR · 2 task completati"). `diaryPlainText`
+  per il TTS. Nuovo tab **"Diario"** nel `BottomPanel` (`WorldDiaryPanel`) che ricostruisce il
+  diario dagli eventi dello store e lo legge ad alta voce riusando il `narrator` di
+  `narration.ts`.
+- Test: +29 (12 worldDiary, 7 ogImage, 10 `utils.test.ts` di copertura per gli helper
+  condivisi). Typecheck, lint: verdi. **Client 152 → 181** test.
 
 ### 2026-06-30 — MCP come strumenti agente (frontiera #1 completa) ✅
 - **`mcp_call(server, tool, args)`** — gli agenti possono invocare tool di server

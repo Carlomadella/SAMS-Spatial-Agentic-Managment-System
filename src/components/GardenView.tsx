@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Sprout } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImageDown, Loader2, RefreshCw, Sprout } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState } from "../lib/garden";
+import { buildGardenOgCard, downloadOgCard } from "../lib/ogImage";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
 
 interface Badge { emoji: string; label: string }
@@ -190,6 +191,13 @@ export function GardenView() {
                 >
                   <ExternalLink size={13} /> Pagina
                 </a>
+                <button
+                  onClick={() => void downloadOgCard(buildGardenOgCard(garden))}
+                  title="Esporta un'immagine PNG condivisibile"
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-[12.5px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  <ImageDown size={13} /> Immagine
+                </button>
               </div>
               {(() => {
                 const event = getSeasonalEvent();
