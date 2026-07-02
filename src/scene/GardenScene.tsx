@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { grassTexture } from "./textures";
 import { STAGE_LABEL, type GardenState, type Stage } from "../lib/garden";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
+import { forestSlots } from "../lib/forest";
 
 type Vec3 = [number, number, number];
 
@@ -579,10 +580,20 @@ function Signpost({ garden }: { garden: GardenState | null }) {
 
 const MINI_STAGE: Record<Stage, number> = { seed: 0.3, sprout: 0.4, sapling: 0.5, bush: 0.6, tree: 0.7, blooming: 0.8 };
 
-function MiniGarden({ g, x, onSelectUser }: { g: GardenState; x: number; onSelectUser: (u: string) => void }) {
-  const miniPalette = BIOME_PALETTES[getBiome(g.user)];
+function MiniGarden({
+  g,
+  pos,
+  scaleMul = 1,
+  onSelectUser,
+}: {
+  g: GardenState;
+  pos: Vec3;
+  scaleMul?: number;
+  onSelectUser: (u: string) => void;
+}) {
+  const miniPalette = computePalette(getCurrentSeason(), getBiome(g.user));
   return (
-    <group position={[x, 0, -6.5]}>
+    <group position={pos}>
       <mesh position={[0, 0.08, 0]} receiveShadow>
         <cylinderGeometry args={[0.7, 0.78, 0.16, 20]} />
         <meshStandardMaterial color={STONE} roughness={0.9} />
@@ -591,10 +602,10 @@ function MiniGarden({ g, x, onSelectUser }: { g: GardenState; x: number; onSelec
         <cylinderGeometry args={[0.55, 0.55, 0.08, 20]} />
         <meshStandardMaterial color={SOIL} roughness={0.95} />
       </mesh>
-      <group position={[0, 0.22, 0]} scale={MINI_STAGE[g.stage]}>
+      <group position={[0, 0.22, 0]} scale={MINI_STAGE[g.stage] * scaleMul}>
         <Foliage stage={g.stage} palette={miniPalette} />
       </group>
-      <Html position={[0, 1.7, 0]} center distanceFactor={11} zIndexRange={[30, 10]}>
+      <Html position={[0, 1.7 * scaleMul + 0.4, 0]} center distanceFactor={11} zIndexRange={[30, 10]}>
         <button
           onClick={() => onSelectUser(g.user)}
           className="pointer-events-auto select-none whitespace-nowrap rounded-full border border-emerald-700/20 bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 shadow-sm transition hover:bg-white"
@@ -602,6 +613,21 @@ function MiniGarden({ g, x, onSelectUser }: { g: GardenState; x: number; onSelec
           {g.user} · {g.waterings}💧
         </button>
       </Html>
+    </group>
+  );
+}
+
+/** Albero d'ambiente (senza etichetta) che infoltisce il bosco attorno. */
+function AmbientTree({ pos, scale, stage, palette }: { pos: Vec3; scale: number; stage: Stage; palette: BiomePalette }) {
+  return (
+    <group position={pos}>
+      <mesh position={[0, 0.06, 0]} receiveShadow>
+        <cylinderGeometry args={[0.48, 0.56, 0.12, 14]} />
+        <meshStandardMaterial color={SOIL} roughness={0.95} />
+      </mesh>
+      <group position={[0, 0.12, 0]} scale={scale}>
+        <Foliage stage={stage} palette={palette} />
+      </group>
     </group>
   );
 }
@@ -633,7 +659,11 @@ export function GardenScene({
     [],
   );
 
-  const others = useMemo(() => board.filter((g) => !garden || g.user !== garden.user).slice(0, 5), [board, garden]);
+  const others = useMemo(() => board.filter((g) => !garden || g.user !== garden.user).slice(0, 12), [board, garden]);
+
+  // Boschetto: uno slot per contributor + alcuni alberi d'ambiente in coda, tutti
+  // sparsi su anelli concentrici (i primi `others.length` sono i contributor).
+  const forest = useMemo(() => forestSlots(Math.max(others.length + 6, 10)), [others.length]);
 
   const season = useMemo(() => getCurrentSeason(), []);
   const biome  = useMemo(() => (garden ? getBiome(garden.user) : "oak"), [garden?.user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -682,8 +712,26 @@ export function GardenScene({
         <PicketFence length={19} position={[0, 0, -9.3]} />
         <PicketFence length={19} position={[-9.3, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
 
+        {/* contributor della leaderboard — alberi etichettati e cliccabili */}
         {others.map((g, i) => (
-          <MiniGarden key={g.user} g={g} x={-4 + i * 2} onSelectUser={onSelectUser} />
+          <MiniGarden
+            key={g.user}
+            g={g}
+            pos={[forest[i].x, 0, forest[i].z]}
+            scaleMul={forest[i].scale}
+            onSelectUser={onSelectUser}
+          />
+        ))}
+
+        {/* alberi d'ambiente che infoltiscono il bosco attorno al giardino */}
+        {forest.slice(others.length).map((s, i) => (
+          <AmbientTree
+            key={`amb-${i}`}
+            pos={[s.x, 0, s.z]}
+            scale={s.scale}
+            stage={i % 4 === 0 ? "bush" : "tree"}
+            palette={computePalette(season, (["oak", "pine", "birch"] as Biome[])[i % 3])}
+          />
         ))}
 
         {/* butterflies only in warmer seasons */}

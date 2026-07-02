@@ -120,6 +120,10 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 ## 🎮 Mondo 3D & feel
 
+- [x] ✅ **Garden come mini bosco** — gli alberi dei contributor (leaderboard, fino a 12) sono
+      sparsi su anelli concentrici attorno alla pianta principale invece che in fila; modulo puro
+      `src/lib/forest.ts` (`forestSlots`, deterministico, lascia libero un cono frontale verso la
+      camera) + alberi d'ambiente non etichettati che infoltiscono la scena. 5 test.
 - [ ] 💡 **Stagioni/meteo nella casa** — il ciclo giorno/notte c'è; aggiungere pioggia
       sui vetri, luce stagionale, festoni negli eventi (riusa `seasonalEvents.ts`).
 - [ ] 💡 **Oggetti interagibili** — clic su lavagna/monitor/caffè per micro-interazioni
