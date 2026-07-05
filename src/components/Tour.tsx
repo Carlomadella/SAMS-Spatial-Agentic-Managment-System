@@ -1,12 +1,10 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { clampStep, isLastStep, TOUR_STEPS, tourProgress } from "../lib/tour";
-
-interface Rect { top: number; left: number; width: number; height: number }
+import { clampStep, isLastStep, placeTourCard, TOUR_STEPS, tourProgress, type TourRect } from "../lib/tour";
 
 /** Read the on-screen rect of the current step's target, or null if absent. */
-function targetRect(selector?: string): Rect | null {
+function targetRect(selector?: string): TourRect | null {
   if (!selector || typeof document === "undefined") return null;
   const el = document.querySelector(selector);
   if (!el) return null;
@@ -17,29 +15,42 @@ function targetRect(selector?: string): Rect | null {
 
 /**
  * Interactive UI tour: a dimmed overlay with a spotlight cut-out around each
- * highlighted element and an explanatory card. Robust — if a target element is
- * missing, the card simply centres with no spotlight.
+ * highlighted element and an explanatory card. Robust — the card is always kept
+ * inside the viewport (even for full-height targets), and if a target element is
+ * missing the card simply centres with no spotlight.
  */
 export function Tour() {
   const open = useStore((s) => s.tourOpen);
   const setTourOpen = useStore((s) => s.setTourOpen);
   const [step, setStep] = useState(0);
-  const [rect, setRect] = useState<Rect | null>(null);
+  const [rect, setRect] = useState<TourRect | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({ top: -9999, left: -9999 });
 
   const current = TOUR_STEPS[clampStep(step)];
 
-  // Re-measure the target on step change, resize and scroll.
+  // Re-measure the target + reposition the card on step change, resize and scroll.
   useLayoutEffect(() => {
     if (!open) return;
-    const measure = () => setRect(targetRect(current.target));
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
+    const reflow = () => {
+      const r = targetRect(current.target);
+      setRect(r);
+      const c = cardRef.current;
+      const size = c ? { w: c.offsetWidth, h: c.offsetHeight } : { w: 320, h: 200 };
+      const vp = { width: window.innerWidth, height: window.innerHeight };
+      setStyle(placeTourCard(r, size, vp));
     };
-  }, [open, current.target]);
+    reflow();
+    // A second pass next frame, once the card has its real measured height.
+    const raf = requestAnimationFrame(reflow);
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
+    };
+  }, [open, step, current.target]);
 
   useEffect(() => {
     if (open) setStep(0);
@@ -61,25 +72,8 @@ export function Tour() {
 
   const pad = 8;
   const spotlight = rect
-    ? {
-        top: rect.top - pad,
-        left: rect.left - pad,
-        width: rect.width + pad * 2,
-        height: rect.height + pad * 2,
-      }
+    ? { top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }
     : null;
-
-  // Place the card below the target if there's room, else above; else centre.
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const cardStyle: React.CSSProperties = (() => {
-    if (!spotlight) return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
-    const below = spotlight.top + spotlight.height + 12;
-    const wantAbove = below > vh - 180;
-    const clampLeft = Math.min(Math.max(12, spotlight.left), (typeof window !== "undefined" ? window.innerWidth : 1200) - 340);
-    return wantAbove
-      ? { top: Math.max(12, spotlight.top - 12), left: clampLeft, transform: "translateY(-100%)" }
-      : { top: below, left: clampLeft };
-  })();
 
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Tour dell'interfaccia">
@@ -104,8 +98,9 @@ export function Tour() {
 
       {/* Card */}
       <div
+        ref={cardRef}
         className="absolute w-[320px] animate-fade-in rounded-xl border border-line bg-ink-850 p-4 shadow-panel"
-        style={cardStyle}
+        style={style}
         onClick={(e) => e.stopPropagation()}
       >
         <button

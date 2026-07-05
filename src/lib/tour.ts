@@ -50,6 +50,58 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+export interface TourRect { top: number; left: number; width: number; height: number }
+export interface TourViewport { width: number; height: number }
+
+const clampN = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+
+/**
+ * Posiziona la card del tour accanto allo spotlight, **sempre interamente dentro
+ * il viewport**. Sceglie il lato (sotto/sopra/destra/sinistra) con più spazio per
+ * la card; se nessuno la contiene (target a tutta altezza/larghezza) la centra.
+ * Il risultato è comunque clampato ai margini, così la card non finisce mai fuori
+ * schermo (bug del passo "inspector", target alto quanto la colonna destra).
+ */
+export function placeTourCard(
+  rect: TourRect | null,
+  card: { w: number; h: number },
+  vp: TourViewport,
+  margin = 12,
+  gap = 14,
+): { top: number; left: number } {
+  const { width: vw, height: vh } = vp;
+  if (!rect) {
+    return { top: Math.max(margin, (vh - card.h) / 2), left: Math.max(margin, (vw - card.w) / 2) };
+  }
+  const below = vh - (rect.top + rect.height);
+  const above = rect.top;
+  const right = vw - (rect.left + rect.width);
+  const left = rect.left;
+
+  let top: number;
+  let leftPos: number;
+  if (below >= card.h + gap) {
+    top = rect.top + rect.height + gap;
+    leftPos = rect.left;
+  } else if (above >= card.h + gap) {
+    top = rect.top - card.h - gap;
+    leftPos = rect.left;
+  } else if (right >= card.w + gap) {
+    leftPos = rect.left + rect.width + gap;
+    top = rect.top;
+  } else if (left >= card.w + gap) {
+    leftPos = rect.left - card.w - gap;
+    top = rect.top;
+  } else {
+    top = (vh - card.h) / 2;
+    leftPos = (vw - card.w) / 2;
+  }
+  return {
+    top: clampN(top, margin, vh - card.h - margin),
+    left: clampN(leftPos, margin, vw - card.w - margin),
+  };
+}
+
 /** Riporta un indice nei limiti degli step. */
 export function clampStep(i: number): number {
   return Math.min(Math.max(0, Math.round(i)), TOUR_STEPS.length - 1);
