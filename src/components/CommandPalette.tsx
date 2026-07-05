@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Bell,
+  BookOpen,
+  Bot,
   Boxes,
   ClipboardList,
+  Clock,
+  Film,
+  History,
+  ListTodo,
   Maximize2,
   MapPin,
   MousePointer2,
@@ -9,7 +16,9 @@ import {
   RotateCcw,
   Send,
   Server,
+  Settings,
   Sprout,
+  SunMoon,
   Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -103,6 +112,18 @@ export function CommandPalette() {
     list.push({ id: "cad", label: "Apri CAD spaziale · Zone", icon: Boxes, keywords: "zones cad layout zone", run: () => s.setActivity("cad") });
     list.push({ id: "focus", label: "Modalità focus (mostra/nascondi pannelli)", icon: Maximize2, keywords: "focus zen panels hide pannelli", run: () => s.toggleFocus() });
     list.push({ id: "garden", label: "Apri Commit Garden", icon: Sprout, keywords: "garden plant commit grow giardino", run: () => s.setGardenOpen(true) });
+
+    // Quick navigation to feature panels (routine/reazioni, replay, diario…).
+    list.push({ id: "livesim", label: "Apri Live Sim · Routine e reazioni a catena", icon: Clock, keywords: "live sim routine trigger temporali reazioni catena chain automazione", run: () => s.setBottomTab("livesim") });
+    list.push({ id: "replay", label: "Apri Replay cinematografico", icon: Film, keywords: "replay clip timeline rivedi cinematografico", run: () => s.setBottomTab("replay") });
+    list.push({ id: "diario", label: "Apri Diario del mondo", icon: BookOpen, keywords: "diario diary racconto world narrazione", run: () => s.setBottomTab("diario") });
+    list.push({ id: "history", label: "Apri Cronologia task", icon: History, keywords: "history cronologia storico task", run: () => s.setBottomTab("history") });
+    list.push({ id: "tasks", label: "Apri elenco Task", icon: ListTodo, keywords: "tasks task elenco lavori", run: () => s.setBottomTab("tasks") });
+    list.push({ id: "settings", label: "Apri Impostazioni runtime", icon: Settings, keywords: "settings impostazioni chiavi keys runtime config", run: () => s.setSettingsOpen(true) });
+    list.push({ id: "theme", label: `Tema: passa a ${s.theme === "dark" ? "chiaro" : "scuro"}`, icon: SunMoon, keywords: "theme tema chiaro scuro dark light", run: () => s.toggleTheme() });
+    list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });
+    list.push({ id: "webhook", label: `Risposta ai webhook GitHub: ${s.webhookAutoAssign ? "disattiva" : "attiva"}`, icon: Bell, keywords: "webhook github ci wake toggle", run: () => s.setWebhookAutoAssign(!s.webhookAutoAssign) });
+
     list.push({ id: "clear", label: "Svuota log eventi", icon: Trash2, keywords: "log clear svuota", run: () => s.clearEvents() });
     list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
 
