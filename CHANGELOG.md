@@ -12,6 +12,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   (`isValidRepo`) e sezione "Repository" nell'inspector; i task dell'agente
   lavorano sul repo scelto.
 - **Added** — deploy "one-click": `docs/DEPLOY.md` + Blueprint Render `render.yaml`.
+- **Added** — riepilogo `world` (agenti/attivi/idle) dallo snapshot autorevole,
+  esposto in `GET /api/public` e mostrato nella dashboard pubblica.
 - **Added** — stato autorevole del mondo, primo slice: `server/src/worldState.ts`
   (puro) + tabella SQLite `world_snapshot` + `GET/POST /api/world` +
   `WorldSyncBridge` (push snapshot, throttle 20s). Il mondo sopravvive al refresh.

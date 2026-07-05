@@ -54,4 +54,10 @@ describe("buildPublicSnapshot", () => {
     expect(s.metrics.lifetimeTasks).toBe(0);
     expect(s.metrics.lifetimeTokens).toBe(0);
   });
+
+  it("includes the world summary, defaulting to zeros when absent", () => {
+    expect(buildPublicSnapshot(input()).world).toEqual({ agents: 0, working: 0, idle: 0 });
+    const s = buildPublicSnapshot({ ...input(), world: { agents: 5, working: 2, idle: 3 } });
+    expect(s.world).toEqual({ agents: 5, working: 2, idle: 3 });
+  });
 });

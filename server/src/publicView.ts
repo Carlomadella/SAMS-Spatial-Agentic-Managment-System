@@ -64,17 +64,22 @@ export interface PublicSnapshot {
     totalWaterings: number;
     top: { user: string; stage: string; growth: number; waterings: number }[];
   };
+  /** Riepilogo del mondo autorevole durevole (agenti / attivi / idle). */
+  world: { agents: number; working: number; idle: number };
 }
+
+export interface PublicWorldLike { agents: number; working: number; idle: number }
 
 export interface PublicSnapshotInput {
   status: PublicStatusLike;
   metrics: PublicMetricsLike;
   board: PublicGardenLike[];
+  world?: PublicWorldLike;
   now?: number;
 }
 
 /** Compone lo snapshot read-only. Nessun segreto, nessuna azione mutante. */
-export function buildPublicSnapshot({ status, metrics, board, now = Date.now() }: PublicSnapshotInput): PublicSnapshot {
+export function buildPublicSnapshot({ status, metrics, board, world, now = Date.now() }: PublicSnapshotInput): PublicSnapshot {
   const lifetime = metrics.lifetime ?? { total: 0, completed: 0, tokens: 0 };
   return {
     generatedAt: now,
@@ -103,5 +108,6 @@ export function buildPublicSnapshot({ status, metrics, board, now = Date.now() }
         .slice(0, 5)
         .map((g) => ({ user: g.user, stage: g.stage, growth: g.growth, waterings: g.waterings })),
     },
+    world: world ?? { agents: 0, working: 0, idle: 0 },
   };
 }

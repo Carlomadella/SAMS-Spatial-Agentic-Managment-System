@@ -110,6 +110,8 @@ export interface PublicSnapshot {
     totalWaterings: number;
     top: { user: string; stage: string; growth: number; waterings: number }[];
   };
+  /** Riepilogo del mondo autorevole durevole (può mancare da runtime vecchi). */
+  world?: { agents: number; working: number; idle: number };
 }
 
 /** Fetch the public read-only snapshot; null if unreachable or unauthorized. */

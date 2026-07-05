@@ -132,11 +132,18 @@ app.get("/api/public", async (req: Request, res: Response) => {
   } catch {
     /* garden store unavailable — omit leaderboard */
   }
+  let world = { agents: 0, working: 0, idle: 0 };
+  try {
+    world = summarizeWorld(loadWorldSnapshot(db()));
+  } catch {
+    /* world snapshot unavailable — omit */
+  }
   res.json(
     buildPublicSnapshot({
       status: publicStatus(),
       metrics: { ...metricsSnapshot({ clients: clients.size }), lifetime },
       board,
+      world,
     }),
   );
 });

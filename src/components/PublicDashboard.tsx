@@ -93,6 +93,7 @@ export function PublicDashboard() {
                   ["Repo", snap.runtime.repo],
                   ["Branch base", snap.runtime.baseBranch],
                   ["Uptime", fmtUptime(snap.metrics.uptimeSec)],
+                  ["Agenti", snap.world ? `${snap.world.agents} · ${snap.world.working} attivi` : "—"],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[10px] uppercase tracking-wide text-mut">{k}</dt>
