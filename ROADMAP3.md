@@ -64,8 +64,13 @@ sciolgono ciascuna un pezzo di questo isolamento.
       Setup documentato nel README.
 - [ ] 💡 **Trigger temporali / routine** — task ricorrenti (es. "ogni mattina:
       riepilogo PR aperte su Notion"). Cron lato runtime con persistenza SQLite.
-- [ ] 💡 **Reazioni a catena** — il completamento di un task può emettere un evento
-      che ne innesca un altro (pipeline dichiarative, oltre al `relay_task` puntuale).
+- [x] ✅ **Reazioni a catena** — modulo puro `src/lib/chains.ts`: una `ChainRule`
+      (`when`/`fromRole`/`target`/`title`/`branch`/`enabled`) rende automatica la staffetta;
+      `ruleMatches` (filtro sottostringa + ruolo, guardia anti-loop diretto), `matchingChains`,
+      `chainTitle` (segnaposto `{task}`), `chainSummary`. Lo store tiene/persiste le regole
+      (`addChain`/`updateChain`/`removeChain`/`toggleChain`); il `ChainBridge` le fa scattare al
+      passaggio in "done" (assegna o accoda al target, arco di handoff + affinità come un relay,
+      cooldown per-regola anti-cascata). UI `ChainRules` nel pannello Live Sim. 10 test.
 
 ## 🎬 Mondo raccontabile (frontiera #2)
 
@@ -175,6 +180,25 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-05 — reazioni a catena (frontiera #1): pipeline dichiarative
+Ripreso uno dei due item ancora aperti del **mondo reattivo**: le **reazioni a catena**,
+l'automazione della staffetta oltre al `relay_task` puntuale che un agente emette a mano.
+- **`src/lib/chains.ts`** (puro): una `ChainRule` dice "quando un task che contiene `<when>`
+  viene completato (facoltativamente da un `<fromRole>`), assegna un follow-up a `<target>`".
+  `chainTitle` espande il segnaposto `{task}` col titolo completato; `ruleMatches` applica i
+  filtri con una **guardia anti-loop diretto** (non re-innesca se il follow-up è identico al
+  task appena finito); `matchingChains` e `chainSummary` completano il modulo.
+- **Store**: nuovo slice `chains` persistito + `addChain`/`updateChain`/`removeChain`/`toggleChain`
+  (migrazione back-fill in `onRehydrateStorage`).
+- **`ChainBridge`** (App.tsx): al passaggio di un agente in "done" combacia il task completato
+  con le regole e per ciascuna assegna (o accoda, se il target è occupato) il follow-up, riusando
+  lo stesso percorso locale+backend di relay/wake. Disegna l'arco di handoff, dà +1 affinità e
+  un whoosh, con un **cooldown per-regola** (15s) come rete anti-cascata sopra la guardia pura.
+- **UI**: `ChainRules` nel pannello Live Sim — elenco regole con toggle/rimozione e un form
+  compatto (`when`/`fromRole`/`target`/`title`/`branch`).
+- Test: +10 client (chains). **Client 226 → 236**. Typecheck, lint, build: verdi. Resta aperto in
+  frontiera #1 il solo item dei **trigger temporali/routine** (cron lato runtime + SQLite).
 
 ### 2026-07-03 — profondità simulativa completa (sezione #4 ✅): obiettivi, economia, meta proattivo
 Chiusi gli ultimi tre item della profondità simulativa (la #3 resta per ultima, come deciso).

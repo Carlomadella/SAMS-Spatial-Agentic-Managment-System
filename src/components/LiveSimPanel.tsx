@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fetchSimIssues, startSimMode, stopSimMode } from "../lib/backend";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
+import { ChainRules } from "./ChainRules";
 
 export function LiveSimPanel() {
   const simMode = useStore((s) => s.simMode);
@@ -149,6 +150,8 @@ export function LiveSimPanel() {
             </span>
           </span>
         </label>
+
+        <ChainRules />
       </div>
 
       {/* Not ready warning */}

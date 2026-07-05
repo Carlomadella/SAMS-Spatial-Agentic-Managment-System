@@ -27,6 +27,7 @@ import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
+import type { ChainRule } from "../lib/chains";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -126,6 +127,12 @@ interface State {
   /** Token economy: per-agent "coin" balances, earned by completing work. */
   wallets: Wallets;
   earnCoins: (agentId: string, amount: number) => void;
+  /** Reazioni a catena: regole dichiarative "task completato → nuovo task". */
+  chains: ChainRule[];
+  addChain: (rule: Omit<ChainRule, "id">) => void;
+  updateChain: (id: string, patch: Partial<Omit<ChainRule, "id">>) => void;
+  removeChain: (id: string) => void;
+  toggleChain: (id: string) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -265,6 +272,7 @@ export const useStore = create<State>()(
   affinity: {},
   goals: [],
   wallets: {},
+  chains: [],
 
   log: (e) =>
     set((s) => ({
@@ -537,6 +545,12 @@ export const useStore = create<State>()(
   advanceAgentGoal: (agentId, by = 1) => set((s) => ({ goals: advanceGoalList(s.goals, agentId, by) })),
   removeGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
   earnCoins: (agentId, amount) => set((s) => ({ wallets: earnCoinsMap(s.wallets, agentId, amount) })),
+  addChain: (rule) => set((s) => ({ chains: [...s.chains, { ...rule, id: uid("chain") }] })),
+  updateChain: (id, patch) =>
+    set((s) => ({ chains: s.chains.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+  removeChain: (id) => set((s) => ({ chains: s.chains.filter((c) => c.id !== id) })),
+  toggleChain: (id) =>
+    set((s) => ({ chains: s.chains.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)) })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
@@ -696,6 +710,7 @@ export const useStore = create<State>()(
         affinity: s.affinity,
         goals: s.goals,
         wallets: s.wallets,
+        chains: s.chains,
         theme: s.theme,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -712,6 +727,7 @@ export const useStore = create<State>()(
           if (!state.affinity) state.affinity = {};
           if (!state.goals) state.goals = [];
           if (!state.wallets) state.wallets = {};
+          if (!state.chains) state.chains = [];
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;

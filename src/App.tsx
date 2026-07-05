@@ -19,6 +19,7 @@ import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
 import { metaRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
+import { chainTitle, matchingChains } from "./lib/chains";
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
@@ -238,6 +239,76 @@ function ProgressionBridge() {
             message: `🎯 Obiettivo raggiunto: ${after.title} (${after.milestone} task)`,
           });
           useStore.getState().pushToast("SUCCESS", `🎯 ${agent.name} ha raggiunto un obiettivo!`);
+        }
+      }
+    });
+  }, []);
+  return null;
+}
+
+/**
+ * Reazioni a catena: when an agent transitions into "done", match the completed
+ * task against the user's declarative chain rules and fire each matching one as a
+ * follow-up task (assigned, or queued if the target is busy) — a self-feeding
+ * pipeline on top of the point-to-point `relay_task`. Drawn as a handoff arc and
+ * given a small affinity bump, like a relay. A per-rule cooldown caps runaway
+ * cascades; the pure module already blocks direct self-loops.
+ */
+const CHAIN_COOLDOWN_MS = 15_000;
+function ChainBridge() {
+  const lastFired = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      for (const agent of state.agents) {
+        const prevAgent = prev.agents.find((a) => a.id === agent.id);
+        if (!prevAgent) continue;
+        if (prevAgent.status === "done" || agent.status !== "done") continue;
+
+        const completedTitle =
+          agent.task?.title ??
+          [...useStore.getState().tasks].reverse().find((t) => t.agentId === agent.id)?.title;
+        if (!completedTitle) continue;
+
+        const matches = matchingChains(useStore.getState().chains, {
+          title: completedTitle,
+          role: agent.role,
+        });
+        if (matches.length === 0) continue;
+
+        const now = Date.now();
+        for (const rule of matches) {
+          // runaway guard: a given rule fires at most once per cooldown window
+          if (now - (lastFired.current.get(rule.id) ?? 0) < CHAIN_COOLDOWN_MS) continue;
+          lastFired.current.set(rule.id, now);
+
+          const target = findRelayTarget(useStore.getState().agents, rule.target);
+          if (!target) continue;
+
+          const title = chainTitle(rule, { title: completedTitle });
+          const branch = rule.branch.trim() || "main";
+          // treat it like a relay in the 3D world: draw the arc + build affinity
+          useStore.getState().addHandoff(agent.id, target.id);
+          useStore.getState().bumpAffinity(agent.id, target.id, 1);
+          audio.playWhoosh();
+
+          if (target.task) {
+            useStore.getState().enqueueTask(target.id, { title, branch });
+          } else {
+            useStore.getState().assignTask(target.id, title, branch);
+            if (backendEnabled) {
+              const fresh = useStore.getState().agents.find((a) => a.id === target.id);
+              if (fresh) {
+                assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+              }
+            }
+          }
+          useStore.getState().log({
+            agentId: target.id,
+            agentName: target.name,
+            color: target.color,
+            level: "INFO",
+            message: `⛓ Reazione a catena da ${agent.name}: ${title}`,
+          });
         }
       }
     });
@@ -713,6 +784,7 @@ function Workspace() {
       <RelayBridge />
       <WakeBridge />
       <ProgressionBridge />
+      <ChainBridge />
       <MetaProactiveBridge />
       <LifeBridge />
       <TalkBridge />
