@@ -84,6 +84,7 @@ interface State {
   setRole: (id: string, role: string) => void;
   setInstructions: (id: string, instructions: string) => void;
   setMeta: (id: string, meta: boolean) => void;
+  setRepo: (id: string, repo: string) => void;
   applyTemplate: (id: string, t: AgentTemplate) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
@@ -329,6 +330,9 @@ export const useStore = create<State>()(
 
   setMeta: (id, meta) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, meta } : a)) })),
+
+  setRepo: (id, repo) =>
+    set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, repo: repo.trim() } : a)) })),
 
   applyTemplate: (id, t) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? applyTemplate(a, t) : a)) })),

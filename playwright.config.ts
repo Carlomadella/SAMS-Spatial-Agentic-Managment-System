@@ -31,7 +31,8 @@ export default defineConfig({
     command: "npm run build && npm run preview -- --port 4173",
     port: 4173,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    // A cold `build && preview` can take well over a minute locally.
+    timeout: 180_000,
   },
 
   projects: [

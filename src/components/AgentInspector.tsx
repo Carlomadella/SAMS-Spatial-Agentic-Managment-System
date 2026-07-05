@@ -10,7 +10,7 @@ import { balanceOf, formatCoins } from "../lib/economy";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
-import { SAMS_REPO, META_IDEAS, metaRepo, buildMetaTask } from "../lib/metaAgent";
+import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
@@ -54,6 +54,7 @@ export function AgentInspector() {
   const removeAgent = useStore((s) => s.removeAgent);
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
+  const setRepo = useStore((s) => s.setRepo);
   const setMeta = useStore((s) => s.setMeta);
   const applyTemplateAction = useStore((s) => s.applyTemplate);
   const renameAgent = useStore((s) => s.renameAgent);
@@ -467,6 +468,35 @@ export function AgentInspector() {
           <div className="mt-1 text-right text-[10px] text-mut">
             {agent.instructions.length}/1200
           </div>
+        </div>
+      </details>
+
+      {/* per-agent target repository override (multi-repo) */}
+      <details className="mt-2 rounded-lg border border-line bg-ink-850/60">
+        <summary className="flex cursor-pointer select-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-mut hover:text-slate-200">
+          <span>Repository{agent.repo?.trim() ? " ●" : ""}</span>
+          <span className="text-[10px] opacity-60">override per questo agente</span>
+        </summary>
+        <div className="px-2.5 pb-2.5">
+          <input
+            value={agent.repo ?? ""}
+            onChange={(e) => setRepo(agent.id, e.target.value)}
+            placeholder={agent.meta ? SAMS_REPO : "owner/repo — vuoto = repo globale"}
+            spellCheck={false}
+            className={cn(
+              "w-full rounded-md border bg-ink-800 px-2 py-1.5 font-mono text-[11px] text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50",
+              agent.repo?.trim() && !isValidRepo(agent.repo) ? "border-rose-500/60" : "border-line",
+            )}
+          />
+          <p className="mt-1 text-[10px] text-mut">
+            {agent.repo?.trim()
+              ? isValidRepo(agent.repo)
+                ? `I task di questo agente lavorano su ${agent.repo.trim()}.`
+                : "Formato non valido — usa owner/repo."
+              : agent.meta
+                ? "Vuoto: i task meta lavorano sul repo di SAMS."
+                : "Vuoto: usa il repository globale del runtime."}
+          </p>
         </div>
       </details>
 

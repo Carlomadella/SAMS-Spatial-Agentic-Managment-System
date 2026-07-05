@@ -127,6 +127,9 @@ export interface Agent {
   /** Meta-agente: i suoi task lavorano sul repository di SAMS stesso (proposte
    * di auto-miglioramento + PR), non sul repo globale configurato. */
   meta?: boolean;
+  /** Override del repository target per questo agente (owner/repo). Vuoto =
+   * usa il repo globale configurato nel runtime (o SAMS se meta). */
+  repo?: string;
 }
 
 export interface LogEvent {

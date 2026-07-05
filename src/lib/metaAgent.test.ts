@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   SAMS_REPO,
   META_IDEAS,
+  isValidRepo,
   metaRepo,
   slugifyBranch,
   buildMetaTask,
@@ -11,6 +12,17 @@ import {
   type MetaCandidate,
 } from "./metaAgent";
 
+describe("isValidRepo", () => {
+  it("accetta owner/repo e rifiuta il resto", () => {
+    expect(isValidRepo("acme/widgets")).toBe(true);
+    expect(isValidRepo("  a.b-c/d_e.f  ")).toBe(true);
+    expect(isValidRepo("solo-owner")).toBe(false);
+    expect(isValidRepo("a/b/c")).toBe(false);
+    expect(isValidRepo("")).toBe(false);
+    expect(isValidRepo(undefined)).toBe(false);
+  });
+});
+
 describe("metaRepo", () => {
   it("punta a SAMS quando l'agente è meta", () => {
     expect(metaRepo({ meta: true })).toBe(SAMS_REPO);
@@ -18,6 +30,14 @@ describe("metaRepo", () => {
   it("non override (undefined) per un agente normale", () => {
     expect(metaRepo({ meta: false })).toBeUndefined();
     expect(metaRepo({})).toBeUndefined();
+  });
+  it("usa l'override per-agente valido, anche sopra al meta", () => {
+    expect(metaRepo({ repo: "acme/widgets" })).toBe("acme/widgets");
+    expect(metaRepo({ meta: true, repo: "acme/widgets" })).toBe("acme/widgets");
+  });
+  it("ignora un override non valido (ricade su meta/globale)", () => {
+    expect(metaRepo({ repo: "non-valido" })).toBeUndefined();
+    expect(metaRepo({ meta: true, repo: "  " })).toBe(SAMS_REPO);
   });
 });
 

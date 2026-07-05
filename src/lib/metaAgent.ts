@@ -7,9 +7,23 @@
 /** Il repository di SAMS (owner/repo) — bersaglio fisso dei meta-agenti. */
 export const SAMS_REPO = "Carlomadella/SAMS-Spatial-Agentic-Managment-System";
 
-/** Repo da passare all'assegnazione: SAMS se l'agente è meta, altrimenti il
- *  repo globale configurato (undefined = nessun override). */
-export function metaRepo(agent: { meta?: boolean }): string | undefined {
+/** Forma `owner/repo` accettata come override del repository. */
+const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
+
+/** true se la stringa è un `owner/repo` valido. */
+export function isValidRepo(s: string | null | undefined): boolean {
+  return typeof s === "string" && REPO_RE.test(s.trim());
+}
+
+/**
+ * Repo da passare all'assegnazione (override `repo` in AssignBody):
+ *  1) l'override esplicito per-agente `agent.repo`, se è un `owner/repo` valido;
+ *  2) altrimenti SAMS se l'agente è meta;
+ *  3) altrimenti nessun override (undefined ⇒ il runtime usa il repo globale).
+ */
+export function metaRepo(agent: { meta?: boolean; repo?: string }): string | undefined {
+  const explicit = agent.repo?.trim();
+  if (explicit && REPO_RE.test(explicit)) return explicit;
   return agent.meta ? SAMS_REPO : undefined;
 }
 
