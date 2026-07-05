@@ -35,6 +35,18 @@ npm run preview  # serve the production build
 
 > A modern browser with **WebGL** is required for the 3D scene.
 
+### Install it as an app (PWA)
+
+SAMS is a **Progressive Web App**: from a production build (`npm run build` +
+`npm run preview`, or the Docker image) the browser offers an **Install** button
+(desktop Chrome/Edge, Android) so it runs in its own standalone window with the
+SAMS icon — and it works **offline** after the first load (the app shell is
+cached by a service worker). The service worker deliberately never touches the
+runtime API or its live SSE stream (`/api/**`), so real-time updates keep
+flowing. App icons are generated from `public/favicon.svg` by
+`scripts/gen-icons.mjs`. The service worker is only active in production builds,
+never during `npm run dev`.
+
 ## What you can do
 
 | Action | How |
