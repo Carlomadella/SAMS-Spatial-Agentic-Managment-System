@@ -13,6 +13,7 @@ import { PublicDashboard } from "./components/PublicDashboard";
 import { RuntimeBanner } from "./components/RuntimeBanner";
 import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend, pushWorld } from "./lib/backend";
@@ -800,6 +801,22 @@ function Workspace() {
   // Connect to the optional managed-agents runtime (no-op if not configured).
   useEffect(() => connectBackend(), []);
 
+  // Auto-start the UI tour once, after onboarding has been seen (the onboarding
+  // explains the concepts; the tour shows the actual UI). Never for a brand-new
+  // user (who's still in onboarding) and never twice.
+  useEffect(() => {
+    let seen = true;
+    let welcomed = false;
+    try {
+      seen = !!localStorage.getItem("sams.tour");
+      welcomed = !!localStorage.getItem("sams.welcomed");
+    } catch { /* ignore */ }
+    if (welcomed && !seen) {
+      const t = setTimeout(() => useStore.getState().setTourOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <TitleBar />
@@ -810,7 +827,7 @@ function Workspace() {
         {leftOpen && <LeftPanel />}
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
+          <div data-tour="scene" className="relative min-h-0 flex-1">
             <Suspense fallback={<SceneLoading />}>
               <OfficeScene />
             </Suspense>
@@ -831,6 +848,7 @@ function Workspace() {
       <GardenView />
       <Toaster />
       <OnboardingWizard />
+      <Tour />
       <QueueBridge />
       <RelayBridge />
       <WakeBridge />

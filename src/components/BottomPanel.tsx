@@ -88,6 +88,7 @@ export function BottomPanel() {
 
   return (
     <div
+      data-tour="bottom"
       className="relative flex shrink-0 flex-col border-t border-line bg-gradient-to-b from-ink-850 to-ink-900"
       style={{ height: bottomHeight }}
     >

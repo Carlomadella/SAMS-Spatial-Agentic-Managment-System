@@ -52,6 +52,8 @@ interface State {
   commandOpen: boolean;
   settingsOpen: boolean;
   gardenOpen: boolean;
+  /** Interactive UI tour overlay (transient — never persisted). */
+  tourOpen: boolean;
   theme: "dark" | "light";
   leftOpen: boolean;
   rightOpen: boolean;
@@ -147,6 +149,7 @@ interface State {
   setCommandOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setGardenOpen: (open: boolean) => void;
+  setTourOpen: (open: boolean) => void;
   toggleTheme: () => void;
   setLeftOpen: (open: boolean) => void;
   setRightOpen: (open: boolean) => void;
@@ -247,6 +250,7 @@ export const useStore = create<State>()(
   commandOpen: false,
   settingsOpen: false,
   gardenOpen: false,
+  tourOpen: false,
   theme:
     typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
       ? "light"
@@ -573,6 +577,7 @@ export const useStore = create<State>()(
   setCommandOpen: (open) => set({ commandOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setGardenOpen: (open) => set({ gardenOpen: open }),
+  setTourOpen: (open) => set({ tourOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   setLeftOpen: (open) => set({ leftOpen: open }),
   setRightOpen: (open) => set({ rightOpen: open }),

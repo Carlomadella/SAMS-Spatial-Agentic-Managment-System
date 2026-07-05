@@ -8,6 +8,7 @@ export function RightPanel() {
   const setRightWidth = useStore((s) => s.setRightWidth);
   return (
     <aside
+      data-tour="inspector"
       className="relative flex shrink-0 flex-col border-l border-line bg-gradient-to-b from-ink-850/70 to-ink-900/70 backdrop-blur-sm"
       style={{ width: rightWidth }}
     >

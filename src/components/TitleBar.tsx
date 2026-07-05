@@ -87,12 +87,14 @@ export function TitleBar() {
 
       {/* right actions */}
       <div className="flex items-center gap-1">
-        <button onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
+        <button data-tour="add-agent" onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
           <Plus size={14} /> Agente
         </button>
-        <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
-          <Sprout size={16} />
-        </IconBtn>
+        <span data-tour="garden" className="inline-flex">
+          <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
+            <Sprout size={16} />
+          </IconBtn>
+        </span>
         <IconBtn title={theme === "dark" ? "Tema chiaro" : "Tema scuro"} onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>

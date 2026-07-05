@@ -6,6 +6,7 @@ import {
   Boxes,
   ClipboardList,
   Clock,
+  Compass,
   Film,
   History,
   ListTodo,
@@ -112,6 +113,7 @@ export function CommandPalette() {
     list.push({ id: "cad", label: "Apri CAD spaziale · Zone", icon: Boxes, keywords: "zones cad layout zone", run: () => s.setActivity("cad") });
     list.push({ id: "focus", label: "Modalità focus (mostra/nascondi pannelli)", icon: Maximize2, keywords: "focus zen panels hide pannelli", run: () => s.toggleFocus() });
     list.push({ id: "garden", label: "Apri Commit Garden", icon: Sprout, keywords: "garden plant commit grow giardino", run: () => s.setGardenOpen(true) });
+    list.push({ id: "tour", label: "Avvia tour dell'interfaccia", icon: Compass, keywords: "tour guida interfaccia onboarding aiuto help giro", run: () => s.setTourOpen(true) });
 
     // Quick navigation to feature panels (routine/reazioni, replay, diario…).
     list.push({ id: "livesim", label: "Apri Live Sim · Routine e reazioni a catena", icon: Clock, keywords: "live sim routine trigger temporali reazioni catena chain automazione", run: () => s.setBottomTab("livesim") });
