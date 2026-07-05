@@ -21,7 +21,7 @@ export interface RemoteUpdate {
   pendingFiles?: PendingFile[];
   relayTo?: { target: string; title: string; branch: string; context: string };
   plan?: string[];
-  wake?: { title: string; branch?: string; reason: string };
+  wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
 }
 
 export type Provider = "gemini" | "claude" | "groq";
@@ -315,6 +315,70 @@ export async function releaseSimByAgent(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/sim/release-by-agent/${encodeURIComponent(agentId)}`, {
     method: "POST",
   }).catch(() => {});
+}
+
+// --- Routine / trigger temporali -----------------------------------------
+
+export interface RoutineRemote {
+  id: string;
+  name: string;
+  title: string;
+  branch: string;
+  kind: "interval" | "daily";
+  intervalMin: number;
+  atHour: number;
+  atMin: number;
+  enabled: boolean;
+  lastRun: number;
+  /** human-readable schedule, e.g. "ogni giorno alle 09:00" */
+  schedule: string;
+}
+
+export interface RoutineDraft {
+  name: string;
+  title: string;
+  branch?: string;
+  kind: "interval" | "daily";
+  intervalMin?: number;
+  atHour?: number;
+  atMin?: number;
+}
+
+/** List the runtime's scheduled routines (empty if unreachable). */
+export async function fetchRoutines(): Promise<RoutineRemote[]> {
+  try {
+    const res = await fetch(`${BASE}/api/routines`);
+    if (!res.ok) return [];
+    return (await res.json()) as RoutineRemote[];
+  } catch {
+    return [];
+  }
+}
+
+/** Create a routine; returns the stored routine or throws with the server error. */
+export async function createRoutine(draft: RoutineDraft): Promise<RoutineRemote> {
+  const res = await fetch(`${BASE}/api/routines`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as { error?: string };
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+  return (await res.json()) as RoutineRemote;
+}
+
+export async function toggleRoutine(id: string, enabled: boolean): Promise<void> {
+  await fetch(`${BASE}/api/routines/${encodeURIComponent(id)}/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  }).catch(() => {});
+}
+
+export async function deleteRoutine(id: string): Promise<void> {
+  await fetch(`${BASE}/api/routines/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
 }
 
 export interface MemoryEntry { key: string; value: string; updatedAt: number }

@@ -156,6 +156,23 @@ off, the suggestion just shows in the Event Log so you can act on it manually).
 > HMAC and rejects unsigned/forged requests with `401`. Leaving the secret empty
 > disables verification — convenient for `localhost`, unsafe when exposed.
 
+## Routines — scheduled recurring tasks
+
+SAMS can run **recurring tasks on a schedule** ("ogni mattina: riepiloga le PR
+aperte su Notion"). Routines live in the runtime (persisted in SQLite), so they
+survive restarts and don't depend on a browser tab staying open — a scheduler
+tick checks them every 30s and, when one is due, assigns it to a free agent.
+
+Manage them **inside the app**, in the **Live Sim** panel → *Trigger temporali*:
+
+- **Ogni giorno** at a local `HH:MM`, or **a intervalli** every N minutes.
+- Give it a name and the task title (plus an optional branch).
+
+When a routine fires it's **always** assigned to a free agent (enabling the
+routine is the opt-in) — unlike webhook wakes, which are gated by the separate
+*Rispondi ai webhook GitHub* toggle. A routine only fires while the runtime is
+ready and at least one UI is connected, so nothing is silently lost.
+
 ## MCP tools — Drive / Calendar / Canva (and more)
 
 Agents can call external **MCP servers** through a single generic tool,

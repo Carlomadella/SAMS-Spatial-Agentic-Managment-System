@@ -62,8 +62,13 @@ sciolgono ciascuna un pezzo di questo isolamento.
       `parseJsonRpcResponse` — gestisce risposte JSON o SSE), transport HTTP JSON-RPC
       `tools/call`. Esposto agli agenti Gemini e Groq, gated da `mcpEnabled`. 15 test.
       Setup documentato nel README.
-- [ ] 💡 **Trigger temporali / routine** — task ricorrenti (es. "ogni mattina:
-      riepilogo PR aperte su Notion"). Cron lato runtime con persistenza SQLite.
+- [x] ✅ **Trigger temporali / routine** — modulo puro `server/src/routines.ts`: una `Routine`
+      (`interval` ogni N min · `daily` a HH:MM locale) con `sanitizeRoutine`, `isDue`, `nextRun`,
+      `dueRoutines`, `describeSchedule`. Persistenza SQLite (tabella `routines` + CRUD in `db.ts`);
+      endpoint `GET/POST/DELETE /api/routines` + `/toggle`; uno **scheduler** (tick 30s, solo se il
+      runtime è pronto e c'è una UI connessa) emette un `wake` con `source: "routine"` che il
+      `WakeBridge` assegna **sempre** a un agente libero (la routine stessa è l'opt-in, bypassa il
+      toggle dei webhook). UI `Routines` nel pannello Live Sim. 14 test (11 routines + 3 db).
 - [x] ✅ **Reazioni a catena** — modulo puro `src/lib/chains.ts`: una `ChainRule`
       (`when`/`fromRole`/`target`/`title`/`branch`/`enabled`) rende automatica la staffetta;
       `ruleMatches` (filtro sottostringa + ruolo, guardia anti-loop diretto), `matchingChains`,
@@ -180,6 +185,26 @@ sciolgono ciascuna un pezzo di questo isolamento.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 3)
+
+### 2026-07-05 — trigger temporali/routine: frontiera #1 completa ✅
+Chiuso l'ultimo item aperto del **mondo reattivo**: le **routine** (cron lato runtime).
+- **`server/src/routines.ts`** (puro): una `Routine` ha due modalità amichevoli invece di un
+  cron completo — `interval` (ogni N minuti) e `daily` (ogni giorno alle HH:MM locali).
+  `sanitizeRoutine` valida/normalizza l'input, `isDue`/`nextRun`/`dueRoutines` calcolano le
+  scadenze (daily = una sola volta dopo l'orario del giorno), `describeSchedule` per la UI/log.
+- **Persistenza SQLite**: nuova tabella `routines` + helper CRUD in `db.ts`
+  (`listRoutines`/`insertRoutine`/`deleteRoutine`/`setRoutineEnabled`/`markRoutineRun`).
+- **Server**: endpoint `GET/POST/DELETE /api/routines` + `/toggle`; uno **scheduler**
+  (`routineTick`, ogni 30s) che scatta solo se il runtime è pronto e c'è almeno una UI connessa
+  (così `lastRun` non avanza a vuoto), emettendo un `wake` con `source: "routine"`.
+- **Riuso del percorso wake**: il `WakeBridge` ora assegna **sempre** un wake `source: "routine"`
+  (la routine abilitata è già l'opt-in), mentre i wake `source: "webhook"` restano gated dal
+  toggle esistente. `WireEvent.wake`/`RemoteUpdate.wake` estesi con `source`.
+- **UI**: `Routines` nel pannello Live Sim — elenco con toggle/rimozione e form (nome, task,
+  modalità giorno/intervallo con orario o minuti, branch). Helper fetch in `backend.ts`.
+- Test: +14 server (11 routines + 3 db routines). **Server 149 → 163**, client invariato 236.
+  Typecheck (client+server), lint, build: verdi. Con questo la **frontiera #1 è di nuovo
+  completa** (webhook + MCP + reazioni a catena + routine).
 
 ### 2026-07-05 — reazioni a catena (frontiera #1): pipeline dichiarative
 Ripreso uno dei due item ancora aperti del **mondo reattivo**: le **reazioni a catena**,

@@ -177,9 +177,10 @@ function WakeBridge() {
       if (s.pendingWakes.length === 0) return;
       const wake = s.pendingWakes[0];
       useStore.getState().shiftWake();
-      // Opt-in: when auto-assign is off, the suggestion already shows in the log
-      // (the runtime broadcast a 🔔 WARN) — we just don't act on it.
-      if (!useStore.getState().webhookAutoAssign) return;
+      // A scheduled-routine wake is always assigned — enabling the routine IS the
+      // opt-in. A webhook wake is opt-in: when auto-assign is off, the suggestion
+      // already shows in the log (the runtime broadcast a 🔔 WARN) — don't act.
+      if (wake.source !== "routine" && !useStore.getState().webhookAutoAssign) return;
       const { agents } = useStore.getState();
       const target = pickFreeAgent(agents);
       if (!target) return;
@@ -200,7 +201,7 @@ function WakeBridge() {
         agentName: target.name,
         color: target.color,
         level: "WARN",
-        message: `🔔 Svegliato da webhook (${wake.reason}) → ${target.name}`,
+        message: `🔔 Svegliato (${wake.reason}) → ${target.name}`,
       });
     });
   }, []);

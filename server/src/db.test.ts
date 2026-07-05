@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { clearMemory, getMemory, insertTask, listMemory, openDb, recentTasks, setMemory, taskStats, type TaskLogEntry } from "./db";
+import {
+  clearMemory,
+  deleteRoutine,
+  getMemory,
+  insertRoutine,
+  insertTask,
+  listMemory,
+  listRoutines,
+  markRoutineRun,
+  openDb,
+  recentTasks,
+  setMemory,
+  setRoutineEnabled,
+  taskStats,
+  type TaskLogEntry,
+} from "./db";
+import type { RoutineInput } from "./routines";
 
 const entry = (over: Partial<TaskLogEntry> = {}): TaskLogEntry => ({
   agentId: "a",
@@ -96,5 +112,47 @@ describe("db agent_memory", () => {
     setMemory(db, "b", "key", "vb");
     clearMemory(db, "a");
     expect(getMemory(db, "b", "key")).toBe("vb");
+  });
+});
+
+describe("db routines", () => {
+  const input = (over: Partial<RoutineInput> = {}): RoutineInput => ({
+    name: "Riepilogo",
+    title: "Riepiloga le PR",
+    branch: "",
+    kind: "interval",
+    intervalMin: 60,
+    atHour: 9,
+    atMin: 0,
+    enabled: true,
+    ...over,
+  });
+
+  it("starts empty and inserts/reads back routines oldest-first", () => {
+    const db = openDb(":memory:");
+    expect(listRoutines(db)).toEqual([]);
+    insertRoutine(db, "r1", input({ name: "A" }));
+    insertRoutine(db, "r2", input({ name: "B", kind: "daily", atHour: 8, atMin: 30 }));
+    const rows = listRoutines(db);
+    expect(rows.map((r) => r.id)).toEqual(["r1", "r2"]);
+    expect(rows[1]).toMatchObject({ kind: "daily", atHour: 8, atMin: 30, lastRun: 0 });
+  });
+
+  it("toggles enabled and stamps last-run", () => {
+    const db = openDb(":memory:");
+    insertRoutine(db, "r1", input());
+    setRoutineEnabled(db, "r1", false);
+    markRoutineRun(db, "r1", 12345);
+    const r = listRoutines(db)[0];
+    expect(r.enabled).toBe(false);
+    expect(r.lastRun).toBe(12345);
+  });
+
+  it("deletes a routine", () => {
+    const db = openDb(":memory:");
+    insertRoutine(db, "r1", input());
+    insertRoutine(db, "r2", input());
+    deleteRoutine(db, "r1");
+    expect(listRoutines(db).map((r) => r.id)).toEqual(["r2"]);
   });
 });

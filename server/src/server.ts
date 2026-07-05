@@ -17,7 +17,9 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordEvent } from "./metrics";
-import { clearMemory, db, listMemory, recentTasks, taskStats } from "./db";
+import { clearMemory, db, deleteRoutine, insertRoutine, listMemory, listRoutines, markRoutineRun, recentTasks, setRoutineEnabled, taskStats } from "./db";
+import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
+import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -414,6 +416,83 @@ app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => 
   res.json({ ok: true, issueNumber });
 });
 
+// --- Routine / trigger temporali ----------------------------------------
+// Scheduled recurring tasks ("ogni mattina: riepilogo PR"). Stored durably in
+// SQLite; a scheduler tick fires a `wake` (source: "routine") that the UI turns
+// into an assignment to a free agent — reusing the same path as webhook wakes.
+
+app.get("/api/routines", (_req: Request, res: Response) => {
+  try {
+    res.json(listRoutines(db()).map((r) => ({ ...r, schedule: describeSchedule(r) })));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post("/api/routines", requireAuth, (req: Request, res: Response) => {
+  const input = sanitizeRoutine(req.body);
+  if (!input) {
+    res.status(400).json({ error: "Nome e titolo del task sono obbligatori" });
+    return;
+  }
+  try {
+    const routine = insertRoutine(db(), randomUUID(), input);
+    broadcast({ agentId: "routine", agentName: "Routine", level: "INFO", message: `⏰ Routine creata: ${routine.name} (${describeSchedule(routine)})` });
+    res.json({ ...routine, schedule: describeSchedule(routine) });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post("/api/routines/:id/toggle", requireAuth, (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const enabled = req.body?.enabled !== false;
+  try {
+    setRoutineEnabled(db(), id, enabled);
+    res.json({ ok: true, id, enabled });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.delete("/api/routines/:id", requireAuth, (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  try {
+    deleteRoutine(db(), id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/**
+ * Scheduler tick: assign each due routine by broadcasting a `wake`. We only fire
+ * when the runtime is ready (otherwise the assignment would 503 on the client)
+ * and when at least one UI is connected to receive it — leaving `lastRun`
+ * untouched so the routine fires as soon as those conditions hold, without a
+ * burst. `markRoutineRun` stamps the time so a routine runs once per due window.
+ */
+const ROUTINE_TICK_MS = 30_000;
+function routineTick(): void {
+  if (!isReady() || clients.size === 0) return;
+  let due;
+  try {
+    due = dueRoutines(listRoutines(db()), Date.now());
+  } catch {
+    return; // DB unavailable — try again next tick
+  }
+  for (const r of due) {
+    markRoutineRun(db(), r.id, Date.now());
+    broadcast({
+      agentId: "routine",
+      agentName: "Routine",
+      level: "WARN",
+      message: `⏰ Routine "${r.name}" → ${r.title}`,
+      wake: { title: r.title, branch: r.branch || undefined, reason: `routine: ${r.name}`, source: "routine" },
+    });
+  }
+}
+
 // GitHub webhook — receives push / pull_request / workflow_run events. Verifies
 // the HMAC signature (if GITHUB_WEBHOOK_SECRET is set), re-broadcasts a summary
 // as a SAMS WireEvent, and on a CI failure attaches a "wake" suggestion so the
@@ -469,7 +548,7 @@ app.post("/api/webhook/github", (req: Request, res: Response) => {
       agentName: "GitHub",
       level: "WARN",
       message: `🔔 ${result.wake.reason} — suggerito un task contestuale`,
-      wake: result.wake,
+      wake: { ...result.wake, source: "webhook" },
     });
   }
 });
@@ -513,4 +592,6 @@ app.listen(port, () => {
   void initGardenStore()
     .then((k) => log.info("Garden store pronto", { backend: k }))
     .catch((err) => log.error("Garden store init fallito", { error: (err as Error).message }));
+  // Start the routine scheduler (checks for due recurring tasks every 30s).
+  setInterval(routineTick, ROUTINE_TICK_MS);
 });

@@ -103,9 +103,9 @@ interface State {
   pendingRelays: Array<{ target: string; title: string; branch: string; context: string; fromName: string; fromId: string }>;
   pushRelay: (r: { target: string; title: string; branch: string; context: string; fromName: string; fromId: string }) => void;
   shiftRelay: () => void;
-  /** Incoming-webhook "wakes": contextual tasks to assign to a free agent. */
-  pendingWakes: Array<{ title: string; branch?: string; reason: string }>;
-  pushWake: (w: { title: string; branch?: string; reason: string }) => void;
+  /** "Wakes": contextual tasks to assign to a free agent (webhook or routine). */
+  pendingWakes: Array<{ title: string; branch?: string; reason: string; source?: "webhook" | "routine" }>;
+  pushWake: (w: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" }) => void;
   shiftWake: () => void;
   /** Opt-in: assign incoming-webhook "wakes" to a free agent automatically. */
   webhookAutoAssign: boolean;
@@ -177,7 +177,7 @@ interface State {
     pendingFiles?: PendingFile[];
     relayTo?: { target: string; title: string; branch: string; context: string };
     plan?: string[];
-    wake?: { title: string; branch?: string; reason: string };
+    wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
   }) => void;
 }
 
