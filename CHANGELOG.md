@@ -7,6 +7,23 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-05 — Roadmap 4: avvio (fondazione + prodotto) 🚀
+- **Added** — stato autorevole del mondo, primo slice: `server/src/worldState.ts`
+  (puro) + tabella SQLite `world_snapshot` + `GET/POST /api/world` +
+  `WorldSyncBridge` (push snapshot, throttle 20s). Il mondo sopravvive al refresh.
+- **Added** — tour interattivo dell'interfaccia: `src/lib/tour.ts` (+ `placeTourCard`
+  puro, card sempre nel viewport) e `Tour.tsx` con spotlight sugli elementi
+  `data-tour`; auto-avvio dopo l'onboarding + comando "Avvia tour".
+- **Added** — notifica "nuova versione" della PWA (`pwa.ts` rileva l'update del SW).
+- **Added** — palette comandi estesa (Live Sim/routine/reazioni, Replay, Diario,
+  Cronologia, Task, Impostazioni, tema, toggle meta/webhook, tour).
+- **Changed** — `playwright.config.ts` cross-platform: usa il Chromium della CI
+  solo in CI, altrimenti quello gestito da Playwright (e2e eseguibili in locale).
+- **Fixed** — la card del passo 4/6 del tour (inspector) finiva fuori schermo.
+- **Removed** — sezione "Risposte · cronologia" (AgentThread) dall'inspector: non
+  compare più al click su un agente (le risposte restano nell'Event Log/Cronologia).
+- _Test_: client 236 → 246, server 163 → 173.
+
 ### 2026-07-05 — PWA: SAMS diventa una web app installabile 📲
 - **Added** — `public/manifest.webmanifest`: manifest PWA (name/short_name,
   `display: standalone`, theme/background color, 5 icone 192/512 in versione

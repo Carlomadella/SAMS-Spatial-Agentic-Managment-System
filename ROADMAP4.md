@@ -35,9 +35,9 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 | #   | Frontiera                                                             | Perché                                                                          | Effort | Stato |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ | ----- |
-| 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite | Prerequisito di tutto il resto: senza, la presence realtime non sta in piedi    | 🔴     | 💡    |
+| 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite | Prerequisito di tutto il resto: senza, la presence realtime non sta in piedi    | 🔴     | 🏗️    |
 | 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | 💡    |
-| 3   | **Prodotto & distribuzione** — deploy, onboarding, temi               | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo    | 🟡     | 💡    |
+| 3   | **Prodotto & distribuzione** — deploy, onboarding, temi               | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo    | 🟡     | 🏗️    |
 
 > Sequenza voluta: prima l'**architettura** (lo stato autorevole è la fondazione),
 > poi le **persone** (presence e ruoli ci si appoggiano sopra), infine la
@@ -49,10 +49,15 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🧱 Stato autorevole sul server (frontiera #1)
 
-- [ ] 💡 ⬅️ **Migrare la verità di agenti/task da Zustand-persist a SQLite** — il
-      client diventa una _vista_; il server è l'unica sorgente di verità. Grande,
-      ma abilita la presence condivisa. Serve uno schema (agenti, task, eventi) e
-      un'API di lettura/scrittura autorevole accanto al runtime già esistente.
+- [x] ✅ **Copia autorevole durevole (primo slice)** — `server/src/worldState.ts`
+      (puro: `WorldSnapshot`, `sanitizeWorldAgents`, `summarizeWorld`) + tabella
+      SQLite `world_snapshot` (upsert single-row, versione monotona) + endpoint
+      `GET/POST /api/world`. Lato client la `WorldSyncBridge` spinge uno snapshot
+      compatto (throttle 20s). Il mondo ora sopravvive al refresh ed è leggibile da
+      altre viste — senza ancora migrare la scrittura. 10 test.
+- [ ] 🏗️ ⬅️ **Migrare la verità di agenti/task da Zustand-persist a SQLite** — la
+      lettura autorevole c'è (sopra); manca il resto: il client diventa una _vista_
+      e il server l'unica sorgente di verità (schema completo + scrittura autorevole).
 - [ ] 💡 **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
       POST) con una **riconciliazione** deterministica dello store.
@@ -84,12 +89,16 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       tue chiavi" in pochi minuti.
 - [ ] 💡 ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
       ancora hardcoded); centralizzare i token di colore.
-- [ ] 💡 ⬅️ **Tour interattivo** post-onboarding (evidenzia inspector, scena,
-      garden): l'onboarding spiega i _concetti_, il tour mostra l'_UI_.
-- [ ] 💡 ⬅️ **Palette comandi estesa** — azioni rapide per ogni feature nuova
-      (applica template, esporta, avvia replay, crea routine/reazione…).
-- [ ] 💡 **Notifica "nuova versione"** — il service worker già supporta
-      `skip-waiting`; manca il prompt in-app quando è pronta una nuova build.
+- [x] ✅ ⬅️ **Tour interattivo** post-onboarding — `src/lib/tour.ts` (step +
+      `placeTourCard` puro, card sempre dentro il viewport) + `Tour.tsx` con
+      spotlight sugli elementi `data-tour` (scena, inspector, pannello in basso,
+      garden…). Auto-avvio una volta dopo l'onboarding; comando "Avvia tour" nella
+      palette. 10 test.
+- [x] ✅ ⬅️ **Palette comandi estesa** — comandi rapidi per Live Sim (routine/
+      reazioni), Replay, Diario, Cronologia, Task, Impostazioni, tema e i toggle
+      meta-agente / webhook, più "Avvia tour".
+- [x] ✅ **Notifica "nuova versione"** — `pwa.ts` rileva un service worker
+      aggiornato dietro a uno attivo e mostra una toast "ricarica per aggiornare".
 
 ## 🧠 Profondità agentica (trasversale)
 
@@ -118,15 +127,35 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 - [ ] 💡 ⬅️ **Test di rendering dei componenti** — la logica pura è ben coperta;
       manca il rendering (React Testing Library) dei pannelli critici.
-- [ ] 💡 **E2E cross-platform** — la config Playwright ha un `executablePath`
-      Chromium hardcoded per la CI Linux; renderla portabile per girare anche in
-      locale (usa il Chromium gestito da Playwright fuori dalla CI).
+- [x] ✅ **E2E cross-platform** — `playwright.config.ts` usa l'`executablePath`
+      Chromium della CI solo quando `process.env.CI` è impostato e il file esiste;
+      altrimenti ricade sul Chromium gestito da Playwright, così la suite gira anche
+      in locale dopo `npx playwright install chromium`.
 - [ ] 💡 **Osservabilità del runtime** — metriche/log strutturati sufficienti a
       diagnosticare un workspace condiviso (chi ha fatto cosa, quando).
 
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-05 — primi avanzamenti R4 (fondazione + prodotto)
+Avviate in parallelo la frontiera #1 (con un primo slice de-riscato) e la #3.
+- **Stato autorevole — primo slice** 🧱: `server/src/worldState.ts` (puro) +
+  tabella SQLite `world_snapshot` + `GET/POST /api/world` + `WorldSyncBridge` che
+  spinge uno snapshot compatto (throttle 20s). Il mondo ora ha una **copia
+  durevole e leggibile** sul server, senza ancora migrare la scrittura.
+- **Prodotto** 📦: **notifica "nuova versione"** (il service worker rileva un
+  update e invita a ricaricare); **palette comandi estesa** (Live Sim/routine/
+  reazioni, Replay, Diario, Cronologia, Task, Impostazioni, tema, toggle
+  meta/webhook, "Avvia tour"); **tour interattivo** con spotlight sugli elementi
+  `data-tour` e card sempre dentro il viewport (`placeTourCard` puro, testato).
+- **Engineering**: **E2E cross-platform** — la config Playwright non è più
+  inchiodata al Chromium Linux della CI e gira anche in locale.
+- Fix: la card del passo 4/6 del tour (inspector, target a tutta altezza) finiva
+  fuori schermo → risolto con `placeTourCard` (clamp nel viewport).
+- Test: client 236 → 246, server 163 → 173. Typecheck, lint, build: verdi.
+  Restano aperti: migrazione autorevole completa (#1), presence/ruoli/chat (#2),
+  deploy con un click e temi centralizzati (#3), profondità agentica.
 
 ### 2026-07-05 — apertura Roadmap 4
 Nata dopo la chiusura della frontiera #1 di R3 (reazioni a catena + trigger
