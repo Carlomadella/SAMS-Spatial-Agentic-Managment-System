@@ -10,8 +10,8 @@ economia, meta proattivo) — e da poco è una **PWA installabile e offline** (R
 
 Restano vere due cose, però: il mondo è ancora **guardato da una persona sola** e
 SAMS è ancora una **demo**, non un prodotto che altri possono ospitare e usare. Il
-quarto capitolo scioglie proprio questo: rendere il mondo **condiviso** e SAMS
-**distribuibile**.
+quarto capitolo scioglie proprio questo: rendere il mondo **condiviso** (più
+osservatori, live) e SAMS **distribuibile**.
 
 > **Come si mantiene questo file**
 > Stesse regole delle Roadmap 1–3: nuove idee in cima alle sezioni, stati
@@ -26,24 +26,24 @@ quarto capitolo scioglie proprio questo: rendere il mondo **condiviso** e SAMS
 ## 🧭 La tensione di fondo: _mondo mio_ → _mondo nostro_ (e prodotto)
 
 Un ufficio di agenti è bello da soli, ma diventa uno _strumento_ quando più
-persone ci lavorano insieme e quando chiunque può ospitarlo per il proprio team.
-Finora la verità del mondo vive nel browser (Zustand-persist) di un solo utente;
-il salto del capitolo 4 è spostarla sul server e aprire le porte agli altri —
-prima come architettura, poi come prodotto rifinito e installabile.
+persone lo **guardano insieme** in tempo reale e quando chiunque può ospitarlo per
+il proprio team. Finora la verità del mondo vive nel browser (Zustand-persist) di
+un solo utente; il salto del capitolo 4 è spostarla sul server e aprirla agli
+altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🎯 Le 3 frontiere (in ordine di esecuzione)
 
-| #   | Frontiera                                                                | Perché                                                                             | Effort | Stato |
-| --- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ------ | ----- |
-| 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite    | Prerequisito di tutto il resto: senza, presence e multiplayer non stanno in piedi | 🔴     | 💡    |
-| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + multiplayer   | Da demo personale a strumento di squadra: più persone, stesso ufficio, live       | 🔴     | 💡    |
-| 3   | **Prodotto & distribuzione** — deploy, onboarding, mobile, temi          | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo      | 🟡     | 💡    |
+| #   | Frontiera                                                             | Perché                                                                          | Effort | Stato |
+| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ | ----- |
+| 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite | Prerequisito di tutto il resto: senza, la presence realtime non sta in piedi    | 🔴     | 💡    |
+| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | 💡    |
+| 3   | **Prodotto & distribuzione** — deploy, onboarding, temi               | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo    | 🟡     | 💡    |
 
 > Sequenza voluta: prima l'**architettura** (lo stato autorevole è la fondazione),
-> poi le **persone** (presence e multiplayer ci si appoggiano sopra), infine la
+> poi le **persone** (presence e ruoli ci si appoggiano sopra), infine la
 > **distribuzione** (ha senso rifinire il prodotto quando c'è qualcosa da
 > condividere). La #3 può però avanzare in parallelo per i pezzi indipendenti
-> (mobile, temi, onboarding) senza aspettare le altre.
+> (temi, onboarding) senza aspettare le altre.
 
 ---
 
@@ -51,7 +51,7 @@ prima come architettura, poi come prodotto rifinito e installabile.
 
 - [ ] 💡 ⬅️ **Migrare la verità di agenti/task da Zustand-persist a SQLite** — il
       client diventa una _vista_; il server è l'unica sorgente di verità. Grande,
-      ma abilita presence e multiplayer. Serve uno schema (agenti, task, eventi) e
+      ma abilita la presence condivisa. Serve uno schema (agenti, task, eventi) e
       un'API di lettura/scrittura autorevole accanto al runtime già esistente.
 - [ ] 💡 **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
@@ -69,8 +69,6 @@ prima come architettura, poi come prodotto rifinito e installabile.
 - [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       Estende l'auth opzionale già esistente (`SAMS_TOKEN`) a ruoli (owner/editor/
       viewer), con la dashboard pubblica come "viewer" degenere già pronto.
-- [ ] 💡 ⬅️ **Ufficio multiplayer** — più _umani_ nello stesso workspace con
-      cursori/avatar e cronologia condivisa. Il salto architetturale del capitolo.
 - [ ] 💡 ⬅️ **Chat di workspace** — un canale umano-umano e umano→agente accanto
       alla scena, separato dall'event log.
 - [ ] 💡 **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
@@ -84,9 +82,6 @@ prima come architettura, poi come prodotto rifinito e installabile.
 - [ ] 💡 **Deploy con un click** — un percorso documentato (Docker già c'è) verso
       un host gestito (Fly/Render/Railway) con env chiare; "porta il tuo repo e le
       tue chiavi" in pochi minuti.
-- [ ] 💡 ⬅️ **Mobile davvero usabile** — sotto i 768px i pannelli collassano ma
-      scena+inspector non sono usabili; ripensare il layout touch (la PWA ora si
-      installa su telefono, quindi il layout mobile conta di più).
 - [ ] 💡 ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
       ancora hardcoded); centralizzare i token di colore.
 - [ ] 💡 ⬅️ **Tour interattivo** post-onboarding (evidenzia inspector, scena,
@@ -144,13 +139,12 @@ da una persona sola** e ancora una **demo** più che un prodotto ospitabile.
 Tre frontiere in sequenza per R4: (1) **stato autorevole sul server** — la
 fondazione: la verità del mondo migra da Zustand-persist (client) a SQLite
 (server), con il client come vista; (2) **mondo condiviso** — presence realtime,
-ruoli/permessi, ufficio multiplayer, chat, che si appoggiano alla #1; (3)
-**prodotto & distribuzione** — la PWA è il primo tassello, seguono deploy con un
-click, mobile usabile, temi, tour, palette estesa. Come temi trasversali
-proseguono la **profondità agentica** (multi-repo, preset, collaborazione,
-qualità dell'output) e il **mondo 3D & feel**.
+ruoli/permessi, chat, che si appoggiano alla #1; (3) **prodotto & distribuzione**
+— la PWA è il primo tassello, seguono deploy con un click, temi, tour, palette
+estesa. Come temi trasversali proseguono la **profondità agentica** (multi-repo,
+preset, collaborazione, qualità dell'output) e il **mondo 3D & feel**.
 
 Prossimo passo operativo da decidere con l'utente: probabilmente lo **stato
 autorevole sul server** (sblocca tutto il resto ma è il pezzo più grosso) oppure,
-sul fronte prodotto e a basso rischio, i pezzi indipendenti della #3 (**mobile
-usabile**, **temi**, **tour**) che non aspettano l'architettura.
+sul fronte prodotto e a basso rischio, i pezzi indipendenti della #3 (**temi**,
+**tour**, **palette comandi**) che non aspettano l'architettura.

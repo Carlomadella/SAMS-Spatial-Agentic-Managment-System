@@ -76,6 +76,5 @@ file dedicati:
 ## Prossimo
 
 Il capitolo 4 — [`ROADMAP4.md`](./ROADMAP4.md) — porta SAMS da demo personale a
-**prodotto condiviso**: multiplayer/presence, stato del mondo autorevole sul
-server, deploy & hosting, layout mobile davvero usabile, collaborazione fra
-agenti reali.
+**prodotto condiviso**: presence realtime, ruoli/permessi, stato del mondo
+autorevole sul server, deploy & hosting, collaborazione fra agenti reali.

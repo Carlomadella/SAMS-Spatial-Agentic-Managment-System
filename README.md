@@ -251,12 +251,11 @@ The story so far, all checked off in their own files:
   routines**), ✅ **shareable** (replay, OG image, team gardens, public dashboard,
   world diary), ✅ **simulative depth** (relationships, goals, token economy,
   proactive meta-agent). The **shared world** frontier (realtime presence,
-  roles/permissions, multiplayer) was deliberately deferred and carries into
-  chapter 4.
+  roles/permissions) was deliberately deferred and carries into chapter 4.
 
 The next chapter — **[`ROADMAP4.md`](./ROADMAP4.md)** — turns SAMS from a personal
-demo into a **shared product**: multiplayer/presence, authoritative server state,
-deployment & hosting, a genuinely mobile-usable layout, and deeper real-agent
+demo into a **shared product**: realtime presence, roles/permissions, an
+authoritative server state, deployment & hosting, and deeper real-agent
 collaboration.
 
 A per-session log of recent changes lives in [`CHANGELOG.md`](./CHANGELOG.md).
