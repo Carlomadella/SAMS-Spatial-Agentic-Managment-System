@@ -239,16 +239,27 @@ otherwise). Override the API origin with `VITE_GARDEN_API` if you host it apart.
 
 ## Roadmap
 
-The first roadmap is complete — see [`ROADMAP.md`](./ROADMAP.md) for the full,
-checked-off history. The next chapter lives in [`ROADMAP2.md`](./ROADMAP2.md)
-(in-app diff approval, SQLite persistence, frontend tests, centralized
-retry/backoff, optional runtime auth, deeper 3D world).
+The story so far, all checked off in their own files:
 
-Highlights still on deck:
+- [`ROADMAP.md`](./ROADMAP.md) — **chapter 1**: made things _work_ (live 3D room,
+  autonomous multi-provider agents, Commit Garden, Express runtime with SSE).
+- [`ROADMAP2.md`](./ROADMAP2.md) — **chapter 2**: depth, trust and scale (SQLite
+  persistence, diff preview + CI gate, Live Simulation, self-improving
+  meta-agent, needs/energy, sounds, narration, skill tree, template marketplace).
+- [`ROADMAP3.md`](./ROADMAP3.md) — **chapter 3**: a reactive, shareable world —
+  ✅ **reactive** (incoming webhooks, MCP tools, **chain reactions**, **scheduled
+  routines**), ✅ **shareable** (replay, OG image, team gardens, public dashboard,
+  world diary), ✅ **simulative depth** (relationships, goals, token economy,
+  proactive meta-agent). The **shared world** frontier (realtime presence,
+  roles/permissions, multiplayer) was deliberately deferred and carries into
+  chapter 4.
 
-- **Live simulation mode** — agents that pick up tasks and progress on their own.
-- Multi-repo targets, per-agent role/model presets, PR review from the gate panel.
-- Multi-room layouts, drag-to-move, richer character models.
+The next chapter — **[`ROADMAP4.md`](./ROADMAP4.md)** — turns SAMS from a personal
+demo into a **shared product**: multiplayer/presence, authoritative server state,
+deployment & hosting, a genuinely mobile-usable layout, and deeper real-agent
+collaboration.
+
+A per-session log of recent changes lives in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
