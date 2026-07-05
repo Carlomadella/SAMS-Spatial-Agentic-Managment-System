@@ -15,7 +15,6 @@ import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } 
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
-import { AgentThread } from "./AgentThread";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -440,10 +439,6 @@ export function AgentInspector() {
           })()}
         </div>
       </details>
-
-      {/* per-agent responses thread — read this agent's messages without digging
-          through the shared event log */}
-      <AgentThread agentId={agent.id} color={agent.color} />
 
       {/* inline rename */}
       <input
