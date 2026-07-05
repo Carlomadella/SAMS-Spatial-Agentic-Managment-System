@@ -8,6 +8,10 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 ## [Non rilasciato]
 
 ### 2026-07-05 — Roadmap 4: avvio (fondazione + prodotto) 🚀
+- **Added** — multi-repo per-agente: campo `Agent.repo` + override in `metaRepo`
+  (`isValidRepo`) e sezione "Repository" nell'inspector; i task dell'agente
+  lavorano sul repo scelto.
+- **Added** — deploy "one-click": `docs/DEPLOY.md` + Blueprint Render `render.yaml`.
 - **Added** — stato autorevole del mondo, primo slice: `server/src/worldState.ts`
   (puro) + tabella SQLite `world_snapshot` + `GET/POST /api/world` +
   `WorldSyncBridge` (push snapshot, throttle 20s). Il mondo sopravvive al refresh.

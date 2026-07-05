@@ -1,0 +1,48 @@
+# Render Blueprint — deploy SAMS (runtime + built SPA) as a single Docker service.
+# https://render.com/docs/blueprint-spec  ·  "New → Blueprint" and point it at this repo.
+# The one container serves both the API and the Vite build (see Dockerfile); the
+# server binds to Render's injected $PORT. Secrets are left unset (sync:false) —
+# fill them in the Render dashboard after the first deploy.
+services:
+  - type: web
+    name: sams
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # AI provider — set at least one key. Default engine is Gemini (free tier).
+      - key: SAMS_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # GitHub — required for code tasks (fine-grained token, Contents: read/write).
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      - key: GITHUB_BASE_BRANCH
+        value: main
+      - key: SAMS_OPEN_PRS
+        value: "true"
+      - key: SAMS_REQUIRE_APPROVAL
+        value: "false"
+      # Security — set these when the runtime is reachable from the internet.
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: SAMS_TOKEN
+        sync: false
+      - key: SAMS_READONLY_TOKEN
+        sync: false
+      # Notion (optional)
+      - key: NOTION_TOKEN
+        sync: false
+      - key: NOTION_PAGE_ID
+        sync: false

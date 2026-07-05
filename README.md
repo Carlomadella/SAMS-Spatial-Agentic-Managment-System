@@ -237,6 +237,15 @@ to reopen it); otherwise growth is picked up on the next refresh. Optional: a
 `DB_HOST`/`DB_USER`/… in `server/.env` for MySQL persistence (in-memory
 otherwise). Override the API origin with `VITE_GARDEN_API` if you host it apart.
 
+## Deploy
+
+SAMS runs as a **single container** (the [`Dockerfile`](./Dockerfile) serves the
+API and the built SPA on one port). Locally: `docker compose up --build` →
+`http://localhost:3000`. On a managed host, this repo ships a Render Blueprint
+([`render.yaml`](./render.yaml)) for a one-click **New → Blueprint** deploy;
+Fly.io/Railway/any Docker host work too. Full guide + env vars:
+**[`docs/DEPLOY.md`](./docs/DEPLOY.md)**.
+
 ## Roadmap
 
 The story so far, all checked off in their own files:

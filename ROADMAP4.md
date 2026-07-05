@@ -84,9 +84,10 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
       distribuzione: SAMS si installa e parte standalone.
-- [ ] 💡 **Deploy con un click** — un percorso documentato (Docker già c'è) verso
-      un host gestito (Fly/Render/Railway) con env chiare; "porta il tuo repo e le
-      tue chiavi" in pochi minuti.
+- [x] ✅ **Deploy con un click** — `docs/DEPLOY.md` (guida + tabella env) e un
+      Blueprint Render `render.yaml` (Docker, health `/api/health`, secrets vuoti da
+      compilare). Compose per il locale, Fly/Railway/qualsiasi host Docker per il
+      resto. Il server già ascolta su `$PORT`.
 - [ ] 💡 ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
       ancora hardcoded); centralizzare i token di colore.
 - [x] ✅ ⬅️ **Tour interattivo** post-onboarding — `src/lib/tour.ts` (step +
