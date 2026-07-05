@@ -1,6 +1,7 @@
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Routine, RoutineInput } from "./routines";
+import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
 
 /**
  * Durable storage for the runtime, backed by SQLite (Node's built-in
@@ -65,8 +66,48 @@ export function openDb(location: string): DatabaseSync {
       last_run     INTEGER NOT NULL DEFAULT 0,
       created_at   INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS world_snapshot (
+      id         INTEGER PRIMARY KEY CHECK (id = 1),
+      agents     TEXT    NOT NULL,
+      version    INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
   `);
   return db;
+}
+
+// --- world snapshot helpers (stato autorevole, primo slice) ----------------
+
+/** The durable authoritative world snapshot, or an empty one if never saved. */
+export function loadWorldSnapshot(db: DatabaseSync): WorldSnapshot {
+  const row = db.prepare(`SELECT agents, version, updated_at FROM world_snapshot WHERE id = 1`).get() as
+    | { agents: string; version: number; updated_at: number }
+    | undefined;
+  if (!row) return emptyWorld();
+  let agents: WorldAgentSnapshot[] = [];
+  try {
+    const parsed = JSON.parse(row.agents);
+    if (Array.isArray(parsed)) agents = parsed as WorldAgentSnapshot[];
+  } catch {
+    /* corrupt row — treat as empty */
+  }
+  return { agents, version: Number(row.version), updatedAt: Number(row.updated_at) };
+}
+
+/**
+ * Persist a new world snapshot (single-row upsert), bumping the monotonic
+ * version and stamping updatedAt. Returns the stored snapshot.
+ */
+export function saveWorldSnapshot(db: DatabaseSync, agents: WorldAgentSnapshot[]): WorldSnapshot {
+  const prev = loadWorldSnapshot(db);
+  const version = prev.version + 1;
+  const updatedAt = Date.now();
+  db.prepare(
+    `INSERT INTO world_snapshot (id, agents, version, updated_at) VALUES (1, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET agents = excluded.agents, version = excluded.version, updated_at = excluded.updated_at`,
+  ).run(JSON.stringify(agents), version, updatedAt);
+  return { agents, version, updatedAt };
 }
 
 // --- routine helpers (trigger temporali) -----------------------------------

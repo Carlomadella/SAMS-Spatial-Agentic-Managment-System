@@ -317,6 +317,44 @@ export async function releaseSimByAgent(agentId: string): Promise<void> {
   }).catch(() => {});
 }
 
+// --- Stato autorevole del mondo (Roadmap 4, primo slice) ------------------
+
+export interface WorldAgentSnapshot {
+  id: string;
+  name: string;
+  color: string;
+  role: string;
+  status: string;
+  task: string | null;
+  progress: number;
+}
+
+export interface WorldSnapshotRemote {
+  agents: WorldAgentSnapshot[];
+  updatedAt: number;
+  version: number;
+}
+
+/** Read the server's durable authoritative world snapshot (null if unreachable). */
+export async function fetchWorld(): Promise<WorldSnapshotRemote | null> {
+  try {
+    const res = await fetch(`${BASE}/api/world`);
+    if (!res.ok) return null;
+    return (await res.json()) as WorldSnapshotRemote;
+  } catch {
+    return null;
+  }
+}
+
+/** Push the current world snapshot to the runtime for durable, shareable storage. */
+export async function pushWorld(agents: WorldAgentSnapshot[]): Promise<void> {
+  await fetch(`${BASE}/api/world`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agents }),
+  }).catch(() => {});
+}
+
 // --- Routine / trigger temporali -----------------------------------------
 
 export interface RoutineRemote {

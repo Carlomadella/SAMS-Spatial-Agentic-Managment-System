@@ -17,8 +17,9 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordEvent } from "./metrics";
-import { clearMemory, db, deleteRoutine, insertRoutine, listMemory, listRoutines, markRoutineRun, recentTasks, setRoutineEnabled, taskStats } from "./db";
+import { clearMemory, db, deleteRoutine, insertRoutine, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
+import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -414,6 +415,30 @@ app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => 
     void removeIssueLabel(issueNumber, "sams:in-progress").catch(() => {});
   }
   res.json({ ok: true, issueNumber });
+});
+
+// --- Stato autorevole del mondo (Roadmap 4, primo slice) -----------------
+// A durable, server-side copy of the world (agents + tasks). The client pushes
+// a snapshot periodically (POST) and anyone can read it (GET) — the first step
+// toward an authoritative server state, without yet reconciling back to the
+// client. Survives runtime restarts.
+
+app.get("/api/world", (_req: Request, res: Response) => {
+  try {
+    res.json(loadWorldSnapshot(db()));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post("/api/world", requireAuth, (req: Request, res: Response) => {
+  const agents = sanitizeWorldAgents((req.body as { agents?: unknown })?.agents);
+  try {
+    const snapshot = saveWorldSnapshot(db(), agents);
+    res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 // --- Routine / trigger temporali ----------------------------------------

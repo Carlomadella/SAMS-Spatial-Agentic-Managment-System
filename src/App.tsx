@@ -15,7 +15,7 @@ import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
-import { assignRemote, backendEnabled, connectBackend } from "./lib/backend";
+import { assignRemote, backendEnabled, connectBackend, pushWorld } from "./lib/backend";
 import { metaRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -243,6 +243,56 @@ function ProgressionBridge() {
         }
       }
     });
+  }, []);
+  return null;
+}
+
+/**
+ * Authoritative world state (Roadmap 4, first slice): push a compact snapshot of
+ * the agents to the runtime so the world is durable server-side and readable by
+ * other views. Throttled: pushes shortly after a change settles and at most once
+ * per interval, only while the backend is online. No reconcile-back yet.
+ */
+const WORLD_SYNC_MS = 20_000;
+function WorldSyncBridge() {
+  useEffect(() => {
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    let last = 0;
+
+    const snapshot = () =>
+      useStore.getState().agents.map((a) => ({
+        id: a.id,
+        name: a.name,
+        color: a.color,
+        role: a.role,
+        status: a.status,
+        task: a.task?.title ?? null,
+        progress: a.task?.progress ?? 0,
+      }));
+
+    const flush = () => {
+      pending = null;
+      last = Date.now();
+      if (useStore.getState().backendOnline) void pushWorld(snapshot());
+    };
+
+    const schedule = () => {
+      if (pending) return;
+      const wait = Math.max(1500, WORLD_SYNC_MS - (Date.now() - last));
+      pending = setTimeout(flush, wait);
+    };
+
+    const unsub = useStore.subscribe((state, prev) => {
+      if (!state.backendOnline) return;
+      if (state.agents !== prev.agents || !prev.backendOnline) schedule();
+    });
+    // Push once on mount if already connected.
+    if (useStore.getState().backendOnline) schedule();
+
+    return () => {
+      unsub();
+      if (pending) clearTimeout(pending);
+    };
   }, []);
   return null;
 }
@@ -786,6 +836,7 @@ function Workspace() {
       <WakeBridge />
       <ProgressionBridge />
       <ChainBridge />
+      <WorldSyncBridge />
       <MetaProactiveBridge />
       <LifeBridge />
       <TalkBridge />

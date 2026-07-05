@@ -7,15 +7,18 @@ import {
   insertTask,
   listMemory,
   listRoutines,
+  loadWorldSnapshot,
   markRoutineRun,
   openDb,
   recentTasks,
+  saveWorldSnapshot,
   setMemory,
   setRoutineEnabled,
   taskStats,
   type TaskLogEntry,
 } from "./db";
 import type { RoutineInput } from "./routines";
+import type { WorldAgentSnapshot } from "./worldState";
 
 const entry = (over: Partial<TaskLogEntry> = {}): TaskLogEntry => ({
   agentId: "a",
@@ -154,5 +157,38 @@ describe("db routines", () => {
     insertRoutine(db, "r2", input());
     deleteRoutine(db, "r1");
     expect(listRoutines(db).map((r) => r.id)).toEqual(["r2"]);
+  });
+});
+
+describe("db world_snapshot", () => {
+  const agent = (over: Partial<WorldAgentSnapshot> = {}): WorldAgentSnapshot => ({
+    id: "a1",
+    name: "Blue",
+    color: "blue",
+    role: "Dev",
+    status: "working",
+    task: "Fix",
+    progress: 40,
+    ...over,
+  });
+
+  it("returns an empty snapshot before anything is saved", () => {
+    const db = openDb(":memory:");
+    expect(loadWorldSnapshot(db)).toEqual({ agents: [], version: 0, updatedAt: 0 });
+  });
+
+  it("saves, bumps the version and reads back", () => {
+    const db = openDb(":memory:");
+    const first = saveWorldSnapshot(db, [agent()]);
+    expect(first.version).toBe(1);
+    expect(first.updatedAt).toBeGreaterThan(0);
+
+    const second = saveWorldSnapshot(db, [agent({ id: "a1", status: "done" }), agent({ id: "a2" })]);
+    expect(second.version).toBe(2);
+
+    const loaded = loadWorldSnapshot(db);
+    expect(loaded.version).toBe(2);
+    expect(loaded.agents.map((a) => a.id)).toEqual(["a1", "a2"]);
+    expect(loaded.agents[0].status).toBe("done");
   });
 });
