@@ -22,6 +22,8 @@ export interface RemoteUpdate {
   relayTo?: { target: string; title: string; branch: string; context: string };
   plan?: string[];
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
+  /** Presence: number of connected views, broadcast by the runtime on connect/disconnect. */
+  presence?: number;
 }
 
 export type Provider = "gemini" | "claude" | "groq";

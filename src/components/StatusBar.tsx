@@ -1,6 +1,7 @@
-import { Check, CircleAlert, GitBranch, Radio, TriangleAlert, Users, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, GitBranch, Radio, TriangleAlert, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled } from "../lib/backend";
+import { isShared, observerBadge, observerLabel } from "../lib/presence";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -10,6 +11,7 @@ export function StatusBar() {
   const environment = useStore((s) => s.environment);
   const agents = useStore((s) => s.agents);
   const backendOnline = useStore((s) => s.backendOnline);
+  const observers = useStore((s) => s.observers);
   const tokensUsed = useStore((s) => s.tokensUsed);
   const warnings = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
@@ -44,6 +46,14 @@ export function StatusBar() {
         <span className="flex items-center gap-1">
           <Users size={12} /> {agents.length} agenti
         </span>
+        {backendEnabled && backendOnline && (
+          <span
+            className={`flex items-center gap-1 ${isShared(observers) ? "text-emerald-200" : ""}`}
+            title={observerLabel(observers)}
+          >
+            <Eye size={12} /> {observerBadge(observers)}
+          </span>
+        )}
         <span
           className="flex items-center gap-1"
           title={backendEnabled ? "Runtime agenti gestiti" : "Imposta VITE_SAMS_BACKEND_URL per attivare"}

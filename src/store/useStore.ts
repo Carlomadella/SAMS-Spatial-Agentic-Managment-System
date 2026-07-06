@@ -64,6 +64,8 @@ interface State {
 
   /** whether the optional managed-agents runtime is connected */
   backendOnline: boolean;
+  /** how many views (SSE clients) are watching the world right now; 1 = just you */
+  observers: number;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -182,6 +184,7 @@ interface State {
     relayTo?: { target: string; title: string; branch: string; context: string };
     plan?: string[];
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
+    presence?: number;
   }) => void;
 }
 
@@ -263,6 +266,7 @@ export const useStore = create<State>()(
   rightWidth: 296,
   bottomHeight: 248,
   backendOnline: false,
+  observers: 1,
   runtimeReady: false,
   simMode: false,
   simLabel: "sams",
@@ -597,7 +601,7 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set({ backendOnline: online }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1 }),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setSimMode: (on) => set({ simMode: on }),
   setSimLabel: (label) => set({ simLabel: label }),
@@ -611,6 +615,12 @@ export const useStore = create<State>()(
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   applyRemote: (e) => {
+    // Presence: a count-only event (no agent state). Handle it and stop, so it
+    // never touches agents/tasks/events or spawns a phantom "presence" agent.
+    if (e.presence != null) {
+      set({ observers: Math.max(0, Math.floor(e.presence)) });
+      return;
+    }
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =

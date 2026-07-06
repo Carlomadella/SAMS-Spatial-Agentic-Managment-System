@@ -68,8 +68,16 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🤝 Mondo condiviso (frontiera #2)
 
-- [ ] 💡 ⬅️ **Presence in tempo reale** — più utenti vedono gli stessi agenti
-      muoversi e gli stessi eventi, live. Si appoggia al canale bidirezionale e allo
+- [x] ✅ **Presence — osservatori connessi (primo slice)** — `src/lib/presence.ts`
+      (puro: `sanitizeObservers`, `observerLabel`, `observerBadge`, `isShared`). Il
+      runtime rimbalza via SSE quante viste sono collegate (`broadcastPresence` su
+      connect/disconnect, fuori da `recordEvent` per non gonfiare le metriche); lo
+      store tiene `observers` e la `StatusBar` mostra un badge 👁 "N stanno
+      guardando", evidenziato quando il mondo è condiviso. Conteggio per-connessione
+      (non ancora identità utente). 9 test.
+- [ ] 💡 ⬅️ **Presence in tempo reale (agenti live)** — più utenti vedono gli stessi
+      agenti muoversi e gli stessi eventi, live. Estende il conteggio osservatori
+      (sopra) con lo stato condiviso: si appoggia al canale bidirezionale e allo
       stato autorevole della frontiera #1.
 - [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       Estende l'auth opzionale già esistente (`SAMS_TOKEN`) a ruoli (owner/editor/

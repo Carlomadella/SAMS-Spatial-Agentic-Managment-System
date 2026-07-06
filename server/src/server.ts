@@ -64,13 +64,8 @@ app.use(
 const clients = new Set<Response>();
 const HEARTBEAT_MS = 25000;
 
-function broadcast(e: WireEvent): void {
-  recordEvent(e);
-  // Release the per-agent cooldown once a task reaches a terminal state.
-  if (e.agentId && (e.status === "done" || e.status === "review" || e.status === "idle" || e.status === "blocked")) {
-    lastAssign.delete(e.agentId);
-  }
-  const line = `data: ${JSON.stringify(e)}\n\n`;
+/** Write one already-serialized SSE line to every live client, dropping dead ones. */
+function writeToClients(line: string): void {
   for (const res of clients) {
     if (res.writableEnded || res.destroyed) {
       clients.delete(res);
@@ -82,6 +77,25 @@ function broadcast(e: WireEvent): void {
       clients.delete(res); // socket died between checks — drop it
     }
   }
+}
+
+function broadcast(e: WireEvent): void {
+  recordEvent(e);
+  // Release the per-agent cooldown once a task reaches a terminal state.
+  if (e.agentId && (e.status === "done" || e.status === "review" || e.status === "idle" || e.status === "blocked")) {
+    lastAssign.delete(e.agentId);
+  }
+  writeToClients(`data: ${JSON.stringify(e)}\n\n`);
+}
+
+/**
+ * Presence (Roadmap 4, frontiera #2): tell every connected view how many views
+ * are watching right now. Fired on connect/disconnect. Deliberately NOT routed
+ * through `broadcast`/`recordEvent` — it carries no agent state and must not
+ * inflate the runtime's event metrics.
+ */
+function broadcastPresence(): void {
+  writeToClients(`data: ${JSON.stringify({ agentId: "presence", agentName: "presence", presence: clients.size })}\n\n`);
 }
 
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -210,12 +224,17 @@ app.get("/api/events", (req: Request, res: Response) => {
   });
   res.write(": connected\n\n");
   clients.add(res);
+  broadcastPresence(); // tell everyone (incl. the new view) the updated count
 
   // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
   // we must not rely on a throw — react to close/error and guard every write.
+  let closed = false;
   function cleanup() {
+    if (closed) return; // close + error can both fire — count the drop once
+    closed = true;
     clearInterval(heartbeat);
     clients.delete(res);
+    broadcastPresence();
   }
   const heartbeat = setInterval(() => {
     if (res.writableEnded || res.destroyed) {

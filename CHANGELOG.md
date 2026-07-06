@@ -7,6 +7,20 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Presence: osservatori connessi 👁 (frontiera #2, primo slice)
+- **Added** — `src/lib/presence.ts` (puro): `sanitizeObservers`, `observerLabel`,
+  `observerBadge`, `isShared` per il badge presence. +9 test.
+- **Added** — il runtime rimbalza via SSE quante viste sono collegate:
+  `broadcastPresence()` su connect/disconnect (fuori da `recordEvent`, così non
+  gonfia le metriche degli eventi runtime); `WireEvent.presence`. `cleanup` del
+  client SSE reso idempotente (close + error contano il drop una volta sola).
+- **Added** — store: campo transiente `observers` (mai persistito), aggiornato da
+  `applyRemote` che intercetta l'evento `presence` senza toccare agenti/task/eventi;
+  `setBackendOnline(false)` lo riporta a 1.
+- **Added** — `StatusBar`: badge 👁 con il conteggio delle viste, evidenziato quando
+  il mondo è condiviso (più di una vista) e con tooltip descrittivo.
+- _Test_: client 246 → 258.
+
 ### 2026-07-05 — Roadmap 4: avvio (fondazione + prodotto) 🚀
 - **Added** — multi-repo per-agente: campo `Agent.repo` + override in `metaRepo`
   (`isValidRepo`) e sezione "Repository" nell'inspector; i task dell'agente
