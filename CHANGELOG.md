@@ -7,6 +7,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Umano→agente dalla chat (con conferma esplicita) ⚡
+- **Added** — `src/lib/chatCommands.ts` (puro): `parseTaskCommand`/`isTaskCommand`
+  per `/task [@agente] <titolo>` — `@` obbligatorio per targettizzare (un titolo con
+  `:` non è ambiguo), case-insensitive, clamp di agente/titolo. +8 test.
+- **Added** — `TaskCommandCard` nel `ChatPanel`: un messaggio `/task` mostra una card
+  con bottone **Assegna** (conferma esplicita, niente auto-spawn). Risolve l'agente
+  per nome o il primo libero e riusa `assignTask` + `assignRemote`. Guardie: agente
+  inesistente/occupato, nessun libero, runtime non pronto.
+
 ### 2026-07-07 — Presence con nomi + canale bidirezionale 👤
 - **Added** — `server/src/presence.ts` (puro): `sanitizeObserverIdentity`,
   `distinctPeople` (deduplica per id, ordine stabile), `presenceState`. +9 test.

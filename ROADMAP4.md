@@ -101,7 +101,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       (persistito), tab **Chat** nel pannello in basso, hydrate al connect e comando
       palette "Apri Chat". Badge dei messaggi **non letti** sul tab (logica pura
       `countsAsUnread`/`unreadBadge`, azzerato all'apertura). 14 test.
-      _Manca ancora: umano→agente._
+- [x] ✅ **Umano→agente dalla chat (con conferma esplicita)** — un messaggio
+      `/task [@agente] <titolo>` diventa una **card azionabile** in chat. `parseTaskCommand`
+      (puro, `src/lib/chatCommands.ts`: `@` obbligatorio per targettizzare, così un titolo
+      con due punti non è ambiguo) + `TaskCommandCard` che risolve l'agente (per nome, o il
+      primo libero) e, **solo su click**, assegna riusando `assignTask` + `assignRemote`
+      (stessi cooldown/approvazioni). Niente parte in automatico. Guardie: agente
+      inesistente/occupato, nessun libero, runtime non pronto. 8 test.
 - [ ] 🏗️ **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
       evitare che un utente saturi il runtime (per-utente, non solo per-agente).
       _Fatto: limiter puro riutilizzabile `server/src/rateLimit.ts` (finestra
@@ -172,6 +178,26 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — umano→agente dalla chat, con conferma esplicita (nodo "d")
+Chiuso il nodo **(d)** nella sua forma de-riscata: la chat diventa *azionabile*
+senza però avviare nulla in automatico. Un messaggio `/task [@agente] <titolo>` è
+solo un **intento**; il lavoro reale parte esclusivamente da un click su "Assegna"
+nella card (conferma esplicita, come chiedeva il log del 2026-07-06).
+- **Parsing puro** `src/lib/chatCommands.ts` (`parseTaskCommand`/`isTaskCommand`):
+  `@` obbligatorio per targettizzare un agente, così un titolo con `:` non viene
+  scambiato per un nome; clamp di agente/titolo; case-insensitive. 8 test.
+- **UI** `TaskCommandCard` nel `ChatPanel`: risolve l'agente (per nome, o il primo
+  libero) e **riusa il percorso di assegnazione già esistente** (`assignTask` +
+  `assignRemote`, con i loro cooldown/approvazioni). Guardie chiare: agente
+  inesistente, occupato, nessun libero, runtime non pronto.
+- **Sicurezza**: nessun auto-spawn; l'assegnazione passa per lo stesso `/api/assign`
+  verificato altrove. Verifica: parser unit-testato + wiring typecheckato che riusa
+  il path verificato; il click nel browser 3D è da provare manualmente.
+- Test: client 275 → 283. Typecheck, lint, build: verdi.
+
+**Restano aperti (scelte di prodotto, da fare con l'utente):** (a) migrazione
+autorevole #1 (riconciliazione/ownership) e (b) ruoli/permessi owner/editor/viewer.
 
 ### 2026-07-07 — presence con nomi + primo pezzo del canale bidirezionale
 Ripreso il nodo aperto **(c)** del 2026-07-06: la presence sapeva *quante* viste

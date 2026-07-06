@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Send } from "lucide-react";
+import { Eye, Send, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { announcePresence, sendChat } from "../lib/backend";
+import { announcePresence, assignRemote, backendEnabled, sendChat } from "../lib/backend";
 import { watchingLabel } from "../lib/presence";
+import { parseTaskCommand, type TaskCommand } from "../lib/chatCommands";
+import { metaRepo } from "../lib/metaAgent";
 import { clock } from "../lib/utils";
 
 /**
@@ -76,13 +78,19 @@ export function ChatPanel() {
         {messages.length === 0 && (
           <div className="px-1 text-mut">Ancora nessun messaggio. Rompi il ghiaccio 👋</div>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className="flex items-baseline gap-2 rounded px-1 py-0.5 hover:bg-white/[0.035]">
-            <span className="shrink-0 tabular-nums text-mut/70">{clock(m.ts)}</span>
-            <span className="shrink-0 font-semibold text-brand-soft">{m.author}</span>
-            <span className="min-w-0 whitespace-pre-wrap break-words text-slate-300">{m.text}</span>
-          </div>
-        ))}
+        {messages.map((m) => {
+          const cmd = parseTaskCommand(m.text);
+          return (
+            <div key={m.id} className="rounded px-1 py-0.5 hover:bg-white/[0.035]">
+              <div className="flex items-baseline gap-2">
+                <span className="shrink-0 tabular-nums text-mut/70">{clock(m.ts)}</span>
+                <span className="shrink-0 font-semibold text-brand-soft">{m.author}</span>
+                <span className="min-w-0 whitespace-pre-wrap break-words text-slate-300">{m.text}</span>
+              </div>
+              {cmd && <TaskCommandCard cmd={cmd} />}
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
@@ -127,6 +135,72 @@ export function ChatPanel() {
           <Send size={14} />
         </button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Card azionabile per un messaggio `/task` (umano→agente, Roadmap 4 #2 nodo "d").
+ * Il messaggio dichiara l'intento; il lavoro reale parte SOLO da questo bottone —
+ * conferma esplicita, mai automatica. Riusa lo stesso percorso di assegnazione
+ * degli altri pannelli (`assignTask` locale + `assignRemote` sul runtime).
+ */
+function TaskCommandCard({ cmd }: { cmd: TaskCommand }) {
+  const agents = useStore((s) => s.agents);
+  const runtimeReady = useStore((s) => s.runtimeReady);
+  const assignTask = useStore((s) => s.assignTask);
+  const log = useStore((s) => s.log);
+  const [done, setDone] = useState("");
+
+  // Risoluzione dell'agente: per nome se indicato, altrimenti il primo libero.
+  const target = cmd.agent
+    ? agents.find((a) => a.name.toLowerCase() === cmd.agent!.toLowerCase())
+    : agents.find((a) => !a.task);
+
+  const problem = cmd.agent
+    ? !target
+      ? `Nessun agente di nome «${cmd.agent}»`
+      : target.task
+        ? `${target.name} è occupato`
+        : null
+    : !target
+      ? "Nessun agente libero adesso"
+      : null;
+
+  const assign = () => {
+    if (!target || target.task) return;
+    assignTask(target.id, cmd.title, "");
+    if (backendEnabled) {
+      assignRemote(target.id, target.name, cmd.title, undefined, target.role, target.instructions, metaRepo(target)).catch(
+        (err: Error) =>
+          log({ agentId: target.id, agentName: target.name, color: target.color, level: "ERROR", message: `Runtime: ${err.message}` }),
+      );
+    }
+    setDone(target.name);
+  };
+
+  if (done) {
+    return (
+      <div className="ml-[3.25rem] mt-0.5 text-[11px] text-emerald-400">✓ Assegnato a {done}</div>
+    );
+  }
+
+  return (
+    <div className="ml-[3.25rem] mt-0.5 flex flex-wrap items-center gap-2 text-[11px]">
+      <span className="flex items-center gap-1 text-mut">
+        <Zap size={11} /> Task{cmd.agent ? ` per ${cmd.agent}` : ""}: “{cmd.title}”
+      </span>
+      {problem ? (
+        <span className="text-amber-400">{problem}</span>
+      ) : !runtimeReady ? (
+        <span className="text-mut/70" title="Configura le chiavi e provisiona per assegnare dal vivo">
+          Runtime non pronto
+        </span>
+      ) : (
+        <button onClick={assign} className="btn h-6 gap-1 px-2 py-0 text-[11px]">
+          <Send size={11} /> Assegna a {target!.name}
+        </button>
+      )}
     </div>
   );
 }
