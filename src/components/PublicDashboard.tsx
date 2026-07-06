@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Loader2, RefreshCw, Sprout } from "lucide-react";
+import { Activity, Eye, Loader2, RefreshCw, Sprout } from "lucide-react";
 import { fetchPublicSnapshot, type PublicSnapshot } from "../lib/backend";
 
 const STAGE_EMOJI: Record<string, string> = {
@@ -85,6 +85,14 @@ export function PublicDashboard() {
                 <span className="text-[13px] font-semibold text-slate-100">
                   {snap.runtime.ready ? "Runtime attivo" : "Runtime in configurazione"}
                 </span>
+                {(snap.viewers ?? 0) > 0 && (
+                  <span
+                    className="ml-auto flex items-center gap-1 rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-medium text-brand-soft"
+                    title={`${snap.viewers} ${snap.viewers === 1 ? "vista collegata" : "viste collegate"} in questo momento`}
+                  >
+                    <Eye size={12} /> {snap.viewers} {snap.viewers === 1 ? "sta guardando" : "stanno guardando"}
+                  </span>
+                )}
               </div>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px] sm:grid-cols-3">
                 {[

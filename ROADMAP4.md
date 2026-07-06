@@ -74,7 +74,8 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       connect/disconnect, fuori da `recordEvent` per non gonfiare le metriche); lo
       store tiene `observers` e la `StatusBar` mostra un badge 👁 "N stanno
       guardando", evidenziato quando il mondo è condiviso. Conteggio per-connessione
-      (non ancora identità utente). 9 test.
+      (non ancora identità utente). Il conteggio compare anche nella **dashboard
+      pubblica** (`viewers` in `/api/public`: "N stanno guardando"). 10 test.
 - [ ] 💡 ⬅️ **Presence in tempo reale (agenti live)** — più utenti vedono gli stessi
       agenti muoversi e gli stessi eventi, live. Estende il conteggio osservatori
       (sopra) con lo stato condiviso: si appoggia al canale bidirezionale e allo

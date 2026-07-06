@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Presence anche nella dashboard pubblica 👁
+- **Added** — `buildPublicSnapshot` include `viewers` (clamp a intero ≥ 0) e
+  `/api/public` passa `clients.size`; la `PublicDashboard` mostra "N stanno
+  guardando" accanto allo stato runtime. +1 test.
+- _Verifica_: end-to-end sul runtime reale — `viewers` 0 → 2 (due stream SSE) → 0.
+
 ### 2026-07-06 — Chat: badge messaggi non letti 🔴 (frontiera #2)
 - **Added** — `src/lib/chat.ts` (puro): `countsAsUnread` (non conta i propri
   messaggi né quando la chat è attiva) e `unreadBadge` (cap "9+"). +7 test.

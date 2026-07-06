@@ -159,6 +159,7 @@ app.get("/api/public", async (req: Request, res: Response) => {
       metrics: { ...metricsSnapshot({ clients: clients.size }), lifetime },
       board,
       world,
+      viewers: clients.size,
     }),
   );
 });

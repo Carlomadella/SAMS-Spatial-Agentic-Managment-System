@@ -60,4 +60,11 @@ describe("buildPublicSnapshot", () => {
     const s = buildPublicSnapshot({ ...input(), world: { agents: 5, working: 2, idle: 3 } });
     expect(s.world).toEqual({ agents: 5, working: 2, idle: 3 });
   });
+
+  it("includes live viewers, defaulting to 0 and clamping to a non-negative int", () => {
+    expect(buildPublicSnapshot(input()).viewers).toBe(0);
+    expect(buildPublicSnapshot({ ...input(), viewers: 3 }).viewers).toBe(3);
+    expect(buildPublicSnapshot({ ...input(), viewers: -2 }).viewers).toBe(0);
+    expect(buildPublicSnapshot({ ...input(), viewers: 2.9 }).viewers).toBe(2);
+  });
 });

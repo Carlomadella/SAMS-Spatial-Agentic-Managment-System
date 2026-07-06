@@ -116,6 +116,8 @@ export interface PublicSnapshot {
   };
   /** Riepilogo del mondo autorevole durevole (può mancare da runtime vecchi). */
   world?: { agents: number; working: number; idle: number };
+  /** Quante viste stanno guardando ora (può mancare da runtime vecchi). */
+  viewers?: number;
 }
 
 /** Fetch the public read-only snapshot; null if unreachable or unauthorized. */
