@@ -3,8 +3,10 @@ import {
   clearMemory,
   deleteRoutine,
   getMemory,
+  insertChatMessage,
   insertRoutine,
   insertTask,
+  listChatMessages,
   listMemory,
   listRoutines,
   loadWorldSnapshot,
@@ -190,5 +192,30 @@ describe("db world_snapshot", () => {
     expect(loaded.version).toBe(2);
     expect(loaded.agents.map((a) => a.id)).toEqual(["a1", "a2"]);
     expect(loaded.agents[0].status).toBe("done");
+  });
+});
+
+describe("db chat_messages", () => {
+  it("returns empty before anything is inserted", () => {
+    const db = openDb(":memory:");
+    expect(listChatMessages(db)).toEqual([]);
+  });
+
+  it("stores and reads back oldest-first", () => {
+    const db = openDb(":memory:");
+    insertChatMessage(db, { id: "m1", author: "Ada", text: "ciao", ts: 100 });
+    insertChatMessage(db, { id: "m2", author: "Bob", text: "ehi", ts: 200 });
+    const msgs = listChatMessages(db);
+    expect(msgs.map((m) => m.id)).toEqual(["m1", "m2"]);
+    expect(msgs[0]).toEqual({ id: "m1", author: "Ada", text: "ciao", ts: 100 });
+  });
+
+  it("honors the limit, keeping the newest", () => {
+    const db = openDb(":memory:");
+    for (let i = 1; i <= 5; i += 1) {
+      insertChatMessage(db, { id: `m${i}`, author: "A", text: `t${i}`, ts: i * 10 });
+    }
+    const last3 = listChatMessages(db, 3);
+    expect(last3.map((m) => m.id)).toEqual(["m3", "m4", "m5"]);
   });
 });

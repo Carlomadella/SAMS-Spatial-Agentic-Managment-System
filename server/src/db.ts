@@ -2,6 +2,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Routine, RoutineInput } from "./routines";
 import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
+import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
 
 /**
  * Durable storage for the runtime, backed by SQLite (Node's built-in
@@ -73,8 +74,43 @@ export function openDb(location: string): DatabaseSync {
       version    INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id     TEXT    PRIMARY KEY,
+      author TEXT    NOT NULL,
+      text   TEXT    NOT NULL,
+      ts     INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat_messages (ts DESC);
   `);
   return db;
+}
+
+// --- chat di workspace helpers (mondo condiviso) ---------------------------
+
+/** The most recent chat messages, oldest-first (ready to render top-to-bottom). */
+export function listChatMessages(db: DatabaseSync, limit = MAX_CHAT_MESSAGES): ChatMessage[] {
+  const rows = db
+    .prepare(`SELECT id, author, text, ts FROM chat_messages ORDER BY ts DESC, id DESC LIMIT ?`)
+    .all(Math.max(1, Math.min(MAX_CHAT_MESSAGES, limit))) as Record<string, unknown>[];
+  return rows
+    .map((r) => ({ id: String(r.id), author: String(r.author), text: String(r.text), ts: Number(r.ts) }))
+    .reverse();
+}
+
+/** Persist one chat message, then prune anything past the newest MAX_CHAT_MESSAGES. */
+export function insertChatMessage(db: DatabaseSync, msg: ChatMessage): void {
+  db.prepare(`INSERT OR REPLACE INTO chat_messages (id, author, text, ts) VALUES (?, ?, ?, ?)`).run(
+    msg.id,
+    msg.author,
+    msg.text,
+    msg.ts,
+  );
+  db.prepare(
+    `DELETE FROM chat_messages WHERE id NOT IN (
+       SELECT id FROM chat_messages ORDER BY ts DESC, id DESC LIMIT ?
+     )`,
+  ).run(MAX_CHAT_MESSAGES);
 }
 
 // --- world snapshot helpers (stato autorevole, primo slice) ----------------

@@ -199,7 +199,16 @@ export type ActivityView =
   | "cad"
   | "extensions";
 
-export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history" | "livesim" | "diario" | "replay";
+export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history" | "livesim" | "diario" | "replay" | "chat";
+
+/** A workspace chat message (mondo condiviso). */
+export interface ChatMessage {
+  id: string;
+  author: string;
+  text: string;
+  /** epoch ms */
+  ts: number;
+}
 
 /** A GitHub issue available to the Live Sim, with optional claim info. */
 export interface SimIssue {

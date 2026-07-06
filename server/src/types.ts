@@ -30,6 +30,8 @@ export interface WireEvent {
   /** "presence": number of connected views (SSE clients), broadcast on connect/
    *  disconnect. Carries no agent state — the UI only reads the count. */
   presence?: number;
+  /** "chat": a workspace chat message, broadcast to every connected view. */
+  chat?: { id: string; author: string; text: string; ts: number };
 }
 
 export interface AssignBody {

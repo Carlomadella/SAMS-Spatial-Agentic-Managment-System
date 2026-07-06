@@ -24,6 +24,8 @@ export interface RemoteUpdate {
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
   /** Presence: number of connected views, broadcast by the runtime on connect/disconnect. */
   presence?: number;
+  /** Chat: a workspace chat message broadcast by the runtime. */
+  chat?: { id: string; author: string; text: string; ts: number };
 }
 
 export type Provider = "gemini" | "claude" | "groq";
@@ -359,6 +361,40 @@ export async function pushWorld(agents: WorldAgentSnapshot[]): Promise<void> {
   }).catch(() => {});
 }
 
+// --- Chat di workspace (mondo condiviso) ---------------------------------
+
+export interface ChatMessageRemote {
+  id: string;
+  author: string;
+  text: string;
+  ts: number;
+}
+
+/** Read the recent workspace chat (oldest-first); empty if unreachable. */
+export async function fetchChat(): Promise<ChatMessageRemote[]> {
+  try {
+    const res = await fetch(`${BASE}/api/chat`);
+    if (!res.ok) return [];
+    return (await res.json()) as ChatMessageRemote[];
+  } catch {
+    return [];
+  }
+}
+
+/** Post a chat message; the runtime broadcasts it back over SSE to every view. */
+export async function sendChat(author: string, text: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ author, text }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // --- Routine / trigger temporali -----------------------------------------
 
 export interface RoutineRemote {
@@ -451,6 +487,8 @@ export function connectBackend(): () => void {
       useStore.getState().setSimMode(st.enabled);
       useStore.getState().setSimLabel(st.label);
     });
+    // Hydrate the workspace chat from the server (the durable source of truth).
+    void fetchChat().then((msgs) => useStore.getState().setChatMessages(msgs));
   };
   source.onerror = () => useStore.getState().setBackendOnline(false);
   source.onmessage = (ev) => {

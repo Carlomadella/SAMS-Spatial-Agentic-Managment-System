@@ -7,6 +7,21 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Chat di workspace 💬 (frontiera #2)
+- **Added** — `server/src/chat.ts` (puro): `sanitizeChatInput` (autore con
+  fallback "Ospite", testo con trim/clamp). +4 test.
+- **Added** — persistenza SQLite: tabella `chat_messages` + `listChatMessages`/
+  `insertChatMessage` in `db.ts` (prune agli ultimi 200). +3 test.
+- **Added** — endpoint `GET/POST /api/chat`: i messaggi si persistono e si
+  rimbalzano via SSE a tutte le viste (`WireEvent.chat`, fuori da `recordEvent`).
+- **Added** — client: slice `chatMessages` (server-owned, non persistito) +
+  `chatName` (persistito); `applyRemote` intercetta l'evento `chat`; hydrate della
+  chat al connect; helper `fetchChat`/`sendChat`.
+- **Added** — `ChatPanel` + tab **Chat** nel pannello in basso e comando palette
+  "Apri Chat di workspace".
+- _Verifica_: end-to-end sul runtime reale — `GET` vuoto → `POST` → broadcast SSE
+  `chat` ricevuto + persistenza confermata; `POST` vuoto → 400.
+
 ### 2026-07-06 — Presence: osservatori connessi 👁 (frontiera #2, primo slice)
 - **Added** — `src/lib/presence.ts` (puro): `sanitizeObservers`, `observerLabel`,
   `observerBadge`, `isShared` per il badge presence. +9 test.

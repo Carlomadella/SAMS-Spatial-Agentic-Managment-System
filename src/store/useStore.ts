@@ -8,6 +8,7 @@ import {
   type AgentMood,
   type AgentStatus,
   type BottomTab,
+  type ChatMessage,
   type EnvironmentName,
   type Handoff,
   type LogEvent,
@@ -66,6 +67,10 @@ interface State {
   backendOnline: boolean;
   /** how many views (SSE clients) are watching the world right now; 1 = just you */
   observers: number;
+  /** workspace chat: server-owned messages (not persisted locally) */
+  chatMessages: ChatMessage[];
+  /** the name this view posts under in the workspace chat (persisted) */
+  chatName: string;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -170,6 +175,9 @@ interface State {
   setSimMode: (on: boolean) => void;
   setSimLabel: (label: string) => void;
   setSimIssues: (issues: SimIssue[]) => void;
+  setChatMessages: (messages: ChatMessage[]) => void;
+  pushChatMessage: (message: ChatMessage) => void;
+  setChatName: (name: string) => void;
   pushToast: (level: LogLevel, message: string) => void;
   dismissToast: (id: string) => void;
   applyRemote: (e: {
@@ -185,6 +193,7 @@ interface State {
     plan?: string[];
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
     presence?: number;
+    chat?: { id: string; author: string; text: string; ts: number };
   }) => void;
 }
 
@@ -267,6 +276,8 @@ export const useStore = create<State>()(
   bottomHeight: 248,
   backendOnline: false,
   observers: 1,
+  chatMessages: [],
+  chatName: "",
   runtimeReady: false,
   simMode: false,
   simLabel: "sams",
@@ -602,6 +613,14 @@ export const useStore = create<State>()(
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
   setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1 }),
+  setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
+  pushChatMessage: (message) =>
+    set((s) =>
+      s.chatMessages.some((m) => m.id === message.id)
+        ? s
+        : { chatMessages: [...s.chatMessages, message].slice(-200) },
+    ),
+  setChatName: (name) => set({ chatName: name.slice(0, 40) }),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setSimMode: (on) => set({ simMode: on }),
   setSimLabel: (label) => set({ simLabel: label }),
@@ -619,6 +638,11 @@ export const useStore = create<State>()(
     // never touches agents/tasks/events or spawns a phantom "presence" agent.
     if (e.presence != null) {
       set({ observers: Math.max(0, Math.floor(e.presence)) });
+      return;
+    }
+    // Chat: a workspace message. Append (deduped) and stop — not an agent event.
+    if (e.chat) {
+      get().pushChatMessage(e.chat);
       return;
     }
     set((s) => {
@@ -731,6 +755,7 @@ export const useStore = create<State>()(
         wallets: s.wallets,
         chains: s.chains,
         theme: s.theme,
+        chatName: s.chatName,
         activity: s.activity,
         bottomTab: s.bottomTab,
         leftOpen: s.leftOpen,

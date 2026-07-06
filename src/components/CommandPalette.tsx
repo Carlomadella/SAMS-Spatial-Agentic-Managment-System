@@ -10,6 +10,7 @@ import {
   Film,
   History,
   ListTodo,
+  MessageSquare,
   Maximize2,
   MapPin,
   MousePointer2,
@@ -119,6 +120,7 @@ export function CommandPalette() {
     list.push({ id: "livesim", label: "Apri Live Sim · Routine e reazioni a catena", icon: Clock, keywords: "live sim routine trigger temporali reazioni catena chain automazione", run: () => s.setBottomTab("livesim") });
     list.push({ id: "replay", label: "Apri Replay cinematografico", icon: Film, keywords: "replay clip timeline rivedi cinematografico", run: () => s.setBottomTab("replay") });
     list.push({ id: "diario", label: "Apri Diario del mondo", icon: BookOpen, keywords: "diario diary racconto world narrazione", run: () => s.setBottomTab("diario") });
+    list.push({ id: "chat", label: "Apri Chat di workspace", icon: MessageSquare, keywords: "chat messaggi workspace condiviso presence parla", run: () => s.setBottomTab("chat") });
     list.push({ id: "history", label: "Apri Cronologia task", icon: History, keywords: "history cronologia storico task", run: () => s.setBottomTab("history") });
     list.push({ id: "tasks", label: "Apri elenco Task", icon: ListTodo, keywords: "tasks task elenco lavori", run: () => s.setBottomTab("tasks") });
     list.push({ id: "settings", label: "Apri Impostazioni runtime", icon: Settings, keywords: "settings impostazioni chiavi keys runtime config", run: () => s.setSettingsOpen(true) });

@@ -82,8 +82,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 - [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       Estende l'auth opzionale già esistente (`SAMS_TOKEN`) a ruoli (owner/editor/
       viewer), con la dashboard pubblica come "viewer" degenere già pronto.
-- [ ] 💡 ⬅️ **Chat di workspace** — un canale umano-umano e umano→agente accanto
-      alla scena, separato dall'event log.
+- [x] ✅ **Chat di workspace** — un canale umano-umano accanto alla scena,
+      separato dall'event log. `server/src/chat.ts` (puro: `sanitizeChatInput`) +
+      tabella SQLite `chat_messages` (con prune a 200) + `GET/POST /api/chat`; i
+      messaggi si rimbalzano via SSE a tutte le viste (`chat` in `WireEvent`). Lato
+      client: slice `chatMessages` (server-owned, non persistito) + `chatName`
+      (persistito), tab **Chat** nel pannello in basso, hydrate al connect e comando
+      palette "Apri Chat". 7 test. _Manca ancora: umano→agente._
 - [ ] 💡 **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
       evitare che un utente saturi il runtime (per-utente, non solo per-agente).
 

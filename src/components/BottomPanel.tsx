@@ -2,6 +2,7 @@ import { AlertTriangle, Check, ChevronDown, Clock, Cpu, Trash2 } from "lucide-re
 import { useStore } from "../store/useStore";
 import type { BottomTab } from "../types";
 import { EventLog } from "./EventLog";
+import { ChatPanel } from "./ChatPanel";
 import { AgentInspector } from "./AgentInspector";
 import { TasksPanel } from "./TasksPanel";
 import { HistoryPanel } from "./HistoryPanel";
@@ -69,6 +70,7 @@ const TABS: { id: BottomTab; label: string; sim?: true }[] = [
   { id: "history", label: "Cronologia" },
   { id: "diario", label: "Diario" },
   { id: "replay", label: "Replay" },
+  { id: "chat", label: "Chat" },
   { id: "problems", label: "Problemi" },
   { id: "livesim", label: "Live Sim", sim: true },
 ];
@@ -150,6 +152,7 @@ export function BottomPanel() {
           {bottomTab === "history" && <HistoryPanel />}
           {bottomTab === "diario" && <WorldDiaryPanel />}
           {bottomTab === "replay" && <ReplayPanel />}
+          {bottomTab === "chat" && <ChatPanel />}
           {bottomTab === "problems" && <ProblemsView />}
           {bottomTab === "livesim" && <LiveSimPanel />}
         </div>

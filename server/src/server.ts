@@ -17,9 +17,10 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordEvent } from "./metrics";
-import { clearMemory, db, deleteRoutine, insertRoutine, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
+import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
+import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -462,6 +463,36 @@ app.post("/api/world", requireAuth, (req: Request, res: Response) => {
   try {
     const snapshot = saveWorldSnapshot(db(), agents);
     res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// --- Chat di workspace (Roadmap 4, frontiera #2) -------------------------
+// A human-to-human channel next to the scene, separate from the runtime event
+// log. Messages live in SQLite and are broadcast over SSE to every connected
+// view, so people watching the same office can talk live.
+
+app.get("/api/chat", (_req: Request, res: Response) => {
+  try {
+    res.json(listChatMessages(db()));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
+  const input = sanitizeChatInput(req.body);
+  if (!input) {
+    res.status(400).json({ error: "Messaggio vuoto" });
+    return;
+  }
+  const msg: ChatMessage = { id: randomUUID(), author: input.author, text: input.text, ts: Date.now() };
+  try {
+    insertChatMessage(db(), msg);
+    // Rimbalza a tutte le viste (fuori da recordEvent: non è un evento runtime).
+    writeToClients(`data: ${JSON.stringify({ agentId: "chat", agentName: "chat", chat: msg })}\n\n`);
+    res.json(msg);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
