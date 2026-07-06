@@ -7,6 +7,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Osservabilità del workspace condiviso 📈
+- **Added** — `metrics.ts`: contatori `chatMessages` (cumulativo) e `peakClients`
+  (picco di viste connesse simultaneamente), esposti in `/api/metrics`;
+  `recordChatMessage`/`recordClients`. +3 test.
+- **Added** — log strutturati "Vista connessa/disconnessa" con il numero di viste.
+- **Added** — `SystemOverview` mostra 👁 viste correnti·picco quando ci sono viste.
+- _Verifica_: end-to-end — 2 viste + 2 messaggi → `clients:2, chatMessages:2,
+  peakClients:2`; dopo la disconnessione `clients:0` ma il picco resta.
+
 ### 2026-07-06 — Rate-limit sulla chat 🚦 (workspace condiviso)
 - **Added** — `server/src/rateLimit.ts` (puro): `createRateLimiter(max, windowMs)`
   a finestra scorrevole con `now` iniettabile (`hit`/`retryAfterMs`), memoria per

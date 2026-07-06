@@ -70,6 +70,10 @@ export interface RuntimeMetrics {
   errors: number;
   uptimeSec: number;
   clients: number;
+  /** cumulative chat messages that flowed through the shared workspace */
+  chatMessages?: number;
+  /** high-water mark of simultaneously connected views */
+  peakClients?: number;
   /** cumulative, durable totals from the task log (survive restarts) */
   lifetime?: { total: number; completed: number; tokens: number };
 }

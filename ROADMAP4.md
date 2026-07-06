@@ -152,8 +152,12 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       Chromium della CI solo quando `process.env.CI` è impostato e il file esiste;
       altrimenti ricade sul Chromium gestito da Playwright, così la suite gira anche
       in locale dopo `npx playwright install chromium`.
-- [ ] 💡 **Osservabilità del runtime** — metriche/log strutturati sufficienti a
-      diagnosticare un workspace condiviso (chi ha fatto cosa, quando).
+- [ ] 🏗️ **Osservabilità del runtime** — metriche/log strutturati sufficienti a
+      diagnosticare un workspace condiviso (chi ha fatto cosa, quando). _Fatto:
+      contatori `chatMessages` (cumulativo) e `peakClients` (picco viste) in
+      `metrics.ts`, esposti in `/api/metrics` e nel `SystemOverview` (👁 correnti·
+      picco); log strutturati "Vista connessa/disconnessa" con il conteggio. 3 test._
+      Resta: attribuzione per-utente (serve identità/ruoli).
 
 ---
 

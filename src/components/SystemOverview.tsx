@@ -154,6 +154,9 @@ export function SystemOverview() {
           <span title="Task completati / avviati">✔ {metrics.tasksCompleted}/{metrics.tasksStarted}</span>
           <span title="Token totali usati">{(metrics.lifetime?.tokens ?? 0) > 0 ? `⬡ ${((metrics.lifetime!.tokens) / 1000).toFixed(1)}k tok` : ""}</span>
           <span title="Errori" className={cn(metrics.errors > 0 && "text-rose-400")}>⚠ {metrics.errors}</span>
+          {(metrics.peakClients ?? 0) > 0 && (
+            <span title="Viste connesse ora · picco">👁 {metrics.clients}·{metrics.peakClients}</span>
+          )}
           <span title="Uptime runtime">↑ {fmtUptime(metrics.uptimeSec)}</span>
         </div>
       )}

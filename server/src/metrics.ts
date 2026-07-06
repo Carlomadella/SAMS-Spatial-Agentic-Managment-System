@@ -26,6 +26,11 @@ export function eventDelta(e: WireEvent): MetricsDelta {
 const totals: MetricsDelta = { events: 0, tasksStarted: 0, tasksCompleted: 0, errors: 0 };
 const startedAt = Date.now();
 
+// Osservabilità del workspace condiviso (Roadmap 4): quanti messaggi di chat
+// sono passati e qual è stato il picco di viste connesse simultaneamente.
+let chatMessages = 0;
+let peakClients = 0;
+
 /** Fold one event into the running totals. */
 export function recordEvent(e: WireEvent): void {
   const d = eventDelta(e);
@@ -35,7 +40,29 @@ export function recordEvent(e: WireEvent): void {
   totals.errors += d.errors;
 }
 
+/** Count one chat message that flowed through the shared workspace. */
+export function recordChatMessage(): void {
+  chatMessages += 1;
+}
+
+/** Track the high-water mark of simultaneously connected views. */
+export function recordClients(n: number): void {
+  if (n > peakClients) peakClients = n;
+}
+
 /** Public snapshot for GET /api/metrics. */
-export function metricsSnapshot(extra: { clients: number }): MetricsDelta & { uptimeSec: number; clients: number } {
-  return { ...totals, uptimeSec: Math.round((Date.now() - startedAt) / 1000), clients: extra.clients };
+export function metricsSnapshot(extra: { clients: number }): MetricsDelta & {
+  uptimeSec: number;
+  clients: number;
+  chatMessages: number;
+  peakClients: number;
+} {
+  recordClients(extra.clients);
+  return {
+    ...totals,
+    uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+    clients: extra.clients,
+    chatMessages,
+    peakClients,
+  };
 }

@@ -16,7 +16,7 @@ import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
-import { metricsSnapshot, recordEvent } from "./metrics";
+import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
 import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
@@ -97,6 +97,7 @@ function broadcast(e: WireEvent): void {
  * inflate the runtime's event metrics.
  */
 function broadcastPresence(): void {
+  recordClients(clients.size); // track the peak for observability
   writeToClients(`data: ${JSON.stringify({ agentId: "presence", agentName: "presence", presence: clients.size })}\n\n`);
 }
 
@@ -227,6 +228,7 @@ app.get("/api/events", (req: Request, res: Response) => {
   });
   res.write(": connected\n\n");
   clients.add(res);
+  log.info("Vista connessa", { views: clients.size });
   broadcastPresence(); // tell everyone (incl. the new view) the updated count
 
   // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
@@ -237,6 +239,7 @@ app.get("/api/events", (req: Request, res: Response) => {
     closed = true;
     clearInterval(heartbeat);
     clients.delete(res);
+    log.info("Vista disconnessa", { views: clients.size });
     broadcastPresence();
   }
   const heartbeat = setInterval(() => {
@@ -501,6 +504,7 @@ app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
   const msg: ChatMessage = { id: randomUUID(), author: input.author, text: input.text, ts: Date.now() };
   try {
     insertChatMessage(db(), msg);
+    recordChatMessage();
     // Rimbalza a tutte le viste (fuori da recordEvent: non è un evento runtime).
     writeToClients(`data: ${JSON.stringify({ agentId: "chat", agentName: "chat", chat: msg })}\n\n`);
     res.json(msg);
