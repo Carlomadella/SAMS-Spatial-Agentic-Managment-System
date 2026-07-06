@@ -7,6 +7,7 @@ import { provision } from "./provision";
 import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
+import { runOpenrouterTask } from "./openrouter";
 import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
@@ -189,8 +190,9 @@ app.get("/api/file", async (req: Request, res: Response) => {
 app.post("/api/settings", requireAuth, (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
-  if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq") patch.provider = body.provider;
+  if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq" || body.provider === "openrouter") patch.provider = body.provider;
   if (typeof body.groqApiKey === "string" && body.groqApiKey.trim()) patch.groqApiKey = body.groqApiKey.trim();
+  if (typeof body.openrouterApiKey === "string" && body.openrouterApiKey.trim()) patch.openrouterApiKey = body.openrouterApiKey.trim();
   if (typeof body.geminiApiKey === "string" && body.geminiApiKey.trim()) patch.geminiApiKey = body.geminiApiKey.trim();
   if (typeof body.anthropicApiKey === "string" && body.anthropicApiKey.trim()) patch.anthropicApiKey = body.anthropicApiKey.trim();
   if (typeof body.githubToken === "string" && body.githubToken.trim()) patch.githubToken = body.githubToken.trim();
@@ -284,7 +286,11 @@ app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
   res.json({ ok: true });
 
   const { provider } = getSettings();
-  const runner = provider === "gemini" ? runGeminiTask : provider === "groq" ? runGroqTask : runTask;
+  const runner =
+    provider === "gemini" ? runGeminiTask
+    : provider === "groq" ? runGroqTask
+    : provider === "openrouter" ? runOpenrouterTask
+    : runTask;
   // A meta-agente task carries a repo override (owner/repo). Run the whole task
   // inside that repo context so every GitHub call targets it instead of the
   // global repository. Invalid overrides are ignored (fall back to global).

@@ -46,8 +46,9 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `SAMS_PROVIDER` | no | `gemini` | `gemini` (free) · `claude` · `groq` |
-| `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` | ≥1 | — | key for the chosen provider |
+| `SAMS_PROVIDER` | no | `gemini` | `gemini` (free) · `groq` (free) · `openrouter` (free) · `claude` (paid) |
+| `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` | ≥1 | — | key for the chosen provider |
+| `SAMS_MODEL` | no | `gemini-2.5-flash` | model id for the provider (OpenRouter: a `:free` tool-capable id, e.g. `meta-llama/llama-3.3-70b-instruct:free`) |
 | `GITHUB_TOKEN` | for code tasks | — | fine-grained, **Contents: read & write** |
 | `GITHUB_REPO` | for code tasks | — | `owner/repo` (overridable per-agent in the UI) |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |

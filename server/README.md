@@ -18,12 +18,19 @@ SAMS UI ──POST /api/assign──▶  runtime  ──▶  Claude Managed Agen
 - **Gemini (Google, free tier)** — default. Free key at
   <https://aistudio.google.com/apikey>. Self-hosted agent loop (function calling)
   that drives the GitHub Contents API + Notion API. No provisioning.
+- **Groq (Llama 3.3 70B, free)** — free key at <https://console.groq.com>.
+  Self-hosted loop over Groq's OpenAI-compatible API. No provisioning.
+- **OpenRouter (`:free` models, free)** — free key at <https://openrouter.ai/keys>.
+  Self-hosted loop over OpenRouter's OpenAI-compatible API; set `SAMS_MODEL` to a
+  `:free` tool-capable id (e.g. `meta-llama/llama-3.3-70b-instruct:free`). The free
+  catalog rotates and free models have low daily rate limits. No provisioning.
 - **Claude (Anthropic, paid)** — Managed Agents (sandbox); needs API credits and
   a one-time *Provisiona agenti*.
 
 ## Prerequisites
 
-- An **engine key**: a **Gemini** key (free) or an **Anthropic** key (paid).
+- An **engine key**: a free **Gemini**, **Groq** or **OpenRouter** key, or an
+  **Anthropic** key (paid).
 - A **GitHub fine-grained PAT** with *Contents: Read and write* (add *Pull
   requests: Read and write* for PRs) on the target repo.
 - *(optional)* a **Notion** integration token to read/write KB pages.
@@ -72,9 +79,11 @@ npm run dev         # runtime on :8787
 
 ## Env vars
 
-See `.env.example`. Key ones: `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`,
+See `.env.example`. Key ones: `SAMS_PROVIDER` (`gemini` · `groq` · `openrouter` ·
+`claude`), the matching key (`GEMINI_API_KEY` / `GROQ_API_KEY` /
+`OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY`), `GITHUB_TOKEN`, `GITHUB_REPO`,
 `GITHUB_BASE_BRANCH`, `SAMS_AGENT_ID`, `SAMS_ENVIRONMENT_ID`, `SAMS_OPEN_PRS`,
-`SAMS_MODEL` (default `claude-opus-4-8`), `PORT`.
+`SAMS_MODEL` (default `gemini-2.5-flash`), `PORT`.
 
 ## Notion (optional)
 

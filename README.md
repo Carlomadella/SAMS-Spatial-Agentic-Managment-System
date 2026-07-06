@@ -127,6 +127,11 @@ Then, **inside the app** (no terminal, no files to edit):
 2. Choose the **engine**:
    - **Gemini (Google, free tier)** — default. Get a free key at
      <https://aistudio.google.com/apikey>. No provisioning needed.
+   - **Groq (Llama 3.3 70B, free)** — free key at <https://console.groq.com>.
+     No provisioning needed.
+   - **OpenRouter (`:free` models, free)** — free key at
+     <https://openrouter.ai/keys>; pick a `:free` tool-capable model (the free
+     catalog rotates). No provisioning needed.
    - **Claude (Anthropic, paid)** — needs API credits; click *Provisiona agenti*.
 3. Paste the engine key + a **GitHub token** (fine-grained, *Contents: Read and
    write*), set the **repository**, optionally a **Notion** token, then **Save**.

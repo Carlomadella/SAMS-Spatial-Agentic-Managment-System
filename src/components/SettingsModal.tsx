@@ -16,6 +16,13 @@ const MODELS: Record<Provider, string[]> = {
   gemini: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"],
   claude: ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
   groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
+  // Modelli ":free" con supporto ai tool. Il catalogo gratuito di OpenRouter ruota:
+  // se uno sparisce, cambialo qui o metti un altro id ":free" tool-capable.
+  openrouter: [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+  ],
 };
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
@@ -37,6 +44,7 @@ export function SettingsModal() {
   const [geminiApiKey, setGeminiKey] = useState("");
   const [anthropicApiKey, setAnthropicKey] = useState("");
   const [groqApiKey, setGroqKey] = useState("");
+  const [openrouterApiKey, setOpenrouterKey] = useState("");
   const [githubToken, setGithubToken] = useState("");
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("main");
@@ -89,6 +97,7 @@ export function SettingsModal() {
       if (provider === "gemini" && geminiApiKey.trim()) patch.geminiApiKey = geminiApiKey.trim();
       if (provider === "claude" && anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
       if (provider === "groq" && groqApiKey.trim()) patch.groqApiKey = groqApiKey.trim();
+      if (provider === "openrouter" && openrouterApiKey.trim()) patch.openrouterApiKey = openrouterApiKey.trim();
       if (githubToken.trim()) patch.githubToken = githubToken.trim();
       if (notionToken.trim()) patch.notionToken = notionToken.trim();
       const st = await saveSettings(patch);
@@ -97,6 +106,7 @@ export function SettingsModal() {
       setGeminiKey("");
       setAnthropicKey("");
       setGroqKey("");
+      setOpenrouterKey("");
       setGithubToken("");
       setNotionToken("");
       setMsg({ kind: "ok", text: "Impostazioni salvate." });
@@ -127,7 +137,9 @@ export function SettingsModal() {
       ? { ok: !!status?.hasGeminiKey, label: "Chiave Gemini" }
       : provider === "groq"
         ? { ok: !!status?.hasGroqKey, label: "Chiave Groq" }
-        : { ok: !!status?.hasAnthropicKey, label: "Chiave Anthropic" };
+        : provider === "openrouter"
+          ? { ok: !!status?.hasOpenrouterKey, label: "Chiave OpenRouter" }
+          : { ok: !!status?.hasAnthropicKey, label: "Chiave Anthropic" };
 
   return (
     <div
@@ -168,6 +180,7 @@ export function SettingsModal() {
             >
               <option value="gemini" className="bg-ink-800">Gemini — Google (piano gratuito)</option>
               <option value="groq" className="bg-ink-800">Groq — Llama 3.3 70B (piano gratuito)</option>
+              <option value="openrouter" className="bg-ink-800">OpenRouter — modelli :free (piano gratuito)</option>
               <option value="claude" className="bg-ink-800">Claude — Anthropic (a pagamento)</option>
             </select>
           </Field>
@@ -189,6 +202,16 @@ export function SettingsModal() {
                 value={groqApiKey}
                 onChange={(e) => setGroqKey(e.target.value)}
                 placeholder={status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
+                className="settings-input"
+              />
+            </Field>
+          ) : provider === "openrouter" ? (
+            <Field label="OpenRouter API key" icon={KeyRound}>
+              <input
+                type="password"
+                value={openrouterApiKey}
+                onChange={(e) => setOpenrouterKey(e.target.value)}
+                placeholder={status?.hasOpenrouterKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-or-…  (openrouter.ai/keys)"}
                 className="settings-input"
               />
             </Field>
@@ -308,7 +331,11 @@ export function SettingsModal() {
             </button>
           ) : (
             <span className="text-[11px] text-mut">
-              {provider === "groq" ? "Con Groq sei pronto subito dopo" : "Con Gemini sei pronto subito dopo"} <strong>Salva</strong>.
+              {provider === "groq"
+                ? "Con Groq sei pronto subito dopo"
+                : provider === "openrouter"
+                  ? "Con OpenRouter sei pronto subito dopo"
+                  : "Con Gemini sei pronto subito dopo"} <strong>Salva</strong>.
             </span>
           )}
         </div>

@@ -28,13 +28,14 @@ export interface RemoteUpdate {
   chat?: { id: string; author: string; text: string; ts: number };
 }
 
-export type Provider = "gemini" | "claude" | "groq";
+export type Provider = "gemini" | "claude" | "groq" | "openrouter";
 
 export interface RuntimeStatus {
   provider: Provider;
   hasGeminiKey: boolean;
   hasAnthropicKey: boolean;
   hasGroqKey: boolean;
+  hasOpenrouterKey: boolean;
   hasGithubToken: boolean;
   provisioned: boolean;
   ready: boolean;
@@ -53,6 +54,7 @@ export interface SettingsInput {
   geminiApiKey?: string;
   anthropicApiKey?: string;
   groqApiKey?: string;
+  openrouterApiKey?: string;
   githubToken?: string;
   githubRepo?: string;
   baseBranch?: string;
