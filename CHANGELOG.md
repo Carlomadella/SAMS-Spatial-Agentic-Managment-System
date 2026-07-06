@@ -7,6 +7,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Chat: badge messaggi non letti 🔴 (frontiera #2)
+- **Added** — `src/lib/chat.ts` (puro): `countsAsUnread` (non conta i propri
+  messaggi né quando la chat è attiva) e `unreadBadge` (cap "9+"). +7 test.
+- **Added** — store: campo transiente `chatUnread`, incrementato in `applyRemote`
+  all'arrivo di un messaggio altrui mentre la Chat non è il tab attivo; azzerato
+  aprendo il tab e da `markChatRead` (chiamato dal `ChatPanel` al mount/aggiornamento).
+- **Added** — `BottomPanel`: badge con il conteggio non letti sul tab **Chat**.
+- _Test_: client 258 → 265.
+
 ### 2026-07-06 — Chat di workspace 💬 (frontiera #2)
 - **Added** — `server/src/chat.ts` (puro): `sanitizeChatInput` (autore con
   fallback "Ospite", testo con trim/clamp). +4 test.

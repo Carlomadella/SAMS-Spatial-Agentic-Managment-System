@@ -23,6 +23,7 @@ import {
 import { SEED_AGENTS, seedEvents } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
+import { countsAsUnread } from "../lib/chat";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
@@ -71,6 +72,8 @@ interface State {
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
   chatName: string;
+  /** unread chat messages while the Chat tab isn't the active one (transient) */
+  chatUnread: number;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -178,6 +181,7 @@ interface State {
   setChatMessages: (messages: ChatMessage[]) => void;
   pushChatMessage: (message: ChatMessage) => void;
   setChatName: (name: string) => void;
+  markChatRead: () => void;
   pushToast: (level: LogLevel, message: string) => void;
   dismissToast: (id: string) => void;
   applyRemote: (e: {
@@ -278,6 +282,7 @@ export const useStore = create<State>()(
   observers: 1,
   chatMessages: [],
   chatName: "",
+  chatUnread: 0,
   runtimeReady: false,
   simMode: false,
   simLabel: "sams",
@@ -592,7 +597,7 @@ export const useStore = create<State>()(
     }),
 
   setActivity: (a) => set({ activity: a }),
-  setBottomTab: (t) => set({ bottomTab: t, bottomOpen: true }),
+  setBottomTab: (t) => set(t === "chat" ? { bottomTab: t, bottomOpen: true, chatUnread: 0 } : { bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setGardenOpen: (open) => set({ gardenOpen: open }),
@@ -621,6 +626,7 @@ export const useStore = create<State>()(
         : { chatMessages: [...s.chatMessages, message].slice(-200) },
     ),
   setChatName: (name) => set({ chatName: name.slice(0, 40) }),
+  markChatRead: () => set((s) => (s.chatUnread === 0 ? s : { chatUnread: 0 })),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setSimMode: (on) => set({ simMode: on }),
   setSimLabel: (label) => set({ simLabel: label }),
@@ -642,7 +648,13 @@ export const useStore = create<State>()(
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.
     if (e.chat) {
-      get().pushChatMessage(e.chat);
+      const st = get();
+      const already = st.chatMessages.some((m) => m.id === e.chat!.id);
+      st.pushChatMessage(e.chat);
+      const chatActive = st.bottomTab === "chat" && st.bottomOpen;
+      if (!already && countsAsUnread(e.chat.author, st.chatName, chatActive)) {
+        set({ chatUnread: st.chatUnread + 1 });
+      }
       return;
     }
     set((s) => {

@@ -88,7 +88,9 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       messaggi si rimbalzano via SSE a tutte le viste (`chat` in `WireEvent`). Lato
       client: slice `chatMessages` (server-owned, non persistito) + `chatName`
       (persistito), tab **Chat** nel pannello in basso, hydrate al connect e comando
-      palette "Apri Chat". 7 test. _Manca ancora: umano→agente._
+      palette "Apri Chat". Badge dei messaggi **non letti** sul tab (logica pura
+      `countsAsUnread`/`unreadBadge`, azzerato all'apertura). 14 test.
+      _Manca ancora: umano→agente._
 - [ ] 💡 **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
       evitare che un utente saturi il runtime (per-utente, non solo per-agente).
 

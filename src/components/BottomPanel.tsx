@@ -13,6 +13,7 @@ import { Terminal } from "./Terminal";
 import { OutputView } from "./OutputView";
 import { ResizeHandle } from "./ResizeHandle";
 import { cn } from "../lib/utils";
+import { unreadBadge } from "../lib/chat";
 
 function ProblemsView() {
   const agents = useStore((s) => s.agents);
@@ -84,6 +85,7 @@ export function BottomPanel() {
   const bottomHeight = useStore((s) => s.bottomHeight);
   const setBottomHeight = useStore((s) => s.setBottomHeight);
   const simMode = useStore((s) => s.simMode);
+  const chatUnread = useStore((s) => s.chatUnread);
   const problemCount = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
   );
@@ -117,6 +119,11 @@ export function BottomPanel() {
               {t.id === "problems" && problemCount > 0 && (
                 <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-300">
                   {problemCount}
+                </span>
+              )}
+              {t.id === "chat" && chatUnread > 0 && (
+                <span className="rounded-full bg-brand/25 px-1.5 text-[10px] font-bold text-brand-soft">
+                  {unreadBadge(chatUnread)}
                 </span>
               )}
               {bottomTab === t.id && (

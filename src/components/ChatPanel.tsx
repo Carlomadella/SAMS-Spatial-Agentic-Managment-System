@@ -14,13 +14,17 @@ export function ChatPanel() {
   const chatName = useStore((s) => s.chatName);
   const setChatName = useStore((s) => s.setChatName);
   const backendOnline = useStore((s) => s.backendOnline);
+  const markChatRead = useStore((s) => s.markChatRead);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
+  // The panel is only mounted when the Chat tab is showing, so anything visible
+  // here is read — clear the unread badge on mount and as new messages arrive.
   useEffect(() => {
+    markChatRead();
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
+  }, [messages.length, markChatRead]);
 
   const submit = async () => {
     const t = text.trim();
