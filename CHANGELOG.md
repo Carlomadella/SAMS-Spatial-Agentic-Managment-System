@@ -7,6 +7,24 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Presence con nomi + canale bidirezionale 👤
+- **Added** — `server/src/presence.ts` (puro): `sanitizeObserverIdentity`,
+  `distinctPeople` (deduplica per id, ordine stabile), `presenceState`. +9 test.
+- **Changed** — `clients` da `Set<Response>` a `Map<Response,Observer>`;
+  `broadcastPresence` invia anche `people` (nomi distinti) oltre a `presence`
+  (conteggio, invariato per retro-compatibilità). L'identità arriva dai query param
+  dell'EventSource al connect (`/api/events?v=…&n=…`).
+- **Added** — POST `/api/presence` (rate-limited 20/30s): rinomina una vista a
+  caldo, senza riconnettere l'EventSource (canale client→server). Aggiorna tutte le
+  connessioni con lo stesso id e ri-annuncia la presence via SSE.
+- **Added** — client: `viewerId` stabile in localStorage (deduplica le schede),
+  `announcePresence`; store slice `people`; `presenceTooltip`/`sanitizePeople` in
+  `lib/presence.ts` (+7 test); `StatusBar` elenca i nomi nel tooltip del badge 👁;
+  `ChatPanel` annuncia il nome sul blur.
+- _Verifica_: end-to-end sul runtime — 2 viste con nomi (`Ada`, `Bob`) + una
+  anonima (`Ospite`, client senza query param) e rename live `Ada → Ada Lovelace`
+  propagato via SSE (`changed:1`).
+
 ### 2026-07-06 — Osservabilità del workspace condiviso 📈
 - **Added** — `metrics.ts`: contatori `chatMessages` (cumulativo) e `peakClients`
   (picco di viste connesse simultaneamente), esposti in `/api/metrics`;

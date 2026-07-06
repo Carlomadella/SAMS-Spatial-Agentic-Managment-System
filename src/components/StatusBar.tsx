@@ -1,7 +1,7 @@
 import { Check, CircleAlert, Eye, GitBranch, Radio, TriangleAlert, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled } from "../lib/backend";
-import { isShared, observerBadge, observerLabel } from "../lib/presence";
+import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -12,6 +12,7 @@ export function StatusBar() {
   const agents = useStore((s) => s.agents);
   const backendOnline = useStore((s) => s.backendOnline);
   const observers = useStore((s) => s.observers);
+  const people = useStore((s) => s.people);
   const tokensUsed = useStore((s) => s.tokensUsed);
   const warnings = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
@@ -49,7 +50,7 @@ export function StatusBar() {
         {backendEnabled && backendOnline && (
           <span
             className={`flex items-center gap-1 ${isShared(observers) ? "text-emerald-200" : ""}`}
-            title={observerLabel(observers)}
+            title={presenceTooltip(people, observers)}
           >
             <Eye size={12} /> {observerBadge(observers)}
           </span>

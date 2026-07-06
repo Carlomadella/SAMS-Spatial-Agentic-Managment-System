@@ -24,6 +24,8 @@ export interface RemoteUpdate {
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
   /** Presence: number of connected views, broadcast by the runtime on connect/disconnect. */
   presence?: number;
+  /** Presence: distinct names of who is watching (may be absent on old runtimes). */
+  people?: string[];
   /** Chat: a workspace chat message broadcast by the runtime. */
   chat?: { id: string; author: string; text: string; ts: number };
 }
@@ -479,11 +481,53 @@ export async function clearMemory(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE" });
 }
 
+// --- Presence: identità della vista (mondo condiviso, Roadmap 4) ----------
+// Ogni vista ha un id stabile persistito localmente: così due schede della stessa
+// persona si deduplicano nei nomi, pur restando due "viste". Il nome riusa quello
+// scelto in chat (`chatName`), con fallback "Ospite".
+const VIEWER_ID_KEY = "sams-viewer-id";
+
+function getViewerId(): string {
+  try {
+    let id = localStorage.getItem(VIEWER_ID_KEY);
+    if (!id) {
+      id = crypto.randomUUID?.() ?? `v-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(VIEWER_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return "anon"; // localStorage/crypto non disponibili — resta anonimo stabile
+  }
+}
+
+function viewerName(): string {
+  return useStore.getState().chatName?.trim() || "Ospite";
+}
+
+/**
+ * Rinomina la vista a caldo, senza riconnettersi (canale bidirezionale). Best
+ * effort: il runtime rimbalza la presence aggiornata a tutte le viste via SSE.
+ */
+export async function announcePresence(name: string): Promise<void> {
+  try {
+    await fetch(`${BASE}/api/presence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: getViewerId(), name: name.trim() || "Ospite" }),
+    });
+  } catch {
+    /* best-effort: la presence non è critica */
+  }
+}
+
 let source: EventSource | null = null;
 
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */
 export function connectBackend(): () => void {
-  source = new EventSource(`${BASE}/api/events`);
+  // La vista si presenta al connect: id stabile + nome, come query param (unico
+  // canale disponibile per un EventSource, che è sempre una GET).
+  const q = new URLSearchParams({ v: getViewerId(), n: viewerName() });
+  source = new EventSource(`${BASE}/api/events?${q.toString()}`);
   source.onopen = () => {
     useStore.getState().setBackendOnline(true);
     void refreshRuntimeStatus();

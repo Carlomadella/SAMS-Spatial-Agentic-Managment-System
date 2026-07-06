@@ -24,6 +24,7 @@ import { SEED_AGENTS, seedEvents } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
+import { sanitizePeople } from "../lib/presence";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
@@ -68,6 +69,8 @@ interface State {
   backendOnline: boolean;
   /** how many views (SSE clients) are watching the world right now; 1 = just you */
   observers: number;
+  /** distinct names of who is watching right now (empty on old runtimes) */
+  people: string[];
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -197,6 +200,7 @@ interface State {
     plan?: string[];
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
     presence?: number;
+    people?: string[];
     chat?: { id: string; author: string; text: string; ts: number };
   }) => void;
 }
@@ -280,6 +284,7 @@ export const useStore = create<State>()(
   bottomHeight: 248,
   backendOnline: false,
   observers: 1,
+  people: [],
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -617,7 +622,7 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1 }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [] }),
   setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
   pushChatMessage: (message) =>
     set((s) =>
@@ -643,7 +648,7 @@ export const useStore = create<State>()(
     // Presence: a count-only event (no agent state). Handle it and stop, so it
     // never touches agents/tasks/events or spawns a phantom "presence" agent.
     if (e.presence != null) {
-      set({ observers: Math.max(0, Math.floor(e.presence)) });
+      set({ observers: Math.max(0, Math.floor(e.presence)), people: sanitizePeople(e.people) });
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.

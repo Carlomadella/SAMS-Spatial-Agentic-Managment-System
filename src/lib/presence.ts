@@ -37,3 +37,39 @@ export function observerBadge(n: number): number {
 export function isShared(n: number): boolean {
   return sanitizeObservers(n) > 1;
 }
+
+// --- Presence con nomi (secondo slice) -----------------------------------
+// Il runtime ora rimbalza anche *chi* sta guardando (nomi distinti). Logica pura
+// per normalizzare la lista e comporne il tooltip; il conteggio resta la fonte di
+// verità del badge, i nomi arricchiscono il tooltip quando disponibili.
+
+const MAX_NAME = 40;
+const MAX_PEOPLE = 50;
+
+/** Normalizza la lista dei nomi in arrivo: stringhe non vuote, trim + clamp, cap. */
+export function sanitizePeople(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    if (typeof v !== "string") continue;
+    const s = v.slice(0, MAX_NAME).trim();
+    if (s) out.push(s);
+    if (out.length >= MAX_PEOPLE) break;
+  }
+  return out;
+}
+
+/**
+ * Tooltip del badge presence. Con i nomi disponibili elenca chi sta guardando
+ * (fino a 5, poi "e altri N"); senza nomi ricade sul messaggio basato sul
+ * conteggio delle viste (`observerLabel`), così i runtime vecchi restano ok.
+ */
+export function presenceTooltip(people: string[], views: number): string {
+  const names = sanitizePeople(people);
+  if (names.length === 0) return observerLabel(views);
+  if (names.length === 1) return `${names[0]} sta guardando questo ufficio`;
+  const shown = names.slice(0, 5);
+  const rest = names.length - shown.length;
+  const list = shown.join(", ");
+  return rest > 0 ? `Stanno guardando: ${list} e altri ${rest}` : `Stanno guardando: ${list}`;
+}

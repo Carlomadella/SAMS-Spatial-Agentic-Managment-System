@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isShared, observerBadge, observerLabel, sanitizeObservers } from "./presence";
+import {
+  isShared,
+  observerBadge,
+  observerLabel,
+  presenceTooltip,
+  sanitizeObservers,
+  sanitizePeople,
+} from "./presence";
 
 describe("presence", () => {
   describe("sanitizeObservers", () => {
@@ -47,6 +54,37 @@ describe("presence", () => {
       expect(isShared(0)).toBe(false);
       expect(isShared(1)).toBe(false);
       expect(isShared(2)).toBe(true);
+    });
+  });
+
+  describe("sanitizePeople", () => {
+    it("tiene solo stringhe non vuote, con trim", () => {
+      expect(sanitizePeople(["  Ada ", "", "Bob", 3, null])).toEqual(["Ada", "Bob"]);
+    });
+    it("non-array → lista vuota", () => {
+      expect(sanitizePeople("Ada")).toEqual([]);
+      expect(sanitizePeople(undefined)).toEqual([]);
+    });
+    it("cappa a 50 nomi", () => {
+      const many = Array.from({ length: 80 }, (_, i) => `n${i}`);
+      expect(sanitizePeople(many)).toHaveLength(50);
+    });
+  });
+
+  describe("presenceTooltip", () => {
+    it("senza nomi ricade sull'etichetta a conteggio", () => {
+      expect(presenceTooltip([], 1)).toMatch(/solo tu/i);
+      expect(presenceTooltip([], 3)).toMatch(/altre 2 viste/i);
+    });
+    it("un solo nome", () => {
+      expect(presenceTooltip(["Ada"], 1)).toMatch(/Ada sta guardando/i);
+    });
+    it("più nomi: elenca fino a 5", () => {
+      expect(presenceTooltip(["Ada", "Bob", "Cy"], 3)).toBe("Stanno guardando: Ada, Bob, Cy");
+    });
+    it("oltre 5 nomi: aggiunge 'e altri N'", () => {
+      const names = ["a", "b", "c", "d", "e", "f", "g"];
+      expect(presenceTooltip(names, 7)).toBe("Stanno guardando: a, b, c, d, e e altri 2");
     });
   });
 });

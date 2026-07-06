@@ -22,6 +22,7 @@ import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listC
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
+import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { createRateLimiter } from "./rateLimit";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
@@ -63,13 +64,13 @@ app.use(
   }),
 );
 
-/** Connected SSE clients (the SAMS browser UIs). */
-const clients = new Set<Response>();
+/** Connected SSE clients (the SAMS browser UIs), each with its declared identity. */
+const clients = new Map<Response, Observer>();
 const HEARTBEAT_MS = 25000;
 
 /** Write one already-serialized SSE line to every live client, dropping dead ones. */
 function writeToClients(line: string): void {
-  for (const res of clients) {
+  for (const res of clients.keys()) {
     if (res.writableEnded || res.destroyed) {
       clients.delete(res);
       continue;
@@ -93,13 +94,18 @@ function broadcast(e: WireEvent): void {
 
 /**
  * Presence (Roadmap 4, frontiera #2): tell every connected view how many views
- * are watching right now. Fired on connect/disconnect. Deliberately NOT routed
- * through `broadcast`/`recordEvent` — it carries no agent state and must not
- * inflate the runtime's event metrics.
+ * are watching right now AND who they are (distinct names). Fired on connect/
+ * disconnect and on a live rename. Deliberately NOT routed through `broadcast`/
+ * `recordEvent` — it carries no agent state and must not inflate the runtime's
+ * event metrics. `presence` stays a bare count for backward-compatible clients;
+ * `people` is the new named list.
  */
 function broadcastPresence(): void {
   recordClients(clients.size); // track the peak for observability
-  writeToClients(`data: ${JSON.stringify({ agentId: "presence", agentName: "presence", presence: clients.size })}\n\n`);
+  const { views, people } = presenceState([...clients.values()]);
+  writeToClients(
+    `data: ${JSON.stringify({ agentId: "presence", agentName: "presence", presence: views, people })}\n\n`,
+  );
 }
 
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -229,8 +235,11 @@ app.get("/api/events", (req: Request, res: Response) => {
     "Access-Control-Allow-Origin": "*",
   });
   res.write(": connected\n\n");
-  clients.add(res);
-  log.info("Vista connessa", { views: clients.size });
+  // Identità dichiarata dalla vista al connect (canale bidirezionale, primo pezzo
+  // concreto della frontiera #1): `v` = id stabile persistito, `n` = nome.
+  const observer = sanitizeObserverIdentity(req.query.v, req.query.n);
+  clients.set(res, observer);
+  log.info("Vista connessa", { views: clients.size, name: observer.name });
   broadcastPresence(); // tell everyone (incl. the new view) the updated count
 
   // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
@@ -241,7 +250,7 @@ app.get("/api/events", (req: Request, res: Response) => {
     closed = true;
     clearInterval(heartbeat);
     clients.delete(res);
-    log.info("Vista disconnessa", { views: clients.size });
+    log.info("Vista disconnessa", { views: clients.size, name: observer.name });
     broadcastPresence();
   }
   const heartbeat = setInterval(() => {
@@ -517,6 +526,36 @@ app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// --- Presence: rinomina live (canale bidirezionale) ----------------------
+// La vista dichiara la sua identità al connect (query param dell'EventSource);
+// questo endpoint le permette di cambiare nome *senza riconnettersi* — primo
+// pezzo concreto del canale client→server (frontiera #1). Aggiorna il nome di
+// tutte le connessioni con lo stesso id (più schede) e ri-annuncia la presence.
+const presenceLimiter = createRateLimiter(20, 30_000);
+
+app.post("/api/presence", requireAuth, (req: Request, res: Response) => {
+  const { id, name } = sanitizeObserverIdentity((req.body as { id?: unknown })?.id, (req.body as { name?: unknown })?.name);
+  if (!id) {
+    res.status(400).json({ error: "id osservatore mancante" });
+    return;
+  }
+  const key = req.ip ?? "?";
+  if (!presenceLimiter.hit(key)) {
+    const wait = Math.ceil(presenceLimiter.retryAfterMs(key) / 1000);
+    res.status(429).json({ error: `Troppe modifiche — riprova tra ${wait}s`, retryAfterSec: wait });
+    return;
+  }
+  let changed = 0;
+  for (const [res2, obs] of clients) {
+    if (obs.id === id && obs.name !== name) {
+      clients.set(res2, { id, name });
+      changed++;
+    }
+  }
+  if (changed > 0) broadcastPresence();
+  res.json({ ok: true, changed, people: distinctPeople([...clients.values()]) });
 });
 
 // --- Routine / trigger temporali ----------------------------------------

@@ -76,9 +76,19 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       guardando", evidenziato quando il mondo è condiviso. Conteggio per-connessione
       (non ancora identità utente). Il conteggio compare anche nella **dashboard
       pubblica** (`viewers` in `/api/public`: "N stanno guardando"). 10 test.
+- [x] ✅ **Presence con nomi + canale bidirezionale (secondo slice)** — non più solo
+      *quante* viste, ma *chi*. `server/src/presence.ts` (puro: `sanitizeObserverIdentity`,
+      `distinctPeople`, `presenceState`) + `clients` da `Set` a `Map<Response,Observer>`.
+      L'identità arriva dal client in due modi — **primo pezzo concreto del canale
+      client→server (frontiera #1)**: (1) al connect, come query param dell'EventSource
+      (`/api/events?v=…&n=…`); (2) a caldo via `POST /api/presence` (rate-limited) per
+      rinominarsi **senza riconnettersi**. Il badge 👁 resta un conteggio di viste; il
+      **tooltip** ora elenca i nomi (`presenceTooltip`, fino a 5 + "e altri N"), deduplicati
+      per `viewerId` persistito. Retro-compatibile: `presence` resta un numero, `people` è
+      additivo. Verificato end-to-end sul runtime (due viste + rename live via SSE). 25 test.
 - [ ] 💡 ⬅️ **Presence in tempo reale (agenti live)** — più utenti vedono gli stessi
-      agenti muoversi e gli stessi eventi, live. Estende il conteggio osservatori
-      (sopra) con lo stato condiviso: si appoggia al canale bidirezionale e allo
+      agenti muoversi e gli stessi eventi, live. Estende presence+nomi (sopra) con lo
+      stato condiviso: si appoggia al canale bidirezionale (ora avviato) e allo
       stato autorevole della frontiera #1.
 - [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       Estende l'auth opzionale già esistente (`SAMS_TOKEN`) a ruoli (owner/editor/
@@ -162,6 +172,32 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — presence con nomi + primo pezzo del canale bidirezionale
+Ripreso il nodo aperto **(c)** del 2026-07-06: la presence sapeva *quante* viste
+guardano, non *chi*. Slice piccolo e de-riscato che però **avvia il canale
+client→server** (primo pezzo concreto della frontiera #1), scelto apposta perché
+sblocca la presence realtime senza affrontare subito la migrazione autorevole.
+- **Server** 👤: `presence.ts` puro (`sanitizeObserverIdentity`, `distinctPeople`,
+  `presenceState`); `clients` da `Set<Response>` a `Map<Response,Observer>`;
+  `broadcastPresence` ora porta anche `people` (nomi distinti). Identità dal client
+  in due modi: query param dell'EventSource al connect **e** `POST /api/presence`
+  (rate-limited, 20/30s) per rinominarsi a caldo senza riconnettere.
+- **Client** 🏷️: `viewerId` stabile persistito in localStorage (deduplica le schede);
+  l'EventSource si presenta con `?v=…&n=…` (riusa `chatName`); `announcePresence`
+  sul blur del nome in chat; store con slice `people`; `StatusBar` mostra i nomi nel
+  tooltip (`presenceTooltip`, fino a 5 + "e altri N").
+- **Retro-compatibilità**: `presence` resta un numero (client vecchi ok), `people` è
+  additivo; una connessione senza query param compare come "Ospite" anonimo.
+- Verificato end-to-end sul runtime reale (due viste con nomi + rename live
+  propagato via SSE). Test: client 265 → 272, server 190 → 201. Typecheck, lint,
+  build: verdi.
+
+**Nodo aperto per la prossima sessione:** i nomi ci sono, ma la presence è ancora
+*conteggio + identità*, non **stato condiviso live** (vedere gli stessi agenti
+muoversi). Quello richiede la scrittura autorevole e la riconciliazione della
+frontiera #1 — ora che il canale client→server è avviato, è il passo naturale.
+Restano aperti anche **ruoli/permessi (b)** e **umano→agente dalla chat (d)**.
 
 ### 2026-07-06 — la frontiera #2 prende corpo (mondo condiviso, a slice de-riscati)
 Sessione dedicata al **mondo condiviso** (#2), affrontato come catena di slice
