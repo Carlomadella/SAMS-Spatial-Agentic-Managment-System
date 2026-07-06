@@ -92,8 +92,12 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       palette "Apri Chat". Badge dei messaggi **non letti** sul tab (logica pura
       `countsAsUnread`/`unreadBadge`, azzerato all'apertura). 14 test.
       _Manca ancora: umano→agente._
-- [ ] 💡 **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
+- [ ] 🏗️ **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
       evitare che un utente saturi il runtime (per-utente, non solo per-agente).
+      _Fatto: limiter puro riutilizzabile `server/src/rateLimit.ts` (finestra
+      scorrevole, `now` iniettabile) applicato alla **chat** (max 10 msg/30s per IP
+      → 429 con `retryAfterSec`). 5 test._ Resta: quota per-utente identificato
+      (serve identità/ruoli) sugli endpoint che avviano lavoro (assign).
 
 ## 📦 Prodotto & distribuzione (frontiera #3)
 

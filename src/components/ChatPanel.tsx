@@ -17,6 +17,7 @@ export function ChatPanel() {
   const markChatRead = useStore((s) => s.markChatRead);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   // The panel is only mounted when the Chat tab is showing, so anything visible
@@ -30,9 +31,11 @@ export function ChatPanel() {
     const t = text.trim();
     if (!t || sending) return;
     setSending(true);
+    setError("");
     const ok = await sendChat(chatName.trim() || "Ospite", t);
     setSending(false);
     if (ok) setText("");
+    else setError("Messaggio non inviato — riprova tra poco.");
   };
 
   if (!backendOnline) {
@@ -60,6 +63,11 @@ export function ChatPanel() {
         <div ref={endRef} />
       </div>
 
+      {error && (
+        <div className="shrink-0 border-t border-rose-500/20 bg-rose-500/10 px-3 py-1 text-[11px] text-rose-300">
+          {error}
+        </div>
+      )}
       <form
         className="flex shrink-0 items-center gap-1.5 border-t border-line/40 px-2 py-1.5"
         onSubmit={(e) => {
@@ -76,7 +84,10 @@ export function ChatPanel() {
         />
         <input
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (error) setError("");
+          }}
           placeholder="Scrivi un messaggio…"
           aria-label="Messaggio"
           maxLength={500}

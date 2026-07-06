@@ -7,6 +7,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-06 — Rate-limit sulla chat 🚦 (workspace condiviso)
+- **Added** — `server/src/rateLimit.ts` (puro): `createRateLimiter(max, windowMs)`
+  a finestra scorrevole con `now` iniettabile (`hit`/`retryAfterMs`), memoria per
+  chiave limitata a `max`. +5 test.
+- **Added** — POST `/api/chat` applica il limiter per IP (max 10 msg/30s): oltre
+  soglia risponde `429` con `retryAfterSec`. Il `ChatPanel` mostra un avviso e
+  conserva il testo per il retry.
+- _Verifica_: end-to-end — 10 POST → 200, dall'11° → 429 "riprova tra 29s".
+
 ### 2026-07-06 — Presence anche nella dashboard pubblica 👁
 - **Added** — `buildPublicSnapshot` include `viewers` (clamp a intero ≥ 0) e
   `/api/public` passa `clients.size`; la `PublicDashboard` mostra "N stanno

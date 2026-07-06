@@ -21,6 +21,7 @@ import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listC
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
+import { createRateLimiter } from "./rateLimit";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -482,10 +483,19 @@ app.get("/api/chat", (_req: Request, res: Response) => {
   }
 });
 
+// Per-IP flood guard for the shared chat: at most 10 messages every 30s.
+const chatLimiter = createRateLimiter(10, 30_000);
+
 app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
   const input = sanitizeChatInput(req.body);
   if (!input) {
     res.status(400).json({ error: "Messaggio vuoto" });
+    return;
+  }
+  const key = req.ip ?? "?";
+  if (!chatLimiter.hit(key)) {
+    const wait = Math.ceil(chatLimiter.retryAfterMs(key) / 1000);
+    res.status(429).json({ error: `Troppi messaggi — riprova tra ${wait}s`, retryAfterSec: wait });
     return;
   }
   const msg: ChatMessage = { id: randomUUID(), author: input.author, text: input.text, ts: Date.now() };
