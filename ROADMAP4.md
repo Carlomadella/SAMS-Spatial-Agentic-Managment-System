@@ -163,6 +163,30 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-06 — la frontiera #2 prende corpo (mondo condiviso, a slice de-riscati)
+Sessione dedicata al **mondo condiviso** (#2), affrontato come catena di slice
+piccoli e testati che si appoggiano **solo al canale SSE già esistente** — così
+non dipendono dalla grossa migrazione autorevole (#1), volutamente rimandata.
+- **Presence** 👁: il runtime rimbalza quante viste sono connesse
+  (`broadcastPresence` su connect/disconnect, fuori da `recordEvent`); badge nella
+  `StatusBar` e conteggio anche nella **dashboard pubblica** (`viewers`).
+- **Chat di workspace** 💬: `chat_messages` in SQLite + `GET/POST /api/chat`,
+  broadcast via SSE, tab **Chat**, badge non letti, **rate-limit** per IP
+  (limiter puro riutilizzabile `rateLimit.ts`). Verificata end-to-end sul runtime.
+- **Osservabilità** 📈: `chatMessages`/`peakClients` in `/api/metrics` + log
+  strutturati connessione/disconnessione.
+- Test: client 246 → 265, server 173 → 190. Typecheck, lint, build, e2e-backend
+  (curl su runtime reale) tutti verdi.
+
+**Nodo aperto per la prossima sessione (da decidere con l'utente):** i pezzi
+rimasti implicano scelte, non solo codice. (a) **Migrazione autorevole #1**: con
+più scrittori l'eco del `world_snapshot` è ambiguo (last-write-wins) — va
+disegnata la riconciliazione/ownership prima di renderla condivisa davvero. (b)
+**Ruoli/permessi**: serve scegliere il modello (owner/editor/viewer su `SAMS_TOKEN`).
+(c) **Presence con nomi** (non solo conteggio): richiede il canale bidirezionale
+(client→server) — primo pezzo concreto di #1. (d) **Umano→agente dalla chat**:
+avvia lavoro reale, meglio progettarlo con conferma esplicita.
+
 ### 2026-07-05 — primi avanzamenti R4 (fondazione + prodotto)
 Avviate in parallelo la frontiera #1 (con un primo slice de-riscato) e la #3.
 - **Stato autorevole — primo slice** 🧱: `server/src/worldState.ts` (puro) +
