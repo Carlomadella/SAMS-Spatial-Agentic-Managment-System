@@ -21,6 +21,9 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   `announcePresence`; store slice `people`; `presenceTooltip`/`sanitizePeople` in
   `lib/presence.ts` (+7 test); `StatusBar` elenca i nomi nel tooltip del badge 👁;
   `ChatPanel` annuncia il nome sul blur.
+- **Added** — roster presence in cima al `ChatPanel`: mostra live *chi* sta
+  guardando (chip con i nomi) e `watchingLabel` per il conteggio delle persone
+  distinte (fallback alle viste). +3 test.
 - _Verifica_: end-to-end sul runtime — 2 viste con nomi (`Ada`, `Bob`) + una
   anonima (`Ospite`, client senza query param) e rename live `Ada → Ada Lovelace`
   propagato via SSE (`changed:1`).

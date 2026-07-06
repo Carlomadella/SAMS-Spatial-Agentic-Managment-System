@@ -73,3 +73,14 @@ export function presenceTooltip(people: string[], views: number): string {
   const list = shown.join(", ");
   return rest > 0 ? `Stanno guardando: ${list} e altri ${rest}` : `Stanno guardando: ${list}`;
 }
+
+/**
+ * Testo breve per il roster (es. in cima alla chat): conta le *persone* distinte
+ * quando i nomi ci sono, altrimenti ricade sul conteggio delle viste. Prima
+ * persona singolare → "Solo tu stai guardando".
+ */
+export function watchingLabel(people: string[], views: number): string {
+  const names = sanitizePeople(people);
+  const n = names.length > 0 ? names.length : sanitizeObservers(views);
+  return n <= 1 ? "Solo tu stai guardando" : `${n} stanno guardando`;
+}

@@ -6,6 +6,7 @@ import {
   presenceTooltip,
   sanitizeObservers,
   sanitizePeople,
+  watchingLabel,
 } from "./presence";
 
 describe("presence", () => {
@@ -85,6 +86,19 @@ describe("presence", () => {
     it("oltre 5 nomi: aggiunge 'e altri N'", () => {
       const names = ["a", "b", "c", "d", "e", "f", "g"];
       expect(presenceTooltip(names, 7)).toBe("Stanno guardando: a, b, c, d, e e altri 2");
+    });
+  });
+
+  describe("watchingLabel", () => {
+    it("conta le persone distinte quando ci sono i nomi", () => {
+      expect(watchingLabel(["Ada", "Bob"], 5)).toBe("2 stanno guardando");
+    });
+    it("una sola persona → solo tu", () => {
+      expect(watchingLabel(["Ada"], 1)).toBe("Solo tu stai guardando");
+    });
+    it("senza nomi ricade sul conteggio viste", () => {
+      expect(watchingLabel([], 3)).toBe("3 stanno guardando");
+      expect(watchingLabel([], 1)).toBe("Solo tu stai guardando");
     });
   });
 });

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Eye, Send } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { announcePresence, sendChat } from "../lib/backend";
+import { watchingLabel } from "../lib/presence";
 import { clock } from "../lib/utils";
 
 /**
@@ -14,6 +15,8 @@ export function ChatPanel() {
   const chatName = useStore((s) => s.chatName);
   const setChatName = useStore((s) => s.setChatName);
   const backendOnline = useStore((s) => s.backendOnline);
+  const observers = useStore((s) => s.observers);
+  const people = useStore((s) => s.people);
   const markChatRead = useStore((s) => s.markChatRead);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -49,6 +52,26 @@ export function ChatPanel() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Roster presence: chi sta guardando lo stesso ufficio, live. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line/40 px-2 py-1.5 text-[11px]">
+        <span className="flex shrink-0 items-center gap-1 font-medium text-mut">
+          <Eye size={12} /> {watchingLabel(people, observers)}
+        </span>
+        {people.length > 0 && (
+          <span className="flex min-w-0 flex-wrap gap-1">
+            {people.map((name, i) => (
+              <span
+                key={`${name}-${i}`}
+                className="max-w-[10rem] truncate rounded-full bg-brand/15 px-2 py-0.5 text-brand-soft"
+                title={name}
+              >
+                {name}
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 text-[12px] leading-relaxed">
         {messages.length === 0 && (
           <div className="px-1 text-mut">Ancora nessun messaggio. Rompi il ghiaccio 👋</div>
