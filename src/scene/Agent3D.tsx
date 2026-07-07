@@ -107,6 +107,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const updateProgress = useStore((s) => s.updateProgress);
   const sendToZone = useStore((s) => s.sendToZone);
   const removeAgent = useStore((s) => s.removeAgent);
+  // Il garden è un overlay a schermo intero: le <Html> degli agenti sono portali
+  // DOM che altrimenti "bucano" l'overlay (dialoghi e simboli restano visibili
+  // sopra il giardino). Quando il garden è aperto le sopprimiamo tutte.
+  const gardenOpen = useStore((s) => s.gardenOpen);
 
   const hex = AGENT_HEX[agent.color];
   const tint = useMemo(
@@ -470,7 +474,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       </group>
 
       {/* hover tooltip with quick stats */}
-      {hovered && !selected && (
+      {hovered && !selected && !gardenOpen && (
         <Html position={[0.72, 1.7, 0]} distanceFactor={10} zIndexRange={[80, 60]} pointerEvents="none">
           <div className="pointer-events-none w-[148px] select-none rounded-xl border border-white/10 bg-ink-900/96 p-2 text-[11px] shadow-panel">
             <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-slate-100">
@@ -519,7 +523,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       )}
 
       {/* speech bubble — the agent's latest action */}
-      {bubble && (
+      {bubble && !gardenOpen && (
         <Html position={[0, 2.95, 0]} center distanceFactor={11} zIndexRange={[70, 50]} pointerEvents="none">
           <div className="pointer-events-none relative max-w-[180px] select-none rounded-2xl border border-white/10 bg-ink-900/95 px-2.5 py-1.5 text-center text-[11px] leading-snug text-slate-100 shadow-panel">
             {bubble}
@@ -529,7 +533,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       )}
 
       {/* micro-activity emoji (coffee / sketch / stretch) */}
-      {activity && !sleeping && !bubble && (
+      {activity && !sleeping && !bubble && !gardenOpen && (
         <Html position={[0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
           <div className="pointer-events-none select-none text-[15px] drop-shadow">
             {activity === "coffee" ? "☕" : activity === "sketch" ? "✏️" : "🤸"}
@@ -538,14 +542,14 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       )}
 
       {/* hunger indicator — a hungry agent shows a plate until fed */}
-      {agent.hunger >= 75 && !sleeping && (
+      {agent.hunger >= 75 && !sleeping && !gardenOpen && (
         <Html position={[-0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
           <div className="pointer-events-none select-none text-[14px] drop-shadow">🍽️</div>
         </Html>
       )}
 
       {/* sleeping indicator */}
-      {sleeping && (
+      {sleeping && !gardenOpen && (
         <Html position={[0.4, 2.5, 0]} center distanceFactor={10} zIndexRange={[70, 50]} pointerEvents="none">
           <div className="pointer-events-none select-none text-[15px] font-bold tracking-tight text-sky-200/90 drop-shadow">
             z<span className="text-[12px]">z</span><span className="text-[9px]">z</span>
@@ -554,6 +558,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       )}
 
       {/* name label + optional task progress bar */}
+      {!gardenOpen && (
       <Html position={[0, 2.55, 0]} center distanceFactor={11} zIndexRange={[60, 40]} pointerEvents="none">
         <div className="pointer-events-none flex select-none flex-col items-center gap-1">
           <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-ink-900/90 px-2.5 py-1 text-[12px] font-medium text-slate-100 shadow-panel">
@@ -584,9 +589,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           )}
         </div>
       </Html>
+      )}
 
       {/* in-world radial actions when selected */}
-      {selected && (
+      {selected && !gardenOpen && (
         <Html position={[0, 1.4, 0]} center distanceFactor={9} zIndexRange={[40, 10]}>
           <RadialMenu items={items} color={hex} initial={agent.name.charAt(0).toUpperCase()} />
         </Html>

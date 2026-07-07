@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Fix: dialoghi e simboli degli agenti visibili nel garden 🩹
+- **Fixed** — `Agent3D`: il Commit Garden è un overlay a schermo intero, ma le
+  `<Html>` degli agenti (bolle di dialogo, ☕/✏️/🍽️/zzz, etichetta nome, tooltip,
+  menu radiale) sono portali DOM con z-index alto che "bucavano" l'overlay e
+  restavano visibili sopra il giardino. Ora sono soppresse quando `gardenOpen`.
+
 ### 2026-07-07 — Tema della stanza (personalizzazione dell'ufficio) 🎨
 - **Added** — `src/lib/roomThemes.ts` (puro): 5 palette della stanza (pareti,
   boiserie, base pedana, modanature, battiscopa) + `getRoomTheme` con fallback al
