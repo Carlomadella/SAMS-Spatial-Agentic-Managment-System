@@ -10,7 +10,7 @@ import { balanceOf, formatCoins } from "../lib/economy";
 import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
-import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, buildMetaTask } from "../lib/metaAgent";
+import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
@@ -68,6 +68,7 @@ export function AgentInspector() {
 
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
+  const [taskRepo, setTaskRepo] = useState("");
   const [goalTitle, setGoalTitle] = useState("");
   const [goalMilestone, setGoalMilestone] = useState(3);
   const [importJson, setImportJson] = useState("");
@@ -702,6 +703,9 @@ export function AgentInspector() {
             {agent.taskQueue.map((qt, i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-md bg-ink-800 px-2 py-1">
                 <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{qt.title}</span>
+                {qt.repo && (
+                  <span title={`Repo del task: ${qt.repo}`} className="shrink-0 truncate rounded bg-ink-700 px-1 font-mono text-[9px] text-sky-300">⑂ {qt.repo}</span>
+                )}
                 <button
                   onClick={() => removeFromQueue(agent.id, i)}
                   title="Rimuovi dalla coda"
@@ -751,6 +755,19 @@ export function AgentInspector() {
             placeholder="feature/branch"
             className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut focus:border-brand/50"
           />
+          <input
+            value={taskRepo}
+            onChange={(e) => setTaskRepo(e.target.value)}
+            placeholder={`repo del task (opzionale) — vuoto = ${metaRepo(agent) ?? "repo globale"}`}
+            title="Indirizza SOLO questo task a un repository diverso (owner/repo). Vuoto = usa il repo dell'agente."
+            className={cn(
+              "w-full rounded-md border bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut/70 focus:border-brand/50",
+              taskRepo.trim() && !isValidRepo(taskRepo) ? "border-rose-500/60" : "border-line",
+            )}
+          />
+          {taskRepo.trim() && !isValidRepo(taskRepo) && (
+            <p className="text-[11px] leading-snug text-rose-400">Formato repo non valido: usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.</p>
+          )}
           {(hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)) && (
             <p className="text-[11px] leading-snug text-amber-400">
               Compila i segnaposto tra parentesi graffe (es. <code className="rounded bg-ink-700 px-1">{"{argomento}"}</code>,{" "}
@@ -758,25 +775,27 @@ export function AgentInspector() {
             </p>
           )}
           <button
-            disabled={!title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)}
+            disabled={!title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
             onClick={() => {
               const t = title.trim();
               const b = branch.trim();
+              const repoOverride = taskRepo.trim() || undefined;
               if (agent.task) {
-                // agent busy → queue it
-                enqueueTask(agent.id, { title: t, branch: b });
+                // agent busy → queue it (carrying the per-task repo, if any)
+                enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride });
                 log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda: ${t}` });
               } else {
                 // agent idle → start immediately
                 assignTask(agent.id, t, b);
                 if (backendEnabled) {
-                  assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions, metaRepo(agent)).catch((err: Error) =>
+                  assignRemote(agent.id, agent.name, t, b, agent.role, agent.instructions, resolveTaskRepo(agent, repoOverride)).catch((err: Error) =>
                     log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Runtime: ${err.message}` }),
                   );
                 }
               }
               setTitle("");
               setBranch("");
+              setTaskRepo("");
             }}
             className="btn btn-primary w-full"
           >

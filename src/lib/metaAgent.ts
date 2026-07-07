@@ -27,6 +27,21 @@ export function metaRepo(agent: { meta?: boolean; repo?: string }): string | und
   return agent.meta ? SAMS_REPO : undefined;
 }
 
+/**
+ * Repo bersaglio per un **singolo task**. Un override esplicito per-task
+ * (`owner/repo` valido) vince su tutto; altrimenti si ricade sulla risoluzione
+ * per-agente (`metaRepo`: override d'agente → SAMS se meta → repo globale).
+ * Pura: consente di indirizzare un task a un repo diverso da quello dell'agente.
+ */
+export function resolveTaskRepo(
+  agent: { meta?: boolean; repo?: string },
+  taskRepo?: string,
+): string | undefined {
+  const explicit = taskRepo?.trim();
+  if (explicit && REPO_RE.test(explicit)) return explicit;
+  return metaRepo(agent);
+}
+
 export interface MetaIdea {
   id: string;
   /** Etichetta breve mostrata nel selettore. */

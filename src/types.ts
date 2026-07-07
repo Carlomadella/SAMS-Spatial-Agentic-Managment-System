@@ -93,6 +93,9 @@ export interface TaskRecord {
 export interface QueuedTask {
   title: string;
   branch: string;
+  /** Override del repository per *questo* task (owner/repo). Vuoto = usa la
+   * risoluzione per-agente. Vedi `resolveTaskRepo` in lib/metaAgent. */
+  repo?: string;
 }
 
 export interface Agent {

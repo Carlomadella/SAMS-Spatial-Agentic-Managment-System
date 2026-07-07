@@ -4,6 +4,7 @@ import {
   META_IDEAS,
   isValidRepo,
   metaRepo,
+  resolveTaskRepo,
   slugifyBranch,
   buildMetaTask,
   shouldProposeMeta,
@@ -38,6 +39,24 @@ describe("metaRepo", () => {
   it("ignora un override non valido (ricade su meta/globale)", () => {
     expect(metaRepo({ repo: "non-valido" })).toBeUndefined();
     expect(metaRepo({ meta: true, repo: "  " })).toBe(SAMS_REPO);
+  });
+});
+
+describe("resolveTaskRepo", () => {
+  it("l'override per-task valido vince su tutto", () => {
+    expect(resolveTaskRepo({}, "acme/widgets")).toBe("acme/widgets");
+    expect(resolveTaskRepo({ meta: true }, "acme/widgets")).toBe("acme/widgets");
+    expect(resolveTaskRepo({ repo: "team/repo" }, "acme/widgets")).toBe("acme/widgets");
+  });
+  it("senza override per-task ricade sulla risoluzione per-agente (metaRepo)", () => {
+    expect(resolveTaskRepo({ meta: true })).toBe(SAMS_REPO);
+    expect(resolveTaskRepo({ repo: "team/repo" })).toBe("team/repo");
+    expect(resolveTaskRepo({})).toBeUndefined();
+  });
+  it("ignora un override per-task non valido e ricade sull'agente", () => {
+    expect(resolveTaskRepo({ repo: "team/repo" }, "non-valido")).toBe("team/repo");
+    expect(resolveTaskRepo({ meta: true }, "  ")).toBe(SAMS_REPO);
+    expect(resolveTaskRepo({}, "solo-owner")).toBeUndefined();
   });
 });
 

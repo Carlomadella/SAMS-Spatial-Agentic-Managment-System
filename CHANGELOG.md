@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Multi-repo per-task ⑂
+- **Added** — `resolveTaskRepo(agent, taskRepo)` (puro, `lib/metaAgent`): override
+  del repository per singolo task (`owner/repo` valido) che vince su `metaRepo`;
+  fallback alla risoluzione per-agente. +3 test.
+- **Changed** — `QueuedTask` porta un campo opzionale `repo`; il `QueueBridge`
+  passa `resolveTaskRepo(fresh, next.repo)` allo svuotamento della coda.
+- **Added** — `AgentInspector`: campo "repo del task (opzionale)" con validazione
+  `owner/repo` (blocca l'assegnazione se malformato) e chip `⑂ repo` sugli item in
+  coda con override. Il server già accettava l'override per-task.
+
 ### 2026-07-07 — Voto di qualità pre-PR sulle modifiche in staging ⚑
 - **Added** — `src/lib/quality.ts` (puro): `gradeChanges` valuta i `PendingFile`
   con euristiche locali (codice senza test, messaggi di commit mancanti, residui di

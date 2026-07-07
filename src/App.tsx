@@ -17,7 +17,7 @@ import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend, pushWorld } from "./lib/backend";
-import { metaRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
+import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
 import { chainTitle, matchingChains } from "./lib/chains";
@@ -102,7 +102,7 @@ function QueueBridge() {
               useStore.getState().shiftQueue(fresh.id);
               useStore.getState().assignTask(fresh.id, next.title, next.branch);
               if (backendEnabled) {
-                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(
+                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions, resolveTaskRepo(fresh, next.repo)).catch(
                   (err: Error) =>
                     useStore.getState().log({
                       agentId: fresh.id,

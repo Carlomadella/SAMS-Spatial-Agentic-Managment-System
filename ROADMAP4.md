@@ -139,8 +139,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🧠 Profondità agentica (trasversale)
 
-- [ ] 💡 **Multi-repo per-task** ⬅️ — oltre al retarget del meta-agente, poter
-      scegliere il repo bersaglio per singolo task/agente dalla UI.
+- [x] ✅ **Multi-repo per-task** ⬅️ — oltre al retarget del meta-agente e
+      all'override per-agente (`agent.repo`), ora si può scegliere il repo bersaglio
+      per **singolo task** dalla UI. `resolveTaskRepo(agent, taskRepo)` (puro, in
+      `lib/metaAgent`): un override per-task valido vince, altrimenti si ricade su
+      `metaRepo` (agente → SAMS se meta → globale). `QueuedTask.repo` porta
+      l'override anche nella **coda** (svuotata dal `QueueBridge`). UI inspector:
+      campo "repo del task (opzionale)" con validazione `owner/repo` + chip `⑂ repo`
+      sugli item in coda. Il server già accetta l'override per-task. 3 test.
 - [x] ✅ **Preset ruolo/modello per-agente** ⬅️ — profili salvati (ruolo + modello +
       istruzioni) applicabili in un click. `src/lib/agentPresets.ts` (puro:
       `addPreset` con dedup per nome + cap a `MAX_PRESETS`, `removePreset`) sopra al
@@ -201,6 +207,23 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — multi-repo per-task (profondità agentica)
+Quinto slice della sessione. La UI aveva già l'override repo **per-agente**
+(`agent.repo`) e il server accettava un `repo` per-assegnazione (override via
+AsyncLocalStorage); mancava scegliere il repo per **singolo task**. Aggiunto senza
+toccare il server.
+- **Puro** `resolveTaskRepo(agent, taskRepo)` in `lib/metaAgent`: un override
+  per-task `owner/repo` valido vince su tutto; altrimenti ricade su `metaRepo`
+  (override d'agente → SAMS se meta → globale). 3 test.
+- **Tipi/coda**: `QueuedTask.repo?` porta l'override anche nei task in coda; il
+  `QueueBridge` (App.tsx) passa `resolveTaskRepo(fresh, next.repo)` allo svuotamento.
+- **UI** `AgentInspector`: campo "repo del task (opzionale)" con validazione
+  `owner/repo` (bordo rosso + blocco del pulsante se malformato) e chip `⑂ repo`
+  sugli item in coda che hanno un override.
+- Verifica: modulo unit-testato; il contratto col runtime è invariato (il server
+  già validava `body.repo`); l'assegnazione live è da provare a mano.
+- Test: client 312 → 315. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — voto di qualità pre-PR (profondità agentica)
 Quarto slice, sempre indipendente dalle scelte di prodotto aperte. Chiude
