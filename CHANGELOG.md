@@ -7,6 +7,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Tema della stanza (personalizzazione dell'ufficio) 🎨
+- **Added** — `src/lib/roomThemes.ts` (puro): 5 palette della stanza (pareti,
+  boiserie, base pedana, modanature, battiscopa) + `getRoomTheme` con fallback al
+  default; "warm" riproduce l'aspetto storico. +5 test.
+- **Added** — store: `roomTheme` **persistito** + `setRoomTheme`.
+- **Changed** — `OfficeScene` `Floor`: i colori del guscio della stanza vengono dal
+  tema selezionato invece che da costanti hardcoded (cambio a caldo).
+- **Added** — palette comandi: voci "Stanza: … " per scegliere il tema (✓ sull'attivo).
+
 ### 2026-07-07 — Multi-repo per-task ⑂
 - **Added** — `resolveTaskRepo(agent, taskRepo)` (puro, `lib/metaAgent`): override
   del repository per singolo task (`owner/repo` valido) che vince su `metaRepo`;

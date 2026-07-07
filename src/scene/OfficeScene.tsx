@@ -30,6 +30,7 @@ import { Agent3D } from "./Agent3D";
 import { monitorView, queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
+import { getRoomTheme } from "../lib/roomThemes";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
@@ -41,13 +42,15 @@ import {
 } from "../data/world";
 import type { Vec2, Zone } from "../types";
 
-const WALL = "#efe7da";
-const WALL_LOWER = "#e4d8c4"; // wainscoting panel
-const FLOOR = "#caa877";
-const TRIM = "#f5eee1";
-const BASEBOARD = "#dccbb0";
-
 function Floor() {
+  // Colori del guscio della stanza dal tema selezionato (persistito).
+  const theme = getRoomTheme(useStore((s) => s.roomTheme));
+  const WALL = theme.wall;
+  const WALL_LOWER = theme.wallLower; // wainscoting panel
+  const FLOOR = theme.floor;
+  const TRIM = theme.trim;
+  const BASEBOARD = theme.baseboard;
+
   const downPos = useRef<{ x: number; y: number } | null>(null);
   const wood = useMemo(() => {
     const t = woodFloorTexture();

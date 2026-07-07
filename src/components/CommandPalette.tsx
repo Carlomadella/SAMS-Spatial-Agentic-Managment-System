@@ -14,6 +14,7 @@ import {
   Maximize2,
   MapPin,
   MousePointer2,
+  Paintbrush,
   Plus,
   RotateCcw,
   Send,
@@ -26,6 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
+import { ROOM_THEMES } from "../lib/roomThemes";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
 import { metaRepo } from "../lib/metaAgent";
@@ -125,6 +127,15 @@ export function CommandPalette() {
     list.push({ id: "tasks", label: "Apri elenco Task", icon: ListTodo, keywords: "tasks task elenco lavori", run: () => s.setBottomTab("tasks") });
     list.push({ id: "settings", label: "Apri Impostazioni runtime", icon: Settings, keywords: "settings impostazioni chiavi keys runtime config", run: () => s.setSettingsOpen(true) });
     list.push({ id: "theme", label: `Tema: passa a ${s.theme === "dark" ? "chiaro" : "scuro"}`, icon: SunMoon, keywords: "theme tema chiaro scuro dark light", run: () => s.toggleTheme() });
+    for (const rt of ROOM_THEMES) {
+      list.push({
+        id: `room-${rt.id}`,
+        label: `Stanza: ${rt.emoji} ${rt.name}${s.roomTheme === rt.id ? " ✓" : ""}`,
+        icon: Paintbrush,
+        keywords: `stanza room tema colore pareti pavimento ${rt.name} ${rt.id}`,
+        run: () => s.setRoomTheme(rt.id),
+      });
+    }
     list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });
     list.push({ id: "webhook", label: `Risposta ai webhook GitHub: ${s.webhookAutoAssign ? "disattiva" : "attiva"}`, icon: Bell, keywords: "webhook github ci wake toggle", run: () => s.setWebhookAutoAssign(!s.webhookAutoAssign) });
 

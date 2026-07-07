@@ -185,9 +185,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       **lavagna della coda** → apre il tab Task (`setBottomTab`); l'**orologio a
       muro** → rintocca ora + fase della giornata (`pushToast`). Logica pura testata
       (6 test); resa/posizioni 3D da rifinire a occhio nel browser.
-- [ ] 💡 ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
+- [ ] 🏗️ ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
       tema della stanza; layout persistito (naturale una volta che lo stato è
-      autorevole sul server).
+      autorevole sul server). _Fatto: **tema della stanza** — `src/lib/roomThemes.ts`
+      (puro: 5 palette pareti/pavimento/modanature + `getRoomTheme` con fallback;
+      "warm" = aspetto storico) → il `Floor` di `OfficeScene` legge i colori dal
+      tema; store `roomTheme` **persistito**; scelta dalla palette comandi ("Stanza:
+      …"). 5 test._ Resta: spostare i mobili (layout persistito), naturale con lo
+      stato autorevole (#1).
 
 ## 🛠️ Solidità & produzione (engineering)
 
@@ -207,6 +212,21 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — tema della stanza (personalizzazione dell'ufficio)
+Sesto slice. Primo pezzo della "personalizzazione dell'ufficio" fattibile subito
+(persistenza locale), senza aspettare lo stato autorevole (#1): scegliere la
+palette cromatica della stanza.
+- **Puro** `src/lib/roomThemes.ts`: 5 temi (pareti, boiserie, base pedana,
+  modanature, battiscopa) + `getRoomTheme(id)` con fallback al default. "warm"
+  riproduce esattamente l'aspetto storico → il default non cambia nulla. 5 test.
+- **Store**: `roomTheme` **persistito** (partialize + migrazione) + `setRoomTheme`.
+- **Scena**: il `Floor` di `OfficeScene` non usa più costanti hardcoded ma legge i
+  colori dal tema (`useStore((s) => s.roomTheme)`), così cambia a caldo.
+- **UI**: comandi "Stanza: 🏜️ Sabbia calda / 🧊 Azzurro freddo / …" nella palette,
+  con ✓ sul tema attivo.
+- Verifica: modulo unit-testato; il cambio a video è da vedere a occhio.
+- Test: client 315 → 320. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — multi-repo per-task (profondità agentica)
 Quinto slice della sessione. La UI aveva già l'override repo **per-agente**

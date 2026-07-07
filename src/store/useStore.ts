@@ -28,6 +28,7 @@ import { sanitizePeople } from "../lib/presence";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
 import { addPreset, removePreset } from "../lib/agentPresets";
+import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
@@ -59,6 +60,8 @@ interface State {
   /** Interactive UI tour overlay (transient — never persisted). */
   tourOpen: boolean;
   theme: "dark" | "light";
+  /** Tema cromatico della stanza 3D (pareti/pavimento/modanature). */
+  roomTheme: string;
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
@@ -172,6 +175,7 @@ interface State {
   setGardenOpen: (open: boolean) => void;
   setTourOpen: (open: boolean) => void;
   toggleTheme: () => void;
+  setRoomTheme: (id: string) => void;
   setLeftOpen: (open: boolean) => void;
   setRightOpen: (open: boolean) => void;
   toggleLeft: () => void;
@@ -283,6 +287,7 @@ export const useStore = create<State>()(
     typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
       ? "light"
       : "dark",
+  roomTheme: DEFAULT_ROOM_THEME,
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
@@ -625,6 +630,7 @@ export const useStore = create<State>()(
   setGardenOpen: (open) => set({ gardenOpen: open }),
   setTourOpen: (open) => set({ tourOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+  setRoomTheme: (id) => set({ roomTheme: id }),
   setLeftOpen: (open) => set({ leftOpen: open }),
   setRightOpen: (open) => set({ rightOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
@@ -790,6 +796,7 @@ export const useStore = create<State>()(
         chains: s.chains,
         agentPresets: s.agentPresets,
         theme: s.theme,
+        roomTheme: s.roomTheme,
         chatName: s.chatName,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -808,6 +815,7 @@ export const useStore = create<State>()(
           if (!state.wallets) state.wallets = {};
           if (!state.chains) state.chains = [];
           if (!state.agentPresets) state.agentPresets = [];
+          if (!state.roomTheme) state.roomTheme = DEFAULT_ROOM_THEME;
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;
