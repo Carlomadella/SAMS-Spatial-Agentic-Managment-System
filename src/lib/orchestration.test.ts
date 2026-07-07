@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canStartQueued, composeRelayTitle, findRelayTarget, isIdleEligible, pickFreeAgent, shouldAutoStartQueue } from "./orchestration";
+import { canStartQueued, composeRelayTitle, enqueueOrdered, findRelayTarget, isIdleEligible, pickFreeAgent, shouldAutoStartQueue } from "./orchestration";
 import type { Agent } from "../types";
 
 function mkAgent(over: Partial<Agent> & { id: string }): Agent {
@@ -104,5 +104,32 @@ describe("pickFreeAgent", () => {
       mkAgent({ id: "one", status: "working", task: { title: "t", branch: "b", progress: 0 }, taskQueue: [] }),
     ];
     expect(pickFreeAgent(agents)?.id).toBe("one");
+  });
+});
+
+describe("enqueueOrdered", () => {
+  const t = (title: string, urgent = false) => ({ title, branch: "b", urgent });
+
+  it("appends a normal task at the end", () => {
+    const q = [t("a"), t("b")];
+    expect(enqueueOrdered(q, t("c")).map((x) => x.title)).toEqual(["a", "b", "c"]);
+  });
+
+  it("puts an urgent task ahead of normal ones", () => {
+    const q = [t("a"), t("b")];
+    expect(enqueueOrdered(q, t("urg", true)).map((x) => x.title)).toEqual(["urg", "a", "b"]);
+  });
+
+  it("keeps urgents in FIFO among themselves", () => {
+    let q = [t("normal")];
+    q = enqueueOrdered(q, t("u1", true));
+    q = enqueueOrdered(q, t("u2", true));
+    expect(q.map((x) => x.title)).toEqual(["u1", "u2", "normal"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const q = [t("a")];
+    enqueueOrdered(q, t("u", true));
+    expect(q.map((x) => x.title)).toEqual(["a"]);
   });
 });

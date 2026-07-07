@@ -96,6 +96,9 @@ export interface QueuedTask {
   /** Override del repository per *questo* task (owner/repo). Vuoto = usa la
    * risoluzione per-agente. Vedi `resolveTaskRepo` in lib/metaAgent. */
   repo?: string;
+  /** Task urgente: salta la coda inserendosi davanti a quelli normali (FIFO tra
+   * gli urgenti). Vedi `enqueueOrdered` in lib/orchestration. */
+  urgent?: boolean;
 }
 
 export interface Agent {

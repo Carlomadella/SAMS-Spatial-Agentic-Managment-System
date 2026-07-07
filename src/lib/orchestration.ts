@@ -1,4 +1,4 @@
-import type { Agent } from "../types";
+import type { Agent, QueuedTask } from "../types";
 
 /** A relay request emitted by an agent's `relay_task` tool, queued in the store. */
 export interface RelayRequest {
@@ -60,6 +60,21 @@ export function pickFreeAgent(agents: Agent[]): Agent | undefined {
     const load = (x: Agent) => (x.task ? 1 : 0) + (x.taskQueue?.length ?? 0);
     return load(a) < load(best) ? a : best;
   });
+}
+
+/**
+ * Inserisce un task nella coda rispettando la priorità: un task **urgente** salta
+ * davanti a quelli normali, ma resta in coda (FIFO) rispetto agli altri urgenti già
+ * presenti; un task normale va in fondo. La coda si consuma sempre dall'indice 0,
+ * quindi questo ordinamento basta a far servire prima gli urgenti — senza toccare
+ * `shiftQueue` né il bridge. Immutabile.
+ */
+export function enqueueOrdered(queue: QueuedTask[], task: QueuedTask): QueuedTask[] {
+  if (!task.urgent) return [...queue, task];
+  // inserisci dopo il blocco iniziale di urgenti (preserva l'ordine tra urgenti)
+  let i = 0;
+  while (i < queue.length && queue[i].urgent) i++;
+  return [...queue.slice(0, i), task, ...queue.slice(i)];
 }
 
 /**

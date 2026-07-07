@@ -222,6 +222,16 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-07 — task urgenti che saltano la coda (profondità agentica)
+Nono slice. Piccolo e de-riscato: dare priorità a un task in coda senza toccare il
+consumo della coda (FIFO dall'indice 0) né il `QueueBridge`.
+- **Puro** `enqueueOrdered` in `lib/orchestration`: un `urgent` si inserisce davanti
+  ai normali (FIFO tra urgenti), un normale va in fondo. Immutabile. 4 test.
+- **Wiring**: `QueuedTask.urgent`, `enqueueTask` usa l'helper; UI inspector con
+  checkbox "⚡ Urgente" e chip ⚡ sugli item. Zero cambi al bridge/shiftQueue.
+- Verifica: helper unit-testato + store; l'accodamento live è da provare a mano.
+  Test: client 355 → 359. Verdi.
+
 ### 2026-07-07 — notifiche desktop rifinite (prodotto)
 Ottavo slice, sul fronte **prodotto** (#3). Il `NotificationBridge` esisteva già ma
 era intrusivo: sempre attivo, forzava il prompt di permesso al primo completamento e

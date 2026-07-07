@@ -32,6 +32,7 @@ import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
+import { enqueueOrdered } from "../lib/orchestration";
 import type { ChainRule } from "../lib/chains";
 import {
   advanceRun,
@@ -562,7 +563,7 @@ export const useStore = create<State>()(
   enqueueTask: (id, task) =>
     set((s) => ({
       agents: s.agents.map((a) =>
-        a.id === id ? { ...a, taskQueue: [...(a.taskQueue ?? []), task] } : a,
+        a.id === id ? { ...a, taskQueue: enqueueOrdered(a.taskQueue ?? [], task) } : a,
       ),
     })),
 

@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Task urgenti che saltano la coda ⚡
+- **Added** — `enqueueOrdered(queue, task)` (puro, `lib/orchestration`): un task
+  `urgent` si inserisce davanti a quelli normali (FIFO tra gli urgenti), un task
+  normale va in fondo. La coda si consuma sempre dall'indice 0, quindi basta
+  l'ordinamento — nessuna modifica a `shiftQueue` né al `QueueBridge`. +4 test.
+- **Changed** — `QueuedTask` porta un campo opzionale `urgent`; `enqueueTask` usa
+  `enqueueOrdered`.
+- **Added** — `AgentInspector`: checkbox "⚡ Urgente — salta la coda" nel form (solo
+  quando l'agente è occupato → si accoda) e chip ⚡ sugli item urgenti in coda.
+
 ### 2026-07-07 — Notifiche desktop rifinite (opt-in, solo a scheda nascosta) 🔔
 - **Added** — `src/lib/notify.ts` (puro): `shouldNotify` (avvisa su `SUCCESS`/`ERROR`
   e sui `WARN` che chiedono attenzione — approvazioni/blocchi), `notificationTitle`,

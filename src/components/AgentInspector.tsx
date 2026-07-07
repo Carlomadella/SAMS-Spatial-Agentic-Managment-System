@@ -69,6 +69,7 @@ export function AgentInspector() {
   const [title, setTitle] = useState("");
   const [branch, setBranch] = useState("");
   const [taskRepo, setTaskRepo] = useState("");
+  const [urgent, setUrgent] = useState(false);
   const [goalTitle, setGoalTitle] = useState("");
   const [goalMilestone, setGoalMilestone] = useState(3);
   const [importJson, setImportJson] = useState("");
@@ -702,6 +703,9 @@ export function AgentInspector() {
             </div>
             {agent.taskQueue.map((qt, i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-md bg-ink-800 px-2 py-1">
+                {qt.urgent && (
+                  <span title="Task urgente — salta la coda" className="shrink-0 text-[11px] text-amber-300">⚡</span>
+                )}
                 <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{qt.title}</span>
                 {qt.repo && (
                   <span title={`Repo del task: ${qt.repo}`} className="shrink-0 truncate rounded bg-ink-700 px-1 font-mono text-[9px] text-sky-300">⑂ {qt.repo}</span>
@@ -774,6 +778,17 @@ export function AgentInspector() {
               <code className="rounded bg-ink-700 px-1">{"{pagina}"}</code>) prima di assegnare il task.
             </p>
           )}
+          {agent.task && (
+            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-300">
+              <input
+                type="checkbox"
+                checked={urgent}
+                onChange={(e) => setUrgent(e.target.checked)}
+                className="accent-amber-500"
+              />
+              <span>⚡ Urgente — salta la coda</span>
+            </label>
+          )}
           <button
             disabled={!title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
             onClick={() => {
@@ -781,9 +796,9 @@ export function AgentInspector() {
               const b = branch.trim();
               const repoOverride = taskRepo.trim() || undefined;
               if (agent.task) {
-                // agent busy → queue it (carrying the per-task repo, if any)
-                enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride });
-                log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda: ${t}` });
+                // agent busy → queue it (carrying the per-task repo + urgency)
+                enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride, urgent });
+                log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda${urgent ? " (urgente)" : ""}: ${t}` });
               } else {
                 // agent idle → start immediately
                 assignTask(agent.id, t, b);
@@ -796,6 +811,7 @@ export function AgentInspector() {
               setTitle("");
               setBranch("");
               setTaskRepo("");
+              setUrgent(false);
             }}
             className="btn btn-primary w-full"
           >
