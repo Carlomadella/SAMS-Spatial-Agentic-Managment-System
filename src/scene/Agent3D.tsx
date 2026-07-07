@@ -11,14 +11,10 @@ import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
-const STATUS_HEX: Record<AgentStatus, string> = {
-  idle: "#94a3b8",
-  working: "#38bdf8",
-  review: "#fbbf24",
-  blocked: "#fb7185",
-  done: "#34d399",
-  awaiting_approval: "#a78bfa",
-};
+// Colori-stato centralizzati in STATUS_META (lib/meta): unica fonte per scena e pannelli.
+const STATUS_HEX: Record<AgentStatus, string> = Object.fromEntries(
+  Object.entries(STATUS_META).map(([k, v]) => [k, v.hex]),
+) as Record<AgentStatus, string>;
 
 const SPEED = 2.7; // world units / second
 

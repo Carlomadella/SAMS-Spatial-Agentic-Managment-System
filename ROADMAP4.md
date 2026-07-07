@@ -124,8 +124,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       Blueprint Render `render.yaml` (Docker, health `/api/health`, secrets vuoti da
       compilare). Compose per il locale, Fly/Railway/qualsiasi host Docker per il
       resto. Il server già ascolta su `$PORT`.
-- [ ] 💡 ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
-      ancora hardcoded); centralizzare i token di colore.
+- [ ] 🏗️ ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
+      ancora hardcoded); centralizzare i token di colore. _Fatto: la palette degli
+      **stati agente** (working/review/blocked/done/idle/…) era duplicata in
+      `Agent3D.tsx` e `SystemOverview.tsx` → centralizzata in `STATUS_META` (campo
+      `hex`, allineato alle classi `dot`) con helper puro `statusHex(status)` (fallback
+      idle). 3 test._ Resta: pochi hex nei componenti-grafici (GitGraph/GardenView) e
+      i token CSS accent.
 - [x] ✅ ⬅️ **Tour interattivo** post-onboarding — `src/lib/tour.ts` (step +
       `placeTourCard` puro, card sempre dentro il viewport) + `Tour.tsx` con
       spotlight sugli elementi `data-tour` (scena, inspector, pannello in basso,
@@ -221,6 +226,19 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — colori-stato centralizzati (prodotto / tema)
+Primo di tre slice chiesti insieme (polish → ruoli → stato autorevole). Sul fronte
+**#3 prodotto**, il pezzo più a basso rischio: rimuovere una duplicazione reale della
+palette dei colori di stato dell'agente, ripetuta identica nella scena 3D e nel
+pannello 2D.
+- **Puro** `statusHex(status)` in `lib/meta.ts`: legge dal campo `hex` aggiunto a
+  `STATUS_META` (allineato alle classi tailwind `dot`), fallback al grigio idle. 3 test.
+- **Wiring**: `Agent3D.tsx` deriva il suo `STATUS_HEX` da `STATUS_META`; `SystemOverview.tsx`
+  usa `statusHex` al posto della mappa locale `STATUS_COLOR` (il dot idle passa da
+  `#475569` a `#94a3b8`, ora coerente con `bg-slate-400`).
+- Verifica: helper unit-testato; typecheck/lint verdi; la resa nei pannelli è da vedere
+  a occhio. Test: client 369 → 372. Verdi.
 
 ### 2026-07-07 — tavoli: esporta/importa (prodotto + agentica)
 Undicesimo slice. Rende i protocolli di collaborazione *condivisibili* tra

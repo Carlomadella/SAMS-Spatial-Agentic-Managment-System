@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store/useStore";
 import { ROOM, ROOM_DEPTH, ROOM_WIDTH, ZONES } from "../data/world";
 import { AGENT_HEX, type AgentStatus } from "../types";
-import { STATUS_META } from "../lib/meta";
+import { STATUS_META, statusHex } from "../lib/meta";
 import { cn } from "../lib/utils";
 import { fetchMetrics, type RuntimeMetrics } from "../lib/backend";
 
@@ -20,15 +20,6 @@ function fmtUptime(s: number): string {
   if (s < 3600) return `${Math.floor(s / 60)}m`;
   return `${Math.floor(s / 3600)}h`;
 }
-
-const STATUS_COLOR: Record<string, string> = {
-  working: "#38bdf8",
-  review:  "#fbbf24",
-  blocked: "#fb7185",
-  done:    "#34d399",
-  awaiting_approval: "#a78bfa",
-  idle:    "#475569",
-};
 
 export function SystemOverview() {
   const agents = useStore((s) => s.agents);
@@ -119,7 +110,7 @@ export function SystemOverview() {
               className="transition-all"
               style={{
                 width: `${(count / agents.length) * 100}%`,
-                background: STATUS_COLOR[status] ?? "#475569",
+                background: statusHex(status),
               }}
               title={`${statusLabel(status)}: ${count}`}
             />
@@ -142,7 +133,7 @@ export function SystemOverview() {
         <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-mut">
           {Object.entries(statusCounts).map(([status, count]) => (
             <span key={status} className="flex items-center gap-0.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: statusHex(status) }} />
               {count} {statusLabel(status)}
             </span>
           ))}

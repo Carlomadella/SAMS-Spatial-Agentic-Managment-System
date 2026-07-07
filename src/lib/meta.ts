@@ -2,15 +2,22 @@ import type { AgentColor, AgentStatus, LogLevel } from "../types";
 
 export const STATUS_META: Record<
   AgentStatus,
-  { label: string; text: string; dot: string; ring: string }
+  { label: string; text: string; dot: string; ring: string; hex: string }
 > = {
-  idle: { label: "Inattivo", text: "text-mut", dot: "bg-slate-400", ring: "ring-slate-500/30" },
-  working: { label: "In corso", text: "text-sky-300", dot: "bg-sky-400", ring: "ring-sky-500/40" },
-  review: { label: "In revisione", text: "text-amber-300", dot: "bg-amber-400", ring: "ring-amber-500/40" },
-  blocked: { label: "Bloccato", text: "text-rose-300", dot: "bg-rose-400", ring: "ring-rose-500/40" },
-  done: { label: "Completato", text: "text-emerald-300", dot: "bg-emerald-400", ring: "ring-emerald-500/40" },
-  awaiting_approval: { label: "In attesa di approvazione", text: "text-violet-300", dot: "bg-violet-400", ring: "ring-violet-500/40" },
+  // `hex` mirrors the tailwind `dot` class above (slate/sky/amber/rose/emerald/violet-400):
+  // single source of truth per lo stato, condiviso da scena 3D e pannelli 2D.
+  idle: { label: "Inattivo", text: "text-mut", dot: "bg-slate-400", ring: "ring-slate-500/30", hex: "#94a3b8" },
+  working: { label: "In corso", text: "text-sky-300", dot: "bg-sky-400", ring: "ring-sky-500/40", hex: "#38bdf8" },
+  review: { label: "In revisione", text: "text-amber-300", dot: "bg-amber-400", ring: "ring-amber-500/40", hex: "#fbbf24" },
+  blocked: { label: "Bloccato", text: "text-rose-300", dot: "bg-rose-400", ring: "ring-rose-500/40", hex: "#fb7185" },
+  done: { label: "Completato", text: "text-emerald-300", dot: "bg-emerald-400", ring: "ring-emerald-500/40", hex: "#34d399" },
+  awaiting_approval: { label: "In attesa di approvazione", text: "text-violet-300", dot: "bg-violet-400", ring: "ring-violet-500/40", hex: "#a78bfa" },
 };
+
+/** Colore esadecimale di uno stato agente, con fallback al grigio "idle" per input ignoti. */
+export function statusHex(status: string): string {
+  return STATUS_META[status as AgentStatus]?.hex ?? STATUS_META.idle.hex;
+}
 
 export const LEVEL_META: Record<LogLevel, { text: string; label: string; badge: string }> = {
   INFO: { text: "text-sky-300", label: "INFO", badge: "bg-sky-500/10 text-sky-300 ring-sky-400/20" },
