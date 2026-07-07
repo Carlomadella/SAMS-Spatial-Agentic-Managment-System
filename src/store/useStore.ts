@@ -26,7 +26,8 @@ import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
 import { XP_PER_TASK } from "../lib/skill";
-import { applyTemplate, type AgentTemplate } from "../lib/agentTemplates";
+import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
+import { addPreset, removePreset } from "../lib/agentPresets";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
@@ -99,6 +100,12 @@ interface State {
   setMeta: (id: string, meta: boolean) => void;
   setRepo: (id: string, repo: string) => void;
   applyTemplate: (id: string, t: AgentTemplate) => void;
+  /** Preset ruolo/modello salvati dall'utente (persistiti), applicabili in un click. */
+  agentPresets: AgentTemplate[];
+  /** Salva la configurazione corrente di un agente come preset con un nome. */
+  saveAgentPreset: (agentId: string, name: string) => void;
+  /** Rimuove un preset salvato per id. */
+  removeAgentPreset: (id: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
   sendToZone: (id: string, zoneId: string) => void;
@@ -361,6 +368,16 @@ export const useStore = create<State>()(
 
   applyTemplate: (id, t) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? applyTemplate(a, t) : a)) })),
+
+  agentPresets: [],
+  saveAgentPreset: (agentId, name) => {
+    const agent = get().agents.find((a) => a.id === agentId);
+    if (!agent) return;
+    const preset = templateFromAgent(agent, name);
+    set((s) => ({ agentPresets: addPreset(s.agentPresets, preset) }));
+  },
+  removeAgentPreset: (id) =>
+    set((s) => ({ agentPresets: removePreset(s.agentPresets, id) })),
 
   moveAgent: (id, target) =>
     set((s) => ({
@@ -771,6 +788,7 @@ export const useStore = create<State>()(
         goals: s.goals,
         wallets: s.wallets,
         chains: s.chains,
+        agentPresets: s.agentPresets,
         theme: s.theme,
         chatName: s.chatName,
         activity: s.activity,
@@ -789,6 +807,7 @@ export const useStore = create<State>()(
           if (!state.goals) state.goals = [];
           if (!state.wallets) state.wallets = {};
           if (!state.chains) state.chains = [];
+          if (!state.agentPresets) state.agentPresets = [];
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;

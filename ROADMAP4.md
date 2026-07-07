@@ -141,8 +141,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 - [ ] 💡 **Multi-repo per-task** ⬅️ — oltre al retarget del meta-agente, poter
       scegliere il repo bersaglio per singolo task/agente dalla UI.
-- [ ] 💡 **Preset ruolo/modello per-agente** ⬅️ — profili salvati (ruolo + modello +
-      istruzioni) applicabili in un click; si appoggia al marketplace di template.
+- [x] ✅ **Preset ruolo/modello per-agente** ⬅️ — profili salvati (ruolo + modello +
+      istruzioni) applicabili in un click. `src/lib/agentPresets.ts` (puro:
+      `addPreset` con dedup per nome + cap a `MAX_PRESETS`, `removePreset`) sopra al
+      marketplace di template (un preset **è** un `AgentTemplate`). Store: slice
+      `agentPresets` **persistita** + `saveAgentPreset`/`removeAgentPreset` (riusa
+      `templateFromAgent`/`applyTemplate`). UI nell'`AgentInspector`: "💾 Salva
+      preset" e una riga di chip "I miei preset" (click per applicare, ✕ per
+      rimuovere). 6 + 3 test (puro + store).
 - [ ] 💡 **Protocolli di collaborazione** — oltre a relay/reazioni a catena, un
       "tavolo" dove più agenti contribuiscono allo stesso obiettivo con hand-off
       espliciti e stato condiviso.
@@ -191,6 +197,24 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — preset ruolo/modello per-agente (profondità agentica)
+Terzo slice della sessione, dalla **profondità agentica** e ancora indipendente
+dalle scelte di prodotto aperte. Chiude l'item "preset salvati applicabili in un
+click", appoggiandosi al marketplace di template già esistente.
+- **Puro** `src/lib/agentPresets.ts`: un preset *è* un `AgentTemplate`; qui vive
+  solo la gestione della lista — `addPreset` (dedup per nome case-insensitive +
+  cap a `MAX_PRESETS`, più recente in testa) e `removePreset`, immutabili. 6 test.
+- **Store**: slice `agentPresets` **persistita** (partialize + migrazione
+  onRehydrate) con `saveAgentPreset` (riusa `templateFromAgent`) e
+  `removeAgentPreset` (riusa `removePreset`). Applicazione via l'`applyTemplate`
+  già esistente. 3 test store.
+- **UI** `AgentInspector`: pulsante "💾 Salva preset" (nome via prompt, default =
+  ruolo) e una riga di chip "I miei preset" — click per applicare a *qualsiasi*
+  agente selezionato, ✕ per rimuovere.
+- Verifica: moduli unit-testati + wiring store testato; l'interazione nel pannello
+  è da provare a mano nel browser.
+- Test: client 295 → 304. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — oggetti interagibili dell'utente (trasversale 3D & feel)
 Secondo slice indipendente della sessione, sempre dalla sezione **Mondo 3D &

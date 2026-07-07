@@ -57,6 +57,9 @@ export function AgentInspector() {
   const setRepo = useStore((s) => s.setRepo);
   const setMeta = useStore((s) => s.setMeta);
   const applyTemplateAction = useStore((s) => s.applyTemplate);
+  const agentPresets = useStore((s) => s.agentPresets);
+  const saveAgentPreset = useStore((s) => s.saveAgentPreset);
+  const removeAgentPreset = useStore((s) => s.removeAgentPreset);
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
@@ -204,7 +207,50 @@ export function AgentInspector() {
         >
           ⤓ Esporta
         </button>
+        <button
+          onClick={() => {
+            const name = window.prompt("Nome del preset:", agent.role || agent.name);
+            if (name == null) return;
+            saveAgentPreset(agent.id, name);
+            log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "SUCCESS", message: `Preset salvato: ${name.trim() || "senza nome"}` });
+          }}
+          title="Salva ruolo + modello + istruzioni correnti come preset riutilizzabile"
+          className="chip cursor-pointer border border-line bg-ink-700 text-slate-400 hover:text-slate-200"
+        >
+          💾 Salva preset
+        </button>
       </div>
+
+      {/* preset salvati dall'utente — click per applicare, ✕ per rimuovere */}
+      {agentPresets.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-mut">I miei preset</span>
+          {agentPresets.map((p) => (
+            <span
+              key={p.id}
+              className="chip group inline-flex items-center gap-1 border border-line bg-ink-700 text-slate-300"
+            >
+              <button
+                onClick={() => {
+                  applyTemplateAction(agent.id, p);
+                  log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `Preset applicato: ${p.emoji} ${p.name}` });
+                }}
+                title={`Applica: ${p.role} · ${p.model}`}
+                className="cursor-pointer hover:text-white"
+              >
+                {p.emoji} {p.name}
+              </button>
+              <button
+                onClick={() => removeAgentPreset(p.id)}
+                title="Rimuovi preset"
+                className="cursor-pointer text-mut hover:text-rose-400"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* import a shared template (JSON) — reuses the pure parseTemplate */}
       <details className="mt-2 rounded-lg border border-line bg-ink-850/60">

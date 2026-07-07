@@ -47,6 +47,40 @@ describe("assignTask", () => {
   });
 });
 
+describe("preset ruolo/modello per-agente", () => {
+  it("saveAgentPreset cattura ruolo/modello/istruzioni correnti dell'agente", () => {
+    useStore.setState({ agentPresets: [] });
+    const id = firstId();
+    useStore.getState().setRole(id, "Tester");
+    useStore.getState().setInstructions(id, "solo test");
+    useStore.getState().saveAgentPreset(id, "Il mio tester");
+    const presets = useStore.getState().agentPresets;
+    expect(presets).toHaveLength(1);
+    expect(presets[0]).toMatchObject({ name: "Il mio tester", role: "Tester", instructions: "solo test" });
+  });
+
+  it("applyTemplate su un preset riporta la configurazione su un altro agente", () => {
+    useStore.setState({ agentPresets: [] });
+    const [a, b] = useStore.getState().agents;
+    useStore.getState().setRole(a.id, "Revisore");
+    useStore.getState().setInstructions(a.id, "leggi le PR");
+    useStore.getState().saveAgentPreset(a.id, "Rev");
+    const preset = useStore.getState().agentPresets[0];
+    useStore.getState().applyTemplate(b.id, preset);
+    expect(agent(b.id)).toMatchObject({ role: "Revisore", instructions: "leggi le PR" });
+  });
+
+  it("removeAgentPreset elimina il preset per id", () => {
+    useStore.setState({ agentPresets: [] });
+    const id = firstId();
+    useStore.getState().saveAgentPreset(id, "Uno");
+    useStore.getState().saveAgentPreset(id, "Due");
+    const first = useStore.getState().agentPresets[0];
+    useStore.getState().removeAgentPreset(first.id);
+    expect(useStore.getState().agentPresets.some((p) => p.id === first.id)).toBe(false);
+  });
+});
+
 describe("updateProgress", () => {
   it("clamps to 0..100 and rounds", () => {
     const id = firstId();
