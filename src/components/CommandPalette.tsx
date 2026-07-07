@@ -121,7 +121,7 @@ export function CommandPalette() {
     list.push({ id: "tour", label: "Avvia tour dell'interfaccia", icon: Compass, keywords: "tour guida interfaccia onboarding aiuto help giro", run: () => s.setTourOpen(true) });
 
     // Quick navigation to feature panels (routine/reazioni, replay, diario…).
-    list.push({ id: "livesim", label: "Apri Live Sim · Routine e reazioni a catena", icon: Clock, keywords: "live sim routine trigger temporali reazioni catena chain automazione", run: () => s.setBottomTab("livesim") });
+    list.push({ id: "livesim", label: "Apri Live Sim · Routine, reazioni a catena e tavoli", icon: Clock, keywords: "live sim routine trigger temporali reazioni catena chain automazione tavoli collaborazione playbook protocolli staffetta", run: () => s.setBottomTab("livesim") });
     list.push({ id: "replay", label: "Apri Replay cinematografico", icon: Film, keywords: "replay clip timeline rivedi cinematografico", run: () => s.setBottomTab("replay") });
     list.push({ id: "diario", label: "Apri Diario del mondo", icon: BookOpen, keywords: "diario diary racconto world narrazione", run: () => s.setBottomTab("diario") });
     list.push({ id: "chat", label: "Apri Chat di workspace", icon: MessageSquare, keywords: "chat messaggi workspace condiviso presence parla", run: () => s.setBottomTab("chat") });

@@ -155,9 +155,18 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       `templateFromAgent`/`applyTemplate`). UI nell'`AgentInspector`: "💾 Salva
       preset" e una riga di chip "I miei preset" (click per applicare, ✕ per
       rimuovere). 6 + 3 test (puro + store).
-- [ ] 💡 **Protocolli di collaborazione** — oltre a relay/reazioni a catena, un
+- [x] ✅ **Protocolli di collaborazione** — oltre a relay/reazioni a catena, un
       "tavolo" dove più agenti contribuiscono allo stesso obiettivo con hand-off
-      espliciti e stato condiviso.
+      espliciti e stato condiviso. `src/lib/collaboration.ts` (puro: `Playbook`
+      come sequenza ordinata di stadi ruolo→titolo; `PlaybookRun` come *stato
+      condiviso* con `stageIndex`; `startRun`/`advanceRun`/`runMatching`/
+      `expandStageTitle`, `{goal}` come segnaposto). A differenza di una `ChainRule`
+      (regola globale senza fine) una run è una **pipeline bounded** con inizio,
+      fine e avanzamento visibile. Store: `playbooks` + `playbookRuns` **persistiti**;
+      `PlaybookBridge` (gemello del `ChainBridge`) al `done` avanza la run e assegna
+      lo stadio successivo riusando il percorso relay verificato. UI `Playbooks` nel
+      Live Sim (editor "ruolo: titolo" per riga, barra di avanzamento delle run,
+      "Avvia"). 19 + 6 test.
 - [x] ✅ **Qualità dell'output** — un voto A–D sulle modifiche in staging *prima
       della PR*, nello spirito del gate CI ma locale. `src/lib/quality.ts` (puro:
       `gradeChanges`) valuta i `PendingFile` con euristiche (codice senza test,
@@ -212,6 +221,35 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — protocolli di collaborazione (tavoli multi-agente)
+Settimo slice, dalla **profondità agentica** e indipendente dalle scelte di
+prodotto aperte (#1 autorevole, #2 ruoli). Chiude "protocolli di collaborazione":
+un **tavolo** dove più agenti lavorano allo stesso obiettivo con hand-off espliciti
+e ordinati. La distinzione con le reazioni a catena: una `ChainRule` è una regola
+globale e senza fine; un **playbook** è una pipeline *bounded* con inizio, fine e
+avanzamento visibile.
+- **Puro** `src/lib/collaboration.ts`: `Playbook` (sequenza di `CollabStage`
+  ruolo→titolo, `{goal}` come segnaposto) e `PlaybookRun` (lo stato condiviso del
+  tavolo, con `stageIndex`). `startRun`/`advanceRun` (immutabili, idempotenti a
+  fine corsa), `runMatching` (trova la run il cui stadio corrente combacia con un
+  task appena completato, per titolo espanso + ruolo), `runProgress`/`runLabel`/
+  `playbookSummary`. `sanitizePlaybookInput` scarta stadi vuoti e cappa a 8. 19 test.
+- **Store**: slice `playbooks` + `playbookRuns` **persistiti** (partialize +
+  migrazione onRehydrate); `addPlaybook`/`removePlaybook`, `startPlaybook` (crea e
+  restituisce la run), `advancePlaybookRun`/`removePlaybookRun`. 6 test store.
+- **Bridge** `PlaybookBridge` in App.tsx, gemello del `ChainBridge`: al passaggio di
+  un agente in "done", se il task è lo stadio corrente di una run attiva, avanza la
+  run e assegna lo stadio successivo al target (`findRelayTarget`), **riusando lo
+  stesso percorso di assegnazione già verificato** (`assignTask`/`assignRemote`,
+  arco di handoff + affinità + whoosh). Single-fire per (run, stadio).
+- **UI** `Playbooks` nel pannello Live Sim (accanto a Reazioni a catena): editor a
+  righe "ruolo: titolo", elenco protocolli con "Avvia", run in corso con barra di
+  avanzamento e stadio corrente. La palette Live Sim ora è cercabile anche per
+  "tavoli/collaborazione/playbook".
+- Verifica: moduli unit-testati + wiring store testato; il bridge riusa il path del
+  `ChainBridge` già verificato end-to-end; il click "Avvia" nel browser è da provare
+  a mano. Test: client 320 → 345. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — tema della stanza (personalizzazione dell'ufficio)
 Sesto slice. Primo pezzo della "personalizzazione dell'ufficio" fattibile subito

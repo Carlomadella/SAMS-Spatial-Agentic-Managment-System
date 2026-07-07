@@ -81,6 +81,61 @@ describe("preset ruolo/modello per-agente", () => {
   });
 });
 
+describe("protocolli di collaborazione (playbook)", () => {
+  beforeEach(() => useStore.setState({ playbooks: [], playbookRuns: [] }));
+
+  it("addPlaybook ripulisce e scarta gli stadi non validi", () => {
+    useStore.getState().addPlaybook({
+      name: "  Rilascio  ",
+      goal: "auth",
+      branch: "",
+      stages: [
+        { role: "dev", title: "Implementa {goal}" },
+        { role: "", title: "buco" },
+      ],
+    });
+    const pbs = useStore.getState().playbooks;
+    expect(pbs).toHaveLength(1);
+    expect(pbs[0]).toMatchObject({ name: "Rilascio", stages: [{ role: "dev", title: "Implementa {goal}" }] });
+    expect(pbs[0].id).toBeTruthy();
+  });
+
+  it("addPlaybook ignora un protocollo senza stadi validi", () => {
+    useStore.getState().addPlaybook({ name: "Vuoto", goal: "", branch: "", stages: [] });
+    expect(useStore.getState().playbooks).toHaveLength(0);
+  });
+
+  it("startPlaybook crea una run al primo stadio e la restituisce", () => {
+    useStore.getState().addPlaybook({ name: "P", goal: "x", branch: "", stages: [{ role: "dev", title: "a" }, { role: "qa", title: "b" }] });
+    const pbId = useStore.getState().playbooks[0].id;
+    const run = useStore.getState().startPlaybook(pbId);
+    expect(run).not.toBeNull();
+    expect(run!.stageIndex).toBe(0);
+    expect(useStore.getState().playbookRuns).toHaveLength(1);
+  });
+
+  it("startPlaybook su un id inesistente non crea nulla", () => {
+    expect(useStore.getState().startPlaybook("ghost")).toBeNull();
+    expect(useStore.getState().playbookRuns).toHaveLength(0);
+  });
+
+  it("advancePlaybookRun avanza gli stadi e conclude dopo l'ultimo", () => {
+    useStore.getState().addPlaybook({ name: "P", goal: "x", branch: "", stages: [{ role: "dev", title: "a" }, { role: "qa", title: "b" }] });
+    const run = useStore.getState().startPlaybook(useStore.getState().playbooks[0].id)!;
+    useStore.getState().advancePlaybookRun(run.id);
+    expect(useStore.getState().playbookRuns[0].stageIndex).toBe(1);
+    useStore.getState().advancePlaybookRun(run.id);
+    expect(useStore.getState().playbookRuns[0].done).toBe(true);
+  });
+
+  it("removePlaybookRun scarta la run", () => {
+    useStore.getState().addPlaybook({ name: "P", goal: "x", branch: "", stages: [{ role: "dev", title: "a" }] });
+    const run = useStore.getState().startPlaybook(useStore.getState().playbooks[0].id)!;
+    useStore.getState().removePlaybookRun(run.id);
+    expect(useStore.getState().playbookRuns).toHaveLength(0);
+  });
+});
+
 describe("updateProgress", () => {
   it("clamps to 0..100 and rounds", () => {
     const id = firstId();

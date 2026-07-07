@@ -7,6 +7,27 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Protocolli di collaborazione (tavoli multi-agente) 🤝
+- **Added** — `src/lib/collaboration.ts` (puro): `Playbook` come sequenza ordinata
+  di stadi `ruolo→titolo` (`{goal}` come segnaposto) e `PlaybookRun` come *stato
+  condiviso* del tavolo (con `stageIndex`). `startRun`/`advanceRun` (immutabili,
+  idempotenti a fine corsa), `runMatching` (aggancia lo stadio corrente a un task
+  completato per titolo espanso + ruolo), `runProgress`/`runLabel`/`playbookSummary`,
+  `sanitizePlaybookInput` (scarta stadi vuoti, cappa a 8 stadi). +19 test.
+- **Added** — store: slice `playbooks` + `playbookRuns` **persistiti**;
+  `addPlaybook`/`removePlaybook`, `startPlaybook` (crea e restituisce la run),
+  `advancePlaybookRun`/`removePlaybookRun`. +6 test store.
+- **Added** — `PlaybookBridge` (App.tsx), gemello del `ChainBridge`: al `done` di un
+  agente, se il task è lo stadio corrente di una run attiva, avanza la run e assegna
+  lo stadio successivo al target riusando il percorso relay già verificato
+  (`assignTask`/`assignRemote`, arco di handoff + affinità). Single-fire per (run,
+  stadio); a fine pipeline logga e notifica il completamento del tavolo.
+- **Added** — `Playbooks` nel pannello Live Sim: editor a righe "ruolo: titolo",
+  elenco protocolli con "Avvia", run in corso con barra di avanzamento e stadio
+  corrente. Palette Live Sim cercabile anche per "tavoli/collaborazione/playbook".
+- **Distinzione** — dove una `ChainRule` è una regola globale e senza fine, un
+  playbook è una **pipeline bounded** con inizio, fine e avanzamento visibile.
+
 ### 2026-07-07 — Fix: dialoghi e simboli degli agenti visibili nel garden 🩹
 - **Fixed** — `Agent3D`: il Commit Garden è un overlay a schermo intero, ma le
   `<Html>` degli agenti (bolle di dialogo, ☕/✏️/🍽️/zzz, etichetta nome, tooltip,

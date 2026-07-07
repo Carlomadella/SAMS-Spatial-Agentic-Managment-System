@@ -33,6 +33,13 @@ import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relati
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
 import type { ChainRule } from "../lib/chains";
+import {
+  advanceRun,
+  sanitizePlaybookInput,
+  startRun,
+  type Playbook,
+  type PlaybookRun,
+} from "../lib/collaboration";
 
 const STATUS_LEVEL: Record<AgentStatus, LogLevel> = {
   idle: "IDLE",
@@ -159,6 +166,18 @@ interface State {
   updateChain: (id: string, patch: Partial<Omit<ChainRule, "id">>) => void;
   removeChain: (id: string) => void;
   toggleChain: (id: string) => void;
+  /** Protocolli di collaborazione: modelli di pipeline multi-agente (persistiti). */
+  playbooks: Playbook[];
+  addPlaybook: (input: Omit<Playbook, "id">) => void;
+  removePlaybook: (id: string) => void;
+  /** Run in corso dei playbook (lo "stato condiviso" dei tavoli, persistite). */
+  playbookRuns: PlaybookRun[];
+  /** Avvia un playbook: crea e registra la run al primo stadio, e la restituisce. */
+  startPlaybook: (playbookId: string) => PlaybookRun | null;
+  /** Avanza la run allo stadio successivo (chiamata dal bridge al completamento). */
+  advancePlaybookRun: (runId: string) => void;
+  /** Scarta una run (conclusa o abbandonata). */
+  removePlaybookRun: (runId: string) => void;
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
@@ -315,6 +334,8 @@ export const useStore = create<State>()(
   goals: [],
   wallets: {},
   chains: [],
+  playbooks: [],
+  playbookRuns: [],
 
   log: (e) =>
     set((s) => ({
@@ -606,6 +627,23 @@ export const useStore = create<State>()(
   removeChain: (id) => set((s) => ({ chains: s.chains.filter((c) => c.id !== id) })),
   toggleChain: (id) =>
     set((s) => ({ chains: s.chains.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)) })),
+  addPlaybook: (input) => {
+    const clean = sanitizePlaybookInput(input);
+    if (!clean) return;
+    set((s) => ({ playbooks: [...s.playbooks, { ...clean, id: uid("pb") }].slice(-20) }));
+  },
+  removePlaybook: (id) => set((s) => ({ playbooks: s.playbooks.filter((p) => p.id !== id) })),
+  startPlaybook: (playbookId) => {
+    const pb = get().playbooks.find((p) => p.id === playbookId);
+    if (!pb) return null;
+    const run = startRun(pb, uid("run"), Date.now());
+    set((s) => ({ playbookRuns: [...s.playbookRuns, run] }));
+    return run;
+  },
+  advancePlaybookRun: (runId) =>
+    set((s) => ({ playbookRuns: s.playbookRuns.map((r) => (r.id === runId ? advanceRun(r) : r)) })),
+  removePlaybookRun: (runId) =>
+    set((s) => ({ playbookRuns: s.playbookRuns.filter((r) => r.id !== runId) })),
 
   clearEvents: () => set({ events: [] }),
   clearTasks: () => set({ tasks: [] }),
@@ -794,6 +832,8 @@ export const useStore = create<State>()(
         goals: s.goals,
         wallets: s.wallets,
         chains: s.chains,
+        playbooks: s.playbooks,
+        playbookRuns: s.playbookRuns,
         agentPresets: s.agentPresets,
         theme: s.theme,
         roomTheme: s.roomTheme,
@@ -814,6 +854,8 @@ export const useStore = create<State>()(
           if (!state.goals) state.goals = [];
           if (!state.wallets) state.wallets = {};
           if (!state.chains) state.chains = [];
+          if (!state.playbooks) state.playbooks = [];
+          if (!state.playbookRuns) state.playbookRuns = [];
           if (!state.agentPresets) state.agentPresets = [];
           if (!state.roomTheme) state.roomTheme = DEFAULT_ROOM_THEME;
           for (const a of state.agents) {

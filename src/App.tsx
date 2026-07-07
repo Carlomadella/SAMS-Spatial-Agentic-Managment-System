@@ -21,6 +21,7 @@ import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, sho
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
 import { chainTitle, matchingChains } from "./lib/chains";
+import { currentStage, expandStageTitle, runMatching } from "./lib/collaboration";
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
@@ -362,6 +363,97 @@ function ChainBridge() {
             message: `⛓ Reazione a catena da ${agent.name}: ${title}`,
           });
         }
+      }
+    });
+  }, []);
+  return null;
+}
+
+/**
+ * Protocolli di collaborazione: quando un agente passa in "done", vede se il task
+ * completato è lo stadio corrente di una run di playbook attiva (match per titolo
+ * espanso + ruolo). In tal caso avanza la run e assegna lo stadio successivo al suo
+ * target — un hand-off *esplicito e ordinato*, disegnato come un relay. A differenza
+ * delle reazioni a catena (regole globali), una run è una pipeline con inizio e fine.
+ */
+function PlaybookBridge() {
+  const fired = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      for (const agent of state.agents) {
+        const prevAgent = prev.agents.find((a) => a.id === agent.id);
+        if (!prevAgent) continue;
+        if (prevAgent.status === "done" || agent.status !== "done") continue;
+
+        const completedTitle =
+          agent.task?.title ??
+          [...useStore.getState().tasks].reverse().find((t) => t.agentId === agent.id)?.title;
+        if (!completedTitle) continue;
+
+        const run = runMatching(useStore.getState().playbookRuns, {
+          title: completedTitle,
+          role: agent.role,
+        });
+        if (!run) continue;
+
+        // single-fire per (run, stadio): evita doppie assegnazioni sullo stesso passo
+        const key = `${run.id}:${run.stageIndex}`;
+        if (fired.current.has(key)) continue;
+        fired.current.add(key);
+
+        useStore.getState().advancePlaybookRun(run.id);
+        const advanced = useStore.getState().playbookRuns.find((r) => r.id === run.id);
+        const next = advanced ? currentStage(advanced) : null;
+
+        if (!next || !advanced) {
+          // pipeline conclusa
+          useStore.getState().log({
+            agentId: agent.id,
+            agentName: agent.name,
+            color: agent.color,
+            level: "SUCCESS",
+            message: `🤝 Tavolo completato: ${run.name}`,
+          });
+          useStore.getState().pushToast("SUCCESS", `🤝 Tavolo "${run.name}" completato!`);
+          continue;
+        }
+
+        const target = findRelayTarget(useStore.getState().agents, next.role);
+        if (!target) {
+          useStore.getState().log({
+            agentId: agent.id,
+            agentName: agent.name,
+            color: agent.color,
+            level: "WARN",
+            message: `🤝 ${run.name}: nessun agente per lo stadio "${next.role}"`,
+          });
+          continue;
+        }
+
+        const title = expandStageTitle(next, advanced.goal);
+        const branch = advanced.branch.trim() || "main";
+        useStore.getState().addHandoff(agent.id, target.id);
+        useStore.getState().bumpAffinity(agent.id, target.id, 1);
+        audio.playWhoosh();
+
+        if (target.task) {
+          useStore.getState().enqueueTask(target.id, { title, branch });
+        } else {
+          useStore.getState().assignTask(target.id, title, branch);
+          if (backendEnabled) {
+            const fresh = useStore.getState().agents.find((a) => a.id === target.id);
+            if (fresh) {
+              assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+            }
+          }
+        }
+        useStore.getState().log({
+          agentId: target.id,
+          agentName: target.name,
+          color: target.color,
+          level: "INFO",
+          message: `🤝 ${run.name} (${advanced.stageIndex + 1}/${advanced.stages.length}) → ${title}`,
+        });
       }
     });
   }, []);
@@ -854,6 +946,7 @@ function Workspace() {
       <WakeBridge />
       <ProgressionBridge />
       <ChainBridge />
+      <PlaybookBridge />
       <WorldSyncBridge />
       <MetaProactiveBridge />
       <LifeBridge />

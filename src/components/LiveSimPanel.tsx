@@ -4,6 +4,7 @@ import { fetchSimIssues, startSimMode, stopSimMode } from "../lib/backend";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
 import { ChainRules } from "./ChainRules";
+import { Playbooks } from "./Playbooks";
 import { Routines } from "./Routines";
 
 export function LiveSimPanel() {
@@ -153,6 +154,7 @@ export function LiveSimPanel() {
         </label>
 
         <ChainRules />
+        <Playbooks />
         <Routines />
       </div>
 
