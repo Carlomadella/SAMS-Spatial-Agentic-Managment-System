@@ -7,6 +7,42 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Voto di qualità pre-PR sulle modifiche in staging ⚑
+- **Added** — `src/lib/quality.ts` (puro): `gradeChanges` valuta i `PendingFile`
+  con euristiche locali (codice senza test, messaggi di commit mancanti, residui di
+  debug TODO/FIXME/console.log/debugger, file >400 righe, scope >8 file; note
+  positive per test/docs/scope contenuto) → voto A/B/C/D + punteggio 0..100 +
+  motivi. +8 test.
+- **Added** — `ScmView`: badge `⚑ A–D` colorato nell'header della `PendingCard`,
+  col dettaglio dei motivi nel tooltip, come segnale prima di "Approva e committa".
+
+### 2026-07-07 — Preset ruolo/modello per-agente (salvati e persistiti) 💾
+- **Added** — `src/lib/agentPresets.ts` (puro): `addPreset` (dedup per nome
+  case-insensitive + cap a `MAX_PRESETS`, più recente in testa) e `removePreset`,
+  immutabili. Un preset **è** un `AgentTemplate`. +6 test.
+- **Added** — store: slice `agentPresets` **persistita** (partialize + migrazione
+  onRehydrate) con `saveAgentPreset` (riusa `templateFromAgent`) e
+  `removeAgentPreset`. +3 test store.
+- **Added** — `AgentInspector`: pulsante "💾 Salva preset" e riga di chip "I miei
+  preset" (click per applicare a qualsiasi agente, ✕ per rimuovere).
+
+### 2026-07-07 — Oggetti interagibili dell'utente 🖱️
+- **Added** — `src/lib/interactions.ts` (puro): `coffeeBreak` (sazia gli agenti
+  affamati) e `officeClockChime` (ora + fase della giornata). +6 test.
+- **Added** — `OfficeScene`: componente `Interactable` (hotspot cliccabile con
+  cursore, etichetta all'hover, `stopPropagation`) e tre oggetti — tazza sul piano
+  cucina → pausa caffè (`feedAgent`), lavagna della coda → apre il tab Task
+  (`setBottomTab`), orologio a muro → toast con l'ora (`pushToast`).
+
+### 2026-07-07 — Stagioni/meteo nella casa ❄️
+- **Added** — `src/lib/weather.ts` (puro): `seasonOf`/`getWeather` — stagione
+  meteorologica dal mese → precipitazione (neve/pioggia/petali/sereno), colore
+  particelle e tinta di luce sottile. +6 test.
+- **Added** — `OfficeScene`: il `DayNightCycle` inclina *di poco* il fondale verso
+  la tinta stagionale (solo di giorno); `Weather`/`WeatherCurtain` — due cortine di
+  particelle oltre i vetri, geometria e caduta per tipo, riciclate a terra.
+  Complementare a `seasonalEvents.ts` (ricorrenze festive del garden).
+
 ### 2026-07-07 — Umano→agente dalla chat (con conferma esplicita) ⚡
 - **Added** — `src/lib/chatCommands.ts` (puro): `parseTaskCommand`/`isTaskCommand`
   per `/task [@agente] <titolo>` — `@` obbligatorio per targettizzare (un titolo con
