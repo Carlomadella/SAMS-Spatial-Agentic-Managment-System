@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, useRef } from "react";
+import React, { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Grid, Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -29,6 +29,7 @@ import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
 import { monitorView, queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
+import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
@@ -263,6 +264,41 @@ function GardenDoor() {
           🌿 Commit Garden — entra
         </div>
       </Html>
+    </group>
+  );
+}
+
+/**
+ * Hotspot cliccabile dall'utente: cursore a mano, `stopPropagation` così non
+ * muove l'agente selezionato, un'etichetta al passaggio del mouse e un'azione
+ * one-shot al click. È il mattone degli "oggetti interagibili" della stanza.
+ */
+function Interactable({
+  position, rotation, title, onActivate, children,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  title: string;
+  onActivate: () => void;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <group
+      position={position}
+      rotation={rotation}
+      onClick={(e) => { e.stopPropagation(); onActivate(); }}
+      onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHover(false); document.body.style.cursor = "default"; }}
+    >
+      {children}
+      {hover && (
+        <Html position={[0, 0.5, 0]} center distanceFactor={9} zIndexRange={[40, 20]} pointerEvents="none">
+          <div className="pointer-events-none select-none whitespace-nowrap rounded-full border border-amber-500/40 bg-white/85 px-2 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm">
+            {title}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -601,6 +637,56 @@ function SceneContents() {
       <Plant position={[1.3, 0, 8.2]} />
 
       <GardenDoor />
+
+      {/* ── Oggetti interagibili dell'utente (micro-interazioni) ── */}
+      {/* Tazza sul piano cucina → pausa caffè: sazia tutti gli agenti affamati */}
+      <Interactable
+        position={[6.5, 1.06, -3.8]}
+        title="☕ Pausa caffè per tutti"
+        onActivate={() => {
+          const { agents, feedAgent, pushToast } = useStore.getState();
+          const r = coffeeBreak(agents);
+          r.fedIds.forEach((id) => feedAgent(id, r.amount));
+          pushToast("SUCCESS", r.message);
+        }}
+      >
+        <mesh castShadow>
+          <cylinderGeometry args={[0.1, 0.08, 0.16, 16]} />
+          <meshStandardMaterial color="#f2efe9" roughness={0.5} />
+        </mesh>
+        <mesh position={[0.12, 0, 0]}>
+          <torusGeometry args={[0.05, 0.018, 8, 16]} />
+          <meshStandardMaterial color="#f2efe9" roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 0.078, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.088, 16]} />
+          <meshStandardMaterial color="#5a3a22" roughness={0.4} />
+        </mesh>
+      </Interactable>
+      {/* Lavagna della coda (media wall) → apre il tab Task */}
+      <Interactable
+        position={[-11.9, 1.55, 4.5]}
+        rotation={[0, Math.PI / 2, 0]}
+        title="📋 Apri i task in coda"
+        onActivate={() => useStore.getState().setBottomTab("tasks")}
+      >
+        <mesh>
+          <planeGeometry args={[2.2, 1.4]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      </Interactable>
+      {/* Orologio a muro → rintocca l'ora e la fase della giornata */}
+      <Interactable
+        position={[-12.7, 2.1, 6.5]}
+        rotation={[0, Math.PI / 2, 0]}
+        title="🕰️ Che ore sono?"
+        onActivate={() => useStore.getState().pushToast("INFO", officeClockChime())}
+      >
+        <mesh>
+          <circleGeometry args={[0.36, 24]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      </Interactable>
 
       {ZONES.map((z) => (
         <ZoneMarker key={z.id} zone={z} />

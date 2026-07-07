@@ -161,8 +161,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       finestra), geometria e dinamica per tipo, riciclate a terra. Complementare a
       `seasonalEvents.ts` (ricorrenze festive del garden). Logica pura testata (6
       test); resa 3D da rifinire a occhio nel browser.
-- [ ] 💡 ⬅️ **Oggetti interagibili** — clic su lavagna/monitor/caffè per
-      micro-interazioni dell'utente, non solo degli agenti.
+- [x] ✅ ⬅️ **Oggetti interagibili** — `src/lib/interactions.ts` (puro:
+      `coffeeBreak`, `officeClockChime`) + un componente `Interactable` nella scena
+      (hotspot cliccabile con cursore a mano, etichetta all'hover, `stopPropagation`
+      così non muove l'agente). Tre micro-interazioni *dell'utente*: la **tazza sul
+      piano cucina** → pausa caffè che sazia gli agenti affamati (`feedAgent`); la
+      **lavagna della coda** → apre il tab Task (`setBottomTab`); l'**orologio a
+      muro** → rintocca ora + fase della giornata (`pushToast`). Logica pura testata
+      (6 test); resa/posizioni 3D da rifinire a occhio nel browser.
 - [ ] 💡 ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
       tema della stanza; layout persistito (naturale una volta che lo stato è
       autorevole sul server).
@@ -185,6 +191,22 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — oggetti interagibili dell'utente (trasversale 3D & feel)
+Secondo slice indipendente della sessione, sempre dalla sezione **Mondo 3D &
+feel**: dare all'utente micro-interazioni cliccando gli oggetti della stanza, non
+solo guardando gli agenti. Stesso stampo: **modulo puro + wiring 3D**.
+- **Puro** `src/lib/interactions.ts`: `coffeeBreak(agents)` decide *chi* nutrire
+  (solo gli affamati), di quanto e con quale messaggio; `officeClockChime(now)`
+  formatta ora + fase della giornata. La dispatch resta al chiamante. 6 test.
+- **Scena** `OfficeScene.tsx`: nuovo `Interactable` (hotspot cliccabile con
+  cursore, etichetta all'hover, `stopPropagation` per non spostare l'agente).
+  Montati tre oggetti: **tazza sul piano cucina** → pausa caffè (`feedAgent` su
+  ogni id), **lavagna della coda** → apre il tab Task (`setBottomTab`), **orologio
+  a muro** → toast con l'ora (`pushToast`).
+- Verifica: modulo unit-testato; wiring typecheckato/buildato; il click nella
+  scena 3D è da provare a mano nel browser.
+- Test: client 289 → 295. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — stagioni/meteo nella casa (trasversale 3D & feel)
 Slice indipendente e a basso rischio dalla sezione **Mondo 3D & feel**, scelto
