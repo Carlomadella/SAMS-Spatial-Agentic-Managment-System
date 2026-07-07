@@ -22,6 +22,7 @@ import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shou
 import { affinityBetween } from "./lib/relationships";
 import { chainTitle, matchingChains } from "./lib/chains";
 import { currentStage, expandStageTitle, runMatching } from "./lib/collaboration";
+import { notificationBody, notificationTitle, shouldNotify } from "./lib/notify";
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
@@ -461,6 +462,48 @@ function PlaybookBridge() {
 }
 
 /**
+ * Notifiche desktop (opt-in): quando la scheda è in secondo piano, gli eventi ad
+ * alto segnale (completamenti, errori, richieste di approvazione) sollevano una
+ * notifica del sistema operativo. Guardato tre volte: flag persistito, permesso
+ * concesso e `document.hidden`. Il cursore `lastId` avanza sempre (anche a
+ * notifiche spente) così riattivandolo non parte un arretrato di avvisi.
+ */
+function NotificationBridge() {
+  const lastId = useRef<string | null>(null);
+  useEffect(() => {
+    const init = useStore.getState().events;
+    lastId.current = init.length ? init[init.length - 1].id : null;
+    return useStore.subscribe((state, prev) => {
+      if (state.events === prev.events) return;
+      const events = state.events;
+      // eventi comparsi dall'ultimo giro; se il cursore è caduto fuori dal cap
+      // (300) trattiamo solo gli ultimi pochi per non esplodere.
+      let startIdx = 0;
+      if (lastId.current) {
+        const i = events.findIndex((e) => e.id === lastId.current);
+        startIdx = i >= 0 ? i + 1 : Math.max(0, events.length - 5);
+      }
+      const fresh = events.slice(startIdx);
+      if (fresh.length) lastId.current = events[events.length - 1].id;
+
+      if (!useStore.getState().desktopNotifications) return;
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      if (typeof document !== "undefined" && !document.hidden) return; // solo a scheda nascosta
+
+      for (const ev of fresh) {
+        if (!shouldNotify(ev)) continue;
+        try {
+          new Notification(notificationTitle(ev), { body: notificationBody(ev), tag: "sams" });
+        } catch {
+          /* Notifiche non disponibili in questo contesto — ignora. */
+        }
+      }
+    });
+  }, []);
+  return null;
+}
+
+/**
  * Proactive meta-agent (opt-in): every so often, an idle meta-agent proposes a
  * SAMS self-improvement on its own — picking a rotating idea and assigning it to
  * itself (targeting the SAMS repo). A per-agent cooldown avoids spamming; night
@@ -759,38 +802,6 @@ function TalkBridge() {
  * Fires a browser Notification when an agent completes a task.
  * Requests permission lazily on the first completion event.
  */
-function NotificationBridge() {
-  useEffect(() => {
-    return useStore.subscribe((state, prev) => {
-      if (!("Notification" in window)) return;
-      for (const agent of state.agents) {
-        const prevAgent = prev.agents.find((a) => a.id === agent.id);
-        if (!prevAgent) continue;
-        // Treat both "working" and "review" as in-progress so tasks that pass
-        // through review (working→review→done) still notify on completion.
-        const wasActive = (prevAgent.status === "working" || prevAgent.status === "review") && prevAgent.task;
-        const isDone = agent.status === "idle" || agent.status === "done";
-        if (wasActive && isDone) {
-          const taskTitle = prevAgent.task?.title ?? "Task completato";
-          const fire = () =>
-            new Notification(`✅ ${agent.name}`, {
-              body: taskTitle,
-              icon: "/favicon.ico",
-              tag: agent.id,
-              silent: true,
-            });
-          if (Notification.permission === "granted") {
-            fire();
-          } else if (Notification.permission !== "denied") {
-            void Notification.requestPermission().then((p) => { if (p === "granted") fire(); });
-          }
-        }
-      }
-    });
-  }, []);
-  return null;
-}
-
 /**
  * On small screens (< 768 px) automatically collapse left and right panels
  * so the 3D scene is visible. Re-runs on resize.
@@ -947,6 +958,7 @@ function Workspace() {
       <ProgressionBridge />
       <ChainBridge />
       <PlaybookBridge />
+      <NotificationBridge />
       <WorldSyncBridge />
       <MetaProactiveBridge />
       <LifeBridge />
@@ -954,7 +966,6 @@ function Workspace() {
       <HungerBridge />
       <AudioBridge />
       <NarrationBridge />
-      <NotificationBridge />
       <ResponsiveBridge />
       <SimBridge />
     </div>

@@ -222,6 +222,20 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-07 — notifiche desktop rifinite (prodotto)
+Ottavo slice, sul fronte **prodotto** (#3). Il `NotificationBridge` esisteva già ma
+era intrusivo: sempre attivo, forzava il prompt di permesso al primo completamento e
+interrompeva anche a scheda in primo piano. Rifatto in stile modulo puro + wiring:
+- **Puro** `src/lib/notify.ts`: `shouldNotify` (SUCCESS/ERROR + WARN che chiedono
+  azione), `notificationTitle`/`notificationBody`. 8 test.
+- **Wiring**: bridge unificato **opt-in** (`desktopNotifications` persistito), che
+  notifica **solo a `document.hidden`** e legge dal **log eventi** (più copertura:
+  completamenti, milestone, errori, approvazioni) invece che dalla sola transizione
+  di stato. Cursore `lastId` che avanza sempre (niente arretrato alla riattivazione).
+- Comando palette per attivarlo (richiede il permesso all'accensione).
+- Verifica: modulo unit-testato; il vecchio bridge sempre-attivo rimosso; la notifica
+  reale nel browser è da provare a mano. Test: client 345 → 355. Verdi.
+
 ### 2026-07-07 — protocolli di collaborazione (tavoli multi-agente)
 Settimo slice, dalla **profondità agentica** e indipendente dalle scelte di
 prodotto aperte (#1 autorevole, #2 ruoli). Chiude "protocolli di collaborazione":

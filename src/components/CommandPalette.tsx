@@ -140,6 +140,14 @@ export function CommandPalette() {
     }
     list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });
     list.push({ id: "webhook", label: `Risposta ai webhook GitHub: ${s.webhookAutoAssign ? "disattiva" : "attiva"}`, icon: Bell, keywords: "webhook github ci wake toggle", run: () => s.setWebhookAutoAssign(!s.webhookAutoAssign) });
+    list.push({ id: "notify", label: `Notifiche desktop: ${s.desktopNotifications ? "disattiva" : "attiva"}`, icon: Bell, keywords: "notifiche desktop avvisi sistema notification permesso toggle", run: () => {
+      const next = !s.desktopNotifications;
+      if (next && typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+      s.setDesktopNotifications(next);
+      s.pushToast("INFO", next ? "Notifiche desktop attive (solo a scheda in secondo piano)" : "Notifiche desktop disattivate");
+    } });
 
     // Interazioni della stanza, raggiungibili anche senza cliccare l'hotspot 3D.
     list.push({ id: "coffee", label: "Pausa caffè per tutti", icon: Coffee, keywords: "caffè coffee pausa energia sazia bisogni fame", run: () => {

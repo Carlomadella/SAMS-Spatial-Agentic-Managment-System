@@ -7,6 +7,22 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Notifiche desktop rifinite (opt-in, solo a scheda nascosta) 🔔
+- **Added** — `src/lib/notify.ts` (puro): `shouldNotify` (avvisa su `SUCCESS`/`ERROR`
+  e sui `WARN` che chiedono attenzione — approvazioni/blocchi), `notificationTitle`,
+  `notificationBody` (troncato). +8 test.
+- **Changed** — il `NotificationBridge` non è più *sempre attivo* e non chiede più il
+  permesso da solo al primo completamento: ora è **opt-in** (flag `desktopNotifications`
+  **persistito**), notifica **solo quando la scheda è in secondo piano** (`document.hidden`)
+  e copre **più eventi** (completamenti, milestone, errori, richieste di approvazione),
+  leggendo dal log invece che solo dalla transizione di stato del task. Il cursore
+  `lastId` avanza sempre, così riattivandolo non parte un arretrato di avvisi.
+- **Added** — comando palette "Notifiche desktop: attiva/disattiva" (richiede il
+  permesso all'attivazione).
+- **Rationale** — l'implementazione precedente interrompeva anche mentre guardavi la
+  scena e forzava il prompt di permesso senza chiederlo: comportamento intrusivo,
+  ora scelto esplicitamente dall'utente.
+
 ### 2026-07-07 — Protocolli di collaborazione (tavoli multi-agente) 🤝
 - **Added** — `src/lib/collaboration.ts` (puro): `Playbook` come sequenza ordinata
   di stadi `ruolo→titolo` (`{goal}` come segnaposto) e `PlaybookRun` come *stato

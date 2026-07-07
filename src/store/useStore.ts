@@ -146,6 +146,9 @@ interface State {
   /** Opt-in: idle meta-agents propose SAMS improvements on their own. */
   metaProactive: boolean;
   setMetaProactive: (v: boolean) => void;
+  /** Opt-in: high-signal events raise an OS desktop notification when the tab is hidden. */
+  desktopNotifications: boolean;
+  setDesktopNotifications: (v: boolean) => void;
   /** Short-lived handoff arcs drawn in the 3D scene. */
   handoffs: Handoff[];
   addHandoff: (fromId: string, toId: string) => void;
@@ -329,6 +332,7 @@ export const useStore = create<State>()(
   pendingWakes: [],
   webhookAutoAssign: false,
   metaProactive: false,
+  desktopNotifications: false,
   handoffs: [],
   affinity: {},
   goals: [],
@@ -595,6 +599,7 @@ export const useStore = create<State>()(
   shiftWake: () => set((s) => ({ pendingWakes: s.pendingWakes.slice(1) })),
   setWebhookAutoAssign: (v) => set({ webhookAutoAssign: v }),
   setMetaProactive: (v) => set({ metaProactive: v }),
+  setDesktopNotifications: (v) => set({ desktopNotifications: v }),
   addHandoff: (fromId, toId) =>
     set((s) => ({
       handoffs: [
@@ -828,6 +833,7 @@ export const useStore = create<State>()(
         tokensUsed: s.tokensUsed,
         webhookAutoAssign: s.webhookAutoAssign,
         metaProactive: s.metaProactive,
+        desktopNotifications: s.desktopNotifications,
         affinity: s.affinity,
         goals: s.goals,
         wallets: s.wallets,
