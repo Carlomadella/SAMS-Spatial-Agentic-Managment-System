@@ -24,6 +24,10 @@ test("onboarding wizard appears on first visit", async ({ page }) => {
 });
 
 test("command palette opens with Ctrl+K", async ({ page }) => {
+  // Il listener globale di Ctrl+K è agganciato in un useEffect: sotto software-
+  // WebGL il mount dell'app 3D è lento, quindi aspetta che sia montata prima di
+  // premere, altrimenti il tasto va perso (race del test, non dell'app).
+  await expect(page.locator("span.font-bold").filter({ hasText: /^SAMS$/ })).toBeVisible();
   await page.keyboard.press("Control+k");
   // The command palette should show some input
   const input = page.locator("input").first();
