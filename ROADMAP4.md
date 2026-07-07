@@ -152,9 +152,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 - [ ] 💡 **Protocolli di collaborazione** — oltre a relay/reazioni a catena, un
       "tavolo" dove più agenti contribuiscono allo stesso obiettivo con hand-off
       espliciti e stato condiviso.
-- [ ] 💡 **Qualità dell'output** — un passo di valutazione (lint/test/CI o un
-      agente revisore) che dà un voto al risultato prima della PR, riusando il gate
-      CI già presente.
+- [x] ✅ **Qualità dell'output** — un voto A–D sulle modifiche in staging *prima
+      della PR*, nello spirito del gate CI ma locale. `src/lib/quality.ts` (puro:
+      `gradeChanges`) valuta i `PendingFile` con euristiche (codice senza test,
+      messaggi mancanti, residui di debug TODO/console.log, file enormi, scope
+      ampio) e restituisce voto + punteggio + motivi. UI: badge `⚑ A/B/C/D` colorato
+      nella `PendingCard` (`ScmView`), col dettaglio dei motivi nel tooltip, accanto
+      all'agente in attesa di approvazione. 8 test.
 
 ## 🎮 Mondo 3D & feel (trasversale)
 
@@ -197,6 +201,22 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — voto di qualità pre-PR (profondità agentica)
+Quarto slice, sempre indipendente dalle scelte di prodotto aperte. Chiude
+"qualità dell'output": un voto sulle modifiche in staging *prima* dell'approvazione,
+nello spirito del gate CI ma **locale** (nessuna rete), che gira sui `PendingFile`
+già nello store.
+- **Puro** `src/lib/quality.ts` (`gradeChanges`): euristiche leggere — codice
+  senza test (−25), file senza messaggio di commit (−10 cad.), residui di debug
+  TODO/FIXME/console.log/debugger (−8 cad.), file >400 righe (−12 cad.), scope >8
+  file (−15); note positive per test/docs/scope contenuto. Punteggio 0..100 →
+  voto A/B/C/D con l'elenco dei motivi. 8 test.
+- **UI** `ScmView`: badge `⚑ A–D` colorato nell'header della `PendingCard`, col
+  dettaglio dei motivi nel tooltip, così l'utente ha un segnale prima di
+  "Approva e committa".
+- Verifica: modulo unit-testato; il badge nel pannello è da vedere a occhio.
+- Test: client 304 → 312. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — preset ruolo/modello per-agente (profondità agentica)
 Terzo slice della sessione, dalla **profondità agentica** e ancora indipendente

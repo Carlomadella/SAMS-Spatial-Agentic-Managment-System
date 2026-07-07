@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { STATIC_TREE } from "../data/seed";
-import { AGENT_HEX, type Agent, type EnvironmentName } from "../types";
+import { AGENT_HEX, type Agent, type EnvironmentName, type PendingFile } from "../types";
 import { approveChanges, rejectChanges } from "../lib/backend";
+import { gradeChanges, type QualityGrade } from "../lib/quality";
 import { flattenBadgedFiles } from "../lib/fileTree";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { GitGraph } from "./GitGraph";
@@ -65,6 +66,29 @@ function SectionHeader({
   );
 }
 
+const GRADE_CLS: Record<QualityGrade, string> = {
+  A: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+  B: "border-sky-500/40 bg-sky-500/15 text-sky-300",
+  C: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+  D: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+};
+
+/** Voto di qualità pre-PR sui file in staging (euristica locale, vedi lib/quality). */
+function QualityBadge({ files }: { files: PendingFile[] }) {
+  const report = gradeChanges(files);
+  return (
+    <span
+      title={`Qualità ${report.grade} · ${report.score}/100\n${report.reasons.join("\n")}`}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold",
+        GRADE_CLS[report.grade],
+      )}
+    >
+      ⚑ {report.grade}
+    </span>
+  );
+}
+
 function PendingCard({ agent }: { agent: Agent }) {
   const [busy, setBusy] = useState(false);
   const log = useStore((s) => s.log);
@@ -99,6 +123,7 @@ function PendingCard({ agent }: { agent: Agent }) {
           style={{ background: AGENT_HEX[agent.color] }}
         />
         <span className="flex-1 text-[11px] font-medium text-slate-200">{agent.name}</span>
+        <QualityBadge files={agent.pendingFiles!} />
         <span className="truncate font-mono text-[10px] text-mut">{agent.task?.branch ?? "—"}</span>
       </div>
 
