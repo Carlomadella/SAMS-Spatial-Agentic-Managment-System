@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILTIN_PLAYBOOKS,
   advanceRun,
   currentStage,
   expandStageTitle,
@@ -141,6 +142,22 @@ describe("runMatching", () => {
   it("skips done runs", () => {
     const done = [{ ...startRun(pb(), "run1", 0), done: true }];
     expect(runMatching(done, { title: "Implementa modulo auth", role: "dev" })).toBeUndefined();
+  });
+});
+
+describe("BUILTIN_PLAYBOOKS", () => {
+  it("are all valid inputs (survive sanitize unchanged)", () => {
+    for (const t of BUILTIN_PLAYBOOKS) {
+      const out = sanitizePlaybookInput(t);
+      expect(out).not.toBeNull();
+      expect(out!.stages).toEqual(t.stages);
+      expect(out!.name).toBe(t.name);
+    }
+  });
+  it("have unique names and at least two stages each", () => {
+    const names = BUILTIN_PLAYBOOKS.map((t) => t.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const t of BUILTIN_PLAYBOOKS) expect(t.stages.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -2,12 +2,14 @@ import { Play, Plus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { assignRemote, backendEnabled } from "../lib/backend";
 import {
+  BUILTIN_PLAYBOOKS,
   currentStage,
   expandStageTitle,
   playbookSummary,
   runLabel,
   runProgress,
   type CollabStage,
+  type Playbook,
 } from "../lib/collaboration";
 import { metaRepo } from "../lib/metaAgent";
 import { findRelayTarget } from "../lib/orchestration";
@@ -55,6 +57,15 @@ export function Playbooks() {
 
   const stages = parseStages(stagesText);
   const canAdd = name.trim() !== "" && stages.length > 0;
+
+  /** Precompila il form da un modello predefinito (l'utente lo può poi adattare). */
+  function prefill(t: Omit<Playbook, "id">) {
+    setName(t.name);
+    setGoal(t.goal);
+    setBranch(t.branch);
+    setStagesText(t.stages.map((s) => `${s.role}: ${s.title}`).join("\n"));
+    setAdding(true);
+  }
 
   const activeRuns = runs.filter((r) => !r.done);
 
@@ -174,6 +185,23 @@ export function Playbooks() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Modelli predefiniti — un click per precompilare il form */}
+      {adding && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          <span className="text-[10px] text-mut">Modelli:</span>
+          {BUILTIN_PLAYBOOKS.map((t) => (
+            <button
+              key={t.name}
+              onClick={() => prefill(t)}
+              className="btn h-6 px-1.5 text-[10px]"
+              title={`Precompila da «${t.name}»`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Form */}

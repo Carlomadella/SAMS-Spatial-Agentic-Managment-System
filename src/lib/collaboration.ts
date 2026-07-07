@@ -151,6 +151,45 @@ export function runMatching(
   });
 }
 
+/**
+ * Modelli di tavolo pronti all'uso — punti di partenza comuni che l'utente può
+ * aggiungere con un click e poi adattare. Ogni titolo usa `{goal}` così un solo
+ * obiettivo scorre lungo tutta la pipeline. I ruoli sono generici (dev/reviewer/
+ * qa/docs): `findRelayTarget` li risolve per ruolo *o* per nome, quindi funzionano
+ * anche con agenti nominati diversamente purché il ruolo combaci.
+ */
+export const BUILTIN_PLAYBOOKS: ReadonlyArray<Omit<Playbook, "id">> = [
+  {
+    name: "Feature completa",
+    goal: "",
+    branch: "",
+    stages: [
+      { role: "dev", title: "Implementa {goal}" },
+      { role: "reviewer", title: "Rivedi {goal}" },
+      { role: "qa", title: "Testa {goal}" },
+    ],
+  },
+  {
+    name: "Bugfix",
+    goal: "",
+    branch: "",
+    stages: [
+      { role: "dev", title: "Riproduci e correggi {goal}" },
+      { role: "qa", title: "Verifica la fix di {goal}" },
+    ],
+  },
+  {
+    name: "Docs & release",
+    goal: "",
+    branch: "",
+    stages: [
+      { role: "dev", title: "Prepara il rilascio di {goal}" },
+      { role: "docs", title: "Aggiorna la documentazione di {goal}" },
+      { role: "reviewer", title: "Rivedi note di rilascio e docs di {goal}" },
+    ],
+  },
+];
+
 /** Riepilogo breve di un playbook, es. "Rilascio · 3 stadi". */
 export function playbookSummary(p: Pick<Playbook, "name" | "stages">): string {
   const n = p.stages.length;

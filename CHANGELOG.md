@@ -25,6 +25,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — `Playbooks` nel pannello Live Sim: editor a righe "ruolo: titolo",
   elenco protocolli con "Avvia", run in corso con barra di avanzamento e stadio
   corrente. Palette Live Sim cercabile anche per "tavoli/collaborazione/playbook".
+- **Added** — `BUILTIN_PLAYBOOKS`: 3 modelli pronti ("Feature completa", "Bugfix",
+  "Docs & release"); chip "Modelli" nel form che precompila e si può adattare. +2 test.
 - **Distinzione** — dove una `ChainRule` è una regola globale e senza fine, un
   playbook è una **pipeline bounded** con inizio, fine e avanzamento visibile.
 
