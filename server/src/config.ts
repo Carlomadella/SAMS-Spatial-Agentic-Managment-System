@@ -35,6 +35,9 @@ export interface Settings {
   notionToken: string;
   notionPageId: string;
   runtimeToken: string;
+  /** Token "editor": avvia lavoro (assegna/approva/sim/routine/chat) ma non tocca
+   *  le impostazioni. Vuoto = tier non configurato (solo owner/viewer). */
+  editorToken: string;
   /** Token di sola lettura per la dashboard pubblica (vuoto = aperta). */
   readonlyToken: string;
   port: number;
@@ -62,6 +65,7 @@ function fromEnv(): Settings {
     notionToken: process.env.NOTION_TOKEN ?? "",
     notionPageId: process.env.NOTION_PAGE_ID ?? "",
     runtimeToken: process.env.SAMS_TOKEN ?? "",
+    editorToken: process.env.SAMS_EDITOR_TOKEN ?? "",
     readonlyToken: process.env.SAMS_READONLY_TOKEN ?? "",
     port: parsePort(process.env.PORT),
   };
@@ -111,6 +115,7 @@ function persist(): void {
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
     runtimeToken: s.runtimeToken,
+    editorToken: s.editorToken,
     readonlyToken: s.readonlyToken,
   };
   // 0o600: the file holds API tokens in plaintext — keep it owner-only.
@@ -144,6 +149,7 @@ export type SettingsPatch = Partial<
     | "notionToken"
     | "notionPageId"
     | "runtimeToken"
+    | "editorToken"
   >
 >;
 
@@ -200,6 +206,7 @@ export function publicStatus() {
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,
     hasToken: s.runtimeToken.length > 0,
+    hasEditorToken: s.editorToken.length > 0,
     hasReadonlyToken: s.readonlyToken.length > 0,
   };
 }

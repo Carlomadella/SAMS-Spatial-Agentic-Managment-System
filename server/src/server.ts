@@ -24,22 +24,41 @@ import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { createRateLimiter } from "./rateLimit";
+import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
 
-/** Optional Bearer-token guard. If SAMS_TOKEN is set, mutating routes require the header. */
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const token = getSettings().runtimeToken;
-  if (!token) { next(); return; }
-  const auth = req.headers.authorization ?? "";
-  if (auth !== `Bearer ${token}`) {
-    log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip });
-    res.status(401).json({ error: "Token mancante o non valido" });
-    return;
-  }
-  next();
+/** I token dei tre tier dalle impostazioni correnti (owner/editor/viewer). */
+function roleTokens(): RoleTokens {
+  const s = getSettings();
+  return { owner: s.runtimeToken, editor: s.editorToken, viewer: s.readonlyToken };
+}
+
+/** Ruolo risolto per la richiesta corrente (owner se nessun token è configurato). */
+function roleOf(req: Request): Role {
+  return resolveRole(roleTokens(), bearerToken(req.headers.authorization));
+}
+
+/**
+ * Guardia per ruolo (Roadmap 4, frontiera #2). Con nessun token configurato ogni
+ * richiesta è "owner" → comportamento identico a prima. Con i token impostati:
+ * `min="owner"` protegge config/segreti, `min="editor"` protegge l'avvio di lavoro.
+ * 401 se manca del tutto il token, 403 se il ruolo è insufficiente.
+ */
+function requireRole(min: Role): (req: Request, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    const provided = bearerToken(req.headers.authorization);
+    const role = resolveRole(roleTokens(), provided);
+    if (roleAtLeast(role, min)) { next(); return; }
+    log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip, role, need: min });
+    if (!provided) {
+      res.status(401).json({ error: "Token mancante o non valido" });
+    } else {
+      res.status(403).json({ error: `Ruolo insufficiente (serve ${min}, hai ${role})`, role, need: min });
+    }
+  };
 }
 
 // Explicit, permissive CORS for the local UI (covers SSE + preflight).
@@ -115,6 +134,17 @@ app.get("/api/health", (_req: Request, res: Response) => {
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
 app.get("/api/status", (_req: Request, res: Response) => {
   res.json(publicStatus());
+});
+
+/**
+ * Ruolo del chiamante (Roadmap 4, frontiera #2), così la UI può nascondere/
+ * disabilitare le azioni che il ruolo non può compiere. `enforced` dice se i
+ * token sono configurati (altrimenti è dev aperto e tutti sono "owner").
+ */
+app.get("/api/whoami", (req: Request, res: Response) => {
+  const s = getSettings();
+  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken);
+  res.json({ role: roleOf(req), enforced });
 });
 
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
@@ -193,7 +223,7 @@ app.get("/api/file", async (req: Request, res: Response) => {
 });
 
 /** Save settings entered in the app (keys, repo, model…). */
-app.post("/api/settings", requireAuth, (req: Request, res: Response) => {
+app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
   if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq" || body.provider === "openrouter") patch.provider = body.provider;
@@ -214,7 +244,7 @@ app.post("/api/settings", requireAuth, (req: Request, res: Response) => {
 });
 
 /** Create (or re-create) the managed Agent + Environment (Claude provider only). */
-app.post("/api/provision", async (_req: Request, res: Response) => {
+app.post("/api/provision", requireRole("owner"), async (_req: Request, res: Response) => {
   if (getSettings().provider !== "claude") {
     res.json({ ...publicStatus(), note: "Gemini non richiede provisioning" });
     return;
@@ -272,7 +302,7 @@ app.get("/api/events", (req: Request, res: Response) => {
 const ASSIGN_COOLDOWN_MS = 20_000; // 20 s between task starts per agent
 const lastAssign = new Map<string, number>();
 
-app.post("/api/assign", requireAuth, (req: Request, res: Response) => {
+app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => {
   const body = req.body as AssignBody;
   if (!body?.agentId || !body?.title) {
     res.status(400).json({ error: "agentId and title are required" });
@@ -325,14 +355,14 @@ app.get("/api/memory/:agentId", (req: Request, res: Response) => {
 });
 
 /** Agent memory — clear all memories for an agent. */
-app.delete("/api/memory/:agentId", requireAuth, (req: Request, res: Response) => {
+app.delete("/api/memory/:agentId", requireRole("editor"), (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   clearMemory(db(), agentId);
   res.json({ ok: true });
 });
 
 /** Approve staged files: create branch, commit each file, optionally open a PR. */
-app.post("/api/approve/:agentId", requireAuth, async (req: Request, res: Response) => {
+app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   const work = getPending(agentId);
   if (!work) {
@@ -368,7 +398,7 @@ app.post("/api/approve/:agentId", requireAuth, async (req: Request, res: Respons
 });
 
 /** Reject staged files: discard buffer, agent returns to idle. */
-app.post("/api/reject/:agentId", requireAuth, (req: Request, res: Response) => {
+app.post("/api/reject/:agentId", requireRole("editor"), (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   clearPending(agentId);
   broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
@@ -381,7 +411,7 @@ app.get("/api/sim/status", (_req: Request, res: Response) => {
   res.json(simStatus());
 });
 
-app.post("/api/sim/start", requireAuth, (req: Request, res: Response) => {
+app.post("/api/sim/start", requireRole("editor"), (req: Request, res: Response) => {
   const label =
     typeof req.body?.label === "string" && req.body.label.trim()
       ? req.body.label.trim()
@@ -391,7 +421,7 @@ app.post("/api/sim/start", requireAuth, (req: Request, res: Response) => {
   res.json(simStatus());
 });
 
-app.post("/api/sim/stop", requireAuth, (_req: Request, res: Response) => {
+app.post("/api/sim/stop", requireRole("editor"), (_req: Request, res: Response) => {
   stopSim();
   broadcast({ agentId: "sim", agentName: "sim", level: "WARN", message: "🔴 Live Sim fermata" });
   res.json(simStatus());
@@ -478,7 +508,7 @@ app.get("/api/world", (_req: Request, res: Response) => {
   }
 });
 
-app.post("/api/world", requireAuth, (req: Request, res: Response) => {
+app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
   const agents = sanitizeWorldAgents((req.body as { agents?: unknown })?.agents);
   try {
     const snapshot = saveWorldSnapshot(db(), agents);
@@ -504,7 +534,7 @@ app.get("/api/chat", (_req: Request, res: Response) => {
 // Per-IP flood guard for the shared chat: at most 10 messages every 30s.
 const chatLimiter = createRateLimiter(10, 30_000);
 
-app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
+app.post("/api/chat", requireRole("editor"), (req: Request, res: Response) => {
   const input = sanitizeChatInput(req.body);
   if (!input) {
     res.status(400).json({ error: "Messaggio vuoto" });
@@ -535,7 +565,7 @@ app.post("/api/chat", requireAuth, (req: Request, res: Response) => {
 // tutte le connessioni con lo stesso id (più schede) e ri-annuncia la presence.
 const presenceLimiter = createRateLimiter(20, 30_000);
 
-app.post("/api/presence", requireAuth, (req: Request, res: Response) => {
+app.post("/api/presence", requireRole("editor"), (req: Request, res: Response) => {
   const { id, name } = sanitizeObserverIdentity((req.body as { id?: unknown })?.id, (req.body as { name?: unknown })?.name);
   if (!id) {
     res.status(400).json({ error: "id osservatore mancante" });
@@ -571,7 +601,7 @@ app.get("/api/routines", (_req: Request, res: Response) => {
   }
 });
 
-app.post("/api/routines", requireAuth, (req: Request, res: Response) => {
+app.post("/api/routines", requireRole("editor"), (req: Request, res: Response) => {
   const input = sanitizeRoutine(req.body);
   if (!input) {
     res.status(400).json({ error: "Nome e titolo del task sono obbligatori" });
@@ -586,7 +616,7 @@ app.post("/api/routines", requireAuth, (req: Request, res: Response) => {
   }
 });
 
-app.post("/api/routines/:id/toggle", requireAuth, (req: Request, res: Response) => {
+app.post("/api/routines/:id/toggle", requireRole("editor"), (req: Request, res: Response) => {
   const id = req.params.id as string;
   const enabled = req.body?.enabled !== false;
   try {
@@ -597,7 +627,7 @@ app.post("/api/routines/:id/toggle", requireAuth, (req: Request, res: Response) 
   }
 });
 
-app.delete("/api/routines/:id", requireAuth, (req: Request, res: Response) => {
+app.delete("/api/routines/:id", requireRole("editor"), (req: Request, res: Response) => {
   const id = req.params.id as string;
   try {
     deleteRoutine(db(), id);

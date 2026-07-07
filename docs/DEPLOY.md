@@ -55,8 +55,9 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
 | `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC) |
-| `SAMS_TOKEN` | no | — | Bearer token gating the mutating routes |
-| `SAMS_READONLY_TOKEN` | no | — | gates the public read-only dashboard (`?public&token=…`) |
+| `SAMS_TOKEN` | no | — | **owner** Bearer token: full access, incl. settings/secrets |
+| `SAMS_EDITOR_TOKEN` | no | — | **editor** Bearer token: starts work (assign/approve/sim/chat) but not settings |
+| `SAMS_READONLY_TOKEN` | no | — | **viewer** token: gates the public read-only dashboard (`?public&token=…`) |
 | `NOTION_TOKEN` / `NOTION_PAGE_ID` | no | — | let agents write to a Notion page |
 | `SAMS_MCP_SERVERS` | no | — | JSON allow-list of MCP servers (`mcp_call`) |
 | `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | in-memory | MySQL for durable Commit Garden |

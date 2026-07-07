@@ -90,9 +90,18 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       agenti muoversi e gli stessi eventi, live. Estende presence+nomi (sopra) con lo
       stato condiviso: si appoggia al canale bidirezionale (ora avviato) e allo
       stato autorevole della frontiera #1.
-- [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
-      Estende l'auth opzionale già esistente (`SAMS_TOKEN`) a ruoli (owner/editor/
-      viewer), con la dashboard pubblica come "viewer" degenere già pronto.
+- [x] ✅ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
+      `server/src/roles.ts` (puro: `bearerToken`, `resolveRole`, `roleAtLeast`) modella
+      la gerarchia **viewer < editor < owner** sui tre token: `SAMS_TOKEN` (owner:
+      tutto, incl. config/segreti), `SAMS_EDITOR_TOKEN` (editor: avvia lavoro ma non
+      tocca le impostazioni), `SAMS_READONLY_TOKEN` (viewer: solo lettura + dashboard
+      pubblica). Guardia `requireRole(min)` in `server.ts`: `settings`/`provision`
+      richiedono owner, le route che avviano lavoro (assign/approve/reject/sim/world/
+      chat/presence/routine) richiedono editor; 401 se manca il token, 403 se il ruolo
+      è insufficiente. Retro-compatibile: **nessun token configurato → tutto owner**
+      (come prima). Endpoint `GET /api/whoami` per far adattare la UI al ruolo.
+      Verificato end-to-end sul runtime (owner/editor/viewer su settings+assign). 8 test.
+      _Resta: adattamento della UI client al ruolo (nascondere le azioni ai viewer)._
 - [x] ✅ **Chat di workspace** — un canale umano-umano accanto alla scena,
       separato dall'event log. `server/src/chat.ts` (puro: `sanitizeChatInput`) +
       tabella SQLite `chat_messages` (con prune a 200) + `GET/POST /api/chat`; i
@@ -226,6 +235,25 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — ruoli/permessi owner/editor/viewer (frontiera #2)
+Secondo dei tre slice. Chiude uno dei due nodi "da decidere con l'utente": il modello
+dei ruoli sul workspace condiviso. Scelto un modello **retro-compatibile e additivo**
+sopra l'auth a token già esistente, senza rompere nulla.
+- **Puro** `server/src/roles.ts`: `bearerToken` (estrae da `Authorization: Bearer …`),
+  `resolveRole(tokens, provided)` (owner→editor→viewer per precedenza; nessun token
+  configurato → owner/dev aperto; configurato ma non combaciante → viewer degenere),
+  `roleAtLeast`. 8 test (inclusi i casi limite: tier vuoto non matcha, precedenza owner).
+- **Config**: nuovo `SAMS_EDITOR_TOKEN` (`editorToken`), additivo; `publicStatus` espone
+  `hasEditorToken`; documentato in `docs/DEPLOY.md`.
+- **Server**: `requireRole(min)` sostituisce `requireAuth`. `settings`/`provision` →
+  owner (prima `provision` era **aperto**: ora chiuso); assign/approve/reject/sim/world/
+  chat/presence/routine → editor. 401 senza token, 403 se ruolo insufficiente. Nuovo
+  `GET /api/whoami` (`{role, enforced}`) per la UI.
+- **Verifica end-to-end** sul runtime reale (tre token via store): owner 200 su settings,
+  editor 403 su settings ma 200 su assign, viewer 403 su assign, nessun token 401.
+- Retro-compat: con solo `SAMS_TOKEN` (o nessun token) il comportamento è identico a prima.
+- Test: server 201 → 209. Typecheck, lint, build: verdi.
 
 ### 2026-07-08 — colori-stato centralizzati (prodotto / tema)
 Primo di tre slice chiesti insieme (polish → ruoli → stato autorevole). Sul fronte
