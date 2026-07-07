@@ -52,6 +52,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   cursore, etichetta all'hover, `stopPropagation`) e tre oggetti — tazza sul piano
   cucina → pausa caffè (`feedAgent`), lavagna della coda → apre il tab Task
   (`setBottomTab`), orologio a muro → toast con l'ora (`pushToast`).
+- **Added** — palette comandi: "Pausa caffè per tutti" e "Che ore sono in ufficio?"
+  rendono le interazioni della stanza raggiungibili anche senza l'hotspot 3D.
 
 ### 2026-07-07 — Stagioni/meteo nella casa ❄️
 - **Added** — `src/lib/weather.ts` (puro): `seasonOf`/`getWeather` — stagione

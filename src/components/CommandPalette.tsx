@@ -6,6 +6,7 @@ import {
   Boxes,
   ClipboardList,
   Clock,
+  Coffee,
   Compass,
   Film,
   History,
@@ -28,6 +29,7 @@ import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ROOM_THEMES } from "../lib/roomThemes";
+import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
 import { metaRepo } from "../lib/metaAgent";
@@ -138,6 +140,14 @@ export function CommandPalette() {
     }
     list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });
     list.push({ id: "webhook", label: `Risposta ai webhook GitHub: ${s.webhookAutoAssign ? "disattiva" : "attiva"}`, icon: Bell, keywords: "webhook github ci wake toggle", run: () => s.setWebhookAutoAssign(!s.webhookAutoAssign) });
+
+    // Interazioni della stanza, raggiungibili anche senza cliccare l'hotspot 3D.
+    list.push({ id: "coffee", label: "Pausa caffè per tutti", icon: Coffee, keywords: "caffè coffee pausa energia sazia bisogni fame", run: () => {
+      const r = coffeeBreak(s.agents);
+      r.fedIds.forEach((id) => s.feedAgent(id, r.amount));
+      s.pushToast("SUCCESS", r.message);
+    } });
+    list.push({ id: "clock", label: "Che ore sono in ufficio?", icon: Clock, keywords: "orologio ora tempo clock giornata", run: () => s.pushToast("INFO", officeClockChime()) });
 
     list.push({ id: "clear", label: "Svuota log eventi", icon: Trash2, keywords: "log clear svuota", run: () => s.clearEvents() });
     list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
