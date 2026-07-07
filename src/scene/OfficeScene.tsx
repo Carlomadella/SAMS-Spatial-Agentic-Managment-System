@@ -28,6 +28,7 @@ import {
 import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
 import { monitorView, queueBoard } from "../lib/sceneDisplays";
+import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
@@ -281,6 +282,10 @@ function DayNightCycle() {
   const gndNight = useMemo(() => new THREE.Color("#0e1020"), []);
   const bgTemp   = useMemo(() => new THREE.Color("#f3ece0"), []);
 
+  // Tinta stagionale: velo sottile applicato alla luce diurna (svanisce di notte).
+  const weather  = useMemo(() => getWeather(), []);
+  const tintCol  = useMemo(() => new THREE.Color(weather.tint), [weather.tint]);
+
   const { scene } = useThree();
 
   useFrame(() => {
@@ -303,6 +308,8 @@ function DayNightCycle() {
     }
 
     bgTemp.lerpColors(bgNight, bgDay, dayness);
+    // inclina il fondale verso la tinta stagionale, ma solo di giorno e di poco
+    bgTemp.lerp(tintCol, weather.tintStrength * dayness);
     scene.background = bgTemp;
     if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(bgTemp);
   });
@@ -389,6 +396,108 @@ function Handoffs() {
   );
 }
 
+/**
+ * Una cortina di particelle che cadono oltre i vetri (neve/pioggia/petali).
+ * Puramente decorativa: ogni mota che tocca il pavimento viene riciclata in
+ * alto. La geometria e la dinamica cambiano col tipo di precipitazione.
+ */
+function WeatherCurtain({
+  kind, color, count, spanX, spanZ, center,
+}: {
+  kind: Exclude<PrecipKind, "none">;
+  color: string;
+  count: number;
+  spanX: number;
+  spanZ: number;
+  center: [number, number, number];
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const top = 9; // altezza da cui ricadono le particelle
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        x: (Math.random() * 2 - 1) * spanX * 0.5,
+        z: (Math.random() * 2 - 1) * spanZ * 0.5,
+        y: Math.random() * top,
+        phase: Math.random() * Math.PI * 2,
+        sway: 0.4 + Math.random() * 0.8,
+        speed: 0.7 + Math.random() * 0.6,
+        spin: Math.random() * Math.PI,
+      })),
+    [count, spanX, spanZ],
+  );
+  const fall = kind === "rain" ? 7 : kind === "petals" ? 1.1 : 0.9;
+  const swayAmp = kind === "rain" ? 0 : kind === "petals" ? 0.5 : 0.35;
+
+  useFrame((state, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const d = Math.min(delta, 0.05);
+    g.children.forEach((child, i) => {
+      const s = seeds[i];
+      child.position.y -= s.speed * fall * d;
+      if (child.position.y < 0) child.position.y = top;
+      child.position.x = s.x + Math.sin(t * s.sway + s.phase) * swayAmp;
+      if (kind === "petals") child.rotation.z = s.spin + t * s.sway;
+    });
+  });
+
+  return (
+    <group ref={ref} position={center}>
+      {seeds.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]} rotation={[0, 0, s.spin]}>
+          {kind === "rain" ? (
+            <boxGeometry args={[0.015, 0.4, 0.015]} />
+          ) : kind === "petals" ? (
+            <planeGeometry args={[0.12, 0.08]} />
+          ) : (
+            <sphereGeometry args={[0.05, 8, 8]} />
+          )}
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={kind === "rain" ? 0.35 : kind === "petals" ? 0.8 : 0.85}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Meteo stagionale visto oltre le finestre: due cortine (parete di fondo e
+ * parete-finestra a destra). Nessuna particella quando il cielo è sereno.
+ */
+function Weather() {
+  const weather = useMemo(() => getWeather(), []);
+  if (weather.precipitation === "none") return null;
+  const kind = weather.precipitation;
+  const color = weather.particleColor;
+  return (
+    <>
+      <WeatherCurtain
+        kind={kind}
+        color={color}
+        count={kind === "rain" ? 70 : 44}
+        spanX={ROOM_WIDTH + 4}
+        spanZ={1.6}
+        center={[0, 0, ROOM.minZ - 1.4]}
+      />
+      <WeatherCurtain
+        kind={kind}
+        color={color}
+        count={kind === "rain" ? 40 : 26}
+        spanX={1.6}
+        spanZ={ROOM_DEPTH}
+        center={[ROOM.maxX + 1.4, 0, 1]}
+      />
+    </>
+  );
+}
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -399,6 +508,7 @@ function SceneContents() {
   return (
     <>
       <DayNightCycle />
+      <Weather />
 
       <Floor />
 

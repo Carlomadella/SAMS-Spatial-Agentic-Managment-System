@@ -152,8 +152,15 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🎮 Mondo 3D & feel (trasversale)
 
-- [ ] 💡 ⬅️ **Stagioni/meteo nella casa** — il ciclo giorno/notte c'è; aggiungere
-      pioggia sui vetri, luce stagionale, festoni (riusa `seasonalEvents.ts`).
+- [x] ✅ ⬅️ **Stagioni/meteo nella casa** — `src/lib/weather.ts` (puro:
+      `seasonOf`/`getWeather`; stagione meteorologica → precipitazione + tinta di
+      luce) guida due effetti nella scena: (1) **luce stagionale** — il
+      `DayNightCycle` inclina *di poco* il fondale verso la tinta della stagione,
+      solo di giorno (svanisce di notte); (2) **precipitazione oltre i vetri** —
+      neve/pioggia/petali che cadono in due cortine (parete di fondo + parete-
+      finestra), geometria e dinamica per tipo, riciclate a terra. Complementare a
+      `seasonalEvents.ts` (ricorrenze festive del garden). Logica pura testata (6
+      test); resa 3D da rifinire a occhio nel browser.
 - [ ] 💡 ⬅️ **Oggetti interagibili** — clic su lavagna/monitor/caffè per
       micro-interazioni dell'utente, non solo degli agenti.
 - [ ] 💡 ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
@@ -178,6 +185,26 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-07 — stagioni/meteo nella casa (trasversale 3D & feel)
+Slice indipendente e a basso rischio dalla sezione **Mondo 3D & feel**, scelto
+apposta perché non tocca le scelte di prodotto ancora aperte (#1 autorevole, #2
+ruoli). Stesso stampo degli slice R4: **modulo puro + wiring 3D minimale**.
+- **Puro** `src/lib/weather.ts` (`seasonOf`/`getWeather`): stagione meteorologica
+  dell'emisfero nord dal mese → tipo di precipitazione (neve/pioggia/petali/
+  sereno), colore particelle e una **tinta di luce** con `tintStrength` volutamente
+  bassa (≤0.2). Deterministico e `now` iniettabile. 6 test.
+- **Scena** `OfficeScene.tsx`: (1) il `DayNightCycle` fa un ultimo `lerp` del
+  fondale verso la tinta stagionale, moltiplicata per la *diurnità* così di notte
+  svanisce; (2) `Weather`/`WeatherCurtain` — due cortine di particelle oltre i
+  vetri (parete di fondo + parete-finestra), che riciclano ogni mota a terra;
+  geometria e caduta cambiano per tipo (streak veloci per la pioggia, sfere lente
+  per la neve, quad rotanti per i petali). Zero allocazioni in `useFrame`.
+- **Distinzione**: complementare a `seasonalEvents.ts` (ricorrenze festive *datate*
+  nel Commit Garden). Qui è l'atmosfera *continua* dell'ufficio.
+- Verifica: modulo unit-testato; wiring typecheckato/buildato; la resa 3D
+  (posizione/opacità delle cortine) è da rifinire a occhio nel browser.
+- Test: client 283 → 289. Typecheck, lint, build: verdi.
 
 ### 2026-07-07 — umano→agente dalla chat, con conferma esplicita (nodo "d")
 Chiuso il nodo **(d)** nella sua forma de-riscata: la chat diventa *azionabile*
