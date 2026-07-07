@@ -21,7 +21,7 @@ import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, sho
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
 import { chainTitle, matchingChains } from "./lib/chains";
-import { currentStage, expandStageTitle, runMatching } from "./lib/collaboration";
+import { currentStage, expandStageTitle, runMatching, runRetrospective } from "./lib/collaboration";
 import { notificationBody, notificationTitle, shouldNotify } from "./lib/notify";
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
@@ -402,18 +402,19 @@ function PlaybookBridge() {
         if (fired.current.has(key)) continue;
         fired.current.add(key);
 
-        useStore.getState().advancePlaybookRun(run.id);
+        useStore.getState().advancePlaybookRun(run.id, agent.name);
         const advanced = useStore.getState().playbookRuns.find((r) => r.id === run.id);
         const next = advanced ? currentStage(advanced) : null;
 
         if (!next || !advanced) {
-          // pipeline conclusa
+          // pipeline conclusa — retrospettiva con durata e contributori
+          const retro = advanced ? runRetrospective(advanced, Date.now()) : `Tavolo "${run.name}"`;
           useStore.getState().log({
             agentId: agent.id,
             agentName: agent.name,
             color: agent.color,
             level: "SUCCESS",
-            message: `🤝 Tavolo completato: ${run.name}`,
+            message: `🤝 ${retro}`,
           });
           useStore.getState().pushToast("SUCCESS", `🤝 Tavolo "${run.name}" completato!`);
           continue;

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILTIN_PLAYBOOKS,
+  addContributor,
   advanceRun,
+  formatDuration,
+  runRetrospective,
   currentStage,
   expandStageTitle,
   isRunComplete,
@@ -121,6 +124,43 @@ describe("run lifecycle", () => {
     run = advanceRun(run);
     run = advanceRun(run);
     expect(runProgress(run)).toBe(1);
+  });
+});
+
+describe("contributors & retrospective", () => {
+  it("startRun begins with no contributors", () => {
+    expect(startRun(pb(), "r", 0).contributors).toEqual([]);
+  });
+
+  it("addContributor appends, dedups and trims", () => {
+    let run = startRun(pb(), "r", 0);
+    run = addContributor(run, " dev ");
+    run = addContributor(run, "qa");
+    run = addContributor(run, "dev"); // dup, ignored
+    expect(run.contributors).toEqual(["dev", "qa"]);
+  });
+
+  it("addContributor ignores blank names", () => {
+    const run = addContributor(startRun(pb(), "r", 0), "   ");
+    expect(run.contributors).toEqual([]);
+  });
+
+  it("formatDuration renders s / m / h", () => {
+    expect(formatDuration(45_000)).toBe("45s");
+    expect(formatDuration(192_000)).toBe("3m 12s");
+    expect(formatDuration(3_840_000)).toBe("1h 4m");
+  });
+
+  it("runRetrospective summarizes stages, duration and people", () => {
+    let run = startRun(pb(), "r", 1000);
+    run = addContributor(run, "dev");
+    run = addContributor(run, "qa");
+    expect(runRetrospective(run, 1000 + 130_000)).toBe('Tavolo "Rilascio" · 3 stadi · 2m 10s · con dev, qa');
+  });
+
+  it("runRetrospective omits the people clause when there are none", () => {
+    const run = startRun(pb({ stages: [{ role: "d", title: "t" }] }), "r", 0);
+    expect(runRetrospective(run, 5000)).toBe('Tavolo "Rilascio" · 1 stadio · 5s');
   });
 });
 

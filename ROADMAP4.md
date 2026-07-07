@@ -222,6 +222,19 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-07 — tavoli: contributori + retrospettiva (profondità agentica)
+Decimo slice: completa la sensazione del "tavolo di collaborazione" facendo vedere
+*chi ha fatto cosa* e chiudendo con un riepilogo. Estende lo stato condiviso della
+run senza toccare le scelte di prodotto aperte.
+- **Puro** `addContributor` (dedup/immutabile), `runRetrospective`+`formatDuration`
+  in `collaboration.ts`. 6 test.
+- **Wiring**: `PlaybookRun.contributors`, `advancePlaybookRun(runId, contributor?)`;
+  il `PlaybookBridge` registra il nome dell'agente ad ogni hand-off e logga la
+  retrospettiva ("N stadi · durata · con A, B") a fine corsa; la card della run
+  mostra i contributori.
+- Verifica: funzioni pure + store testati; il riepilogo live è da vedere a mano.
+  Test: client 359 → 365. Verdi.
+
 ### 2026-07-07 — task urgenti che saltano la coda (profondità agentica)
 Nono slice. Piccolo e de-riscato: dare priorità a un task in coda senza toccare il
 consumo della coda (FIFO dall'indice 0) né il `QueueBridge`.

@@ -45,7 +45,11 @@ export interface PlaybookRun {
   startedAt: number;
   /** true quando tutti gli stadi sono stati completati. */
   done: boolean;
+  /** Nomi degli agenti che hanno completato uno stadio (in ordine, deduplicati). */
+  contributors?: string[];
 }
+
+const MAX_CONTRIBUTORS = 12;
 
 export const MAX_STAGES = 8;
 export const MAX_PLAYBOOKS = 20;
@@ -117,7 +121,16 @@ export function startRun(playbook: Playbook, id: string, now: number): PlaybookR
     stageIndex: 0,
     startedAt: now,
     done: playbook.stages.length === 0,
+    contributors: [],
   };
+}
+
+/** Aggiunge (immutabilmente) un contributore alla run, deduplicato e cappato. */
+export function addContributor(run: PlaybookRun, name: string): PlaybookRun {
+  const n = name.trim();
+  const list = run.contributors ?? [];
+  if (!n || list.includes(n)) return run;
+  return { ...run, contributors: [...list, n].slice(-MAX_CONTRIBUTORS) };
 }
 
 /**
@@ -200,4 +213,25 @@ export function playbookSummary(p: Pick<Playbook, "name" | "stages">): string {
 export function runLabel(run: Pick<PlaybookRun, "name" | "stages" | "stageIndex" | "done">): string {
   if (run.done) return `${run.name} — ✓`;
   return `${run.name} — ${run.stageIndex + 1}/${run.stages.length}`;
+}
+
+/** Durata in forma compatta, es. "45s", "3m 12s", "1h 4m". */
+export function formatDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+/**
+ * Retrospettiva di fine tavolo: riepilogo con numero di stadi, durata e chi ha
+ * contribuito. Es. `Tavolo "Rilascio" · 3 stadi · 4m 10s · con dev, qa`.
+ */
+export function runRetrospective(run: PlaybookRun, now: number): string {
+  const people = run.contributors ?? [];
+  const who = people.length ? ` · con ${people.join(", ")}` : "";
+  const n = run.stages.length;
+  return `Tavolo "${run.name}" · ${n} ${n === 1 ? "stadio" : "stadi"} · ${formatDuration(now - run.startedAt)}${who}`;
 }

@@ -35,6 +35,7 @@ import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
 import { enqueueOrdered } from "../lib/orchestration";
 import type { ChainRule } from "../lib/chains";
 import {
+  addContributor,
   advanceRun,
   sanitizePlaybookInput,
   startRun,
@@ -178,8 +179,9 @@ interface State {
   playbookRuns: PlaybookRun[];
   /** Avvia un playbook: crea e registra la run al primo stadio, e la restituisce. */
   startPlaybook: (playbookId: string) => PlaybookRun | null;
-  /** Avanza la run allo stadio successivo (chiamata dal bridge al completamento). */
-  advancePlaybookRun: (runId: string) => void;
+  /** Avanza la run allo stadio successivo (chiamata dal bridge al completamento),
+   * registrando il nome dell'agente che ha chiuso lo stadio come contributore. */
+  advancePlaybookRun: (runId: string, contributor?: string) => void;
   /** Scarta una run (conclusa o abbandonata). */
   removePlaybookRun: (runId: string) => void;
 
@@ -646,8 +648,12 @@ export const useStore = create<State>()(
     set((s) => ({ playbookRuns: [...s.playbookRuns, run] }));
     return run;
   },
-  advancePlaybookRun: (runId) =>
-    set((s) => ({ playbookRuns: s.playbookRuns.map((r) => (r.id === runId ? advanceRun(r) : r)) })),
+  advancePlaybookRun: (runId, contributor) =>
+    set((s) => ({
+      playbookRuns: s.playbookRuns.map((r) =>
+        r.id === runId ? advanceRun(contributor ? addContributor(r, contributor) : r) : r,
+      ),
+    })),
   removePlaybookRun: (runId) =>
     set((s) => ({ playbookRuns: s.playbookRuns.filter((r) => r.id !== runId) })),
 

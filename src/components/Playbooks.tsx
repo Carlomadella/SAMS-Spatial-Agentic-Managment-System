@@ -152,6 +152,9 @@ export function Playbooks() {
                   <div className="h-full rounded bg-brand" style={{ width: `${Math.round(runProgress(r) * 100)}%` }} />
                 </div>
                 {stage && <div className="mt-1 truncate text-[10px] text-mut">↳ {stage.role}: {expandStageTitle(stage, r.goal)}</div>}
+                {(r.contributors?.length ?? 0) > 0 && (
+                  <div className="mt-0.5 truncate text-[10px] text-mut">🤝 {r.contributors!.join(", ")}</div>
+                )}
               </li>
             );
           })}

@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Tavoli: contributori e retrospettiva di fine corsa 🤝
+- **Added** — `PlaybookRun.contributors`: i nomi degli agenti che chiudono uno
+  stadio si accumulano nella run (deduplicati, immutabile via `addContributor`).
+- **Added** — `runRetrospective(run, now)` + `formatDuration(ms)` (puri): a fine
+  tavolo un riepilogo con numero di stadi, durata e chi ha contribuito
+  (es. `Tavolo "Rilascio" · 3 stadi · 4m 10s · con dev, qa`). +6 test.
+- **Changed** — `advancePlaybookRun(runId, contributor?)` registra il contributore;
+  il `PlaybookBridge` passa il nome dell'agente e logga la retrospettiva al termine.
+- **Added** — la card della run mostra i contributori man mano che avanza.
+
 ### 2026-07-07 — Task urgenti che saltano la coda ⚡
 - **Added** — `enqueueOrdered(queue, task)` (puro, `lib/orchestration`): un task
   `urgent` si inserisce davanti a quelli normali (FIFO tra gli urgenti), un task
