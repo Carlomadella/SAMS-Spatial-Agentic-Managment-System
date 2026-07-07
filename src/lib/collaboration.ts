@@ -215,6 +215,28 @@ export function runLabel(run: Pick<PlaybookRun, "name" | "stages" | "stageIndex"
   return `${run.name} — ${run.stageIndex + 1}/${run.stages.length}`;
 }
 
+/** Serializza un playbook in JSON condivisibile (senza l'id locale). */
+export function exportPlaybook(p: Playbook): string {
+  const { name, goal, branch, stages } = p;
+  return JSON.stringify({ name, goal, branch, stages }, null, 2);
+}
+
+/**
+ * Interpreta un playbook condiviso: fa il parse del JSON e lo passa per
+ * `sanitizePlaybookInput`, così un input malformato o senza stadi validi diventa
+ * `null` invece di entrare sporco nello store. Tollerante allo spazio bianco.
+ */
+export function importPlaybook(json: string): Omit<Playbook, "id"> | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json.trim());
+  } catch {
+    return null;
+  }
+  if (typeof raw !== "object" || raw === null) return null;
+  return sanitizePlaybookInput(raw as Partial<Omit<Playbook, "id">>);
+}
+
 /** Durata in forma compatta, es. "45s", "3m 12s", "1h 4m". */
 export function formatDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));

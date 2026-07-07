@@ -3,7 +3,9 @@ import {
   BUILTIN_PLAYBOOKS,
   addContributor,
   advanceRun,
+  exportPlaybook,
   formatDuration,
+  importPlaybook,
   runRetrospective,
   currentStage,
   expandStageTitle,
@@ -198,6 +200,33 @@ describe("BUILTIN_PLAYBOOKS", () => {
     const names = BUILTIN_PLAYBOOKS.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length);
     for (const t of BUILTIN_PLAYBOOKS) expect(t.stages.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("export / import", () => {
+  it("round-trips a playbook (minus the local id)", () => {
+    const out = importPlaybook(exportPlaybook(pb()));
+    expect(out).toEqual({
+      name: "Rilascio",
+      goal: "modulo auth",
+      branch: "main",
+      stages: pb().stages,
+    });
+  });
+
+  it("returns null on malformed JSON", () => {
+    expect(importPlaybook("{not json")).toBeNull();
+    expect(importPlaybook("42")).toBeNull();
+    expect(importPlaybook("null")).toBeNull();
+  });
+
+  it("returns null when the payload has no valid stages", () => {
+    expect(importPlaybook(JSON.stringify({ name: "X", stages: [] }))).toBeNull();
+  });
+
+  it("sanitizes an imported payload (drops bad stages)", () => {
+    const json = JSON.stringify({ name: "P", goal: "g", stages: [{ role: "dev", title: "a" }, { role: "", title: "" }] });
+    expect(importPlaybook(json)!.stages).toEqual([{ role: "dev", title: "a" }]);
   });
 });
 

@@ -222,6 +222,15 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-07 — tavoli: esporta/importa (prodotto + agentica)
+Undicesimo slice. Rende i protocolli di collaborazione *condivisibili* tra
+workspace (tocca la frontiera #3 distribuzione), riusando la validazione già scritta.
+- **Puro** `exportPlaybook`/`importPlaybook` in `collaboration.ts`: JSON senza id,
+  reimport via `sanitizePlaybookInput`. 4 test.
+- **UI** `Playbooks`: 📋 copia negli appunti per riga + campo "Importa" (incolla JSON).
+- Verifica: funzioni pure testate; copia/incolla nel browser da provare a mano.
+  Test: client 365 → 369. Verdi.
+
 ### 2026-07-07 — tavoli: contributori + retrospettiva (profondità agentica)
 Decimo slice: completa la sensazione del "tavolo di collaborazione" facendo vedere
 *chi ha fatto cosa* e chiudendo con un riepilogo. Estende lo stato condiviso della

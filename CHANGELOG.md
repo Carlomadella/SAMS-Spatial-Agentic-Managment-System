@@ -7,6 +7,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-07 — Tavoli: esporta/importa un protocollo 📋
+- **Added** — `exportPlaybook(p)` / `importPlaybook(json)` (puri): un tavolo si
+  serializza in JSON condivisibile (senza id locale) e si reimporta passando per
+  `sanitizePlaybookInput` (input malformato/senza stadi → `null`). +4 test.
+- **Added** — `Playbooks`: pulsante 📋 "Copia" per esportare un tavolo negli
+  appunti e un campo "Importa" (incolla JSON → aggiunge) nel form. Permette di
+  condividere protocolli di collaborazione tra workspace.
+
 ### 2026-07-07 — Tavoli: contributori e retrospettiva di fine corsa 🤝
 - **Added** — `PlaybookRun.contributors`: i nomi degli agenti che chiudono uno
   stadio si accumulano nella run (deduplicati, immutabile via `addContributor`).

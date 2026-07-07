@@ -1,10 +1,12 @@
-import { Play, Plus, Users, X } from "lucide-react";
+import { Clipboard, Play, Plus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { assignRemote, backendEnabled } from "../lib/backend";
 import {
   BUILTIN_PLAYBOOKS,
   currentStage,
   expandStageTitle,
+  exportPlaybook,
+  importPlaybook,
   playbookSummary,
   runLabel,
   runProgress,
@@ -54,9 +56,22 @@ export function Playbooks() {
   const [goal, setGoal] = useState("");
   const [branch, setBranch] = useState("");
   const [stagesText, setStagesText] = useState("");
+  const [importText, setImportText] = useState("");
 
   const stages = parseStages(stagesText);
   const canAdd = name.trim() !== "" && stages.length > 0;
+
+  /** Importa un tavolo esportato (JSON): lo aggiunge direttamente se è valido. */
+  function doImport() {
+    const parsed = importPlaybook(importText);
+    if (!parsed) {
+      pushToast("WARN", "JSON del tavolo non valido");
+      return;
+    }
+    addPlaybook(parsed);
+    setImportText("");
+    pushToast("SUCCESS", `Tavolo "${parsed.name}" importato`);
+  }
 
   /** Precompila il form da un modello predefinito (l'utente lo può poi adattare). */
   function prefill(t: Omit<Playbook, "id">) {
@@ -178,6 +193,17 @@ export function Playbooks() {
                 <Play size={10} className="fill-current" /> Avvia
               </button>
               <button
+                onClick={() => {
+                  void navigator.clipboard?.writeText(exportPlaybook(p));
+                  pushToast("SUCCESS", `Tavolo "${p.name}" copiato negli appunti`);
+                }}
+                className="mt-0.5 shrink-0 text-mut transition-colors hover:text-brand-soft"
+                title="Copia il tavolo (JSON) negli appunti"
+                aria-label="Copia il tavolo"
+              >
+                <Clipboard size={12} />
+              </button>
+              <button
                 onClick={() => removePlaybook(p.id)}
                 className="mt-0.5 shrink-0 text-mut transition-colors hover:text-rose-400"
                 title="Rimuovi protocollo"
@@ -247,6 +273,26 @@ export function Playbooks() {
                 className={cn("btn btn-primary h-6 px-2 text-[10px]")}
               >
                 Aggiungi
+              </button>
+            </div>
+          </div>
+
+          {/* Importa un tavolo esportato (JSON) */}
+          <div className="mt-1 border-t border-line pt-1.5">
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="…oppure incolla qui un tavolo esportato (JSON) e premi Importa"
+              rows={2}
+              className="settings-input w-full resize-y font-mono text-[10px]"
+            />
+            <div className="mt-1 flex justify-end">
+              <button
+                onClick={doImport}
+                disabled={!importText.trim()}
+                className="btn h-6 gap-1 px-2 text-[10px]"
+              >
+                <Clipboard size={10} /> Importa
               </button>
             </div>
           </div>
