@@ -58,9 +58,18 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 - [ ] 🏗️ ⬅️ **Migrare la verità di agenti/task da Zustand-persist a SQLite** — la
       lettura autorevole c'è (sopra); manca il resto: il client diventa una _vista_
       e il server l'unica sorgente di verità (schema completo + scrittura autorevole).
-- [ ] 💡 **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
+- [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
-      POST) con una **riconciliazione** deterministica dello store.
+      POST) con una **riconciliazione** deterministica dello store. _Fatto: primo
+      mattone — **concorrenza ottimistica (compare-and-swap)** su `POST /api/world`.
+      Puro `isFreshWrite(current, base?)` (`worldState.ts`): il client dichiara la
+      `baseVersion` vista, il server rifiuta con **409 + snapshot corrente** se un
+      altro scrittore l'ha superata. Lato client `src/lib/reconcile.ts` (puro:
+      `compareVersion`, `nextBase`, monotòna) + `WorldSyncBridge` che traccia la base,
+      semina da `fetchWorld` all'avvio e, sul 409, adotta la versione remota e
+      ripresenta. Verificato end-to-end (due scrittori: base obsoleta → 409 →
+      riconcilia → 200). 3+6 test._ Resta: la scrittura autorevole verso lo store
+      (adottare davvero lo stato remoto, oggi il 409 riallinea solo la versione).
 - [ ] 💡 **Migrazione morbida** — un import dallo stato locale (localStorage) alla
       prima connessione, così nessuno perde il proprio ufficio nel passaggio.
 - [ ] 💡 **Ottimismo + conferma** — la UI applica subito le azioni e le riconcilia
@@ -235,6 +244,26 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — stato autorevole: CAS + riconciliazione (frontiera #1)
+Terzo dei tre slice. Primo mattone de-riscato del **canale bidirezionale**: rende
+la copia autorevole sicura con più scrittori, senza ancora migrare tutto lo store.
+- **Puro server** `isFreshWrite(currentVersion, baseVersion?)` in `worldState.ts`:
+  base assente → nessun controllo (retro-compatibile); base combaciante → fresca;
+  divergente → conflitto. Load→check→save è atomico nel gestore (SQLite sincrono,
+  niente `await` nel mezzo). 3 test.
+- **Server** `POST /api/world`: compare-and-swap — se la `baseVersion` è obsoleta
+  risponde **409** con `{conflict, version, agents}` (lo snapshot autorevole).
+- **Puro client** `src/lib/reconcile.ts`: `compareVersion(local, remote)` (in-sync/
+  behind/ahead) e `nextBase(prev, server)` (monotòna: si allinea alla versione più
+  recente, mai indietro). 6 test.
+- **Wiring client** `pushWorld(agents, base)` ora invia la base e restituisce
+  `{ok, conflict, version, offline}`; `WorldSyncBridge` traccia la base, la semina da
+  `fetchWorld` all'avvio (così anche la prima push è CAS-guardata) e, sul 409, adotta
+  la versione remota e ripresenta presto (il proprio stato ridiventa autorevole).
+- **Verifica end-to-end** sul runtime: push fresca → 200 (V+1); base obsoleta → 409
+  con snapshot; push riconciliata → 200 (V+2); senza base → 200 (retro-compat).
+- Test: client 372 → 378, server 209 → 212. Typecheck, lint, build: verdi.
 
 ### 2026-07-08 — ruoli/permessi owner/editor/viewer (frontiera #2)
 Secondo dei tre slice. Chiude uno dei due nodi "da decidere con l'utente": il modello

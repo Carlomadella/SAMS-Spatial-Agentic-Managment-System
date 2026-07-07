@@ -20,7 +20,7 @@ import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
 import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
-import { sanitizeWorldAgents, summarizeWorld } from "./worldState";
+import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { createRateLimiter } from "./rateLimit";
@@ -509,8 +509,25 @@ app.get("/api/world", (_req: Request, res: Response) => {
 });
 
 app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
-  const agents = sanitizeWorldAgents((req.body as { agents?: unknown })?.agents);
+  const body = (req.body ?? {}) as { agents?: unknown; baseVersion?: unknown };
+  const agents = sanitizeWorldAgents(body.agents);
+  const baseVersion = typeof body.baseVersion === "number" ? body.baseVersion : undefined;
   try {
+    // Concorrenza ottimistica (compare-and-swap): con più scrittori, rifiuta una
+    // scrittura la cui `baseVersion` non è più quella corrente e restituisce lo
+    // snapshot autorevole, così il client concilia (adotta la versione remota) e
+    // ripresenta. Load→check→save è atomico qui: nessun `await` nel mezzo.
+    const current = loadWorldSnapshot(db());
+    if (!isFreshWrite(current.version, baseVersion)) {
+      res.status(409).json({
+        ok: false,
+        conflict: true,
+        version: current.version,
+        updatedAt: current.updatedAt,
+        agents: current.agents,
+      });
+      return;
+    }
     const snapshot = saveWorldSnapshot(db(), agents);
     res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
   } catch (err) {

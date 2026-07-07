@@ -80,6 +80,22 @@ export function emptyWorld(): WorldSnapshot {
   return { agents: [], updatedAt: 0, version: 0 };
 }
 
+/**
+ * Concorrenza ottimistica (Roadmap 4, frontiera #1 — canale bidirezionale).
+ * Decide se una scrittura in arrivo è "fresca" rispetto alla versione autorevole
+ * corrente. Il client dichiara la `baseVersion` che ha visto per ultima:
+ * - `baseVersion` assente → nessun controllo (retro-compatibile: last-write-wins).
+ * - `baseVersion === current` → fresca, si applica (nessuno ha scritto nel mezzo).
+ * - altrimenti → conflitto: un altro scrittore ha già avanzato la versione, il
+ *   client deve prima conciliare (adottare la versione remota) e ripresentarsi.
+ * Atomico in pratica: il gestore della route legge-controlla-scrive senza `await`
+ * in mezzo, quindi due richieste non si interfogliano (SQLite sincrono, single-thread).
+ */
+export function isFreshWrite(currentVersion: number, baseVersion?: number | null): boolean {
+  if (baseVersion == null) return true;
+  return baseVersion === currentVersion;
+}
+
 /** Riepilogo per log/dashboard: quanti agenti e come sono distribuiti. */
 export function summarizeWorld(s: Pick<WorldSnapshot, "agents">): { agents: number; working: number; idle: number } {
   let working = 0;

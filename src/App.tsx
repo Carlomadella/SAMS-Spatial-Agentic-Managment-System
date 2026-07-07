@@ -16,7 +16,8 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
-import { assignRemote, backendEnabled, connectBackend, pushWorld } from "./lib/backend";
+import { assignRemote, backendEnabled, connectBackend, fetchWorld, pushWorld } from "./lib/backend";
+import { nextBase } from "./lib/reconcile";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -261,6 +262,9 @@ function WorldSyncBridge() {
   useEffect(() => {
     let pending: ReturnType<typeof setTimeout> | null = null;
     let last = 0;
+    // Versione autorevole del server vista per ultima (concorrenza ottimistica).
+    // `undefined` = ancora ignota → la prima push non usa il CAS (retro-compatibile).
+    let base: number | undefined = undefined;
 
     const snapshot = () =>
       useStore.getState().agents.map((a) => ({
@@ -276,12 +280,20 @@ function WorldSyncBridge() {
     const flush = () => {
       pending = null;
       last = Date.now();
-      if (useStore.getState().backendOnline) void pushWorld(snapshot());
+      if (!useStore.getState().backendOnline) return;
+      void pushWorld(snapshot(), base).then((res) => {
+        if (res.offline) return;
+        // Ci si allinea sempre alla versione più recente (200: nuova; 409: corrente).
+        base = base === undefined ? res.version : nextBase(base, res.version);
+        // Conflitto: un altro scrittore ci ha preceduto. Ora abbiamo la sua versione
+        // come base → ripresentiamo presto il nostro stato, che diventa autorevole.
+        if (res.conflict) schedule(true);
+      });
     };
 
-    const schedule = () => {
+    const schedule = (soon = false) => {
       if (pending) return;
-      const wait = Math.max(1500, WORLD_SYNC_MS - (Date.now() - last));
+      const wait = soon ? 1200 : Math.max(1500, WORLD_SYNC_MS - (Date.now() - last));
       pending = setTimeout(flush, wait);
     };
 
@@ -289,7 +301,11 @@ function WorldSyncBridge() {
       if (!state.backendOnline) return;
       if (state.agents !== prev.agents || !prev.backendOnline) schedule();
     });
-    // Push once on mount if already connected.
+    // All'avvio, semina la base dalla versione autorevole corrente così anche la
+    // prima push è CAS-guardata, poi pubblica se già connessi.
+    void fetchWorld().then((w) => {
+      if (w) base = w.version;
+    });
     if (useStore.getState().backendOnline) schedule();
 
     return () => {

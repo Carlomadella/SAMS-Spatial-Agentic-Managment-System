@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   emptyWorld,
+  isFreshWrite,
   MAX_WORLD_AGENTS,
   sanitizeWorldAgent,
   sanitizeWorldAgents,
@@ -52,6 +53,25 @@ describe("sanitizeWorldAgents", () => {
 describe("emptyWorld", () => {
   it("is a zeroed snapshot", () => {
     expect(emptyWorld()).toEqual({ agents: [], updatedAt: 0, version: 0 });
+  });
+});
+
+describe("isFreshWrite (concorrenza ottimistica)", () => {
+  it("nessuna baseVersion → sempre fresca (retro-compatibile)", () => {
+    expect(isFreshWrite(5)).toBe(true);
+    expect(isFreshWrite(5, undefined)).toBe(true);
+    expect(isFreshWrite(5, null)).toBe(true);
+  });
+
+  it("baseVersion combaciante → fresca", () => {
+    expect(isFreshWrite(5, 5)).toBe(true);
+    expect(isFreshWrite(0, 0)).toBe(true);
+  });
+
+  it("baseVersion divergente → conflitto (non fresca)", () => {
+    expect(isFreshWrite(6, 5)).toBe(false); // il server è avanti: qualcuno ha scritto
+    expect(isFreshWrite(5, 4)).toBe(false);
+    expect(isFreshWrite(5, 7)).toBe(false); // base impossibile → comunque conflitto
   });
 });
 

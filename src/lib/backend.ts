@@ -362,13 +362,34 @@ export async function fetchWorld(): Promise<WorldSnapshotRemote | null> {
   }
 }
 
-/** Push the current world snapshot to the runtime for durable, shareable storage. */
-export async function pushWorld(agents: WorldAgentSnapshot[]): Promise<void> {
-  await fetch(`${BASE}/api/world`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agents }),
-  }).catch(() => {});
+/** Esito di una push del mondo: la versione autorevole del server, o un conflitto. */
+export interface PushWorldResult {
+  ok: boolean;
+  /** true se il server ha rifiutato per concorrenza (409): la nostra base era obsoleta. */
+  conflict: boolean;
+  /** versione autorevole corrente del server (dopo il salvataggio, o quella in conflitto). */
+  version: number;
+  /** true se non siamo riusciti a raggiungere il runtime. */
+  offline?: boolean;
+}
+
+/**
+ * Push the current world snapshot to the runtime for durable, shareable storage.
+ * Concorrenza ottimistica: dichiara la `baseVersion` vista per ultima; se il server
+ * l'ha già superata risponde 409 con la versione corrente, così il chiamante concilia.
+ */
+export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: number): Promise<PushWorldResult> {
+  try {
+    const res = await fetch(`${BASE}/api/world`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agents, baseVersion }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { version?: number };
+    return { ok: res.ok, conflict: res.status === 409, version: Number(data.version ?? baseVersion ?? 0) };
+  } catch {
+    return { ok: false, conflict: false, version: baseVersion ?? 0, offline: true };
+  }
 }
 
 // --- Chat di workspace (mondo condiviso) ---------------------------------
