@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fetchSimIssues, startSimMode, stopSimMode } from "../lib/backend";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
+import { canAssign } from "../lib/roleUi";
 import { ChainRules } from "./ChainRules";
 import { Playbooks } from "./Playbooks";
 import { Routines } from "./Routines";
@@ -25,6 +26,7 @@ export function LiveSimPanel() {
   const [labelInput, setLabelInput] = useState(simLabel);
 
   const canStart = backendOnline && runtimeReady;
+  const canRun = canAssign(useStore((s) => s.viewerRole));
   const available = simIssues.filter((i) => !i.claimedBy).length;
   const inProgress = simIssues.filter((i) => !!i.claimedBy).length;
 
@@ -82,7 +84,8 @@ export function LiveSimPanel() {
           )}
           <button
             onClick={toggle}
-            disabled={loading || !canStart}
+            disabled={loading || !canStart || !canRun}
+            title={!canRun ? "Sola lettura — serve editor o owner" : undefined}
             className={cn(
               "btn h-7 gap-1.5 px-2.5",
               simMode
@@ -162,6 +165,11 @@ export function LiveSimPanel() {
       {!canStart && (
         <div className="shrink-0 border-b border-line px-3 py-2 text-[11px] text-amber-300">
           ⚠ Runtime non pronto — configura le chiavi nelle Impostazioni e avvia il provisioning
+        </div>
+      )}
+      {canStart && !canRun && (
+        <div className="shrink-0 border-b border-line px-3 py-2 text-[11px] text-mut">
+          👁 Sola lettura — avvio/stop della Live Sim riservato a editor o owner.
         </div>
       )}
 

@@ -126,8 +126,9 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       coda" ai viewer (con hint) e il TitleBar nasconde l'ingranaggio Impostazioni ai
       non-owner. Retro-compat: dev aperto → owner, nessun badge. 5 test. **Sola lettura
       coerente** su tutte le superfici di scrittura: `ScmView` sostituisce Approva/Rifiuta
-      con un avviso ai viewer, la **chat** disabilita input e invio (con placeholder-hint)
-      e la `TaskCommandCard` (umano→agente) blocca l'assegnazione. +2 test di rendering.
+      con un avviso ai viewer, la **chat** disabilita input e invio (con placeholder-hint),
+      la `TaskCommandCard` (umano→agente) blocca l'assegnazione, la **Live Sim** disabilita
+      avvio/stop e le **Routine** disabilitano crea/attiva/elimina. +2 test di rendering.
 - [x] ✅ **Chat di workspace** — un canale umano-umano accanto alla scena,
       separato dall'event log. `server/src/chat.ts` (puro: `sanitizeChatInput`) +
       tabella SQLite `chat_messages` (con prune a 200) + `GET/POST /api/chat`; i
@@ -265,6 +266,15 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — sola lettura anche su Live Sim e Routine (frontiera #2)
+Completato il giro di gating: restavano scoperte due superfici server-write. Un viewer
+poteva ancora cliccare "Avvia Live Sim" o creare/attivare/eliminare routine → 403.
+- **`LiveSimPanel`**: il pulsante Avvia/Stop si disabilita ai viewer (`canRun`), con un
+  avviso "sola lettura" quando il runtime è pronto ma il ruolo no.
+- **`Routines`**: "+ Routine", il toggle attiva/disattiva e l'elimina si disabilitano ai
+  viewer. Coerente con le guardie server-side (`/api/sim/*`, `/api/routines*` → editor).
+- Verifica: riusa `canAssign` (puro, già testato); typecheck/lint/build verdi; 422 test.
 
 ### 2026-07-08 — sola lettura coerente su tutte le superfici di scrittura (frontiera #2)
 Seguito naturale dello slice ruoli: il gating della UI era solo su inspector-assegna e

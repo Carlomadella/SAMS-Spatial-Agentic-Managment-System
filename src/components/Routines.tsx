@@ -10,6 +10,7 @@ import {
 } from "../lib/backend";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
+import { canAssign } from "../lib/roleUi";
 
 /**
  * Editor dei "Trigger temporali / routine": task ricorrenti guidati dal runtime.
@@ -18,6 +19,7 @@ import { cn } from "../lib/utils";
  */
 export function Routines() {
   const backendOnline = useStore((s) => s.backendOnline);
+  const canManage = canAssign(useStore((s) => s.viewerRole));
   const [routines, setRoutines] = useState<RoutineRemote[]>([]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,9 +78,9 @@ export function Routines() {
         </span>
         <button
           onClick={() => setAdding((v) => !v)}
-          disabled={!backendOnline}
+          disabled={!backendOnline || !canManage}
           className="btn h-6 gap-1 px-1.5 text-[10px]"
-          title="Aggiungi routine"
+          title={!canManage ? "Sola lettura — serve editor o owner" : "Aggiungi routine"}
         >
           <Plus size={11} /> Routine
         </button>
@@ -106,7 +108,8 @@ export function Routines() {
                 type="checkbox"
                 checked={r.enabled}
                 onChange={() => void onToggle(r)}
-                className="mt-0.5 accent-amber-500"
+                disabled={!canManage}
+                className="mt-0.5 accent-amber-500 disabled:opacity-50"
                 aria-label={r.enabled ? "Disattiva routine" : "Attiva routine"}
               />
               <div className="min-w-0 flex-1">
@@ -117,7 +120,8 @@ export function Routines() {
               </div>
               <button
                 onClick={() => void onDelete(r.id)}
-                className="mt-0.5 shrink-0 text-mut transition-colors hover:text-rose-400"
+                disabled={!canManage}
+                className="mt-0.5 shrink-0 text-mut transition-colors hover:text-rose-400 disabled:pointer-events-none disabled:opacity-40"
                 title="Rimuovi routine"
                 aria-label="Rimuovi routine"
               >

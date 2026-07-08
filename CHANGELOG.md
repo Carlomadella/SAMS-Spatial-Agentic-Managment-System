@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-08 — Sola lettura per i viewer: Live Sim e Routine 👁
+- **Changed** — `LiveSimPanel`: avvio/stop della Live Sim disabilitato ai viewer
+  (con avviso quando il runtime è pronto ma il ruolo no).
+- **Changed** — `Routines`: aggiunta, attiva/disattiva ed elimina disabilitate ai
+  viewer. Coerente con le guardie server-side (`/api/sim/*`, `/api/routines*` → editor).
+
 ### 2026-07-08 — Sola lettura coerente per i viewer 👁
 - **Changed** — `ScmView`: i pulsanti Approva/Rifiuta compaiono solo per editor/owner;
   un viewer vede un avviso "sola lettura" al loro posto.
