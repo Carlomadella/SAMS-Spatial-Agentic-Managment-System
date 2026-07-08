@@ -6,6 +6,7 @@ import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { BottomPanel } from "./components/BottomPanel";
 import { PresenceRoster } from "./components/PresenceRoster";
+import { MobileBar, MobileDrawer, useIsMobile } from "./components/MobileBar";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
@@ -26,6 +27,7 @@ import { currentStage, expandStageTitle, runMatching, runRetrospective } from ".
 import { notificationBody, notificationTitle, shouldNotify } from "./lib/notify";
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
+import { isMobileWidth } from "./lib/layout";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -836,13 +838,22 @@ function ResponsiveBridge() {
   const setRightOpen = useStore((s) => s.setRightOpen);
 
   useEffect(() => {
+    // Collassa i pannelli solo *entrando* in fascia mobile (o al primo mount se già
+    // mobile), non a ogni resize: così un drawer aperto dal tocco non si richiude
+    // da solo a ogni piccolo cambio di viewport (es. rotazione, barra URL mobile).
+    let wasMobile = isMobileWidth(window.innerWidth);
+    if (wasMobile) {
+      setLeftOpen(false);
+      setRightOpen(false);
+    }
     function apply() {
-      if (window.innerWidth < 768) {
+      const nowMobile = isMobileWidth(window.innerWidth);
+      if (nowMobile && !wasMobile) {
         setLeftOpen(false);
         setRightOpen(false);
       }
+      wasMobile = nowMobile;
     }
-    apply();
     window.addEventListener("resize", apply);
     return () => window.removeEventListener("resize", apply);
   }, [setLeftOpen, setRightOpen]);
@@ -882,6 +893,9 @@ function Workspace() {
   const bottomOpen = useStore((s) => s.bottomOpen);
   const theme = useStore((s) => s.theme);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
+  const setLeftOpen = useStore((s) => s.setLeftOpen);
+  const setRightOpen = useStore((s) => s.setRightOpen);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     document.documentElement.classList.toggle("theme-light", theme === "light");
@@ -952,7 +966,15 @@ function Workspace() {
 
       <div className="flex min-h-0 flex-1">
         <ActivityBar />
-        {leftOpen && <LeftPanel />}
+        {/* Desktop: colonna inline. Mobile: drawer in overlay (non schiaccia la scena). */}
+        {leftOpen &&
+          (isMobile ? (
+            <MobileDrawer side="left" onClose={() => setLeftOpen(false)}>
+              <LeftPanel />
+            </MobileDrawer>
+          ) : (
+            <LeftPanel />
+          ))}
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div data-tour="scene" className="relative min-h-0 flex-1">
@@ -968,9 +990,17 @@ function Workspace() {
           {bottomOpen && <BottomPanel />}
         </main>
 
-        {rightOpen && <RightPanel />}
+        {rightOpen &&
+          (isMobile ? (
+            <MobileDrawer side="right" onClose={() => setRightOpen(false)}>
+              <RightPanel />
+            </MobileDrawer>
+          ) : (
+            <RightPanel />
+          ))}
       </div>
 
+      <MobileBar />
       <StatusBar />
       <CommandPalette />
       <SettingsModal />
