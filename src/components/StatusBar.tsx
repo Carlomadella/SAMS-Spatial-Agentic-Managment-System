@@ -2,6 +2,7 @@ import { Check, CircleAlert, Eye, GitBranch, Radio, TriangleAlert, Users, Zap } 
 import { useStore } from "../store/useStore";
 import { backendEnabled } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
+import { roleMeta } from "../lib/roleUi";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -13,6 +14,8 @@ export function StatusBar() {
   const backendOnline = useStore((s) => s.backendOnline);
   const observers = useStore((s) => s.observers);
   const people = useStore((s) => s.people);
+  const viewerRole = useStore((s) => s.viewerRole);
+  const roleEnforced = useStore((s) => s.roleEnforced);
   const tokensUsed = useStore((s) => s.tokensUsed);
   const warnings = useStore(
     (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
@@ -53,6 +56,11 @@ export function StatusBar() {
             title={presenceTooltip(people, observers)}
           >
             <Eye size={12} /> {observerBadge(observers)}
+          </span>
+        )}
+        {roleEnforced && (
+          <span className="flex items-center gap-1" title={roleMeta(viewerRole).title}>
+            <span>{roleMeta(viewerRole).icon}</span> {roleMeta(viewerRole).label}
           </span>
         )}
         <span

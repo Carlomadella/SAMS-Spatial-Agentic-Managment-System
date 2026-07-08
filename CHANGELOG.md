@@ -7,6 +7,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-08 — La UI si adatta al ruolo (owner/editor/viewer) 👑
+- **Added** — `src/lib/roleUi.ts` (puro): `normalizeRole` (fallback owner in
+  dev-aperto), `roleAtLeast`, `canAssign` (editor+), `canConfigure` (owner),
+  `roleMeta` (badge). +5 test.
+- **Added** — `fetchWhoami()` (backend) chiamato al connect → slice
+  `viewerRole`/`roleEnforced` nello store (server-owned, non persistita).
+- **Changed** — la UI ora nasconde/disabilita le azioni che il ruolo non può
+  compiere: badge del ruolo nella `StatusBar` (solo se i token sono imposti sul
+  server), pulsante "Assegna/coda" disabilitato ai viewer (con hint), ingranaggio
+  Impostazioni nascosto ai non-owner. Retro-compat: dev-aperto = owner, UI identica.
+
 ### 2026-07-07 — Tavoli: esporta/importa un protocollo 📋
 - **Added** — `exportPlaybook(p)` / `importPlaybook(json)` (puri): un tavolo si
   serializza in JSON condivisibile (senza id locale) e si reimporta passando per

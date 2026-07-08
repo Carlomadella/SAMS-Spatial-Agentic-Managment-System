@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
+import { canConfigure } from "../lib/roleUi";
 
 function IconBtn({
   onClick,
@@ -45,6 +46,7 @@ function IconBtn({
 export function TitleBar() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const viewerRole = useStore((s) => s.viewerRole);
   const setGardenOpen = useStore((s) => s.setGardenOpen);
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
@@ -98,9 +100,11 @@ export function TitleBar() {
         <IconBtn title={theme === "dark" ? "Tema chiaro" : "Tema scuro"} onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
+        {canConfigure(viewerRole) && (
         <IconBtn title="Impostazioni runtime" onClick={() => setSettingsOpen(true)}>
           <Settings size={16} />
         </IconBtn>
+        )}
         <IconBtn title="Mostra/nascondi Esplora risorse" onClick={toggleLeft} active={leftOpen}>
           <PanelLeft size={16} />
         </IconBtn>

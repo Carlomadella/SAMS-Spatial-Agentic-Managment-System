@@ -1,5 +1,6 @@
 import type { AgentStatus, LogLevel, PendingFile } from "../types";
 import { useStore } from "../store/useStore";
+import { normalizeRole, type ViewerRole } from "./roleUi";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
@@ -172,6 +173,26 @@ export async function fetchStatus(): Promise<RuntimeStatus | null> {
     return (await res.json()) as RuntimeStatus;
   } catch {
     return null;
+  }
+}
+
+/** Ruolo del chiamante sul workspace (Roadmap 4, frontiera #2). `enforced` è false
+ *  in dev aperto (nessun token configurato) → tutti owner, nessun badge in UI. */
+export interface WhoAmI {
+  role: ViewerRole;
+  enforced: boolean;
+}
+
+/** Chiedi al runtime il ruolo del chiamante; fallback a owner/dev-aperto quando
+ *  irraggiungibile o su un runtime vecchio senza l'endpoint. */
+export async function fetchWhoami(): Promise<WhoAmI> {
+  try {
+    const res = await fetch(`${BASE}/api/whoami`);
+    if (!res.ok) return { role: "owner", enforced: false };
+    const data = (await res.json()) as { role?: unknown; enforced?: unknown };
+    return { role: normalizeRole(data.role), enforced: Boolean(data.enforced) };
+  } catch {
+    return { role: "owner", enforced: false };
   }
 }
 
@@ -570,6 +591,8 @@ export function connectBackend(): () => void {
     });
     // Hydrate the workspace chat from the server (the durable source of truth).
     void fetchChat().then((msgs) => useStore.getState().setChatMessages(msgs));
+    // Learn our role so the UI can gate actions the role can't perform.
+    void fetchWhoami().then((w) => useStore.getState().setViewer(w.role, w.enforced));
   };
   source.onerror = () => useStore.getState().setBackendOnline(false);
   source.onmessage = (ev) => {

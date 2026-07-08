@@ -25,6 +25,7 @@ import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/worl
 import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
+import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
@@ -96,6 +97,10 @@ interface State {
   chatName: string;
   /** unread chat messages while the Chat tab isn't the active one (transient) */
   chatUnread: number;
+  /** ruolo del chiamante sul workspace (server-owned; owner in dev aperto) */
+  viewerRole: ViewerRole;
+  /** true se il server impone i ruoli (token configurati): guida il badge in UI */
+  roleEnforced: boolean;
   /** whether the runtime has its keys set (ready to run tasks) */
   runtimeReady: boolean;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -232,6 +237,8 @@ interface State {
   pushChatMessage: (message: ChatMessage) => void;
   setChatName: (name: string) => void;
   markChatRead: () => void;
+  /** Registra il ruolo del chiamante appreso dal server (`/api/whoami`). */
+  setViewer: (role: ViewerRole, enforced: boolean) => void;
   pushToast: (level: LogLevel, message: string) => void;
   dismissToast: (id: string) => void;
   applyRemote: (e: {
@@ -339,6 +346,8 @@ export const useStore = create<State>()(
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
+  viewerRole: "owner",
+  roleEnforced: false,
   runtimeReady: false,
   simMode: false,
   simLabel: "sams",
@@ -728,6 +737,7 @@ export const useStore = create<State>()(
         : { chatMessages: [...s.chatMessages, message].slice(-200) },
     ),
   setChatName: (name) => set({ chatName: name.slice(0, 40) }),
+  setViewer: (role, enforced) => set({ viewerRole: role, roleEnforced: enforced }),
   markChatRead: () => set((s) => (s.chatUnread === 0 ? s : { chatUnread: 0 })),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setSimMode: (on) => set({ simMode: on }),

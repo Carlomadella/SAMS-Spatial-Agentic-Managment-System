@@ -36,7 +36,7 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 | #   | Frontiera                                                             | Perché                                                                          | Effort | Stato |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ | ----- |
 | 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite | Prerequisito di tutto il resto: senza, la presence realtime non sta in piedi    | 🔴     | 🏗️    |
-| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | 💡    |
+| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | 🏗️    |
 | 3   | **Prodotto & distribuzione** — deploy, onboarding, temi               | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo    | 🟡     | 🏗️    |
 
 > Sequenza voluta: prima l'**architettura** (lo stato autorevole è la fondazione),
@@ -56,8 +56,11 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       compatto (throttle 20s). Il mondo ora sopravvive al refresh ed è leggibile da
       altre viste — senza ancora migrare la scrittura. 10 test.
 - [ ] 🏗️ ⬅️ **Migrare la verità di agenti/task da Zustand-persist a SQLite** — la
-      lettura autorevole c'è (sopra); manca il resto: il client diventa una _vista_
-      e il server l'unica sorgente di verità (schema completo + scrittura autorevole).
+      lettura autorevole c'è, e ora il client **adotta** lo snapshot remoto
+      (`reconcileAgents` puro: adotta status+task per id, preserva branch/plan locali;
+      `adoptWorld` nello store; `WorldSyncBridge` adotta al primo `fetchWorld` e sul 409).
+      Manca il resto: schema completo (non solo lo snapshot compatto) con il server come
+      **unica** sorgente di verità di scrittura.
 - [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
       POST) con una **riconciliazione** deterministica dello store. _Fatto: primo
@@ -68,8 +71,10 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       `compareVersion`, `nextBase`, monotòna) + `WorldSyncBridge` che traccia la base,
       semina da `fetchWorld` all'avvio e, sul 409, adotta la versione remota e
       ripresenta. Verificato end-to-end (due scrittori: base obsoleta → 409 →
-      riconcilia → 200). 3+6 test._ Resta: la scrittura autorevole verso lo store
-      (adottare davvero lo stato remoto, oggi il 409 riallinea solo la versione).
+      riconcilia → 200). 3+6 test. **Chiuso il pezzo dell'adozione**: il 409 (e il primo
+      fetch) ora adottano davvero lo stato remoto nello store via `reconcileAgents`/
+      `adoptWorld`, non solo la versione; +7 test._ Resta solo lo schema completo di
+      scrittura autorevole (vedi item sopra).
 - [ ] 💡 **Migrazione morbida** — un import dallo stato locale (localStorage) alla
       prima connessione, così nessuno perde il proprio ufficio nel passaggio.
 - [ ] 💡 **Ottimismo + conferma** — la UI applica subito le azioni e le riconcilia
@@ -95,10 +100,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       **tooltip** ora elenca i nomi (`presenceTooltip`, fino a 5 + "e altri N"), deduplicati
       per `viewerId` persistito. Retro-compatibile: `presence` resta un numero, `people` è
       additivo. Verificato end-to-end sul runtime (due viste + rename live via SSE). 25 test.
-- [ ] 💡 ⬅️ **Presence in tempo reale (agenti live)** — più utenti vedono gli stessi
-      agenti muoversi e gli stessi eventi, live. Estende presence+nomi (sopra) con lo
-      stato condiviso: si appoggia al canale bidirezionale (ora avviato) e allo
-      stato autorevole della frontiera #1.
+- [x] ✅ ⬅️ **Presence in tempo reale (agenti live)** — più utenti vedono gli stessi
+      agenti muoversi, live. Una scrittura autorevole (`POST /api/world`) si propaga
+      subito a tutte le viste via SSE (`broadcastWorld`, `WireEvent.world`); il client
+      la adotta in `applyRemote` e allinea la base CAS (`serverWorldVersion` nello store),
+      così le viste convergono senza aspettare il pull ~20s né generare 409 inutili. Il
+      "mondo condiviso" ha anche un **roster di avatar** in scena (`src/lib/observers.ts`
+      puro + `PresenceRoster`, visibile solo con ≥2 persone). _Resta il salto grosso: i
+      cursori live Figma-style (WebSocket)._
 - [x] ✅ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       `server/src/roles.ts` (puro: `bearerToken`, `resolveRole`, `roleAtLeast`) modella
       la gerarchia **viewer < editor < owner** sui tre token: `SAMS_TOKEN` (owner:
@@ -110,7 +119,12 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       è insufficiente. Retro-compatibile: **nessun token configurato → tutto owner**
       (come prima). Endpoint `GET /api/whoami` per far adattare la UI al ruolo.
       Verificato end-to-end sul runtime (owner/editor/viewer su settings+assign). 8 test.
-      _Resta: adattamento della UI client al ruolo (nascondere le azioni ai viewer)._
+      La **UI ora si adatta al ruolo**: `src/lib/roleUi.ts` (puro: `normalizeRole`,
+      `roleAtLeast`, `canAssign`, `canConfigure`, `roleMeta`) + `fetchWhoami` al connect
+      → slice `viewerRole`/`roleEnforced` (server-owned). La `StatusBar` mostra un badge
+      del ruolo (solo se i token sono imposti), l'`AgentInspector` disabilita "Assegna/
+      coda" ai viewer (con hint) e il TitleBar nasconde l'ingranaggio Impostazioni ai
+      non-owner. Retro-compat: dev aperto → owner, nessun badge. 5 test.
 - [x] ✅ **Chat di workspace** — un canale umano-umano accanto alla scena,
       separato dall'event log. `server/src/chat.ts` (puro: `sanitizeChatInput`) +
       tabella SQLite `chat_messages` (con prune a 200) + `GET/POST /api/chat`; i
@@ -126,12 +140,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       primo libero) e, **solo su click**, assegna riusando `assignTask` + `assignRemote`
       (stessi cooldown/approvazioni). Niente parte in automatico. Guardie: agente
       inesistente/occupato, nessun libero, runtime non pronto. 8 test.
-- [ ] 🏗️ **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
+- [x] ✅ **Rate-limit & quota per-utente** ⬅️ — quando il workspace è condiviso,
       evitare che un utente saturi il runtime (per-utente, non solo per-agente).
-      _Fatto: limiter puro riutilizzabile `server/src/rateLimit.ts` (finestra
-      scorrevole, `now` iniettabile) applicato alla **chat** (max 10 msg/30s per IP
-      → 429 con `retryAfterSec`). 5 test._ Resta: quota per-utente identificato
-      (serve identità/ruoli) sugli endpoint che avviano lavoro (assign).
+      Limiter puro riutilizzabile `server/src/rateLimit.ts` (finestra scorrevole, `now`
+      iniettabile): applicato alla **chat** (max 10 msg/30s per IP → 429 con
+      `retryAfterSec`) e a **`/api/assign`** con una quota **per-utente** (`identityKey`:
+      token o IP), verificata dopo il cooldown per-agente. Così un utente non satura il
+      runtime spargendo task su molti agenti. 5 test.
 
 ## 📦 Prodotto & distribuzione (frontiera #3)
 
@@ -142,13 +157,12 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       Blueprint Render `render.yaml` (Docker, health `/api/health`, secrets vuoti da
       compilare). Compose per il locale, Fly/Railway/qualsiasi host Docker per il
       resto. Il server già ascolta su `$PORT`.
-- [ ] 🏗️ ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
-      ancora hardcoded); centralizzare i token di colore. _Fatto: la palette degli
-      **stati agente** (working/review/blocked/done/idle/…) era duplicata in
-      `Agent3D.tsx` e `SystemOverview.tsx` → centralizzata in `STATUS_META` (campo
-      `hex`, allineato alle classi `dot`) con helper puro `statusHex(status)` (fallback
-      idle). 3 test._ Resta: pochi hex nei componenti-grafici (GitGraph/GardenView) e
-      i token CSS accent.
+- [x] ✅ ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli; token di colore
+      centralizzati. La palette degli **stati agente** è in `STATUS_META` (campo `hex`)
+      con helper puro `statusHex`; il **GitGraph** riferisce i token condivisi
+      (`--c-ink-700/--c-mut/--c-line`) invece degli hex fissi; nuovo token unico
+      `--c-accent` (per tema) per focus outline e `brand` di Tailwind. GardenView
+      lasciato apposta (i suoi verdi/cielo sono arte, non chrome). 3 test.
 - [x] ✅ ⬅️ **Tour interattivo** post-onboarding — `src/lib/tour.ts` (step +
       `placeTourCard` puro, card sempre dentro il viewport) + `Tour.tsx` con
       spotlight sugli elementi `data-tour` (scena, inspector, pannello in basso,
@@ -219,17 +233,19 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       (6 test); resa/posizioni 3D da rifinire a occhio nel browser.
 - [ ] 🏗️ ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
       tema della stanza; layout persistito (naturale una volta che lo stato è
-      autorevole sul server). _Fatto: **tema della stanza** — `src/lib/roomThemes.ts`
-      (puro: 5 palette pareti/pavimento/modanature + `getRoomTheme` con fallback;
-      "warm" = aspetto storico) → il `Floor` di `OfficeScene` legge i colori dal
-      tema; store `roomTheme` **persistito**; scelta dalla palette comandi ("Stanza:
-      …"). 5 test._ Resta: spostare i mobili (layout persistito), naturale con lo
-      stato autorevole (#1).
+      autorevole sul server). _Fatto: **tema della stanza** (`src/lib/roomThemes.ts`,
+      5 palette, `roomTheme` persistito) e **disposizioni del salotto** — `src/lib/
+      officeLayout.ts` (puro: 4 arrangiamenti Classico/Raccolto/Arioso/Diagonale con
+      offset+rotazione di gruppo, `getArrangement`), `officeLayout` persistito, cluster
+      salotto che ruota/trasla in blocco senza toccare le pose base; comandi "Salotto:
+      …" nella palette. 5+4 test._ Resta: il **drag libero** dei singoli mobili (il pezzo
+      grande, naturale con lo stato autorevole #1).
 
 ## 🛠️ Solidità & produzione (engineering)
 
-- [ ] 💡 ⬅️ **Test di rendering dei componenti** — la logica pura è ben coperta;
-      manca il rendering (React Testing Library) dei pannelli critici.
+- [x] ✅ ⬅️ **Test di rendering dei componenti** — introdotto React Testing Library su
+      jsdom con setup condiviso (`src/test/setup.ts`: cleanup + stub `matchMedia`); test
+      di rendering per `PresenceRoster`, `MobileBar`, `SystemOverview`. +10 test.
 - [x] ✅ **E2E cross-platform** — `playwright.config.ts` usa l'`executablePath`
       Chromium della CI solo quando `process.env.CI` è impostato e il file esiste;
       altrimenti ricade sul Chromium gestito da Playwright, così la suite gira anche
@@ -244,6 +260,39 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — adattamento della UI al ruolo (frontiera #2) + riallineamento
+Chiuso il "_Resta_" dell'item ruoli: la UI ora **si adatta al ruolo del chiamante**,
+senza offrire azioni che il ruolo non può compiere. Slice de-riscato: modulo puro +
+fetch + wiring in tre punti.
+- **Puro** `src/lib/roleUi.ts`: `normalizeRole` (fallback owner/dev-aperto),
+  `roleAtLeast` (viewer<editor<owner), `canAssign` (editor+), `canConfigure` (owner),
+  `roleMeta` (badge). 5 test.
+- **Client** `fetchWhoami` (backend, fallback owner su runtime vecchio/irraggiungibile)
+  chiamato al connect → slice `viewerRole`/`roleEnforced` (server-owned, non persistita).
+- **UI**: `StatusBar` mostra il badge del ruolo **solo se imposto** (token configurati);
+  l'`AgentInspector` disabilita "Assegna/coda" ai viewer con un hint; il `TitleBar`
+  nasconde l'ingranaggio Impostazioni ai non-owner. Retro-compat: dev aperto = owner,
+  UI identica a prima. Il gating nel browser è da provare a mano.
+- Test: client 415 → 420. Typecheck, lint, build: verdi.
+
+**Riallineamento del Log** — il file era rimasto indietro di alcuni slice già in `main`;
+riportati agli stati corretti e riassunti qui:
+- **Presence realtime (agenti live)** ✅ — `broadcastWorld` dopo `POST /api/world` +
+  `WireEvent.world`; il client adotta l'evento e allinea la base CAS
+  (`serverWorldVersion` nello store). Più il **roster di avatar** in scena
+  (`observers.ts` puro + `PresenceRoster`, ≥2 persone). Client 385→398.
+- **Stato autorevole — adozione dello snapshot** ✅ (frontiera #1) — `reconcileAgents`
+  puro + `adoptWorld`; il `WorldSyncBridge` adotta al primo fetch e sul 409. Client
+  378→385.
+- **Tema rifinito** ✅ — GitGraph theme-aware + token unico `--c-accent`.
+- **Mobile usabile** ✅ — barra azioni touch + drawer laterali in overlay
+  (`layout.ts` puro, `MobileBar`). Client 398→401.
+- **Personalizzazione ufficio — disposizioni salotto** ✅ (`officeLayout.ts`, 4
+  arrangiamenti persistiti). Resta il drag libero. Client 401→405.
+- **Test di rendering componenti** ✅ (RTL: PresenceRoster/MobileBar/SystemOverview).
+  Client 405→415.
+- **Quota per-utente su `/api/assign`** ✅ — chiude "rate-limit & quota per-utente".
 
 ### 2026-07-08 — stato autorevole: CAS + riconciliazione (frontiera #1)
 Terzo dei tre slice. Primo mattone de-riscato del **canale bidirezionale**: rende

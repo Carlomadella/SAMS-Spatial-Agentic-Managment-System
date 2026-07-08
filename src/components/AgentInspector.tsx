@@ -13,6 +13,7 @@ import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory,
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
+import { canAssign } from "../lib/roleUi";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 
@@ -62,6 +63,7 @@ export function AgentInspector() {
   const removeAgentPreset = useStore((s) => s.removeAgentPreset);
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
+  const viewerRole = useStore((s) => s.viewerRole);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const feedAgent = useStore((s) => s.feedAgent);
   const log = useStore((s) => s.log);
@@ -789,8 +791,13 @@ export function AgentInspector() {
               <span>⚡ Urgente — salta la coda</span>
             </label>
           )}
+          {!canAssign(viewerRole) && (
+            <p className="text-[11px] leading-snug text-amber-400">
+              👁 Sei in <strong>sola lettura</strong>: puoi osservare il mondo ma non avviare lavoro.
+            </p>
+          )}
           <button
-            disabled={!title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
+            disabled={!canAssign(viewerRole) || !title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
             onClick={() => {
               const t = title.trim();
               const b = branch.trim();
