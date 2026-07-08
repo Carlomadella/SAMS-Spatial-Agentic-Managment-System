@@ -17,6 +17,12 @@ const ROW_H  = 28;   // px per commit row
 const DOT_R  = 4;    // commit circle radius
 const X0     = 10;   // centre of lane 0
 
+// Theme-aware fallbacks: reference the shared CSS tokens (index.css) instead of
+// hard-coded hex, so the graph adapts to light/dark like the rest of the chrome.
+const MUTED     = "rgb(var(--c-mut))";      // lane color when the agent color is unknown
+const DOT_EMPTY = "rgb(var(--c-ink-700))";  // fill of a not-yet-done commit dot
+const LINE_SOFT = "rgb(var(--c-line))";     // neutral border fallback
+
 // ---------------------------------------------------------------------------
 // Per-row SVG  (renders the "lane column" for one commit row)
 // ---------------------------------------------------------------------------
@@ -38,7 +44,7 @@ function RowSvg({
 }) {
   const svgW = X0 * 2 + Math.max(0, laneCount - 1) * LANE_W;
   const done = status === "done" || status === "review";
-  const commitColor = laneColors.get(lane) ?? "#8a93a6";
+  const commitColor = laneColors.get(lane) ?? MUTED;
 
   const segs: React.ReactNode[] = [];
 
@@ -48,7 +54,7 @@ function RowSvg({
     const [minRow, maxRow] = range;
     if (row < minRow || row > maxRow) continue;
 
-    const color = laneColors.get(l) ?? "#8a93a6";
+    const color = laneColors.get(l) ?? MUTED;
     const x = X0 + l * LANE_W;
 
     // Half-segments at the start/end of a branch so lines don't float
@@ -89,7 +95,7 @@ function RowSvg({
       {segs}
       <circle
         cx={dotX} cy={ROW_H / 2} r={DOT_R}
-        fill={done ? commitColor : "#1e2536"}
+        fill={done ? commitColor : DOT_EMPTY}
         stroke={commitColor}
         strokeWidth={1.5}
       />
@@ -128,7 +134,7 @@ export function GitGraph() {
       {/* Branch legend */}
       <div className="flex shrink-0 flex-wrap gap-1 border-b border-line/50 px-2 py-1.5">
         {Array.from(laneLabels.entries()).map(([lane, label]) => {
-          const color = laneColors.get(lane) ?? "#8a93a6";
+          const color = laneColors.get(lane) ?? MUTED;
           const short = label.length > 24 ? `…${label.slice(-20)}` : label;
           return (
             <span
@@ -146,7 +152,7 @@ export function GitGraph() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {nodes.map((n) => {
           const sel = n.id === selectedId;
-          const color = laneColors.get(n.lane) ?? "#8a93a6";
+          const color = laneColors.get(n.lane) ?? MUTED;
           return (
             <button
               key={n.id}
@@ -200,7 +206,7 @@ export function GitGraph() {
       {selected && (
         <div
           className="shrink-0 border-t border-line bg-ink-850/90 px-3 py-2"
-          style={{ borderLeft: `3px solid ${laneColors.get(selected.lane) ?? "#444"}` }}
+          style={{ borderLeft: `3px solid ${laneColors.get(selected.lane) ?? LINE_SOFT}` }}
         >
           <p className="text-[12px] font-semibold text-slate-100">{selected.title}</p>
           <p className="mt-0.5 font-mono text-[10px] text-mut">{selected.branch}</p>

@@ -18,6 +18,9 @@
     --c-mut: 138 147 166;
     --c-text: 226 232 240;
     --c-text-strong: 255 255 255;
+    /* accent unico dell'app (blu brand): centralizzato qui così focus/anelli lo
+       leggono da un'unica sorgente invece di ripetere l'hex #4f8cff. */
+    --c-accent: 79 140 255;
   }
 
   .theme-light {
@@ -33,6 +36,8 @@
     --c-mut: 90 100 119;
     --c-text: 27 34 48;
     --c-text-strong: 11 14 20;
+    /* accento leggermente più profondo per il contrasto su sfondo chiaro */
+    --c-accent: 47 108 233;
   }
 
   /* In light mode, re-map the hard-coded light text colors to dark ones.
@@ -69,7 +74,7 @@
 
   /* clean, consistent keyboard focus across the app */
   :focus-visible {
-    outline: 2px solid #4f8cff;
+    outline: 2px solid rgb(var(--c-accent));
     outline-offset: 2px;
     border-radius: 3px;
   }

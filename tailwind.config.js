@@ -47,7 +47,8 @@ export default {
           yellow: "#eab308",
         },
         brand: {
-          DEFAULT: "#4f8cff",
+          // driven by the shared --c-accent token (index.css) so it flips with the theme
+          DEFAULT: "rgb(var(--c-accent) / <alpha-value>)",
           soft: "#9bc1ff",
         },
       },
