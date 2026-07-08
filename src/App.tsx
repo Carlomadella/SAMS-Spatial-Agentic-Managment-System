@@ -5,6 +5,7 @@ import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { BottomPanel } from "./components/BottomPanel";
+import { PresenceRoster } from "./components/PresenceRoster";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
@@ -959,6 +960,7 @@ function Workspace() {
               <OfficeScene />
             </Suspense>
             <StageHint />
+            <PresenceRoster />
             <SoundToggle />
             <NarrationToggle />
             <ReopenPanelButton />
