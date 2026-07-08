@@ -83,6 +83,8 @@ interface State {
   backendOnline: boolean;
   /** how many views (SSE clients) are watching the world right now; 1 = just you */
   observers: number;
+  /** last-seen authoritative world version from the server (CAS base, monotonic). */
+  serverWorldVersion: number;
   /** distinct names of who is watching right now (empty on old runtimes) */
   people: string[];
   /** workspace chat: server-owned messages (not persisted locally) */
@@ -194,6 +196,8 @@ interface State {
   resetWorld: () => void;
   /** Adotta lo snapshot autorevole del server negli agenti locali (frontiera #1). */
   adoptWorld: (remote: RemoteWorldAgent[]) => void;
+  /** Aggiorna la versione autorevole nota del mondo (monotòna: mai indietro). */
+  noteWorldVersion: (version: number) => void;
 
   // --- actions: ui ---
   setActivity: (a: ActivityView) => void;
@@ -241,6 +245,7 @@ interface State {
     presence?: number;
     people?: string[];
     chat?: { id: string; author: string; text: string; ts: number };
+    world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
   }) => void;
 }
 
@@ -324,6 +329,7 @@ export const useStore = create<State>()(
   bottomHeight: 248,
   backendOnline: false,
   observers: 1,
+  serverWorldVersion: 0,
   people: [],
   chatMessages: [],
   chatName: "",
@@ -682,6 +688,9 @@ export const useStore = create<State>()(
       return agents === s.agents ? {} : { agents };
     }),
 
+  noteWorldVersion: (version) =>
+    set((s) => (version > s.serverWorldVersion ? { serverWorldVersion: version } : {})),
+
   setActivity: (a) => set({ activity: a }),
   setBottomTab: (t) => set(t === "chat" ? { bottomTab: t, bottomOpen: true, chatUnread: 0 } : { bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
@@ -731,6 +740,14 @@ export const useStore = create<State>()(
     // never touches agents/tasks/events or spawns a phantom "presence" agent.
     if (e.presence != null) {
       set({ observers: Math.max(0, Math.floor(e.presence)), people: sanitizePeople(e.people) });
+      return;
+    }
+    // World: the authoritative snapshot broadcast live after another view saved.
+    // Adopt it (server is the truth) and remember its version as our CAS base, so
+    // our next push is fresh instead of conflicting. Not an agent-log event.
+    if (e.world) {
+      get().adoptWorld(e.world.agents as RemoteWorldAgent[]);
+      get().noteWorldVersion(e.world.version);
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.

@@ -17,7 +17,6 @@ import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, connectBackend, fetchWorld, pushWorld } from "./lib/backend";
-import { nextBase } from "./lib/reconcile";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -262,9 +261,9 @@ function WorldSyncBridge() {
   useEffect(() => {
     let pending: ReturnType<typeof setTimeout> | null = null;
     let last = 0;
-    // Versione autorevole del server vista per ultima (concorrenza ottimistica).
-    // `undefined` = ancora ignota → la prima push non usa il CAS (retro-compatibile).
-    let base: number | undefined = undefined;
+    // La base del CAS vive ora nello store (`serverWorldVersion`, monotòna): così
+    // resta allineata anche quando un altro scrittore ci propaga uno snapshot via
+    // SSE (adottato in applyRemote), evitando 409 inutili al giro dopo.
 
     const snapshot = () =>
       useStore.getState().agents.map((a) => ({
@@ -280,11 +279,12 @@ function WorldSyncBridge() {
     const flush = () => {
       pending = null;
       last = Date.now();
-      if (!useStore.getState().backendOnline) return;
-      void pushWorld(snapshot(), base).then((res) => {
+      const st = useStore.getState();
+      if (!st.backendOnline) return;
+      void pushWorld(snapshot(), st.serverWorldVersion).then((res) => {
         if (res.offline) return;
         // Ci si allinea sempre alla versione più recente (200: nuova; 409: corrente).
-        base = base === undefined ? res.version : nextBase(base, res.version);
+        useStore.getState().noteWorldVersion(res.version);
         // Conflitto: un altro scrittore ci ha preceduto. Adottiamo davvero il suo
         // stato (il server è la verità), poi ripresentiamo presto: lo stato adottato
         // ridiventa autorevole al prossimo giro, senza flip-flop (riconciliazione).
@@ -305,13 +305,12 @@ function WorldSyncBridge() {
       if (!state.backendOnline) return;
       if (state.agents !== prev.agents || !prev.backendOnline) schedule();
     });
-    // All'avvio, semina la base dalla versione autorevole corrente così anche la
-    // prima push è CAS-guardata; se il server ha già uno stato durevole, adottalo
-    // così una vista appena connessa (o dopo un refresh) riflette la verità del
-    // server, non solo il proprio localStorage. Poi pubblica se già connessi.
+    // All'avvio, semina la versione autorevole corrente (base CAS) e, se il server
+    // ha già uno stato durevole, adottalo così una vista appena connessa (o dopo un
+    // refresh) riflette la verità del server, non solo il proprio localStorage.
     void fetchWorld().then((w) => {
       if (!w) return;
-      base = w.version;
+      useStore.getState().noteWorldVersion(w.version);
       if (w.version > 0 && w.agents.length) useStore.getState().adoptWorld(w.agents);
     });
     if (useStore.getState().backendOnline) schedule();

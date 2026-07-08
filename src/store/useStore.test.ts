@@ -136,6 +136,38 @@ describe("protocolli di collaborazione (playbook)", () => {
   });
 });
 
+describe("world autorevole (adoptWorld / noteWorldVersion / evento world)", () => {
+  beforeEach(() => useStore.setState({ serverWorldVersion: 0 }));
+
+  it("adoptWorld adotta status e task del server sull'agente per id", () => {
+    const id = firstId();
+    useStore.getState().adoptWorld([{ id, status: "working", task: "Fix CI", progress: 30 }]);
+    expect(agent(id)!.status).toBe("working");
+    expect(agent(id)!.task).toEqual({ title: "Fix CI", branch: "", progress: 30 });
+  });
+
+  it("noteWorldVersion è monotòna (non indietreggia)", () => {
+    useStore.getState().noteWorldVersion(5);
+    expect(useStore.getState().serverWorldVersion).toBe(5);
+    useStore.getState().noteWorldVersion(3);
+    expect(useStore.getState().serverWorldVersion).toBe(5);
+    useStore.getState().noteWorldVersion(8);
+    expect(useStore.getState().serverWorldVersion).toBe(8);
+  });
+
+  it("l'evento SSE 'world' adotta lo snapshot e aggiorna la versione base", () => {
+    const id = firstId();
+    useStore.getState().applyRemote({
+      agentId: "world",
+      world: { agents: [{ id, status: "review", task: "R", progress: 100 }], version: 7, updatedAt: 1 },
+    });
+    expect(agent(id)!.status).toBe("review");
+    expect(useStore.getState().serverWorldVersion).toBe(7);
+    // Non deve aver creato eventi di log (non è un evento agente).
+    expect(useStore.getState().events).toHaveLength(0);
+  });
+});
+
 describe("updateProgress", () => {
   it("clamps to 0..100 and rounds", () => {
     const id = firstId();

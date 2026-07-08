@@ -30,8 +30,14 @@ export interface WireEvent {
   /** "presence": number of connected views (SSE clients), broadcast on connect/
    *  disconnect. Carries no agent state — the UI only reads the count. */
   presence?: number;
+  /** presence: distinct names of who is watching. */
+  people?: string[];
   /** "chat": a workspace chat message, broadcast to every connected view. */
   chat?: { id: string; author: string; text: string; ts: number };
+  /** "world": the authoritative world snapshot, broadcast live after a POST
+   *  /api/world so other views adopt it immediately instead of waiting for their
+   *  next pull (Roadmap 4 — presence realtime / agenti live). */
+  world?: { agents: unknown[]; version: number; updatedAt: number };
 }
 
 export interface AssignBody {

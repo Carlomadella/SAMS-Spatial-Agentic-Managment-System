@@ -127,6 +127,19 @@ function broadcastPresence(): void {
   );
 }
 
+/**
+ * Presence realtime / agenti live (Roadmap 4, frontiera #2): after a view saves a
+ * new authoritative world snapshot, push it to every connected view so they adopt
+ * it immediately (instead of waiting ~20s for their own pull). Like presence, it
+ * carries no runtime event — kept out of `broadcast`/`recordEvent` so it doesn't
+ * inflate the event metrics. The writer adopting its own echo is a no-op client-side.
+ */
+function broadcastWorld(snapshot: { agents: unknown[]; version: number; updatedAt: number }): void {
+  writeToClients(
+    `data: ${JSON.stringify({ agentId: "world", agentName: "world", world: snapshot })}\n\n`,
+  );
+}
+
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ ok: true, ...publicStatus() });
 });
@@ -529,6 +542,8 @@ app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
       return;
     }
     const snapshot = saveWorldSnapshot(db(), agents);
+    // Propaga live lo snapshot autorevole a tutte le viste (presence realtime).
+    broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
     res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

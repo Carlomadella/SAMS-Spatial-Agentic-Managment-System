@@ -28,6 +28,8 @@ export interface RemoteUpdate {
   people?: string[];
   /** Chat: a workspace chat message broadcast by the runtime. */
   chat?: { id: string; author: string; text: string; ts: number };
+  /** World: authoritative snapshot broadcast live after another view saved it. */
+  world?: { agents: WorldAgentSnapshot[]; version: number; updatedAt: number };
 }
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter";
