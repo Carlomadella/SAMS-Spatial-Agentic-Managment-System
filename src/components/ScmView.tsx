@@ -16,6 +16,7 @@ import { AGENT_HEX, type Agent, type EnvironmentName, type PendingFile } from ".
 import { approveChanges, rejectChanges } from "../lib/backend";
 import { gradeChanges, type QualityGrade } from "../lib/quality";
 import { flattenBadgedFiles } from "../lib/fileTree";
+import { canAssign } from "../lib/roleUi";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { GitGraph } from "./GitGraph";
 import { cn } from "../lib/utils";
@@ -92,6 +93,7 @@ function QualityBadge({ files }: { files: PendingFile[] }) {
 function PendingCard({ agent }: { agent: Agent }) {
   const [busy, setBusy] = useState(false);
   const log = useStore((s) => s.log);
+  const canReview = canAssign(useStore((s) => s.viewerRole));
 
   async function handleApprove() {
     setBusy(true);
@@ -135,23 +137,29 @@ function PendingCard({ agent }: { agent: Agent }) {
       </div>
 
       {/* action buttons */}
-      <div className="flex gap-1.5 border-t border-violet-500/15 px-2 py-1.5">
-        <button
-          onClick={handleApprove}
-          disabled={busy}
-          className="btn btn-primary flex-1 gap-1.5 text-[11px] disabled:opacity-50"
-        >
-          <Check size={11} className="shrink-0" />
-          {busy ? "Commit…" : "Approva e committa"}
-        </button>
-        <button
-          onClick={handleReject}
-          className="btn gap-1 border-rose-500/30 px-2.5 text-[11px] text-rose-300 hover:bg-rose-500/10"
-          title="Rifiuta modifiche"
-        >
-          <X size={11} />
-        </button>
-      </div>
+      {canReview ? (
+        <div className="flex gap-1.5 border-t border-violet-500/15 px-2 py-1.5">
+          <button
+            onClick={handleApprove}
+            disabled={busy}
+            className="btn btn-primary flex-1 gap-1.5 text-[11px] disabled:opacity-50"
+          >
+            <Check size={11} className="shrink-0" />
+            {busy ? "Commit…" : "Approva e committa"}
+          </button>
+          <button
+            onClick={handleReject}
+            className="btn gap-1 border-rose-500/30 px-2.5 text-[11px] text-rose-300 hover:bg-rose-500/10"
+            title="Rifiuta modifiche"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ) : (
+        <div className="border-t border-violet-500/15 px-2 py-1.5 text-[10px] text-mut">
+          👁 Sola lettura — l'approvazione spetta a editor o owner.
+        </div>
+      )}
     </div>
   );
 }

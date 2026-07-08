@@ -5,6 +5,7 @@ import { announcePresence, assignRemote, backendEnabled, sendChat } from "../lib
 import { watchingLabel } from "../lib/presence";
 import { parseTaskCommand, type TaskCommand } from "../lib/chatCommands";
 import { metaRepo } from "../lib/metaAgent";
+import { canAssign } from "../lib/roleUi";
 import { clock } from "../lib/utils";
 
 /**
@@ -20,6 +21,7 @@ export function ChatPanel() {
   const observers = useStore((s) => s.observers);
   const people = useStore((s) => s.people);
   const markChatRead = useStore((s) => s.markChatRead);
+  const canChat = canAssign(useStore((s) => s.viewerRole));
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -120,14 +122,15 @@ export function ChatPanel() {
             setText(e.target.value);
             if (error) setError("");
           }}
-          placeholder="Scrivi un messaggio…"
+          disabled={!canChat}
+          placeholder={canChat ? "Scrivi un messaggio…" : "👁 Sola lettura — non puoi scrivere in chat"}
           aria-label="Messaggio"
           maxLength={500}
-          className="min-w-0 flex-1 rounded-md bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none ring-1 ring-inset ring-line/50 placeholder:text-mut/60 focus:ring-brand"
+          className="min-w-0 flex-1 rounded-md bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none ring-1 ring-inset ring-line/50 placeholder:text-mut/60 focus:ring-brand disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={sending || !text.trim()}
+          disabled={!canChat || sending || !text.trim()}
           title="Invia"
           aria-label="Invia"
           className="btn h-7 w-7 shrink-0 px-0 disabled:opacity-40"
@@ -150,6 +153,7 @@ function TaskCommandCard({ cmd }: { cmd: TaskCommand }) {
   const runtimeReady = useStore((s) => s.runtimeReady);
   const assignTask = useStore((s) => s.assignTask);
   const log = useStore((s) => s.log);
+  const canAct = canAssign(useStore((s) => s.viewerRole));
   const [done, setDone] = useState("");
 
   // Risoluzione dell'agente: per nome se indicato, altrimenti il primo libero.
@@ -192,6 +196,10 @@ function TaskCommandCard({ cmd }: { cmd: TaskCommand }) {
       </span>
       {problem ? (
         <span className="text-amber-400">{problem}</span>
+      ) : !canAct ? (
+        <span className="text-mut/70" title="Serve il ruolo editor o owner per assegnare">
+          👁 Sola lettura
+        </span>
       ) : !runtimeReady ? (
         <span className="text-mut/70" title="Configura le chiavi e provisiona per assegnare dal vivo">
           Runtime non pronto

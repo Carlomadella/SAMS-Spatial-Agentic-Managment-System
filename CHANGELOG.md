@@ -7,6 +7,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-08 — Sola lettura coerente per i viewer 👁
+- **Changed** — `ScmView`: i pulsanti Approva/Rifiuta compaiono solo per editor/owner;
+  un viewer vede un avviso "sola lettura" al loro posto.
+- **Changed** — `ChatPanel`: input e invio disabilitati ai viewer (placeholder-hint);
+  la `TaskCommandCard` (`/task`) mostra "sola lettura" invece del pulsante Assegna.
+  Coerente con le guardie server-side (`/api/chat`, `/api/assign` richiedono editor).
+- **Added** — test di rendering (RTL) del gating di `ScmView` (owner vs viewer). +2 test.
+
 ### 2026-07-08 — Attribuzione per-utente nel log del runtime 🕵️
 - **Added** — `server/src/attribution.ts` (puro): `sanitizeActor` (nome dichiarato
   dal client, input non fidato → niente caratteri di controllo, cap 40) e

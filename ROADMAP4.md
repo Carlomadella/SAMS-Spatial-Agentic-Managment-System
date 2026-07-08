@@ -124,7 +124,10 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       → slice `viewerRole`/`roleEnforced` (server-owned). La `StatusBar` mostra un badge
       del ruolo (solo se i token sono imposti), l'`AgentInspector` disabilita "Assegna/
       coda" ai viewer (con hint) e il TitleBar nasconde l'ingranaggio Impostazioni ai
-      non-owner. Retro-compat: dev aperto → owner, nessun badge. 5 test.
+      non-owner. Retro-compat: dev aperto → owner, nessun badge. 5 test. **Sola lettura
+      coerente** su tutte le superfici di scrittura: `ScmView` sostituisce Approva/Rifiuta
+      con un avviso ai viewer, la **chat** disabilita input e invio (con placeholder-hint)
+      e la `TaskCommandCard` (umano→agente) blocca l'assegnazione. +2 test di rendering.
 - [x] ✅ **Chat di workspace** — un canale umano-umano accanto alla scena,
       separato dall'event log. `server/src/chat.ts` (puro: `sanitizeChatInput`) +
       tabella SQLite `chat_messages` (con prune a 200) + `GET/POST /api/chat`; i
@@ -262,6 +265,21 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — sola lettura coerente su tutte le superfici di scrittura (frontiera #2)
+Seguito naturale dello slice ruoli: il gating della UI era solo su inspector-assegna e
+ingranaggio-impostazioni, ma un viewer vedeva ancora Approva/Rifiuta e la chat — azioni
+che il server (editor+) avrebbe respinto con un 403 silenzioso. Chiuso il buco riusando
+il predicato puro `canAssign` già testato.
+- **`ScmView`**: la `PendingCard` mostra i pulsanti Approva/Rifiuta solo se `canAssign`,
+  altrimenti un avviso "👁 Sola lettura — l'approvazione spetta a editor o owner".
+- **Chat** (`ChatPanel`): input e pulsante Invia disabilitati ai viewer, con
+  placeholder-hint; la `TaskCommandCard` (`/task`) mostra "👁 Sola lettura" al posto di
+  "Assegna". Coerente col fatto che `POST /api/chat` e `/api/assign` richiedono editor.
+- **Test di rendering** (RTL): `ScmView` con un agente in review → owner vede "Approva e
+  committa", viewer vede l'avviso e nessun pulsante. +2 test.
+- Verifica: predicato puro già testato + 2 test di rendering; typecheck/lint/build verdi.
+- Test: client 420 → 422.
 
 ### 2026-07-08 — attribuzione per-utente nel log del runtime (osservabilità)
 Chiude l'item "Osservabilità del runtime", il cui "_Resta_" era proprio
