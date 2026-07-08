@@ -23,7 +23,7 @@ import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
-import { createRateLimiter } from "./rateLimit";
+import { createRateLimiter, identityKey } from "./rateLimit";
 import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
@@ -315,6 +315,11 @@ app.get("/api/events", (req: Request, res: Response) => {
 const ASSIGN_COOLDOWN_MS = 20_000; // 20 s between task starts per agent
 const lastAssign = new Map<string, number>();
 
+// Quota per-utente (Roadmap 4): con un workspace condiviso il cooldown per-agente
+// non basta — un utente potrebbe saturare il runtime spargendo task su molti
+// agenti. Questo limite è per *utente* (token, o IP in mancanza), non per agente.
+const assignQuota = createRateLimiter(15, 60_000); // max 15 assegnazioni / minuto
+
 app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => {
   const body = req.body as AssignBody;
   if (!body?.agentId || !body?.title) {
@@ -331,6 +336,15 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
   const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
   if (wait > 0) {
     res.status(429).json({ error: `Agente occupato — riprova tra ${wait}s`, retryAfterSec: wait });
+    return;
+  }
+
+  // Quota per-utente: verificata *dopo* il cooldown per-agente (così un utente non
+  // "spende" la quota se comunque l'agente è occupato) e prima di avviare il lavoro.
+  const userKey = identityKey(bearerToken(req.headers.authorization), req.ip);
+  if (!assignQuota.hit(userKey, now)) {
+    const qWait = Math.ceil(assignQuota.retryAfterMs(userKey, now) / 1000);
+    res.status(429).json({ error: `Troppe assegnazioni — riprova tra ${qWait}s`, retryAfterSec: qWait });
     return;
   }
   lastAssign.set(body.agentId, now);

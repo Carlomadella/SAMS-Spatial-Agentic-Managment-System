@@ -11,6 +11,19 @@ export interface RateLimiter {
 }
 
 /**
+ * Chiave d'identità per le quote *per-utente* (Roadmap 4). Con un workspace
+ * condiviso, l'IP non basta (più viste dietro lo stesso NAT) e non distingue chi
+ * ha un token. Perciò: se c'è un bearer token, individua l'utente per token;
+ * altrimenti si ricade sull'IP; in mancanza di entrambi, una chiave unica.
+ */
+export function identityKey(token: string, ip: string | undefined | null): string {
+  const t = (token || "").trim();
+  if (t) return `t:${t}`;
+  const addr = (ip || "").trim();
+  return addr ? `ip:${addr}` : "anon";
+}
+
+/**
  * Consente al più `max` eventi per `key` in ogni finestra di `windowMs`. Tiene i
  * timestamp recenti per chiave e scarta quelli usciti dalla finestra a ogni
  * chiamata, così la memoria per chiave resta limitata a `max`.

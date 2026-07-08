@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { createRateLimiter } from "./rateLimit";
+import { createRateLimiter, identityKey } from "./rateLimit";
+
+describe("identityKey", () => {
+  it("individua per token quando presente", () => {
+    expect(identityKey("secret", "1.2.3.4")).toBe("t:secret");
+    expect(identityKey("  secret  ", undefined)).toBe("t:secret");
+  });
+  it("ricade sull'IP senza token", () => {
+    expect(identityKey("", "1.2.3.4")).toBe("ip:1.2.3.4");
+  });
+  it("chiave anonima senza token né IP", () => {
+    expect(identityKey("", "")).toBe("anon");
+    expect(identityKey("", null)).toBe("anon");
+  });
+});
 
 describe("createRateLimiter", () => {
   it("allows up to `max` hits inside the window, then blocks", () => {
