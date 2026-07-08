@@ -371,6 +371,8 @@ export interface PushWorldResult {
   version: number;
   /** true se non siamo riusciti a raggiungere il runtime. */
   offline?: boolean;
+  /** Sul conflitto (409) il server allega lo snapshot autorevole: il chiamante lo adotta. */
+  remoteAgents?: WorldAgentSnapshot[];
 }
 
 /**
@@ -385,8 +387,12 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agents, baseVersion }),
     });
-    const data = (await res.json().catch(() => ({}))) as { version?: number };
-    return { ok: res.ok, conflict: res.status === 409, version: Number(data.version ?? baseVersion ?? 0) };
+    const data = (await res.json().catch(() => ({}))) as { version?: number; agents?: unknown };
+    const conflict = res.status === 409;
+    // Sul 200 `agents` è un *conteggio* (summarizeWorld); solo sul 409 è l'array
+    // autorevole da adottare. Leggiamolo perciò esclusivamente in conflitto.
+    const remoteAgents = conflict && Array.isArray(data.agents) ? (data.agents as WorldAgentSnapshot[]) : undefined;
+    return { ok: res.ok, conflict, version: Number(data.version ?? baseVersion ?? 0), remoteAgents };
   } catch {
     return { ok: false, conflict: false, version: baseVersion ?? 0, offline: true };
   }

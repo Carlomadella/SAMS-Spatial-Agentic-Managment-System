@@ -25,6 +25,7 @@ import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/worl
 import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
+import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
 import { addPreset, removePreset } from "../lib/agentPresets";
@@ -191,6 +192,8 @@ interface State {
   clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
   resetWorld: () => void;
+  /** Adotta lo snapshot autorevole del server negli agenti locali (frontiera #1). */
+  adoptWorld: (remote: RemoteWorldAgent[]) => void;
 
   // --- actions: ui ---
   setActivity: (a: ActivityView) => void;
@@ -671,6 +674,12 @@ export const useStore = create<State>()(
       events: seedEvents(),
       selectedAgentId: null,
       environment: "staging",
+    }),
+
+  adoptWorld: (remote) =>
+    set((s) => {
+      const agents = reconcileAgents(s.agents, remote);
+      return agents === s.agents ? {} : { agents };
     }),
 
   setActivity: (a) => set({ activity: a }),

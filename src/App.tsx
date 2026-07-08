@@ -285,9 +285,13 @@ function WorldSyncBridge() {
         if (res.offline) return;
         // Ci si allinea sempre alla versione più recente (200: nuova; 409: corrente).
         base = base === undefined ? res.version : nextBase(base, res.version);
-        // Conflitto: un altro scrittore ci ha preceduto. Ora abbiamo la sua versione
-        // come base → ripresentiamo presto il nostro stato, che diventa autorevole.
-        if (res.conflict) schedule(true);
+        // Conflitto: un altro scrittore ci ha preceduto. Adottiamo davvero il suo
+        // stato (il server è la verità), poi ripresentiamo presto: lo stato adottato
+        // ridiventa autorevole al prossimo giro, senza flip-flop (riconciliazione).
+        if (res.conflict) {
+          if (res.remoteAgents?.length) useStore.getState().adoptWorld(res.remoteAgents);
+          schedule(true);
+        }
       });
     };
 
@@ -302,9 +306,13 @@ function WorldSyncBridge() {
       if (state.agents !== prev.agents || !prev.backendOnline) schedule();
     });
     // All'avvio, semina la base dalla versione autorevole corrente così anche la
-    // prima push è CAS-guardata, poi pubblica se già connessi.
+    // prima push è CAS-guardata; se il server ha già uno stato durevole, adottalo
+    // così una vista appena connessa (o dopo un refresh) riflette la verità del
+    // server, non solo il proprio localStorage. Poi pubblica se già connessi.
     void fetchWorld().then((w) => {
-      if (w) base = w.version;
+      if (!w) return;
+      base = w.version;
+      if (w.version > 0 && w.agents.length) useStore.getState().adoptWorld(w.agents);
     });
     if (useStore.getState().backendOnline) schedule();
 
