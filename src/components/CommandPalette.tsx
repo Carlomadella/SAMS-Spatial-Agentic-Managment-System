@@ -29,6 +29,7 @@ import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ROOM_THEMES } from "../lib/roomThemes";
+import { OFFICE_ARRANGEMENTS } from "../lib/officeLayout";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
@@ -136,6 +137,15 @@ export function CommandPalette() {
         icon: Paintbrush,
         keywords: `stanza room tema colore pareti pavimento ${rt.name} ${rt.id}`,
         run: () => s.setRoomTheme(rt.id),
+      });
+    }
+    for (const arr of OFFICE_ARRANGEMENTS) {
+      list.push({
+        id: `office-${arr.id}`,
+        label: `Salotto: ${arr.emoji} ${arr.label}${s.officeLayout === arr.id ? " ✓" : ""}`,
+        icon: Paintbrush,
+        keywords: `salotto mobili disposizione layout divano ufficio ${arr.label} ${arr.id}`,
+        run: () => s.setOfficeLayout(arr.id),
       });
     }
     list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });

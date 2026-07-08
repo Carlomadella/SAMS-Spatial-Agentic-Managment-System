@@ -31,6 +31,7 @@ import { monitorView, queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { getRoomTheme } from "../lib/roomThemes";
+import { getArrangement } from "../lib/officeLayout";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
@@ -537,12 +538,18 @@ function Weather() {
   );
 }
 
+/** Centro del cluster salotto (per ruotarlo attorno a sé stesso). */
+const LOUNGE_CENTER: [number, number, number] = [-7.4, 0, 3.2];
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const workingAgent = agents.find((a) => a.status === "working" && a.task) ?? null;
   const monitor = monitorView(workingAgent);
   const queue = queueBoard(agents);
+  // Personalizzazione dell'ufficio: il cluster salotto si sposta/ruota in blocco
+  // secondo la disposizione scelta (persistita), senza toccare le pose base.
+  const lounge = getArrangement(useStore((s) => s.officeLayout));
 
   return (
     <>
@@ -595,12 +602,22 @@ function SceneContents() {
       <WallSconce position={[10, 2.15, -8.84]} />
 
       {/* ── Salotto — front-left quadrant ── */}
-      <Rug position={[-7.5, 0, 3.8]} />
-      <Sofa position={[-7.5, 0, 2.3]} />
-      <CoffeeTable position={[-7.5, 0, 4.2]} />
-      <Armchair position={[-4, 0, 4.3]} rotation={[0, 0.8, 0]} />
-      <SideTable position={[-9.4, 0, 2]} />
-      <TableLamp position={[-9.4, 0.59, 2]} />
+      {/* Cluster salotto riposizionabile: il gruppo esterno ruota attorno al centro
+          del cluster (LOUNGE_CENTER) e applica l'offset della disposizione; quello
+          interno riporta i figli, che mantengono le pose assolute. */}
+      <group
+        position={[LOUNGE_CENTER[0] + lounge.loungeOffset[0], lounge.loungeOffset[1], LOUNGE_CENTER[2] + lounge.loungeOffset[2]]}
+        rotation={[0, lounge.loungeSpin, 0]}
+      >
+        <group position={[-LOUNGE_CENTER[0], 0, -LOUNGE_CENTER[2]]}>
+          <Rug position={[-7.5, 0, 3.8]} />
+          <Sofa position={[-7.5, 0, 2.3]} />
+          <CoffeeTable position={[-7.5, 0, 4.2]} />
+          <Armchair position={[-4, 0, 4.3]} rotation={[0, 0.8, 0]} />
+          <SideTable position={[-9.4, 0, 2]} />
+          <TableLamp position={[-9.4, 0.59, 2]} />
+        </group>
+      </group>
       <TVUnit position={[-12.5, 0, 4.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* media wall — the "up next" board: tasks queued across all agents */}
       <Html position={[-12.0, 1.55, 4.5]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">

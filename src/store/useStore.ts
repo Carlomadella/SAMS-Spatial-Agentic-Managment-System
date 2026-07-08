@@ -30,6 +30,7 @@ import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
 import { addPreset, removePreset } from "../lib/agentPresets";
 import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
+import { DEFAULT_OFFICE_ARRANGEMENT } from "../lib/officeLayout";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
@@ -72,6 +73,8 @@ interface State {
   theme: "dark" | "light";
   /** Tema cromatico della stanza 3D (pareti/pavimento/modanature). */
   roomTheme: string;
+  /** Disposizione dei mobili del salotto (personalizzazione dell'ufficio). */
+  officeLayout: string;
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
@@ -208,6 +211,7 @@ interface State {
   setTourOpen: (open: boolean) => void;
   toggleTheme: () => void;
   setRoomTheme: (id: string) => void;
+  setOfficeLayout: (id: string) => void;
   setLeftOpen: (open: boolean) => void;
   setRightOpen: (open: boolean) => void;
   toggleLeft: () => void;
@@ -321,6 +325,7 @@ export const useStore = create<State>()(
       ? "light"
       : "dark",
   roomTheme: DEFAULT_ROOM_THEME,
+  officeLayout: DEFAULT_OFFICE_ARRANGEMENT,
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
@@ -699,6 +704,7 @@ export const useStore = create<State>()(
   setTourOpen: (open) => set({ tourOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   setRoomTheme: (id) => set({ roomTheme: id }),
+  setOfficeLayout: (id) => set({ officeLayout: id }),
   setLeftOpen: (open) => set({ leftOpen: open }),
   setRightOpen: (open) => set({ rightOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
@@ -876,6 +882,7 @@ export const useStore = create<State>()(
         agentPresets: s.agentPresets,
         theme: s.theme,
         roomTheme: s.roomTheme,
+        officeLayout: s.officeLayout,
         chatName: s.chatName,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -897,6 +904,7 @@ export const useStore = create<State>()(
           if (!state.playbookRuns) state.playbookRuns = [];
           if (!state.agentPresets) state.agentPresets = [];
           if (!state.roomTheme) state.roomTheme = DEFAULT_ROOM_THEME;
+          if (!state.officeLayout) state.officeLayout = DEFAULT_OFFICE_ARRANGEMENT;
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;
