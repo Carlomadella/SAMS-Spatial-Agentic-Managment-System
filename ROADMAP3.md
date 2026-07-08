@@ -19,6 +19,20 @@ reattivo e raccontabile**, e rifinirlo come prodotto.
 > **Legenda stato:** 💡 idea · 🔜 prossimo · 🏗️ in corso · ✅ fatto · ❄️ in pausa
 > **Impatto/Effort:** 🟢 basso · 🟡 medio · 🔴 alto
 
+> ### ✅ Chiusura (2026-07-08)
+> Tutti gli item ancora `[ ]` in questo file sono stati **risolti nella Roadmap 4**
+> (dove figurano ✅) o sono **volutamente in pausa** — le caselle qui restano non
+> spuntate solo per la convenzione ⬅️ "l'item continua nel capitolo successivo".
+> - **Fatti in R4:** presence realtime + ufficio multiplayer (roster avatar), ruoli/
+>   permessi + sola-lettura coerente, chat di workspace, tema chiaro/scuro rifinito,
+>   tour interattivo, mobile usabile, palette comandi estesa, test di rendering,
+>   rate-limit & quota per-utente, stagioni/meteo, oggetti interagibili,
+>   personalizzazione ufficio (tema stanza + disposizioni salotto).
+> - **Parziali (frontiera #1 di R4, richiedono decisione di design):** stato del mondo
+>   autorevole sul server (lettura + CAS + adozione fatti; manca lo schema completo di
+>   scrittura) e il **drag libero dei mobili** (dipende dallo stato autorevole).
+> - **Camera cinematografica / pathfinding:** già fatti in R2 (`CameraFollow`, casa 2×2).
+
 ---
 
 ## 🧭 La tensione di fondo: _simulazione_ → _mondo condiviso_

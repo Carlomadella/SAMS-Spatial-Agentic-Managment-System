@@ -7,6 +7,13 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 > ✅ **Questa roadmap è stata completata.** Il capitolo successivo vive in
 > [`ROADMAP2.md`](./ROADMAP2.md) (anteprima diff in-app, SQLite, test frontend,
 > retry/backoff, auth opzionale, …).
+>
+> _Nota di chiusura (2026-07-08):_ le caselle `[ ]` qui sotto sono brainstorm
+> originari confluiti nei capitoli successivi — **anteprima diff, mood/energia,
+> camera cinematografica, pathfinding, immagine OG, giardini di team** sono stati
+> fatti in R2–R4; **auto-innaffiatura via webhook** è ❄️ in pausa voluta;
+> **web search/fetch degli agenti** e **report via MCP (Drive/Calendar/Canva)**
+> restano idee non perseguite (integrazioni esterne + decisione di prodotto).
 
 > **Come si mantiene questo file**
 > A ogni sessione di brainstorming aggiungo nuove idee qui e aggiorno gli stati.

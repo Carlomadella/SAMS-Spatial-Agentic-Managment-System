@@ -26,6 +26,18 @@ Questa seconda roadmap parte da lì: meno "far funzionare le cose", più
 > **Legenda stato:** 💡 idea · 🔜 prossimo · 🏗️ in corso · ✅ fatto · ❄️ in pausa
 > **Impatto/Effort:** 🟢 basso · 🟡 medio · 🔴 alto
 
+> ### ✅ Chiusura (2026-07-08)
+> Gli item ancora `[ ]` qui sono stati **risolti nelle Roadmap 3–4** (dove figurano ✅),
+> sono **in pausa voluta**, oppure restano **idee non perseguite** che richiedono una
+> decisione di prodotto o un'integrazione esterna.
+> - **Fatti (R3/R4):** webhook in ingresso, replay cinematografico, immagine OG
+>   condivisibile, giardini di team, presence realtime, ruoli/permessi, tour interattivo,
+>   tema chiaro/scuro, ufficio multiplayer.
+> - **In pausa voluta (❄️):** auto-innaffiatura via webhook (oggi refresh manuale).
+> - **Non perseguiti — servono scelte/integrazioni esterne, non fatti in autonomia:**
+>   "Sfruttare gli MCP" per produrre report su Google Drive / eventi su Calendar /
+>   grafiche su Canva (richiede credenziali e una decisione di prodotto).
+
 ---
 
 ## 🧭 La tensione di fondo: _sandbox_ → _simulazione_
