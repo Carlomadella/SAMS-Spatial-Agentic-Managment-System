@@ -250,16 +250,36 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       Chromium della CI solo quando `process.env.CI` è impostato e il file esiste;
       altrimenti ricade sul Chromium gestito da Playwright, così la suite gira anche
       in locale dopo `npx playwright install chromium`.
-- [ ] 🏗️ **Osservabilità del runtime** — metriche/log strutturati sufficienti a
-      diagnosticare un workspace condiviso (chi ha fatto cosa, quando). _Fatto:
-      contatori `chatMessages` (cumulativo) e `peakClients` (picco viste) in
-      `metrics.ts`, esposti in `/api/metrics` e nel `SystemOverview` (👁 correnti·
-      picco); log strutturati "Vista connessa/disconnessa" con il conteggio. 3 test._
-      Resta: attribuzione per-utente (serve identità/ruoli).
+- [x] ✅ **Osservabilità del runtime** — metriche/log strutturati sufficienti a
+      diagnosticare un workspace condiviso (chi ha fatto cosa, quando). Contatori
+      `chatMessages` (cumulativo) e `peakClients` (picco viste) in `metrics.ts`, esposti
+      in `/api/metrics` e nel `SystemOverview` (👁 correnti·picco); log strutturati
+      "Vista connessa/disconnessa". Ora anche **attribuzione per-utente**: `server/src/
+      attribution.ts` (puro: `sanitizeActor` — input client non fidato, `actorLabel` →
+      "Marco (editor)") e le azioni che avviano lavoro loggano il `by` (nome della vista
+      + ruolo): "Task assegnato", "Modifiche approvate/rifiutate". 3+4 test.
 
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — attribuzione per-utente nel log del runtime (osservabilità)
+Chiude l'item "Osservabilità del runtime", il cui "_Resta_" era proprio
+l'attribuzione per-utente: ora che il workspace ha **identità** (nome della vista) e
+**ruoli** (owner/editor/viewer, slice precedente), il runtime può registrare *chi* ha
+fatto cosa, non solo *cosa*. Slice puro + wiring, **nessun cambio di comportamento**
+(solo log).
+- **Puro** `server/src/attribution.ts`: `sanitizeActor` (nome dichiarato dal client =
+  input non fidato → via caratteri di controllo, spazi compressi, cap 40, "" se assente)
+  e `actorLabel(role, name)` → `"Marco (editor)"` o solo `"editor"` se anonimo. 4 test.
+- **Server**: `AssignBody.actor?`; gli handler `/api/assign`, `/api/approve`,
+  `/api/reject` loggano `by: actorLabel(roleOf(req), actor)` con agente/titolo. Il ruolo
+  è già quello autorevole del token (`roleOf`), il nome è best-effort dal client.
+- **Client**: `assignRemote`/`approveChanges`/`rejectChanges` allegano `actor` (il nome
+  della vista, `viewerName()` = `chatName` o "Ospite"). Retro-compat: assente → l'attore
+  resta il solo ruolo.
+- Verifica: modulo unit-testato; il log strutturato reale è da leggere sul runtime.
+- Test: server 215 → 219. Typecheck (client+server), lint, build: verdi.
 
 ### 2026-07-08 — adattamento della UI al ruolo (frontiera #2) + riallineamento
 Chiuso il "_Resta_" dell'item ruoli: la UI ora **si adatta al ruolo del chiamante**,

@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-08 — Attribuzione per-utente nel log del runtime 🕵️
+- **Added** — `server/src/attribution.ts` (puro): `sanitizeActor` (nome dichiarato
+  dal client, input non fidato → niente caratteri di controllo, cap 40) e
+  `actorLabel(role, name)` → `"Marco (editor)"` / `"editor"`. +4 test.
+- **Added** — `AssignBody.actor?`; gli endpoint `/api/assign`, `/api/approve`,
+  `/api/reject` loggano `by: actorLabel(...)` (nome della vista + ruolo autorevole
+  del token) con agente/titolo — "chi ha fatto cosa" in un workspace condiviso.
+- **Changed** — client: `assignRemote`/`approveChanges`/`rejectChanges` allegano
+  il nome della vista (`chatName` o "Ospite"). Retro-compat: assente → solo ruolo.
+
 ### 2026-07-08 — La UI si adatta al ruolo (owner/editor/viewer) 👑
 - **Added** — `src/lib/roleUi.ts` (puro): `normalizeRole` (fallback owner in
   dev-aperto), `roleAtLeast`, `canAssign` (editor+), `canConfigure` (owner),

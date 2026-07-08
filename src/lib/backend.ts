@@ -243,7 +243,7 @@ export async function assignRemote(
   const res = await fetch(`${BASE}/api/assign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo }),
+    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, actor: viewerName() }),
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
@@ -260,7 +260,11 @@ export async function assignRemote(
 
 /** Approve staged files — triggers branch creation, commits and optional PR. */
 export async function approveChanges(agentId: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/approve/${encodeURIComponent(agentId)}`, { method: "POST" });
+  const res = await fetch(`${BASE}/api/approve/${encodeURIComponent(agentId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actor: viewerName() }),
+  });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as { error?: string };
     throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -269,7 +273,11 @@ export async function approveChanges(agentId: string): Promise<void> {
 
 /** Reject staged files — clears the buffer, agent goes idle. */
 export async function rejectChanges(agentId: string): Promise<void> {
-  await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, { method: "POST" });
+  await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actor: viewerName() }),
+  });
 }
 
 // --- Live Simulation mode ------------------------------------------------

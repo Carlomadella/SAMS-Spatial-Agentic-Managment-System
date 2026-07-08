@@ -24,6 +24,7 @@ import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState"
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { createRateLimiter, identityKey } from "./rateLimit";
+import { actorLabel } from "./attribution";
 import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
@@ -351,6 +352,9 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
 
   res.json({ ok: true });
 
+  // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
+  log.info("Task assegnato", { by: actorLabel(roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
+
   const { provider } = getSettings();
   const runner =
     provider === "gemini" ? runGeminiTask
@@ -399,6 +403,9 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
   clearPending(agentId);
   res.json({ ok: true }); // respond immediately; commit happens in background
 
+  const actor = (req.body as { actor?: string } | undefined)?.actor;
+  log.info("Modifiche approvate", { by: actorLabel(roleOf(req), actor), agent: work.agentName, title: work.title });
+
   const s = getSettings();
   const agentName = work.agentName;
   try {
@@ -427,6 +434,8 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
 /** Reject staged files: discard buffer, agent returns to idle. */
 app.post("/api/reject/:agentId", requireRole("editor"), (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
+  const actor = (req.body as { actor?: string } | undefined)?.actor;
+  log.info("Modifiche rifiutate", { by: actorLabel(roleOf(req), actor), agent: agentId });
   clearPending(agentId);
   broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
   res.json({ ok: true });
