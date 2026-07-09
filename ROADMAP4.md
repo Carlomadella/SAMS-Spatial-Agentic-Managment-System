@@ -293,8 +293,13 @@ scegliere chi simula. B2 evita tutto ciò: tocca solo i campi *config* che cambi
   non azzerano config locale buona), e **xp col massimo** (monotono). Nessun game loop toccato:
   posizione/bisogni/umore restano cosmetici per-vista.
 - Verifica: server 226 → 230, client 436 → 440; typecheck/lint/build verdi. Il **model che
-  prima appariva col default nelle altre viste** ora è coerente. Prossimo pezzo di B2: la
-  **coda dei task** (`taskQueue`, annidata).
+  prima appariva col default nelle altre viste** ora è coerente.
+- **Correzione al doc di decisione**: `taskQueue` era elencato in B2, ma **non** è un campo
+  config a basso rischio — è **accoppiato al dispatch**: il `QueueBridge` di ogni vista fa
+  `assignRemote` sul primo task in coda quando l'agente si libera. Condividere la coda in modo
+  naïve farebbe dispatchare lo **stesso** task a due viste → doppia esecuzione. Serve un attore
+  singolo (driver alla B3, o dispatch server-side alla B1): è quindi una **decisione separata**,
+  non uno slice B2. B2 "sicuro" = i soli campi config flat (model/instructions/repo/xp), fatto.
 
 ### 2026-07-09 — hardening del sync autorevole: no-op silenziosi + viewer non scrivono
 Con lo scheletro condiviso (opzione A) completo (create/delete/update dell'identità),
