@@ -278,6 +278,23 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-09 — hardening del sync autorevole: no-op silenziosi + viewer non scrivono
+Con lo scheletro condiviso (opzione A) completo (create/delete/update dell'identità),
+due rifiniture di correttezza/efficienza sul livello di sync appena costruito, scelte in
+autonomia perché a **basso rischio** (l'opzione B — campi ricchi autorevoli — resta un
+punto-decisione da doc, non imboccato unilateralmente).
+- **Scritture no-op silenziose** (`saveWorldAgents` → flag `changed`): la versione globale
+  si bumpa e il broadcast parte **solo se il roster cambia davvero**. Dopo un'adozione la
+  vista rispinge un roster identico a quello salvato → prima generava bump+echo (ping-pong)
+  e 409 a vuoto tra viste convergenti; ora è un no-op. Il prune dei tombstone resta
+  indipendente (rimuove voci già morte, non forza broadcast). +1 test.
+- **I viewer non spingono** (`WorldSyncBridge` → `!canAssign(viewerRole)`): un viewer adotta
+  via SSE/`fetchWorld` ma non tenta il `POST /api/world` che il server rifiuterebbe con 403
+  a ogni adozione. In dev-open il ruolo è owner → si spinge come prima.
+- Suite: server 225 → 226, client invariato; typecheck/lint/build verdi. **Scelta di
+  direzione**: l'opzione A è considerata *sufficiente* per il "mondo condiviso"; il salto ai
+  campi ricchi autorevoli (posizione/bisogni/xp — verso B) è un punto-decisione separato.
+
 ### 2026-07-09 — identità condivisa: rename/ricolore propagati (frontiera #1, opzione A)
 Chiuso un buco dello scheletro condiviso rimasto dopo create + delete: le **modifiche
 d'identità** non si propagavano. `reconcileAgents` adottava nome/colore/ruolo solo alla
