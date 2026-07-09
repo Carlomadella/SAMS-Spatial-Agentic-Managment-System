@@ -568,8 +568,12 @@ app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
     // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
     // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
     const snapshot = saveWorldAgents(db(), agents);
-    // Propaga live lo snapshot autorevole a tutte le viste (presence realtime).
-    broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
+    // Propaga live lo snapshot autorevole a tutte le viste (presence realtime) —
+    // **solo se qualcosa è cambiato**: un push no-op (vista che ha appena adottato e
+    // rispinge il roster identico) non genera echo → niente ping-pong tra le viste.
+    if (snapshot.changed) {
+      broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
+    }
     res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

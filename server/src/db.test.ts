@@ -206,6 +206,21 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     expect(loaded.agents[0].status).toBe("done");
   });
 
+  it("segnala changed e bumpa la versione solo quando qualcosa cambia", () => {
+    const db = openDb(":memory:");
+    const first = saveWorldAgents(db, [agent()]);
+    expect(first.changed).toBe(true);
+    expect(first.version).toBe(1);
+    // rispingere lo stesso identico roster è un no-op: niente bump, changed=false
+    const same = saveWorldAgents(db, [agent()]);
+    expect(same.changed).toBe(false);
+    expect(same.version).toBe(1);
+    // un cambiamento reale torna a bumpare
+    const moved = saveWorldAgents(db, [agent({ status: "done" })]);
+    expect(moved.changed).toBe(true);
+    expect(moved.version).toBe(2);
+  });
+
   it("tombstona (non elimina) un agente sparito dal roster in arrivo", () => {
     const db = openDb(":memory:");
     saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
@@ -243,8 +258,8 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     // prune col TTL standard non tocca un tombstone fresco…
     expect(pruneWorldTombstones(db, TOMBSTONE_TTL_MS)).toBe(0);
     expect(loadWorldAgents(db).some((a) => a.id === "a2")).toBe(true);
-    // …ma con TTL 0 (tutto è "vecchio") lo rimuove davvero
-    expect(pruneWorldTombstones(db, 0)).toBe(1);
+    // …ma con TTL 0 e un `now` nel futuro (tutto è "vecchio") lo rimuove davvero
+    expect(pruneWorldTombstones(db, 0, Date.now() + 1000)).toBe(1);
     expect(loadWorldAgents(db).some((a) => a.id === "a2")).toBe(false);
   });
 

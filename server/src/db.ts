@@ -242,8 +242,15 @@ const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
   (prev.task == null ? null : String(prev.task)) === a.task &&
   Number(prev.progress) === a.progress;
 
+/** Esito di una fusione: lo snapshot autorevole + se ha davvero cambiato qualcosa. */
+export interface WorldMergeResult extends WorldSnapshot {
+  /** true se la fusione ha modificato il roster (create/update/tombstone); false = no-op. */
+  changed: boolean;
+}
+
 /**
- * Fonde il roster completo in arrivo riga per riga e bumpa la versione globale.
+ * Fonde il roster completo in arrivo riga per riga; bumpa la versione globale
+ * **solo se qualcosa è cambiato**.
  *
  * - upsert di ogni agente in arrivo (rev++ se cambiato; **resuscita** un tombstone
  *   con lo stesso id → `deleted_at = NULL`);
@@ -252,10 +259,13 @@ const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
  *   unicamente se CAS-fresca (`baseVersion === current`): il client aveva adottato
  *   l'ultimo roster, quindi un'assenza è una cancellazione voluta, non una vista
  *   stantìa. Una creazione concorrente non-ancora-pushata avrebbe fatto 409.
+ * - **no-op**: se nulla cambia (la vista che ha appena adottato rispinge un roster
+ *   identico a quello salvato) non si bumpa la versione né si forza un broadcast —
+ *   si evita il ping-pong (bump + echo) e i 409 a vuoto tra viste convergenti.
  *
- * Ritorna lo snapshot autorevole (agenti vivi **+ tombstone**) con la nuova versione.
+ * Ritorna lo snapshot autorevole (agenti vivi **+ tombstone**) e il flag `changed`.
  */
-export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]): WorldSnapshot {
+export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]): WorldMergeResult {
   const now = Date.now();
   const existing = new Map<string, WorldAgentRow>(
     (db.prepare(`SELECT id, name, color, role, status, task, progress, rev, deleted_at FROM world_agents`).all() as unknown as WorldAgentRow[]).map(
@@ -276,19 +286,27 @@ export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]
     `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
   );
 
+  let changed = false;
   for (const a of incoming) {
     const prev = existing.get(a.id);
     if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
     const rev = prev ? Number(prev.rev) + 1 : 1;
     upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, rev, now);
+    changed = true;
   }
   for (const [id, r] of existing) {
-    if (!incomingIds.has(id) && r.deleted_at == null) tombstone.run(now, now, id);
+    if (!incomingIds.has(id) && r.deleted_at == null) {
+      tombstone.run(now, now, id);
+      changed = true;
+    }
   }
 
+  // GC dei tombstone scaduti: indipendente dal `changed` (rimuove solo voci già
+  // morte che i client hanno da tempo processato → non deve forzare un broadcast).
   pruneWorldTombstones(db, TOMBSTONE_TTL_MS, now);
-  const { version, updatedAt } = bumpWorldVersion(db);
-  return { agents: loadWorldAgents(db), version, updatedAt };
+
+  const { version, updatedAt } = changed ? bumpWorldVersion(db) : loadWorldVersion(db);
+  return { agents: loadWorldAgents(db), version, updatedAt, changed };
 }
 
 /** Pota i tombstone più vecchi di `ttlMs`. Ritorna quante righe ha rimosso. */

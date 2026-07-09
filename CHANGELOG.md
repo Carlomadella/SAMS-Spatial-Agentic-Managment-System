@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-09 — Sync più silenzioso: le scritture no-op non fanno rumore 🤫
+- **Changed** — `saveWorldAgents` (`server/src/db.ts`) ora ritorna un flag `changed` e
+  **bumpa la versione globale solo se qualcosa è cambiato** (create/update/tombstone).
+  Il `POST /api/world` fa **broadcast solo quando `changed`**: un push no-op (una vista
+  che ha appena adottato e rispinge il roster identico) non genera più echo → niente
+  ping-pong bump+broadcast tra viste convergenti, meno 409 a vuoto.
+- **Note** — Il prune dei tombstone resta indipendente da `changed` (rimuove solo voci
+  già morte, non deve forzare un broadcast). Nessun cambio al contratto client.
+- **Added** — +1 test server (`db.test.ts`: changed/versione su no-op vs. cambiamento reale).
+
 ### 2026-07-09 — Identità condivisa: rename/ricolore si propagano 🎨
 - **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora adotta anche **nome,
   colore e ruolo** dal remoto per gli agenti **già presenti**, non solo alla creazione:
