@@ -7,6 +7,13 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-09 — I viewer non spingono il mondo (niente 403 a vuoto) 🚫
+- **Changed** — `WorldSyncBridge` (`src/App.tsx`) non tenta più il `POST /api/world`
+  quando il ruolo è **viewer** (`!canAssign(viewerRole)`): un viewer adotta lo stato via
+  SSE/`fetchWorld` e basta, invece di prendere un 403 a ogni adozione (l'adozione cambia il
+  ref `agents` → prima schedulava un push inutile). In dev-open il ruolo è owner → si spinge
+  come prima. Retro-compatibile.
+
 ### 2026-07-09 — Sync più silenzioso: le scritture no-op non fanno rumore 🤫
 - **Changed** — `saveWorldAgents` (`server/src/db.ts`) ora ritorna un flag `changed` e
   **bumpa la versione globale solo se qualcosa è cambiato** (create/update/tombstone).

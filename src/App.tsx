@@ -28,6 +28,7 @@ import { notificationBody, notificationTitle, shouldNotify } from "./lib/notify"
 import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { isMobileWidth } from "./lib/layout";
+import { canAssign } from "./lib/roleUi";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -284,6 +285,9 @@ function WorldSyncBridge() {
       last = Date.now();
       const st = useStore.getState();
       if (!st.backendOnline) return;
+      // I viewer non scrivono lo stato del mondo (il server risponderebbe 403): adottano
+      // e basta, via SSE/`fetchWorld`. In dev-open il ruolo è owner → si spinge come prima.
+      if (!canAssign(st.viewerRole)) return;
       void pushWorld(snapshot(), st.serverWorldVersion).then((res) => {
         if (res.offline) return;
         // Ci si allinea sempre alla versione più recente (200: nuova; 409: corrente).
