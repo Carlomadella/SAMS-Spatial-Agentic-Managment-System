@@ -180,6 +180,16 @@ describe("world autorevole (adoptWorld / noteWorldVersion / evento world)", () =
     expect(nova).toMatchObject({ name: "Nova", color: "orange", role: "Ops", status: "working" });
     expect(nova!.task).toEqual({ title: "Deploy", branch: "", progress: 20 });
   });
+
+  it("adoptWorld rimuove un agente locale quando lo scheletro lo marca cancellato (tombstone)", () => {
+    // Materializza un agente remoto, poi lo si vede tornare come tombstone.
+    useStore.getState().adoptWorld([{ id: "remote-gone", status: "idle", task: null, progress: 0, name: "Gone" }]);
+    expect(agent("remote-gone")).toBeTruthy();
+    const before = useStore.getState().agents.length;
+    useStore.getState().adoptWorld([{ id: "remote-gone", status: "idle", task: null, progress: 0, deleted: true }]);
+    expect(agent("remote-gone")).toBeUndefined();
+    expect(useStore.getState().agents).toHaveLength(before - 1);
+  });
 });
 
 describe("updateProgress", () => {

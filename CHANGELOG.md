@@ -7,6 +7,24 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-09 — Cancellazione propagata: il delete degli agenti è sicuro 🪦
+- **Added** — Tabella `world_agents` per-riga (`server/src/db.ts`): una riga per agente
+  con `rev` (versione per-agente) e `deleted_at` (tombstone), al posto del solo blob
+  `world_snapshot` — che resta come contatore di versione globale (CAS). Migrazione
+  una-tantum che semina la tabella dal vecchio blob alla riapertura. Opzione 1 della frontiera #1.
+- **Added** — `saveWorldAgents` fonde il roster **riga per riga** (create/update +
+  **tombstone-by-absence**) invece di sostituire il blob; `loadWorldAgents`/`loadWorldSnapshot`
+  leggono dalla tabella (tombstone inclusi); `pruneWorldTombstones` fa GC dopo 7 giorni.
+- **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora **rimuove** un agente
+  locale quando arriva col tombstone (`deleted`) — solo su flag esplicito, **mai** per
+  semplice assenza, così una creazione concorrente non ancora propagata non viene distrutta.
+  `RemoteWorldAgent`/`WorldAgentSnapshot` portano `deleted?`.
+- **Note** — Sicurezza del delete: il server tombstona per assenza **solo** su un push
+  CAS-fresco (il client aveva adottato l'ultimo roster) → un'assenza è una cancellazione
+  voluta, non una vista stantìa. Un id tombstoned che ricompare **resuscita**.
+- **Added** — +6 test server (`db.test.ts`: tombstone, no-clobber, resurrezione, prune,
+  migrazione), +1 (`worldState.test.ts`), +4 puri e +1 di store lato client.
+
 ### 2026-07-08 — Scheletro condiviso: gli agenti creati altrove compaiono 👥
 - **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora **crea** gli agenti
   presenti solo nello scheletro autorevole del server, adottandone identità

@@ -18,7 +18,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldSnapshot, setRoutineEnabled, taskStats } from "./db";
+import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, taskStats } from "./db";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
@@ -564,7 +564,10 @@ app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
       });
       return;
     }
-    const snapshot = saveWorldSnapshot(db(), agents);
+    // Merge per-riga (non sostituzione del blob): create/update + tombstone per
+    // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
+    // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
+    const snapshot = saveWorldAgents(db(), agents);
     // Propaga live lo snapshot autorevole a tutte le viste (presence realtime).
     broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
     res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });

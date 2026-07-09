@@ -374,6 +374,8 @@ export interface WorldAgentSnapshot {
   status: string;
   task: string | null;
   progress: number;
+  /** Tombstone autorevole (opzione 1): l'agente è stato cancellato sul server. */
+  deleted?: boolean;
 }
 
 export interface WorldSnapshotRemote {

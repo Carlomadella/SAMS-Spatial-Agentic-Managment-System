@@ -19,6 +19,14 @@ export interface WorldAgentSnapshot {
   task: string | null;
   /** 0..100 */
   progress: number;
+  /**
+   * Tombstone (Roadmap 4, frontiera #1 — opzione 1): presente e `true` quando
+   * l'agente è stato **cancellato** in modo autorevole. Viaggia in lettura
+   * (GET/broadcast) così i client rimuovono l'agente in sicurezza — solo su
+   * tombstone esplicito, mai per semplice assenza. In scrittura i client non lo
+   * inviano: la cancellazione è dedotta server-side dall'assenza in un push CAS-fresco.
+   */
+  deleted?: boolean;
 }
 
 export interface WorldSnapshot {
@@ -98,11 +106,14 @@ export function isFreshWrite(currentVersion: number, baseVersion?: number | null
 
 /** Riepilogo per log/dashboard: quanti agenti e come sono distribuiti. */
 export function summarizeWorld(s: Pick<WorldSnapshot, "agents">): { agents: number; working: number; idle: number } {
+  let live = 0;
   let working = 0;
   let idle = 0;
   for (const a of s.agents) {
+    if (a.deleted) continue; // i tombstone non contano nel roster vivo
+    live += 1;
     if (a.status === "working") working += 1;
     else if (a.status === "idle") idle += 1;
   }
-  return { agents: s.agents.length, working, idle };
+  return { agents: live, working, idle };
 }

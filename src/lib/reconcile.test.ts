@@ -93,6 +93,26 @@ describe("reconcileAgents", () => {
     expect(next[0].status).toBe("review");
   });
 
+  it("rimuove un agente locale quando il remoto lo marca cancellato (tombstone)", () => {
+    const local = [mk("a"), mk("b", { status: "working" })];
+    const next = reconcileAgents(local, [remote({ id: "b", deleted: true })]);
+    expect(next.map((x) => x.id)).toEqual(["a"]); // b rimosso
+    expect(next).not.toBe(local);
+  });
+
+  it("un tombstone per un id sconosciuto non crea né rompe nulla", () => {
+    const local = [mk("a")];
+    const next = reconcileAgents(local, [remote({ id: "z", deleted: true })]);
+    expect(next.map((x) => x.id)).toEqual(["a"]); // z non materializzato
+  });
+
+  it("distingue tombstone (rimuove) da semplice assenza (preserva)", () => {
+    const local = [mk("a"), mk("b"), mk("c")];
+    // b tombstoned; c assente dallo snapshot (creazione concorrente non ancora propagata)
+    const next = reconcileAgents(local, [remote({ id: "a" }), remote({ id: "b", deleted: true })]);
+    expect(next.map((x) => x.id)).toEqual(["a", "c"]); // b via, c resta
+  });
+
   it("crea un agente presente solo nel remoto (scheletro condiviso), adottandone l'identità", () => {
     const local = [mk("a")];
     const next = reconcileAgents(local, [

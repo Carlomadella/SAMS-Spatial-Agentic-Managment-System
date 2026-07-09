@@ -62,10 +62,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       _Fatto (opzione A — scheletro condiviso, primo slice): `reconcileAgents` ora **crea**
       gli agenti presenti solo nel remoto (`materializeAgent` puro; `RemoteWorldAgent` porta
       identità), così un agente aggiunto in un'altra vista compare anche qui — convergenza
-      del roster. **Create-only**: la cancellazione resta rimandata (serve il versioning
-      per-agente per non distruggere creazioni concorrenti). +5 test._ Manca il resto:
-      **delete** propagato con versioni per-agente (tabella `world_agents` per-riga al posto
-      del blob singolo) e lo schema completo di scrittura autorevole.
+      del roster. +5 test._ _Fatto (opzione 1 — delete sicuro): tabella `world_agents`
+      **per-riga** (rev per-agente + tombstone) al posto del solo blob; `saveWorldAgents`
+      fonde riga per riga con **tombstone-by-absence** (sicuro perché ammesso solo su push
+      CAS-fresco); `reconcileAgents` rimuove un agente locale **solo** su tombstone esplicito.
+      Migrazione dal blob alla riapertura; prune dei tombstone a 7 giorni. +12 test._ Manca
+      il resto: lo **schema completo** di scrittura autorevole (campi ricchi: posizione,
+      energia, umore, xp — oggi cosmetici per-vista) col server come unica sorgente di verità.
 - [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
       POST) con una **riconciliazione** deterministica dello store. _Fatto: primo
@@ -271,6 +274,32 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-09 — delete sicuro: roster per-riga + tombstone (frontiera #1, opzione 1)
+Chiuso il pezzo mancante dello scheletro condiviso: la **propagazione delle cancellazioni**.
+Dopo il documento di decisione (tre opzioni: 1 tabella per-riga + tombstone, 2 blob + rev
+embedded, 3 delta espliciti) scelta l'**opzione 1** come raccomandato — fondazione pulita,
+client quasi invariato, sottoinsieme compatibile di B.
+- **Perché il delete era delicato**: con blob singolo + versione **globale**, dedurre una
+  cancellazione dall'**assenza** di un id è pericoloso — una vista stantìa che adotta uno
+  snapshot senza il proprio agente appena creato lo distruggerebbe (creazione concorrente
+  scambiata per delete).
+- **La soluzione**: tabella `world_agents` **una riga per agente** (`rev`, `deleted_at`),
+  con la riga `world_snapshot` declassata a solo **contatore di versione globale** (CAS).
+  `saveWorldAgents` **fonde** il roster riga per riga invece di sostituire il blob:
+  create/update + **tombstone-by-absence**. L'assenza-come-delete è sicura **solo** perché
+  il gestore ammette la POST unicamente se CAS-fresca (`baseVersion === current`): il client
+  aveva già adottato l'ultimo roster, quindi un'assenza è voluta; una creazione concorrente
+  non-ancora-pushata avrebbe fatto 409 → adozione → ripresentazione.
+- **Lato client** (`reconcile.ts`): rimuove un agente locale **solo** su tombstone esplicito
+  (`deleted`), mai per semplice assenza. Così un agente locale non ancora propagato resta.
+- **Dettagli**: un id tombstoned che ricompare **resuscita** (`deleted_at = NULL`, rev++);
+  migrazione una-tantum che semina la tabella dal vecchio blob alla riapertura; prune dei
+  tombstone a 7 giorni (GC del roster, broadcast non cresce all'infinito).
+- Verifica: +6 test server (tombstone, no-clobber su push successivo, resurrezione, prune,
+  migrazione su file), +1 `summarizeWorld` (esclude i tombstone), +4 puri e +1 di store
+  lato client. Typecheck, lint, build, suite complete (225 server / 433 client): verdi. La
+  **convergenza a due viste nel browser** (creo di qua, sparisce di là) resta da provare a mano.
 
 ### 2026-07-08 — scheletro condiviso: convergenza del roster (frontiera #1, opzione A)
 Ripresa la frontiera #1 dopo il documento di decisione (tre opzioni: A scheletro

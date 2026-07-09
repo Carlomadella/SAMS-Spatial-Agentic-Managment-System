@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   clearMemory,
   deleteRoutine,
@@ -9,18 +12,27 @@ import {
   listChatMessages,
   listMemory,
   listRoutines,
+  loadWorldAgents,
   loadWorldSnapshot,
   markRoutineRun,
   openDb,
+  pruneWorldTombstones,
   recentTasks,
-  saveWorldSnapshot,
+  saveWorldAgents,
   setMemory,
   setRoutineEnabled,
   taskStats,
+  TOMBSTONE_TTL_MS,
   type TaskLogEntry,
 } from "./db";
 import type { RoutineInput } from "./routines";
 import type { WorldAgentSnapshot } from "./worldState";
+
+// Directory temporanee create dai test su file (migrazione), ripulite alla fine.
+const tmpDirs: string[] = [];
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 const entry = (over: Partial<TaskLogEntry> = {}): TaskLogEntry => ({
   agentId: "a",
@@ -162,7 +174,7 @@ describe("db routines", () => {
   });
 });
 
-describe("db world_snapshot", () => {
+describe("db world_agents (roster per-riga + tombstone)", () => {
   const agent = (over: Partial<WorldAgentSnapshot> = {}): WorldAgentSnapshot => ({
     id: "a1",
     name: "Blue",
@@ -181,17 +193,82 @@ describe("db world_snapshot", () => {
 
   it("saves, bumps the version and reads back", () => {
     const db = openDb(":memory:");
-    const first = saveWorldSnapshot(db, [agent()]);
+    const first = saveWorldAgents(db, [agent()]);
     expect(first.version).toBe(1);
     expect(first.updatedAt).toBeGreaterThan(0);
 
-    const second = saveWorldSnapshot(db, [agent({ id: "a1", status: "done" }), agent({ id: "a2" })]);
+    const second = saveWorldAgents(db, [agent({ id: "a1", status: "done" }), agent({ id: "a2" })]);
     expect(second.version).toBe(2);
 
     const loaded = loadWorldSnapshot(db);
     expect(loaded.version).toBe(2);
     expect(loaded.agents.map((a) => a.id)).toEqual(["a1", "a2"]);
     expect(loaded.agents[0].status).toBe("done");
+  });
+
+  it("tombstona (non elimina) un agente sparito dal roster in arrivo", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    const snap = saveWorldAgents(db, [agent({ id: "a1" })]); // a2 sparito → tombstone
+    const a2 = snap.agents.find((a) => a.id === "a2");
+    expect(a2).toBeDefined();
+    expect(a2!.deleted).toBe(true);
+    // a1 resta vivo (nessun flag deleted)
+    expect(snap.agents.find((a) => a.id === "a1")!.deleted).toBeUndefined();
+  });
+
+  it("un merge NON tombstona agenti solo perché un altro push arriva dopo", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ id: "a1" })]);
+    // push che aggiunge a2 tenendo a1: a1 non deve diventare tombstone
+    const snap = saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    expect(snap.agents.every((a) => !a.deleted)).toBe(true);
+    expect(snap.agents.map((a) => a.id).sort()).toEqual(["a1", "a2"]);
+  });
+
+  it("resuscita un id tombstoned se ricompare nel roster", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    saveWorldAgents(db, [agent({ id: "a1" })]); // a2 → tombstone
+    const snap = saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2", status: "idle" })]); // a2 torna
+    const a2 = snap.agents.find((a) => a.id === "a2");
+    expect(a2!.deleted).toBeUndefined();
+    expect(a2!.status).toBe("idle");
+  });
+
+  it("pota i tombstone più vecchi del TTL", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    saveWorldAgents(db, [agent({ id: "a1" })]); // a2 tombstoned adesso
+    // prune col TTL standard non tocca un tombstone fresco…
+    expect(pruneWorldTombstones(db, TOMBSTONE_TTL_MS)).toBe(0);
+    expect(loadWorldAgents(db).some((a) => a.id === "a2")).toBe(true);
+    // …ma con TTL 0 (tutto è "vecchio") lo rimuove davvero
+    expect(pruneWorldTombstones(db, 0)).toBe(1);
+    expect(loadWorldAgents(db).some((a) => a.id === "a2")).toBe(false);
+  });
+
+  it("migra il vecchio blob world_snapshot nella tabella per-riga alla riapertura", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy.db");
+
+    // Stato legacy: agenti nel blob, tabella per-riga svuotata (com'era prima dell'opzione 1).
+    const first = openDb(file);
+    first.prepare(`INSERT INTO world_snapshot (id, agents, version, updated_at) VALUES (1, ?, 3, 111)`).run(
+      JSON.stringify([{ id: "old", name: "Old", color: "green", role: "Dev", status: "review", task: "T", progress: 50 }]),
+    );
+    first.exec(`DELETE FROM world_agents`);
+    first.close();
+
+    // Riapertura → migrateWorldAgents semina la tabella dal blob.
+    const db = openDb(file);
+    const agents = loadWorldAgents(db);
+    expect(agents.map((a) => a.id)).toEqual(["old"]);
+    expect(agents[0]).toMatchObject({ name: "Old", role: "Dev", status: "review", task: "T", progress: 50 });
+    // La versione globale del blob resta come contatore CAS.
+    expect(loadWorldSnapshot(db).version).toBe(3);
+    db.close();
   });
 });
 

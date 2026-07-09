@@ -75,6 +75,25 @@ export function openDb(location: string): DatabaseSync {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Roster autorevole per-riga (Roadmap 4, frontiera #1 — opzione 1). Sostituisce
+    -- il blob singolo di world_snapshot come sorgente degli agenti: una riga per
+    -- agente, con rev (versione per-agente monotona) e deleted_at (tombstone) così
+    -- la cancellazione è propagabile senza distruggere creazioni concorrenti. La
+    -- riga world_snapshot resta come contatore di versione globale (CAS).
+    CREATE TABLE IF NOT EXISTS world_agents (
+      id         TEXT    PRIMARY KEY,
+      name       TEXT    NOT NULL DEFAULT '',
+      color      TEXT    NOT NULL DEFAULT '',
+      role       TEXT    NOT NULL DEFAULT '',
+      status     TEXT    NOT NULL DEFAULT 'idle',
+      task       TEXT,
+      progress   INTEGER NOT NULL DEFAULT 0,
+      rev        INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      deleted_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_world_agents_deleted ON world_agents (deleted_at);
+
     CREATE TABLE IF NOT EXISTS chat_messages (
       id     TEXT    PRIMARY KEY,
       author TEXT    NOT NULL,
@@ -83,7 +102,37 @@ export function openDb(location: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat_messages (ts DESC);
   `);
+  migrateWorldAgents(db);
   return db;
+}
+
+/**
+ * Migrazione una-tantum: semina `world_agents` dal vecchio blob `world_snapshot`,
+ * così gli agenti durevoli sopravvivono al passaggio al versioning per-riga +
+ * tombstone (Roadmap 4, frontiera #1 — opzione 1). Gira a ogni apertura ma è un
+ * no-op se la tabella per-riga è già popolata.
+ */
+function migrateWorldAgents(db: DatabaseSync): void {
+  const n = Number((db.prepare(`SELECT COUNT(*) AS n FROM world_agents`).get() as { n: number }).n);
+  if (n > 0) return;
+  const row = db.prepare(`SELECT agents FROM world_snapshot WHERE id = 1`).get() as { agents: string } | undefined;
+  if (!row) return;
+  let agents: WorldAgentSnapshot[] = [];
+  try {
+    const parsed = JSON.parse(row.agents);
+    if (Array.isArray(parsed)) agents = parsed as WorldAgentSnapshot[];
+  } catch {
+    return; // blob corrotto → niente da migrare
+  }
+  const now = Date.now();
+  const ins = db.prepare(
+    `INSERT OR IGNORE INTO world_agents (id, name, color, role, status, task, progress, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL)`,
+  );
+  for (const a of agents) {
+    if (!a || typeof a.id !== "string" || !a.id) continue;
+    ins.run(a.id, a.name ?? "", a.color ?? "", a.role ?? "", a.status ?? "idle", a.task ?? null, Number(a.progress) || 0, now);
+  }
 }
 
 // --- chat di workspace helpers (mondo condiviso) ---------------------------
@@ -113,37 +162,139 @@ export function insertChatMessage(db: DatabaseSync, msg: ChatMessage): void {
   ).run(MAX_CHAT_MESSAGES);
 }
 
-// --- world snapshot helpers (stato autorevole, primo slice) ----------------
+// --- world helpers (stato autorevole: roster per-riga + tombstone) ----------
+//
+// Il roster autorevole vive nella tabella `world_agents` (una riga per agente,
+// con rev per-agente e tombstone). La riga `world_snapshot` (id=1) resta solo
+// come **contatore di versione globale** per il CAS. Il merge server-side è ciò
+// che rende sicura la cancellazione (Roadmap 4, frontiera #1 — opzione 1).
+
+/** Tempo di vita dei tombstone: dopo tanto vengono potati (GC del roster). */
+export const TOMBSTONE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+
+interface WorldAgentRow {
+  id: string;
+  name: string;
+  color: string;
+  role: string;
+  status: string;
+  task: string | null;
+  progress: number;
+  rev: number;
+  deleted_at: number | null;
+}
+
+/** Versione globale + updatedAt (contatore CAS); zeri se mai scritto. */
+function loadWorldVersion(db: DatabaseSync): { version: number; updatedAt: number } {
+  const row = db.prepare(`SELECT version, updated_at FROM world_snapshot WHERE id = 1`).get() as
+    | { version: number; updated_at: number }
+    | undefined;
+  return row ? { version: Number(row.version), updatedAt: Number(row.updated_at) } : { version: 0, updatedAt: 0 };
+}
+
+/** Incrementa la versione globale monotona e timbra updatedAt. */
+function bumpWorldVersion(db: DatabaseSync): { version: number; updatedAt: number } {
+  const version = loadWorldVersion(db).version + 1;
+  const updatedAt = Date.now();
+  db.prepare(
+    `INSERT INTO world_snapshot (id, agents, version, updated_at) VALUES (1, '[]', ?, ?)
+     ON CONFLICT (id) DO UPDATE SET version = excluded.version, updated_at = excluded.updated_at`,
+  ).run(version, updatedAt);
+  return { version, updatedAt };
+}
+
+const rowToAgent = (r: WorldAgentRow): WorldAgentSnapshot => ({
+  id: String(r.id),
+  name: String(r.name),
+  color: String(r.color),
+  role: String(r.role),
+  status: String(r.status),
+  task: r.task == null ? null : String(r.task),
+  progress: Number(r.progress),
+  ...(r.deleted_at != null ? { deleted: true } : {}),
+});
+
+/**
+ * Tutti gli agenti del roster autorevole, **tombstone inclusi** (col flag
+ * `deleted`), in ordine d'inserimento. I client ne hanno bisogno per rimuovere
+ * gli agenti cancellati; potati via `pruneWorldTombstones`.
+ */
+export function loadWorldAgents(db: DatabaseSync): WorldAgentSnapshot[] {
+  const rows = db
+    .prepare(`SELECT id, name, color, role, status, task, progress, rev, deleted_at FROM world_agents ORDER BY rowid ASC`)
+    .all() as unknown as WorldAgentRow[];
+  return rows.map(rowToAgent);
+}
 
 /** The durable authoritative world snapshot, or an empty one if never saved. */
 export function loadWorldSnapshot(db: DatabaseSync): WorldSnapshot {
-  const row = db.prepare(`SELECT agents, version, updated_at FROM world_snapshot WHERE id = 1`).get() as
-    | { agents: string; version: number; updated_at: number }
-    | undefined;
-  if (!row) return emptyWorld();
-  let agents: WorldAgentSnapshot[] = [];
-  try {
-    const parsed = JSON.parse(row.agents);
-    if (Array.isArray(parsed)) agents = parsed as WorldAgentSnapshot[];
-  } catch {
-    /* corrupt row — treat as empty */
-  }
-  return { agents, version: Number(row.version), updatedAt: Number(row.updated_at) };
+  const { version, updatedAt } = loadWorldVersion(db);
+  if (version === 0) return emptyWorld();
+  return { agents: loadWorldAgents(db), version, updatedAt };
 }
 
+const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
+  prev.deleted_at == null &&
+  String(prev.name) === a.name &&
+  String(prev.color) === a.color &&
+  String(prev.role) === a.role &&
+  String(prev.status) === a.status &&
+  (prev.task == null ? null : String(prev.task)) === a.task &&
+  Number(prev.progress) === a.progress;
+
 /**
- * Persist a new world snapshot (single-row upsert), bumping the monotonic
- * version and stamping updatedAt. Returns the stored snapshot.
+ * Fonde il roster completo in arrivo riga per riga e bumpa la versione globale.
+ *
+ * - upsert di ogni agente in arrivo (rev++ se cambiato; **resuscita** un tombstone
+ *   con lo stesso id → `deleted_at = NULL`);
+ * - **tombstone-by-absence**: ogni riga *viva* assente dal roster in arrivo viene
+ *   marcata cancellata. È sicuro **solo** perché il gestore ammette questa scrittura
+ *   unicamente se CAS-fresca (`baseVersion === current`): il client aveva adottato
+ *   l'ultimo roster, quindi un'assenza è una cancellazione voluta, non una vista
+ *   stantìa. Una creazione concorrente non-ancora-pushata avrebbe fatto 409.
+ *
+ * Ritorna lo snapshot autorevole (agenti vivi **+ tombstone**) con la nuova versione.
  */
-export function saveWorldSnapshot(db: DatabaseSync, agents: WorldAgentSnapshot[]): WorldSnapshot {
-  const prev = loadWorldSnapshot(db);
-  const version = prev.version + 1;
-  const updatedAt = Date.now();
-  db.prepare(
-    `INSERT INTO world_snapshot (id, agents, version, updated_at) VALUES (1, ?, ?, ?)
-     ON CONFLICT (id) DO UPDATE SET agents = excluded.agents, version = excluded.version, updated_at = excluded.updated_at`,
-  ).run(JSON.stringify(agents), version, updatedAt);
-  return { agents, version, updatedAt };
+export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]): WorldSnapshot {
+  const now = Date.now();
+  const existing = new Map<string, WorldAgentRow>(
+    (db.prepare(`SELECT id, name, color, role, status, task, progress, rev, deleted_at FROM world_agents`).all() as unknown as WorldAgentRow[]).map(
+      (r) => [String(r.id), r],
+    ),
+  );
+  const incomingIds = new Set(incoming.map((a) => a.id));
+
+  const upsert = db.prepare(
+    `INSERT INTO world_agents (id, name, color, role, status, task, progress, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+     ON CONFLICT (id) DO UPDATE SET
+       name = excluded.name, color = excluded.color, role = excluded.role, status = excluded.status,
+       task = excluded.task, progress = excluded.progress, rev = excluded.rev, updated_at = excluded.updated_at,
+       deleted_at = NULL`,
+  );
+  const tombstone = db.prepare(
+    `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+  );
+
+  for (const a of incoming) {
+    const prev = existing.get(a.id);
+    if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
+    const rev = prev ? Number(prev.rev) + 1 : 1;
+    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, rev, now);
+  }
+  for (const [id, r] of existing) {
+    if (!incomingIds.has(id) && r.deleted_at == null) tombstone.run(now, now, id);
+  }
+
+  pruneWorldTombstones(db, TOMBSTONE_TTL_MS, now);
+  const { version, updatedAt } = bumpWorldVersion(db);
+  return { agents: loadWorldAgents(db), version, updatedAt };
+}
+
+/** Pota i tombstone più vecchi di `ttlMs`. Ritorna quante righe ha rimosso. */
+export function pruneWorldTombstones(db: DatabaseSync, ttlMs: number, now = Date.now()): number {
+  const res = db.prepare(`DELETE FROM world_agents WHERE deleted_at IS NOT NULL AND deleted_at < ?`).run(now - ttlMs);
+  return Number(res.changes ?? 0);
 }
 
 // --- routine helpers (trigger temporali) -----------------------------------

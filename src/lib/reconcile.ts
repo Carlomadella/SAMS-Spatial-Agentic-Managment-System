@@ -61,6 +61,13 @@ export interface RemoteWorldAgent {
   name?: string;
   color?: string;
   role?: string;
+  /**
+   * Tombstone autorevole (Roadmap 4, frontiera #1 — opzione 1): `true` se l'agente
+   * è stato cancellato sul server. Il client rimuove un agente locale **solo** su
+   * questo flag esplicito, mai per semplice assenza dallo snapshot — così una
+   * creazione concorrente non-ancora-propagata non viene distrutta.
+   */
+  deleted?: boolean;
 }
 
 const VALID_STATUS = new Set<string>(["idle", "working", "review", "blocked", "done", "awaiting_approval"]);
@@ -124,11 +131,12 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
  * - per gli agenti presenti in **entrambi** (per id): adotta `status` (se valido) e il
  *   task del server, **preservando i campi ricchi locali** (branch, plan) quando il
  *   titolo del task coincide;
- * - per gli agenti presenti **solo nel remoto**: li **crea** (scheletro condiviso —
- *   opzione A), così un agente aggiunto in un'altra vista compare anche qui;
- * - **non** rimuove ancora gli agenti spariti dal remoto: la cancellazione basata
- *   sull'assenza in uno snapshot *stantìo* distruggerebbe creazioni concorrenti — va
- *   fatta col versioning per-agente (slice successivo);
+ * - per gli agenti col **tombstone** (`deleted`): li **rimuove** dal locale — è
+ *   l'unica cancellazione ammessa, esplicita e mai per semplice assenza (opzione 1);
+ * - per gli agenti presenti **solo nel remoto** (senza tombstone): li **crea**
+ *   (scheletro condiviso — opzione A), così un agente aggiunto altrove compare qui;
+ * - un agente locale **assente** dal remoto resta intatto (potrebbe essere una nostra
+ *   creazione non ancora propagata);
  * - ritorna lo **stesso array** se nulla cambia, così non innesca render/push a vuoto.
  */
 export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Agent[] {
@@ -136,9 +144,17 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
   const byId = new Map(remote.map((r) => [r.id, r]));
   const localIds = new Set(local.map((a) => a.id));
   let changed = false;
-  const next = local.map((a) => {
+  const next: Agent[] = [];
+  for (const a of local) {
     const r = byId.get(a.id);
-    if (!r) return a;
+    if (r?.deleted) {
+      changed = true; // tombstone autorevole → rimuovi
+      continue;
+    }
+    if (!r) {
+      next.push(a);
+      continue;
+    }
     const status: AgentStatus = VALID_STATUS.has(r.status) ? (r.status as AgentStatus) : a.status;
     const progress = clampPct(r.progress);
     let task: Agent["task"];
@@ -149,14 +165,17 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     } else {
       task = { title: r.task, branch: a.task?.branch ?? "", progress, ...(a.task?.plan ? { plan: a.task.plan } : {}) };
     }
-    if (a.status === status && task === a.task) return a;
+    if (a.status === status && task === a.task) {
+      next.push(a);
+      continue;
+    }
     changed = true;
-    return { ...a, status, task };
-  });
-  // Agenti presenti nel remoto ma non in locale → materializzali (ordine del remoto).
+    next.push({ ...a, status, task });
+  }
+  // Agenti presenti nel remoto ma non in locale (e non tombstoned) → materializzali.
   const created: Agent[] = [];
   for (const r of remote) {
-    if (!localIds.has(r.id)) created.push(materializeAgent(r));
+    if (!r.deleted && !localIds.has(r.id)) created.push(materializeAgent(r));
   }
   if (created.length === 0) return changed ? next : local;
   return [...next, ...created];

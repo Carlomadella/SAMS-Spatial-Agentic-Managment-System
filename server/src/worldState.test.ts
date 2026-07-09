@@ -86,4 +86,15 @@ describe("summarizeWorld", () => {
     };
     expect(summarizeWorld(s)).toEqual({ agents: 3, working: 1, idle: 1 });
   });
+
+  it("esclude i tombstone dal conteggio del roster vivo", () => {
+    const s = {
+      agents: [
+        { id: "1", name: "", color: "", role: "", status: "working", task: null, progress: 0 },
+        { id: "2", name: "", color: "", role: "", status: "idle", task: null, progress: 0, deleted: true },
+        { id: "3", name: "", color: "", role: "", status: "working", task: null, progress: 0, deleted: true },
+      ],
+    };
+    expect(summarizeWorld(s)).toEqual({ agents: 1, working: 1, idle: 0 });
+  });
 });
