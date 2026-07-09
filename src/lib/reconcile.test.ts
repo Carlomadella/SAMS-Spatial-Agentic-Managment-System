@@ -78,6 +78,26 @@ describe("reconcileAgents", () => {
     expect(next[0].task).toEqual({ title: "Fix CI", branch: "ci-fix", progress: 55, plan: ["step"] });
   });
 
+  it("adotta l'identità (nome/colore/ruolo) cambiata in un'altra vista", () => {
+    const local = [mk("a", { name: "Vecchio", color: "blue", role: "Dev" })];
+    const next = reconcileAgents(local, [remote({ id: "a", name: "Nuovo", color: "orange", role: "Ops" })]);
+    expect(next[0]).toMatchObject({ name: "Nuovo", color: "orange", role: "Ops" });
+    expect(next).not.toBe(local);
+  });
+
+  it("conserva l'identità locale quando il remoto la omette o è invalida", () => {
+    const local = [mk("a", { name: "Ada", color: "blue", role: "Dev" })];
+    // remoto senza name/role e con color non valido → nessuna sovrascrittura
+    const next = reconcileAgents(local, [remote({ id: "a", status: "working", color: "not-a-color" })]);
+    expect(next[0]).toMatchObject({ name: "Ada", color: "blue", role: "Dev", status: "working" });
+  });
+
+  it("non tocca il riferimento se identità, status e task coincidono già", () => {
+    const local = [mk("a", { name: "Ada", color: "blue", role: "Dev", status: "working" })];
+    const next = reconcileAgents(local, [remote({ id: "a", name: "Ada", color: "blue", role: "Dev", status: "working" })]);
+    expect(next).toBe(local); // stesso array: nessun cambiamento
+  });
+
   it("azzera il task quando il server dice che l'agente è senza task", () => {
     const local = [mk("a", { status: "working", task: { title: "X", branch: "", progress: 30 } })];
     const next = reconcileAgents(local, [remote({ id: "a", status: "idle", task: null })]);
@@ -87,7 +107,8 @@ describe("reconcileAgents", () => {
 
   it("preserva un agente locale assente dallo snapshot (non lo rimuove ancora)", () => {
     const local = [mk("a"), mk("b", { status: "working" })];
-    // il remoto non nomina "b": non deve essere rimosso (delete rimandato al versioning per-agente)
+    // il remoto non nomina "b" (nessun tombstone): l'assenza NON è una cancellazione —
+    // potrebbe essere una creazione concorrente non ancora propagata, quindi si preserva
     const next = reconcileAgents(local, [remote({ id: "a", status: "review", task: "R", progress: 100 })]);
     expect(next[1]).toBe(local[1]); // b invariato (stesso riferimento)
     expect(next[0].status).toBe("review");

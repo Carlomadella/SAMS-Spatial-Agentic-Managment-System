@@ -7,6 +7,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-09 — Identità condivisa: rename/ricolore si propagano 🎨
+- **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora adotta anche **nome,
+  colore e ruolo** dal remoto per gli agenti **già presenti**, non solo alla creazione:
+  un rename/ricolore/cambio-ruolo fatto in una vista si riflette nelle altre (lo scheletro
+  condiviso è autorevole su id/nome/colore/ruolo — opzione A). Prima cambiava solo status/task.
+- **Note** — Se il remoto **omette** un campo (chiamanti minimi che riconciliano solo
+  status/task) o invia un colore non valido, si **conserva** il valore locale (`adoptColor`
+  non ricade sul default). Nessuna modifica al server (già memorizza e propaga l'identità).
+- **Added** — +3 test puri (`reconcile.test.ts`: adozione, conservazione su omissione,
+  stabilità del riferimento quando nulla cambia).
+
 ### 2026-07-09 — Cancellazione propagata: il delete degli agenti è sicuro 🪦
 - **Added** — Tabella `world_agents` per-riga (`server/src/db.ts`): una riga per agente
   con `rev` (versione per-agente) e `deleted_at` (tombstone), al posto del solo blob

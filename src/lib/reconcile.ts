@@ -82,6 +82,15 @@ const asColor = (c: string | undefined): AgentColor =>
   c && (AGENT_COLORS as readonly string[]).includes(c) ? (c as AgentColor) : AGENT_COLORS[0];
 
 /**
+ * Colore da adottare per un agente **esistente**: quello remoto se è un colore
+ * valido, altrimenti si conserva quello locale. A differenza di `asColor` (che per
+ * la materializzazione ricade sul default) qui non si sovrascrive un colore locale
+ * valido con un fallback quando il remoto è assente o non valido.
+ */
+const adoptColor = (remote: string | undefined, local: AgentColor): AgentColor =>
+  remote && (AGENT_COLORS as readonly string[]).includes(remote) ? (remote as AgentColor) : local;
+
+/**
  * Posizione deterministica per un agente materializzato dallo scheletro condiviso.
  * Le posizioni **non** viaggiano nello snapshot (opzione A: sono cosmetiche/per-vista):
  * quindi qui le deriviamo dall'id — stabili tra ri-materializzazioni e distinte per
@@ -128,9 +137,10 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
  * Riconcilia gli agenti locali con lo snapshot autorevole del server.
  *
  * Conservativo e deterministico:
- * - per gli agenti presenti in **entrambi** (per id): adotta `status` (se valido) e il
- *   task del server, **preservando i campi ricchi locali** (branch, plan) quando il
- *   titolo del task coincide;
+ * - per gli agenti presenti in **entrambi** (per id): adotta `status` (se valido), il
+ *   task del server e l'**identità** (nome/colore/ruolo, se il remoto la fornisce — così
+ *   un rename/ricolore fatto altrove si propaga), **preservando i campi ricchi locali**
+ *   (branch, plan) quando il titolo del task coincide;
  * - per gli agenti col **tombstone** (`deleted`): li **rimuove** dal locale — è
  *   l'unica cancellazione ammessa, esplicita e mai per semplice assenza (opzione 1);
  * - per gli agenti presenti **solo nel remoto** (senza tombstone): li **crea**
@@ -156,6 +166,13 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
       continue;
     }
     const status: AgentStatus = VALID_STATUS.has(r.status) ? (r.status as AgentStatus) : a.status;
+    // Identità dallo scheletro condiviso (opzione A: id/nome/colore/ruolo autorevoli):
+    // adotta anche i cambi di nome/colore/ruolo fatti in un'altra vista, non solo su
+    // creazione. Se il remoto **omette** un campo (chiamanti minimi che riconciliano
+    // solo status/task) si mantiene il valore locale.
+    const name = r.name?.trim() || a.name;
+    const color = adoptColor(r.color, a.color);
+    const role = r.role?.trim() || a.role;
     const progress = clampPct(r.progress);
     let task: Agent["task"];
     if (r.task == null) {
@@ -165,12 +182,12 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     } else {
       task = { title: r.task, branch: a.task?.branch ?? "", progress, ...(a.task?.plan ? { plan: a.task.plan } : {}) };
     }
-    if (a.status === status && task === a.task) {
+    if (a.status === status && task === a.task && a.name === name && a.color === color && a.role === role) {
       next.push(a);
       continue;
     }
     changed = true;
-    next.push({ ...a, status, task });
+    next.push({ ...a, status, task, name, color, role });
   }
   // Agenti presenti nel remoto ma non in locale (e non tombstoned) → materializzali.
   const created: Agent[] = [];

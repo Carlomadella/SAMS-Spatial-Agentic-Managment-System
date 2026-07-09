@@ -66,8 +66,11 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       **per-riga** (rev per-agente + tombstone) al posto del solo blob; `saveWorldAgents`
       fonde riga per riga con **tombstone-by-absence** (sicuro perché ammesso solo su push
       CAS-fresco); `reconcileAgents` rimuove un agente locale **solo** su tombstone esplicito.
-      Migrazione dal blob alla riapertura; prune dei tombstone a 7 giorni. +12 test._ Manca
-      il resto: lo **schema completo** di scrittura autorevole (campi ricchi: posizione,
+      Migrazione dal blob alla riapertura; prune dei tombstone a 7 giorni. +12 test._
+      _Fatto (identità condivisa): `reconcileAgents` adotta **nome/colore/ruolo** dal remoto
+      anche per gli agenti già presenti (non solo su creazione), così un rename/ricolore in
+      una vista si propaga; il locale è conservato se il remoto omette il campo. +3 test._
+      Manca il resto: lo **schema completo** di scrittura autorevole (campi ricchi: posizione,
       energia, umore, xp — oggi cosmetici per-vista) col server come unica sorgente di verità.
 - [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
@@ -274,6 +277,21 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-09 — identità condivisa: rename/ricolore propagati (frontiera #1, opzione A)
+Chiuso un buco dello scheletro condiviso rimasto dopo create + delete: le **modifiche
+d'identità** non si propagavano. `reconcileAgents` adottava nome/colore/ruolo solo alla
+**materializzazione** (create); per un agente già presente adottava solo status/task →
+rinominare o ricolorare un agente in una vista non si vedeva nelle altre, incoerente con
+l'opzione A che è autorevole proprio su id/nome/colore/ruolo. Il **server già** memorizzava
+e propagava l'identità (`world_agents` + broadcast): mancava solo l'adozione lato client.
+- Fix in `reconcile.ts`: per gli agenti in entrambi si adotta anche name/color/role dal
+  remoto **quando forniti**; se il remoto omette un campo (chiamanti minimi status/task) o
+  manda un colore non valido si **conserva** il locale (`adoptColor`, che — a differenza di
+  `asColor` per la create — non ricade sul default). Riferimento stabile se nulla cambia.
+- Nessun cambio server/schema; slice puro a basso rischio. +3 test (adozione, conservazione,
+  stabilità). Suite client 433 → 436; typecheck/lint verdi. Convergenza a due viste da
+  provare a mano. **Lo scheletro condiviso (opzione A) è ora completo su tutta l'identità.**
 
 ### 2026-07-09 — delete sicuro: roster per-riga + tombstone (frontiera #1, opzione 1)
 Chiuso il pezzo mancante dello scheletro condiviso: la **propagazione delle cancellazioni**.
