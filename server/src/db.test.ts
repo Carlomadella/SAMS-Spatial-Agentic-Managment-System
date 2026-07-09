@@ -221,6 +221,42 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     expect(moved.version).toBe(2);
   });
 
+  it("persiste e rilegge la config a bassa frequenza (model/instructions/repo/xp)", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ model: "GPT-4", instructions: "sii conciso", repo: "acme/app", xp: 12 })]);
+    const loaded = loadWorldAgents(db)[0];
+    expect(loaded).toMatchObject({ model: "GPT-4", instructions: "sii conciso", repo: "acme/app", xp: 12 });
+    // un cambio di sola config è un cambiamento reale (changed=true, versione bumpata)
+    const res = saveWorldAgents(db, [agent({ model: "Claude Sonnet", instructions: "sii conciso", repo: "acme/app", xp: 12 })]);
+    expect(res.changed).toBe(true);
+    expect(loadWorldAgents(db)[0].model).toBe("Claude Sonnet");
+  });
+
+  it("aggiunge le colonne config a un world_agents preesistente (ALTER idempotente)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy-cols.db");
+    // Simula lo schema vecchio: world_agents SENZA le colonne config.
+    const legacy = openDb(file);
+    legacy.exec(`DROP TABLE world_agents`);
+    legacy.exec(`CREATE TABLE world_agents (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'idle', task TEXT,
+      progress INTEGER NOT NULL DEFAULT 0, rev INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER)`);
+    legacy.prepare(`INSERT INTO world_agents (id, name, rev, updated_at) VALUES ('old', 'Old', 1, 1)`).run();
+    legacy.close();
+
+    // Riapertura → ensureWorldAgentColumns aggiunge model/instructions/repo/xp senza perdere la riga.
+    const db = openDb(file);
+    const a = loadWorldAgents(db).find((x) => x.id === "old");
+    expect(a).toMatchObject({ id: "old", name: "Old", model: "", instructions: "", repo: "", xp: 0 });
+    // e ora una scrittura con config funziona
+    saveWorldAgents(db, [agent({ id: "old", name: "Old", model: "GPT-4", xp: 3 })]);
+    expect(loadWorldAgents(db).find((x) => x.id === "old")).toMatchObject({ model: "GPT-4", xp: 3 });
+    db.close();
+  });
+
   it("tombstona (non elimina) un agente sparito dal roster in arrivo", () => {
     const db = openDb(":memory:");
     saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);

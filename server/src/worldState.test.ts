@@ -18,7 +18,22 @@ describe("sanitizeWorldAgent", () => {
   it("normalizes fields and clamps progress", () => {
     expect(
       sanitizeWorldAgent({ id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 250 }),
-    ).toEqual({ id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 100 });
+    ).toEqual({
+      id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 100,
+      model: "", instructions: "", repo: "", xp: 0,
+    });
+  });
+
+  it("normalizza e ritaglia la config a bassa frequenza (opzione B2)", () => {
+    const a = sanitizeWorldAgent({
+      id: "a1", status: "idle", model: "GPT-4", instructions: "sii conciso", repo: "acme/app", xp: 7.9,
+    });
+    expect(a).toMatchObject({ model: "GPT-4", instructions: "sii conciso", repo: "acme/app", xp: 7 });
+  });
+
+  it("xp negativo/non valido → 0; campi config non-stringa → ''", () => {
+    const a = sanitizeWorldAgent({ id: "a1", status: "idle", model: 42, instructions: null, repo: undefined, xp: -5 });
+    expect(a).toMatchObject({ model: "", instructions: "", repo: "", xp: 0 });
   });
 
   it("falls back to idle for an unknown status and null task", () => {

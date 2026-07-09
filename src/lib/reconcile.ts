@@ -61,6 +61,11 @@ export interface RemoteWorldAgent {
   name?: string;
   color?: string;
   role?: string;
+  // Config/identità autorevole a bassa frequenza (Roadmap 4, frontiera #1 — opzione B2).
+  model?: string;
+  instructions?: string;
+  repo?: string;
+  xp?: number;
   /**
    * Tombstone autorevole (Roadmap 4, frontiera #1 — opzione 1): `true` se l'agente
    * è stato cancellato sul server. Il client rimuove un agente locale **solo** su
@@ -118,9 +123,9 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     id: r.id,
     name: r.name?.trim() || "Agente",
     color: asColor(r.color),
-    model: "Claude Sonnet",
+    model: r.model?.trim() || "Claude Sonnet",
     role: r.role?.trim() || "Generalist",
-    instructions: "",
+    instructions: r.instructions ?? "",
     status,
     position: scatterPosition(r.id),
     target: null,
@@ -129,7 +134,8 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     energy: 100,
     hunger: 0,
     mood: "happy",
-    xp: 0,
+    xp: r.xp && r.xp > 0 ? Math.floor(r.xp) : 0,
+    ...(r.repo?.trim() ? { repo: r.repo.trim() } : {}),
   };
 }
 
@@ -138,9 +144,10 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
  *
  * Conservativo e deterministico:
  * - per gli agenti presenti in **entrambi** (per id): adotta `status` (se valido), il
- *   task del server e l'**identità** (nome/colore/ruolo, se il remoto la fornisce — così
- *   un rename/ricolore fatto altrove si propaga), **preservando i campi ricchi locali**
- *   (branch, plan) quando il titolo del task coincide;
+ *   task del server, l'**identità** (nome/colore/ruolo) e la **config a bassa frequenza**
+ *   (model/instructions/repo se non vuoti, xp col massimo — opzione B2), così che quei
+ *   cambi fatti altrove si propaghino, **preservando i campi ricchi locali** (branch,
+ *   plan) quando il titolo del task coincide;
  * - per gli agenti col **tombstone** (`deleted`): li **rimuove** dal locale — è
  *   l'unica cancellazione ammessa, esplicita e mai per semplice assenza (opzione 1);
  * - per gli agenti presenti **solo nel remoto** (senza tombstone): li **crea**
@@ -173,6 +180,13 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     const name = r.name?.trim() || a.name;
     const color = adoptColor(r.color, a.color);
     const role = r.role?.trim() || a.role;
+    // Config a bassa frequenza (opzione B2): si adotta solo un valore remoto **non
+    // vuoto**, così i dati vuoti della migrazione non azzerano config locale buona.
+    // `xp` è monotono → si prende il massimo (non torna mai indietro).
+    const model = r.model?.trim() || a.model;
+    const instructions = r.instructions?.trim() ? r.instructions : a.instructions;
+    const repo = r.repo?.trim() || a.repo;
+    const xp = Math.max(a.xp, r.xp ?? 0);
     const progress = clampPct(r.progress);
     let task: Agent["task"];
     if (r.task == null) {
@@ -182,12 +196,15 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     } else {
       task = { title: r.task, branch: a.task?.branch ?? "", progress, ...(a.task?.plan ? { plan: a.task.plan } : {}) };
     }
-    if (a.status === status && task === a.task && a.name === name && a.color === color && a.role === role) {
+    if (
+      a.status === status && task === a.task && a.name === name && a.color === color && a.role === role &&
+      a.model === model && a.instructions === instructions && a.repo === repo && a.xp === xp
+    ) {
       next.push(a);
       continue;
     }
     changed = true;
-    next.push({ ...a, status, task, name, color, role });
+    next.push({ ...a, status, task, name, color, role, model, instructions, repo, xp });
   }
   // Agenti presenti nel remoto ma non in locale (e non tombstoned) → materializzali.
   const created: Agent[] = [];

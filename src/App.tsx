@@ -278,6 +278,11 @@ function WorldSyncBridge() {
         status: a.status,
         task: a.task?.title ?? null,
         progress: a.task?.progress ?? 0,
+        // Config/identità autorevole a bassa frequenza (opzione B2).
+        model: a.model,
+        instructions: a.instructions,
+        repo: a.repo ?? "",
+        xp: a.xp,
       }));
 
     const flush = () => {

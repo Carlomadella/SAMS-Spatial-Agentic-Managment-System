@@ -92,6 +92,30 @@ describe("reconcileAgents", () => {
     expect(next[0]).toMatchObject({ name: "Ada", color: "blue", role: "Dev", status: "working" });
   });
 
+  it("adotta la config a bassa frequenza (model/instructions/repo) da un'altra vista", () => {
+    const local = [mk("a", { model: "Claude Sonnet", instructions: "", role: "Dev" })];
+    const next = reconcileAgents(local, [remote({ id: "a", model: "GPT-4", instructions: "sii conciso", repo: "acme/app" })]);
+    expect(next[0]).toMatchObject({ model: "GPT-4", instructions: "sii conciso", repo: "acme/app" });
+  });
+
+  it("non azzera config locale buona con valori remoti vuoti (dati di migrazione)", () => {
+    const local = [mk("a", { model: "GPT-4", instructions: "istruzioni", repo: "acme/app" })];
+    // remoto migrato: config a stringhe vuote → si conserva il locale
+    const next = reconcileAgents(local, [remote({ id: "a", model: "", instructions: "", repo: "" })]);
+    expect(next[0]).toMatchObject({ model: "GPT-4", instructions: "istruzioni", repo: "acme/app" });
+  });
+
+  it("xp è monotono: adotta il massimo, non torna indietro", () => {
+    const local = [mk("a", { xp: 30 })];
+    expect(reconcileAgents(local, [remote({ id: "a", xp: 50 })])[0].xp).toBe(50); // sale
+    expect(reconcileAgents([mk("a", { xp: 30 })], [remote({ id: "a", xp: 10 })])[0].xp).toBe(30); // non scende
+  });
+
+  it("materializza un agente remoto con la sua config (model/repo/xp)", () => {
+    const next = reconcileAgents([], [remote({ id: "z", model: "GPT-4", instructions: "x", repo: "acme/app", xp: 8 })]);
+    expect(next[0]).toMatchObject({ model: "GPT-4", instructions: "x", repo: "acme/app", xp: 8 });
+  });
+
   it("non tocca il riferimento se identità, status e task coincidono già", () => {
     const local = [mk("a", { name: "Ada", color: "blue", role: "Dev", status: "working" })];
     const next = reconcileAgents(local, [remote({ id: "a", name: "Ada", color: "blue", role: "Dev", status: "working" })]);

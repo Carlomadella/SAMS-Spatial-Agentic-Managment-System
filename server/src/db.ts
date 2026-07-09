@@ -81,16 +81,20 @@ export function openDb(location: string): DatabaseSync {
     -- la cancellazione è propagabile senza distruggere creazioni concorrenti. La
     -- riga world_snapshot resta come contatore di versione globale (CAS).
     CREATE TABLE IF NOT EXISTS world_agents (
-      id         TEXT    PRIMARY KEY,
-      name       TEXT    NOT NULL DEFAULT '',
-      color      TEXT    NOT NULL DEFAULT '',
-      role       TEXT    NOT NULL DEFAULT '',
-      status     TEXT    NOT NULL DEFAULT 'idle',
-      task       TEXT,
-      progress   INTEGER NOT NULL DEFAULT 0,
-      rev        INTEGER NOT NULL DEFAULT 1,
-      updated_at INTEGER NOT NULL DEFAULT 0,
-      deleted_at INTEGER
+      id           TEXT    PRIMARY KEY,
+      name         TEXT    NOT NULL DEFAULT '',
+      color        TEXT    NOT NULL DEFAULT '',
+      role         TEXT    NOT NULL DEFAULT '',
+      status       TEXT    NOT NULL DEFAULT 'idle',
+      task         TEXT,
+      progress     INTEGER NOT NULL DEFAULT 0,
+      model        TEXT    NOT NULL DEFAULT '',
+      instructions TEXT    NOT NULL DEFAULT '',
+      repo         TEXT    NOT NULL DEFAULT '',
+      xp           INTEGER NOT NULL DEFAULT 0,
+      rev          INTEGER NOT NULL DEFAULT 1,
+      updated_at   INTEGER NOT NULL DEFAULT 0,
+      deleted_at   INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_world_agents_deleted ON world_agents (deleted_at);
 
@@ -102,8 +106,27 @@ export function openDb(location: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat_messages (ts DESC);
   `);
+  ensureWorldAgentColumns(db);
   migrateWorldAgents(db);
   return db;
+}
+
+/**
+ * Aggiunge in modo idempotente le colonne config/xp (opzione B2) a un
+ * `world_agents` preesistente creato prima della loro introduzione. Su un DB nuovo
+ * la `CREATE TABLE` le ha già → no-op; su uno vecchio le aggiunge via ALTER.
+ */
+function ensureWorldAgentColumns(db: DatabaseSync): void {
+  const cols = new Set(
+    (db.prepare(`PRAGMA table_info(world_agents)`).all() as { name: string }[]).map((c) => c.name),
+  );
+  const add = (name: string, ddl: string): void => {
+    if (!cols.has(name)) db.exec(`ALTER TABLE world_agents ADD COLUMN ${ddl}`);
+  };
+  add("model", "model TEXT NOT NULL DEFAULT ''");
+  add("instructions", "instructions TEXT NOT NULL DEFAULT ''");
+  add("repo", "repo TEXT NOT NULL DEFAULT ''");
+  add("xp", "xp INTEGER NOT NULL DEFAULT 0");
 }
 
 /**
@@ -126,12 +149,15 @@ function migrateWorldAgents(db: DatabaseSync): void {
   }
   const now = Date.now();
   const ins = db.prepare(
-    `INSERT OR IGNORE INTO world_agents (id, name, color, role, status, task, progress, rev, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL)`,
+    `INSERT OR IGNORE INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NULL)`,
   );
   for (const a of agents) {
     if (!a || typeof a.id !== "string" || !a.id) continue;
-    ins.run(a.id, a.name ?? "", a.color ?? "", a.role ?? "", a.status ?? "idle", a.task ?? null, Number(a.progress) || 0, now);
+    ins.run(
+      a.id, a.name ?? "", a.color ?? "", a.role ?? "", a.status ?? "idle", a.task ?? null, Number(a.progress) || 0,
+      a.model ?? "", a.instructions ?? "", a.repo ?? "", Number(a.xp) || 0, now,
+    );
   }
 }
 
@@ -180,9 +206,16 @@ interface WorldAgentRow {
   status: string;
   task: string | null;
   progress: number;
+  model: string;
+  instructions: string;
+  repo: string;
+  xp: number;
   rev: number;
   deleted_at: number | null;
 }
+
+/** Colonne del roster lette in giro (senza rev/updated_at/deleted_at ove non servono). */
+const AGENT_COLS = "id, name, color, role, status, task, progress, model, instructions, repo, xp";
 
 /** Versione globale + updatedAt (contatore CAS); zeri se mai scritto. */
 function loadWorldVersion(db: DatabaseSync): { version: number; updatedAt: number } {
@@ -211,6 +244,10 @@ const rowToAgent = (r: WorldAgentRow): WorldAgentSnapshot => ({
   status: String(r.status),
   task: r.task == null ? null : String(r.task),
   progress: Number(r.progress),
+  model: String(r.model ?? ""),
+  instructions: String(r.instructions ?? ""),
+  repo: String(r.repo ?? ""),
+  xp: Number(r.xp ?? 0),
   ...(r.deleted_at != null ? { deleted: true } : {}),
 });
 
@@ -221,7 +258,7 @@ const rowToAgent = (r: WorldAgentRow): WorldAgentSnapshot => ({
  */
 export function loadWorldAgents(db: DatabaseSync): WorldAgentSnapshot[] {
   const rows = db
-    .prepare(`SELECT id, name, color, role, status, task, progress, rev, deleted_at FROM world_agents ORDER BY rowid ASC`)
+    .prepare(`SELECT ${AGENT_COLS}, rev, deleted_at FROM world_agents ORDER BY rowid ASC`)
     .all() as unknown as WorldAgentRow[];
   return rows.map(rowToAgent);
 }
@@ -240,7 +277,11 @@ const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
   String(prev.role) === a.role &&
   String(prev.status) === a.status &&
   (prev.task == null ? null : String(prev.task)) === a.task &&
-  Number(prev.progress) === a.progress;
+  Number(prev.progress) === a.progress &&
+  String(prev.model ?? "") === (a.model ?? "") &&
+  String(prev.instructions ?? "") === (a.instructions ?? "") &&
+  String(prev.repo ?? "") === (a.repo ?? "") &&
+  Number(prev.xp ?? 0) === (a.xp ?? 0);
 
 /** Esito di una fusione: lo snapshot autorevole + se ha davvero cambiato qualcosa. */
 export interface WorldMergeResult extends WorldSnapshot {
@@ -268,19 +309,20 @@ export interface WorldMergeResult extends WorldSnapshot {
 export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]): WorldMergeResult {
   const now = Date.now();
   const existing = new Map<string, WorldAgentRow>(
-    (db.prepare(`SELECT id, name, color, role, status, task, progress, rev, deleted_at FROM world_agents`).all() as unknown as WorldAgentRow[]).map(
+    (db.prepare(`SELECT ${AGENT_COLS}, rev, deleted_at FROM world_agents`).all() as unknown as WorldAgentRow[]).map(
       (r) => [String(r.id), r],
     ),
   );
   const incomingIds = new Set(incoming.map((a) => a.id));
 
   const upsert = db.prepare(
-    `INSERT INTO world_agents (id, name, color, role, status, task, progress, rev, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
      ON CONFLICT (id) DO UPDATE SET
        name = excluded.name, color = excluded.color, role = excluded.role, status = excluded.status,
-       task = excluded.task, progress = excluded.progress, rev = excluded.rev, updated_at = excluded.updated_at,
-       deleted_at = NULL`,
+       task = excluded.task, progress = excluded.progress, model = excluded.model,
+       instructions = excluded.instructions, repo = excluded.repo, xp = excluded.xp,
+       rev = excluded.rev, updated_at = excluded.updated_at, deleted_at = NULL`,
   );
   const tombstone = db.prepare(
     `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
@@ -291,7 +333,7 @@ export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]
     const prev = existing.get(a.id);
     if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
     const rev = prev ? Number(prev.rev) + 1 : 1;
-    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, rev, now);
+    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "", a.xp ?? 0, rev, now);
     changed = true;
   }
   for (const [id, r] of existing) {

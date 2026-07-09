@@ -278,6 +278,24 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-09 — opzione B2: config autorevole a bassa frequenza (model/instructions/repo/xp)
+Creato il doc di decisione per l'opzione B (SSOT completo) e, su "scegli e continua",
+imboccata la mossa raccomandata: **B2** (SSOT incrementale a bassa frequenza), lasciando i
+progetti (B1 sim server, B4 intenti) e il movimento condiviso (B3) come decisioni separate.
+Tesi del doc: **B non è "più campi", è spostare il game loop** — i campi *simulati*
+(posizione/bisogni) girano oggi indipendenti su ogni client, renderli autorevoli obbliga a
+scegliere chi simula. B2 evita tutto ciò: tocca solo i campi *config* che cambiano per azione.
+- Autorevoli ora: **model, instructions, repo, xp**, sullo stesso trasporto per-riga di A.
+  Colonne su `world_agents` + `ensureWorldAgentColumns` (ALTER idempotente per i DB vecchi);
+  `sanitizeWorldAgent` normalizza. Client: `snapshot()` li spinge, `reconcileAgents`/
+  `materializeAgent` li adottano.
+- Scelte fini: si adotta solo un **valore remoto non vuoto** (i dati vuoti della migrazione
+  non azzerano config locale buona), e **xp col massimo** (monotono). Nessun game loop toccato:
+  posizione/bisogni/umore restano cosmetici per-vista.
+- Verifica: server 226 → 230, client 436 → 440; typecheck/lint/build verdi. Il **model che
+  prima appariva col default nelle altre viste** ora è coerente. Prossimo pezzo di B2: la
+  **coda dei task** (`taskQueue`, annidata).
+
 ### 2026-07-09 — hardening del sync autorevole: no-op silenziosi + viewer non scrivono
 Con lo scheletro condiviso (opzione A) completo (create/delete/update dell'identità),
 due rifiniture di correttezza/efficienza sul livello di sync appena costruito, scelte in

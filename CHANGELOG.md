@@ -7,6 +7,22 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-09 — Config condivisa: model/instructions/repo/xp autorevoli 🧬
+- **Added** — Opzione B2 (SSOT incrementale a bassa frequenza): **model, instructions,
+  repo, xp** ora sono autorevoli sul server e si propagano tra le viste, riusando il
+  trasporto per-riga dell'opzione A. Colonne nuove su `world_agents` + ALTER idempotente
+  (`ensureWorldAgentColumns`) per i DB preesistenti; `sanitizeWorldAgent` le normalizza
+  (xp intero ≥0, config ritagliata). Prima erano cosmetiche per-vista → il **model**
+  appariva col default nelle altre viste.
+- **Changed** — `reconcileAgents`/`materializeAgent` (`src/lib/reconcile.ts`) adottano la
+  config: solo valori remoti **non vuoti** (i dati vuoti della migrazione non azzerano
+  config locale buona); **xp col massimo** (monotono, non torna indietro). Il client
+  (`snapshot()` in `App.tsx`) spinge i nuovi campi.
+- **Note** — Nessun game loop toccato: posizione/bisogni/umore restano cosmetici per-vista
+  (il movimento condiviso è una scelta separata — vedi doc opzione B). Retro-compatibile.
+- **Added** — +5 test server (`worldState`/`db`: sanitize, roundtrip, ALTER) e +4 client
+  (`reconcile`: adozione, no-azzeramento, xp monotono, materializzazione).
+
 ### 2026-07-09 — I viewer non spingono il mondo (niente 403 a vuoto) 🚫
 - **Changed** — `WorldSyncBridge` (`src/App.tsx`) non tenta più il `POST /api/world`
   quando il ruolo è **viewer** (`!canAssign(viewerRole)`): un viewer adotta lo stato via

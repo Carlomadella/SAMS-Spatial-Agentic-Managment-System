@@ -19,6 +19,17 @@ export interface WorldAgentSnapshot {
   task: string | null;
   /** 0..100 */
   progress: number;
+  // Config/identità autorevole a bassa frequenza (Roadmap 4, frontiera #1 — opzione B2).
+  // Cambiano per azione umana, non a ogni frame: viaggiano nello stesso snapshot per-riga.
+  // Opzionali per retro-compatibilità con snapshot/tombstone che li omettono.
+  /** modello (free-text: "Claude Sonnet", "GPT-4"…) */
+  model?: string;
+  /** istruzioni permanenti iniettate nel system prompt */
+  instructions?: string;
+  /** override del repo target (owner/repo); "" = repo globale */
+  repo?: string;
+  /** punti esperienza cumulativi (monotoni) */
+  xp?: number;
   /**
    * Tombstone (Roadmap 4, frontiera #1 — opzione 1): presente e `true` quando
    * l'agente è stato **cancellato** in modo autorevole. Viaggia in lettura
@@ -50,6 +61,12 @@ const clampProgress = (n: unknown): number => {
 
 const str = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
 
+/** Intero non negativo (per xp e simili contatori monotoni); 0 se non valido. */
+const nonNegInt = (v: unknown): number => {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 /** Normalizza un singolo agente in arrivo; `null` se manca un id valido. */
 export function sanitizeWorldAgent(raw: unknown): WorldAgentSnapshot | null {
   if (!raw || typeof raw !== "object") return null;
@@ -66,6 +83,10 @@ export function sanitizeWorldAgent(raw: unknown): WorldAgentSnapshot | null {
     status: STATUSES.has(status) ? status : "idle",
     task: task || null,
     progress: clampProgress(r.progress),
+    model: str(r.model, 60),
+    instructions: str(r.instructions, 2000),
+    repo: str(r.repo, 120),
+    xp: nonNegInt(r.xp),
   };
 }
 
