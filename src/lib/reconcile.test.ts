@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { compareVersion, nextBase, reconcileAgents, type RemoteWorldAgent } from "./reconcile";
+import { compareVersion, nextBase, reconcileAgents, scatterPosition, type RemoteWorldAgent } from "./reconcile";
+import { ROOM } from "../data/world";
 import type { Agent } from "../types";
 
 function mk(id: string, over: Partial<Agent> = {}): Agent {
@@ -84,12 +85,37 @@ describe("reconcileAgents", () => {
     expect(next[0].status).toBe("idle");
   });
 
-  it("non tocca agenti assenti dallo snapshot, né crea agenti nuovi", () => {
+  it("preserva un agente locale assente dallo snapshot (non lo rimuove ancora)", () => {
     const local = [mk("a"), mk("b", { status: "working" })];
-    const next = reconcileAgents(local, [remote({ id: "a", status: "review", task: "R", progress: 100 }), remote({ id: "z", status: "working" })]);
+    // il remoto non nomina "b": non deve essere rimosso (delete rimandato al versioning per-agente)
+    const next = reconcileAgents(local, [remote({ id: "a", status: "review", task: "R", progress: 100 })]);
     expect(next[1]).toBe(local[1]); // b invariato (stesso riferimento)
-    expect(next.find((x) => x.id === "z")).toBeUndefined(); // z non creato
     expect(next[0].status).toBe("review");
+  });
+
+  it("crea un agente presente solo nel remoto (scheletro condiviso), adottandone l'identità", () => {
+    const local = [mk("a")];
+    const next = reconcileAgents(local, [
+      remote({ id: "a", status: "working" }),
+      remote({ id: "z", status: "working", task: "Deploy", progress: 30, name: "Nova", color: "orange", role: "Ops" }),
+    ]);
+    const z = next.find((x) => x.id === "z");
+    expect(z).toBeDefined();
+    expect(z).toMatchObject({ id: "z", name: "Nova", color: "orange", role: "Ops", status: "working" });
+    expect(z!.task).toEqual({ title: "Deploy", branch: "", progress: 30 });
+    expect(next).toHaveLength(2);
+  });
+
+  it("materializza con default sicuri quando mancano identità/colore non validi", () => {
+    const next = reconcileAgents([], [remote({ id: "z", status: "bogus", task: null, color: "not-a-color" })]);
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ id: "z", name: "Agente", role: "Generalist", status: "idle", color: "blue" });
+    expect(next[0].task).toBeNull();
+  });
+
+  it("crea gli agenti remoti anche partendo da uno store locale vuoto", () => {
+    const next = reconcileAgents([], [remote({ id: "a", name: "A" }), remote({ id: "b", name: "B" })]);
+    expect(next.map((x) => x.id)).toEqual(["a", "b"]);
   });
 
   it("ignora uno status remoto non valido, mantenendo quello locale", () => {
@@ -102,5 +128,27 @@ describe("reconcileAgents", () => {
     const local = [mk("a", { status: "working", task: { title: "T", branch: "", progress: 20 } })];
     const next = reconcileAgents(local, [remote({ id: "a", status: "working", task: "T", progress: 20 })]);
     expect(next).toBe(local);
+  });
+
+  it("gli agenti materializzati non si impilano sulla stessa posizione", () => {
+    const next = reconcileAgents([], [remote({ id: "alpha" }), remote({ id: "beta" }), remote({ id: "gamma" })]);
+    const keys = next.map((a) => `${a.position[0].toFixed(2)},${a.position[1].toFixed(2)}`);
+    expect(new Set(keys).size).toBe(3); // tre posizioni distinte
+  });
+});
+
+describe("scatterPosition", () => {
+  it("è deterministica per lo stesso id", () => {
+    expect(scatterPosition("nova")).toEqual(scatterPosition("nova"));
+  });
+
+  it("resta dentro le mura della stanza", () => {
+    for (const id of ["a", "nova", "zzz-9", "una-stringa-lunga", "42"]) {
+      const [x, z] = scatterPosition(id);
+      expect(x).toBeGreaterThanOrEqual(ROOM.minX);
+      expect(x).toBeLessThanOrEqual(ROOM.maxX);
+      expect(z).toBeGreaterThanOrEqual(ROOM.minZ);
+      expect(z).toBeLessThanOrEqual(ROOM.maxZ);
+    }
   });
 });

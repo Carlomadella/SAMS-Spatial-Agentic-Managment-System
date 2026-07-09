@@ -7,6 +7,19 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-08 — Scheletro condiviso: gli agenti creati altrove compaiono 👥
+- **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora **crea** gli agenti
+  presenti solo nello scheletro autorevole del server, adottandone identità
+  (id/nome/colore/ruolo) e stato/task; i campi ricchi (posizione, energia, umore, xp)
+  partono da default per-vista. Prima toccava solo gli agenti presenti in entrambe le
+  liste → un agente aggiunto in un'altra vista non compariva. Opzione A della frontiera #1.
+- **Added** — `materializeAgent(remote)` (puro) costruisce un `Agent` completo dallo
+  snapshot; `RemoteWorldAgent` porta ora `name`/`color`/`role` opzionali.
+- **Note** — **create-only**: la cancellazione degli agenti spariti dal remoto è
+  volutamente rimandata (richiede il versioning per-agente per non distruggere creazioni
+  concorrenti). Sicura sul trasporto attuale (blob + CAS): converge via 409/adozione.
+- **Added** — +4 test puri (`reconcile.test.ts`) e +1 di store (`useStore.test.ts`).
+
 ### 2026-07-08 — Sola lettura per i viewer: Live Sim e Routine 👁
 - **Changed** — `LiveSimPanel`: avvio/stop della Live Sim disabilitato ai viewer
   (con avviso quando il runtime è pronto ma il ruolo no).

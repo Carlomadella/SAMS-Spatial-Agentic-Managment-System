@@ -10,7 +10,8 @@
 // `worldState.ts`): una POST con `baseVersion` obsoleta riceve 409 + lo snapshot
 // corrente. Questo modulo decide cosa fare con quelle versioni.
 
-import type { Agent, AgentStatus } from "../types";
+import { AGENT_COLORS, type Agent, type AgentColor, type AgentStatus, type Vec2 } from "../types";
+import { clampToRoom, SPAWN_POINT } from "../data/world";
 
 export type SyncDirection = "in-sync" | "behind" | "ahead";
 
@@ -46,12 +47,20 @@ export function nextBase(prevBase: number, serverVersion: number): number {
 // così una vista che perde il CAS — o che si è appena connessa — riflette davvero
 // la verità del server, non solo il proprio stato persistito.
 
-/** Forma minima di un agente nello snapshot autorevole del server. */
+/**
+ * Forma dell'agente nello snapshot autorevole del server. I campi d'identità
+ * (`name`/`color`/`role`) sono opzionali: servono per **materializzare** un agente
+ * creato in un'altra vista (scheletro condiviso, Roadmap 4 frontiera #1 — opzione A);
+ * i chiamanti minimi che riconciliano solo status/task possono ometterli.
+ */
 export interface RemoteWorldAgent {
   id: string;
   status: string;
   task: string | null;
   progress: number;
+  name?: string;
+  color?: string;
+  role?: string;
 }
 
 const VALID_STATUS = new Set<string>(["idle", "working", "review", "blocked", "done", "awaiting_approval"]);
@@ -62,19 +71,70 @@ const clampPct = (n: number): number => {
   return Math.min(100, Math.max(0, v));
 };
 
+const asColor = (c: string | undefined): AgentColor =>
+  c && (AGENT_COLORS as readonly string[]).includes(c) ? (c as AgentColor) : AGENT_COLORS[0];
+
+/**
+ * Posizione deterministica per un agente materializzato dallo scheletro condiviso.
+ * Le posizioni **non** viaggiano nello snapshot (opzione A: sono cosmetiche/per-vista):
+ * quindi qui le deriviamo dall'id — stabili tra ri-materializzazioni e distinte per
+ * agente, così più agenti non si impilano sulla stessa piastrella di spawn. Sparpaglio
+ * in un anello attorno allo `SPAWN_POINT`, clampato dentro le mura.
+ */
+export function scatterPosition(id: string): Vec2 {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const angle = (Math.abs(h) % 360) * (Math.PI / 180);
+  const radius = 1.5 + ((Math.abs(h >> 4) % 30) / 10); // 1.5..4.4
+  return clampToRoom([SPAWN_POINT[0] + Math.cos(angle) * radius, SPAWN_POINT[1] + Math.sin(angle) * radius]);
+}
+
+/**
+ * Costruisce un `Agent` completo da un agente dello scheletro autorevole (create
+ * convergence). Adotta l'identità dal server (id/nome/colore/ruolo) e lo stato/task
+ * correnti; i campi *ricchi* locali (posizione, energia, umore, xp) partono da default
+ * — sono cosmetici e restano per-vista finché non li si renderà autorevoli (opzione B).
+ */
+export function materializeAgent(r: RemoteWorldAgent): Agent {
+  const status: AgentStatus = VALID_STATUS.has(r.status) ? (r.status as AgentStatus) : "idle";
+  const progress = clampPct(r.progress);
+  return {
+    id: r.id,
+    name: r.name?.trim() || "Agente",
+    color: asColor(r.color),
+    model: "Claude Sonnet",
+    role: r.role?.trim() || "Generalist",
+    instructions: "",
+    status,
+    position: scatterPosition(r.id),
+    target: null,
+    task: r.task ? { title: r.task, branch: "", progress } : null,
+    taskQueue: [],
+    energy: 100,
+    hunger: 0,
+    mood: "happy",
+    xp: 0,
+  };
+}
+
 /**
  * Riconcilia gli agenti locali con lo snapshot autorevole del server.
  *
  * Conservativo e deterministico:
- * - tocca solo gli agenti presenti in **entrambi** (per id); non crea né distrugge
- *   agenti da uno snapshot (de-riscato: lo schema completo verrà dopo);
- * - adotta `status` (se valido) e il task del server, **preservando i campi ricchi
- *   locali** (branch, plan) quando il titolo del task coincide;
+ * - per gli agenti presenti in **entrambi** (per id): adotta `status` (se valido) e il
+ *   task del server, **preservando i campi ricchi locali** (branch, plan) quando il
+ *   titolo del task coincide;
+ * - per gli agenti presenti **solo nel remoto**: li **crea** (scheletro condiviso —
+ *   opzione A), così un agente aggiunto in un'altra vista compare anche qui;
+ * - **non** rimuove ancora gli agenti spariti dal remoto: la cancellazione basata
+ *   sull'assenza in uno snapshot *stantìo* distruggerebbe creazioni concorrenti — va
+ *   fatta col versioning per-agente (slice successivo);
  * - ritorna lo **stesso array** se nulla cambia, così non innesca render/push a vuoto.
  */
 export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Agent[] {
   if (remote.length === 0) return local;
   const byId = new Map(remote.map((r) => [r.id, r]));
+  const localIds = new Set(local.map((a) => a.id));
   let changed = false;
   const next = local.map((a) => {
     const r = byId.get(a.id);
@@ -93,5 +153,11 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     changed = true;
     return { ...a, status, task };
   });
-  return changed ? next : local;
+  // Agenti presenti nel remoto ma non in locale → materializzali (ordine del remoto).
+  const created: Agent[] = [];
+  for (const r of remote) {
+    if (!localIds.has(r.id)) created.push(materializeAgent(r));
+  }
+  if (created.length === 0) return changed ? next : local;
+  return [...next, ...created];
 }

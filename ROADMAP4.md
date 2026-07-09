@@ -59,8 +59,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       lettura autorevole c'è, e ora il client **adotta** lo snapshot remoto
       (`reconcileAgents` puro: adotta status+task per id, preserva branch/plan locali;
       `adoptWorld` nello store; `WorldSyncBridge` adotta al primo `fetchWorld` e sul 409).
-      Manca il resto: schema completo (non solo lo snapshot compatto) con il server come
-      **unica** sorgente di verità di scrittura.
+      _Fatto (opzione A — scheletro condiviso, primo slice): `reconcileAgents` ora **crea**
+      gli agenti presenti solo nel remoto (`materializeAgent` puro; `RemoteWorldAgent` porta
+      identità), così un agente aggiunto in un'altra vista compare anche qui — convergenza
+      del roster. **Create-only**: la cancellazione resta rimandata (serve il versioning
+      per-agente per non distruggere creazioni concorrenti). +5 test._ Manca il resto:
+      **delete** propagato con versioni per-agente (tabella `world_agents` per-riga al posto
+      del blob singolo) e lo schema completo di scrittura autorevole.
 - [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
       POST) con una **riconciliazione** deterministica dello store. _Fatto: primo
@@ -266,6 +271,32 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-08 — scheletro condiviso: convergenza del roster (frontiera #1, opzione A)
+Ripresa la frontiera #1 dopo il documento di decisione (tre opzioni: A scheletro
+condiviso, B SSOT completo, C driver/lease — le tre **non** integrabili insieme, B è un
+progetto a sé e A/C sono ortogonali). Scelta l'**opzione A** come raccomandato: dà il
+valore vero del "mondo condiviso" (stessi agenti/stati/task live) con rischio basso,
+costruendo su ciò che è già testato. Primo slice **de-riscato**: la parte *create*.
+- **Il buco**: `reconcileAgents` toccava solo gli agenti presenti in **entrambe** le liste
+  → un agente aggiunto in una vista non compariva nelle altre (lo scheletro non era mai
+  autorevole per il roster, solo per status/task degli agenti già condivisi).
+- **Puro** `src/lib/reconcile.ts`: `materializeAgent(remote)` costruisce un `Agent`
+  completo dallo snapshot (adotta id/nome/colore/ruolo + stato/task; posizione/energia/
+  umore/xp a default per-vista, cosmetici); `RemoteWorldAgent` porta ora `name/color/role`
+  opzionali. `reconcileAgents` **crea** gli agenti presenti solo nel remoto. I dati erano
+  già sul filo (lo `snapshot()` del bridge invia già l'identità completa): serviva solo
+  usarli.
+- **Create-only, di proposito**: la **cancellazione** basata sull'assenza in uno snapshot
+  *stantìo* distruggerebbe creazioni concorrenti — è esattamente ciò che il documento
+  segnala. Sicura sul trasporto attuale (blob + CAS): due viste che aggiungono agenti
+  diversi convergono via 409/adozione senza perdere nulla. Il delete arriva col versioning
+  per-agente (tabella `world_agents` per-riga), prossimo slice.
+- **Wiring**: nessun cambio — `adoptWorld` (store) è già chiamato al primo `fetchWorld`,
+  sull'evento SSE `world` e sul 409; ora quei percorsi materializzano davvero il roster.
+- Verifica: +4 test puri (creazione, default sicuri, store vuoto, no-rimozione) e +1 di
+  store (`adoptWorld` crea l'agente remoto). La convergenza a due viste nel browser è da
+  provare a mano. Test: client 422 → 426. Typecheck, lint, build: verdi.
 
 ### 2026-07-08 — sola lettura anche su Live Sim e Routine (frontiera #2)
 Completato il giro di gating: restavano scoperte due superfici server-write. Un viewer

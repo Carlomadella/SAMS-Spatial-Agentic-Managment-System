@@ -166,6 +166,20 @@ describe("world autorevole (adoptWorld / noteWorldVersion / evento world)", () =
     // Non deve aver creato eventi di log (non è un evento agente).
     expect(useStore.getState().events).toHaveLength(0);
   });
+
+  it("adoptWorld crea un agente presente solo nello scheletro remoto (mondo condiviso)", () => {
+    const before = useStore.getState().agents.length;
+    const keep = firstId();
+    useStore.getState().adoptWorld([
+      { id: keep, status: "idle", task: null, progress: 0 },
+      { id: "remote-nova", status: "working", task: "Deploy", progress: 20, name: "Nova", color: "orange", role: "Ops" },
+    ]);
+    expect(useStore.getState().agents).toHaveLength(before + 1);
+    const nova = agent("remote-nova");
+    expect(nova).toBeTruthy();
+    expect(nova).toMatchObject({ name: "Nova", color: "orange", role: "Ops", status: "working" });
+    expect(nova!.task).toEqual({ title: "Deploy", branch: "", progress: 20 });
+  });
 });
 
 describe("updateProgress", () => {
