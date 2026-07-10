@@ -9,6 +9,9 @@ import { findPath } from "../lib/pathfind";
 import { levelFromXp } from "../lib/skill";
 import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
+import { selectorsOf } from "../lib/selections";
+import { cursorColor } from "../lib/cursors";
+import { getViewerId } from "../lib/backend";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
 // Colori-stato centralizzati in STATUS_META (lib/meta): unica fonte per scena e pannelli.
@@ -39,6 +42,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const bodyRef = useRef<THREE.Group>(null); // whole body: tips over to lie on the bed
   const charRef = useRef<THREE.Group>(null); // upper body: bob + lean
   const ringRef = useRef<THREE.Mesh>(null);
+  const auraRef = useRef<THREE.Mesh>(null); // remote-selection aura pulse
   const armLRef = useRef<THREE.Group>(null);
   const armRRef = useRef<THREE.Group>(null);
   const legLRef = useRef<THREE.Group>(null);
@@ -107,6 +111,16 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   // DOM che altrimenti "bucano" l'overlay (dialoghi e simboli restano visibili
   // sopra il giardino). Quando il garden è aperto le sopprimiamo tutte.
   const gardenOpen = useStore((s) => s.gardenOpen);
+  // Presenza di selezione: quali ALTRE viste hanno selezionato questo agente.
+  // `remoteSelections` cambia ref solo su update di selezione (non sui cursori),
+  // quindi questo re-render resta raro.
+  const remoteSelections = useStore((s) => s.remoteSelections);
+  const selfViewer = useMemo(() => getViewerId(), []);
+  const remoteSelectors = useMemo(
+    () => selectorsOf(remoteSelections, agent.id, selfViewer),
+    [remoteSelections, agent.id, selfViewer],
+  );
+  const auraColor = remoteSelectors.length ? cursorColor(remoteSelectors[0].id) : "#ffffff";
 
   const hex = AGENT_HEX[agent.color];
   const tint = useMemo(
@@ -292,6 +306,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       const s = 1 + Math.sin(t * 4) * 0.05;
       ringRef.current.scale.set(s, s, s);
     }
+    if (auraRef.current) {
+      const s = 1 + Math.sin(t * 3.2) * 0.08;
+      auraRef.current.scale.set(s, s, s);
+    }
     if (haloRef.current) haloRef.current.rotation.y += d * 3;
   });
 
@@ -336,6 +354,27 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
           <torusGeometry args={[0.52, 0.045, 16, 48]} />
           <meshStandardMaterial color={hex} emissive={hex} emissiveIntensity={1.4} toneMapped={false} />
         </mesh>
+      )}
+
+      {/* remote-selection aura — another view is focused on this agent */}
+      {remoteSelectors.length > 0 && (
+        <>
+          <mesh ref={auraRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+            <ringGeometry args={[0.6, 0.72, 44]} />
+            <meshBasicMaterial color={auraColor} transparent opacity={0.7} depthWrite={false} />
+          </mesh>
+          {!gardenOpen && (
+            <Html position={[0, 0.06, 0.95]} center distanceFactor={11} pointerEvents="none" zIndexRange={[54, 34]}>
+              <div
+                className="pointer-events-none select-none whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+                style={{ background: auraColor }}
+              >
+                👁 {remoteSelectors.slice(0, 2).map((s) => s.name).join(", ")}
+                {remoteSelectors.length > 2 ? ` +${remoteSelectors.length - 2}` : ""}
+              </div>
+            </Html>
+          )}
+        </>
       )}
 
       {/* the character (whole body is the click target) */}

@@ -24,6 +24,7 @@ import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState"
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { sanitizeCursor } from "./cursors";
+import { sanitizeSelection } from "./selections";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
 import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
@@ -673,6 +674,30 @@ app.post("/api/cursor", requireRole("viewer"), (req: Request, res: Response) => 
   }
   writeToClients(
     `data: ${JSON.stringify({ agentId: "cursor", agentName: "cursor", cursor: { ...c, ts: Date.now() } })}\n\n`,
+  );
+  res.status(204).end();
+});
+
+// --- Presenza di selezione (Roadmap 4, frontiera #2) ---------------------
+// Gemella dei cursori: ogni vista annuncia quale agente ha selezionato (o null);
+// le altre lo mostrano con un'aura sull'agente. Il client rimanda la selezione
+// corrente a bassa frequenza (heartbeat) così la staleness la ripulisce quando
+// una vista si disconnette. Stesso stile dei cursori: effimero, fuori da
+// `recordEvent`, gated "viewer", rate-limit per-vista.
+const selectionLimiter = createRateLimiter(15, 5000); // ~3 update/s per vista
+
+app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) => {
+  const sel = sanitizeSelection(req.body);
+  if (!sel) {
+    res.status(400).json({ error: "selezione non valida" });
+    return;
+  }
+  if (!selectionLimiter.hit(sel.id)) {
+    res.status(204).end();
+    return;
+  }
+  writeToClients(
+    `data: ${JSON.stringify({ agentId: "selection", agentName: "selection", selection: { ...sel, ts: Date.now() } })}\n\n`,
   );
   res.status(204).end();
 });

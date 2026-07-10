@@ -281,6 +281,23 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-10 — presenza di selezione: chi guarda cosa (frontiera #2, su SSE)
+Continuando su "scegli l'opzione migliore senza domande", completata la **consapevolezza
+collaborativa** iniziata coi cursori: ora ogni vista vede **quale agente** stanno guardando gli
+altri (aura pulsante + etichetta 👁 nome). Additivo, effimero, stesso canale SSE — nessun impatto
+su verità del mondo/game loop. Gemella esatta dei cursori:
+- **Server**: `selections.ts` (puro `sanitizeSelection`, `agentId` vuoto = nessuna selezione) +
+  `POST /api/selection` gated `viewer`, broadcast `selection` fuori da `recordEvent`, rate-limit
+  per-vista.
+- **Client**: `selections.ts` (puro `pruneSelections`/`selectorsOf`); store `remoteSelections`
+  (non persistito); `sendSelection` + `SelectionBridge` (invio al cambio + heartbeat 2.5s → la
+  staleness ripulisce alla disconnessione, TTL 6s); `Agent3D` disegna l'aura (esclude il proprio id;
+  lettura store ref-stabile → nessun re-render sui cursori).
+- **Verifica**: server di test :8799 (POST → eco SSE con `ts`); UI su :8799 con selezioni "fantasma"
+  iniettate → aura+nome sugli agenti giusti (screenshot). Client 453 → 458, server 236 → 241; verdi.
+La consapevolezza collaborativa (**cursori + selezione**) è ora completa. Restano decision-gated:
+opzione B (movimento/SSOT — game loop) e drag libero dei mobili.
+
 ### 2026-07-10 — cursori live: le viste si vedono puntare (frontiera #2, su SSE)
 Su "continua con la roadmap, scegli sempre l'opzione migliore senza domande", scelto il fork a
 **miglior rapporto valore/rischio**: i **cursori live** (frontiera #2, "il salto grosso").

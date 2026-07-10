@@ -18,7 +18,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
-import { assignRemote, backendEnabled, connectBackend, fetchWorld, pushWorld } from "./lib/backend";
+import { assignRemote, backendEnabled, connectBackend, fetchWorld, pushWorld, sendSelection } from "./lib/backend";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -330,6 +330,35 @@ function WorldSyncBridge() {
     return () => {
       unsub();
       if (pending) clearTimeout(pending);
+    };
+  }, []);
+  return null;
+}
+
+/**
+ * Presenza di selezione (Roadmap 4, frontiera #2): annuncia quale agente questa
+ * vista ha selezionato, così le altre lo mostrano con un'aura. Invia subito al
+ * cambio di selezione e su un heartbeat lento (per restare "fresca" contro la
+ * staleness lato server); nello stesso tick ripulisce le selezioni remote scadute
+ * (es. una vista che si è disconnessa). Gemella del canale dei cursori.
+ */
+function SelectionBridge() {
+  useEffect(() => {
+    let prevSel = useStore.getState().selectedAgentId;
+    sendSelection(prevSel);
+    const unsub = useStore.subscribe((state) => {
+      if (state.selectedAgentId !== prevSel) {
+        prevSel = state.selectedAgentId;
+        sendSelection(prevSel);
+      }
+    });
+    const beat = setInterval(() => {
+      useStore.getState().pruneSelections();
+      if (useStore.getState().backendOnline) sendSelection(useStore.getState().selectedAgentId);
+    }, 2500);
+    return () => {
+      unsub();
+      clearInterval(beat);
     };
   }, []);
   return null;
@@ -1037,6 +1066,7 @@ function Workspace() {
       <PlaybookBridge />
       <NotificationBridge />
       <WorldSyncBridge />
+      <SelectionBridge />
       <MetaProactiveBridge />
       <LifeBridge />
       <TalkBridge />

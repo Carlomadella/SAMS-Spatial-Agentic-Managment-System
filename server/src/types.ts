@@ -42,6 +42,10 @@ export interface WireEvent {
    *  floor. Ephemeral (never persisted), broadcast on the SSE channel so views
    *  see each other's pointers in the shared world (Roadmap 4, frontiera #2). */
   cursor?: { id: string; name: string; x: number; z: number; ts: number };
+  /** "selection": which agent another view has selected (or null = none).
+   *  Ephemeral like `cursor` — broadcast so views see each other's focus as an
+   *  aura on the agent (Roadmap 4, frontiera #2). */
+  selection?: { id: string; name: string; agentId: string | null; ts: number };
 }
 
 export interface AssignBody {

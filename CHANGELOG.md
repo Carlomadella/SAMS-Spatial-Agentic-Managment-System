@@ -7,6 +7,22 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Presenza di selezione: vedi su cosa è focalizzato ogni altro 👁
+- **Added** — Gemella dei cursori live: ogni vista annuncia **quale agente ha selezionato** (o
+  nessuno) e le altre lo mostrano con un'**aura pulsante colorata + etichetta 👁 nome** sull'agente.
+  Completa la consapevolezza collaborativa della frontiera #2 (cursori = *dove* punti, selezione =
+  *chi* guardi). Effimero, sullo stesso canale SSE, nessuna dipendenza nuova.
+- **Added (server)** — `server/src/selections.ts` (puro `sanitizeSelection`; `agentId` vuoto = nessuna
+  selezione) + `POST /api/selection` **gated `viewer`**, broadcast `selection` in `WireEvent` fuori da
+  `recordEvent`, rate-limit per-vista. +5 test.
+- **Added (client)** — `src/lib/selections.ts` (puro: `pruneSelections`, `selectorsOf`); store
+  `remoteSelections` (server-owned, **non persistito**); `sendSelection` in `backend.ts`; `SelectionBridge`
+  che invia al cambio selezione + su heartbeat 2.5s (così la staleness ripulisce alla disconnessione, TTL
+  6s) e prune. `Agent3D` disegna l'aura per gli agenti selezionati da altre viste (esclude il proprio id).
+  Lettura store ref-stabile → nessun re-render sui cursori. +5 test.
+- **Note** — Verificato end-to-end (POST → eco SSE con `ts`; selezioni "fantasma" iniettate → aura+nome
+  resi sugli agenti giusti). Nessun impatto su verità del mondo/game loop. Client 453 → 458, server 236 → 241.
+
 ### 2026-07-10 — Playbook pronti: "Nuova guida" e "Fix guidato" 🤝
 - **Added** — Due nuovi modelli in `BUILTIN_PLAYBOOKS` (`src/lib/collaboration.ts`), pensati per un
   knowledge base di codice: **Nuova guida** (Architetto → Documentatore → Revisore → Tester) e

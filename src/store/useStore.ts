@@ -26,6 +26,7 @@ import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
 import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursors";
+import { pruneSelections as prunePureSelections, type RemoteSelection } from "../lib/selections";
 import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
@@ -95,6 +96,9 @@ interface State {
   /** live presence cursors from other views, keyed by view id (server-owned,
    *  ephemeral — pruned on staleness, never persisted). */
   cursors: Record<string, LiveCursor>;
+  /** which agent each other view has selected, keyed by view id (server-owned,
+   *  ephemeral — pruned on staleness, never persisted). */
+  remoteSelections: Record<string, RemoteSelection>;
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -262,11 +266,16 @@ interface State {
     chat?: { id: string; author: string; text: string; ts: number };
     world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
     cursor?: LiveCursor;
+    selection?: RemoteSelection;
   }) => void;
   /** upsert a live presence cursor from another view (frontiera #2). */
   applyCursor: (c: LiveCursor) => void;
   /** drop presence cursors that have gone stale. */
   pruneCursors: () => void;
+  /** upsert a remote view's current agent selection (frontiera #2). */
+  applySelection: (s: RemoteSelection) => void;
+  /** drop remote selections that have gone stale. */
+  pruneSelections: () => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -353,6 +362,7 @@ export const useStore = create<State>()(
   serverWorldVersion: 0,
   people: [],
   cursors: {},
+  remoteSelections: {},
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -738,12 +748,18 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {} }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {} }),
   applyCursor: (c) => set((s) => ({ cursors: { ...s.cursors, [c.id]: { ...c, ts: Date.now() } } })),
   pruneCursors: () => {
     const s = get();
     const next = prunePureCursors(s.cursors, Date.now());
     if (next !== s.cursors) set({ cursors: next });
+  },
+  applySelection: (sel) => set((s) => ({ remoteSelections: { ...s.remoteSelections, [sel.id]: { ...sel, ts: Date.now() } } })),
+  pruneSelections: () => {
+    const s = get();
+    const next = prunePureSelections(s.remoteSelections, Date.now());
+    if (next !== s.remoteSelections) set({ remoteSelections: next });
   },
   setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
   pushChatMessage: (message) =>
@@ -786,6 +802,11 @@ export const useStore = create<State>()(
     // ephemeral and never touches agents/tasks/events.
     if (e.cursor) {
       get().applyCursor(e.cursor);
+      return;
+    }
+    // Selection: which agent another view is focused on. Upsert and stop.
+    if (e.selection) {
+      get().applySelection(e.selection);
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.

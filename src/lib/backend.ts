@@ -33,6 +33,8 @@ export interface RemoteUpdate {
   world?: { agents: WorldAgentSnapshot[]; version: number; updatedAt: number };
   /** Cursor: a live presence cursor from another view (frontiera #2). */
   cursor?: { id: string; name: string; x: number; z: number; ts: number };
+  /** Selection: which agent another view has selected, or null (frontiera #2). */
+  selection?: { id: string; name: string; agentId: string | null; ts: number };
 }
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter";
@@ -603,6 +605,21 @@ export function sendCursor(x: number, z: number): void {
     body: JSON.stringify({ id: getViewerId(), name: viewerName(), x, z }),
   }).catch(() => {
     /* best-effort: i cursori non sono critici */
+  });
+}
+
+// Presenza di selezione (frontiera #2): annuncia quale agente questa vista ha
+// selezionato (o null). Chiamato al cambio di selezione e su un heartbeat lento
+// (così la staleness la ripulisce alla disconnessione). Best-effort, gated
+// "viewer" lato server.
+export function sendSelection(agentId: string | null): void {
+  if (!useStore.getState().backendOnline) return;
+  void fetch(`${BASE}/api/selection`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: getViewerId(), name: viewerName(), agentId }),
+  }).catch(() => {
+    /* best-effort: la presenza non è critica */
   });
 }
 
