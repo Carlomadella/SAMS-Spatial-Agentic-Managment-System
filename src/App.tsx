@@ -990,6 +990,18 @@ function Workspace() {
             <Suspense fallback={<SceneLoading />}>
               <OfficeScene />
             </Suspense>
+            {/* Vignettatura: un velo radiale che scurisce gli angoli e mette a
+                fuoco il diorama al centro. Puramente decorativa, non intercetta
+                click (pointer-events-none) così l'orbita/selezione restano libere. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[1]"
+              style={{
+                background:
+                  "radial-gradient(120% 100% at 50% 42%, transparent 55%, rgba(6,9,15,0.28) 100%)",
+                boxShadow: "inset 0 0 120px 8px rgba(6,9,15,0.22)",
+              }}
+            />
             <StageHint />
             <PresenceRoster />
             <SoundToggle />

@@ -1,6 +1,14 @@
 import React, { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Grid, Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
+import {
+  Grid,
+  Html,
+  Line,
+  OrbitControls,
+  RoundedBox,
+  SoftShadows,
+  Sparkles,
+} from "@react-three/drei";
 import * as THREE from "three";
 import {
   Armchair,
@@ -556,6 +564,19 @@ function SceneContents() {
       <DayNightCycle />
       <Weather />
 
+      {/* Pulviscolo sospeso che cattura la luce radente — dà volume all'aria
+          della stanza (puramente atmosferico, densità bassa per non distrarre). */}
+      <Sparkles
+        count={46}
+        scale={[ROOM_WIDTH - 2, 5.2, ROOM_DEPTH - 2]}
+        position={[0, 3.1, 0]}
+        size={2.4}
+        speed={0.28}
+        opacity={0.32}
+        color="#ffe4b0"
+        noise={0.5}
+      />
+
       <Floor />
 
       {/* ── Studio — back-left quadrant ── */}
@@ -783,11 +804,18 @@ export function OfficeScene() {
       shadows
       dpr={[1, 2]}
       camera={{ position: [13, 11, 14], fov: 32 }}
-      gl={{ antialias: true }}
+      gl={{
+        antialias: true,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.06,
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <color attach="background" args={["#f3ece0"]} />
       <fog attach="fog" args={["#f3ece0", 30, 58]} />
+      {/* Ombre morbide (PCSS): il contatto resta nitido, i bordi si sfumano con la
+          distanza — molto più naturale delle ombre dure a mappa singola. */}
+      <SoftShadows size={26} samples={12} focus={0.9} />
       <Suspense fallback={null}>
         <SceneContents />
       </Suspense>

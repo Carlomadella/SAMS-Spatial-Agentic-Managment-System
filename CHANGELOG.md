@@ -7,6 +7,20 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Rifinitura grafica del diorama 3D ✨
+- **Added** — **Ombre morbide (PCSS)** nell'`OfficeScene` via `<SoftShadows>` di drei:
+  il contatto resta nitido, i bordi si sfumano con la distanza → ombre molto più
+  naturali di quelle dure a mappa singola. Nessuna nuova dipendenza (drei già presente).
+- **Added** — **Pulviscolo atmosferico** sospeso nell'aria della stanza (`<Sparkles>`,
+  densità bassa, tinta calda) che cattura la luce radente e dà volume al volume interno.
+- **Added** — **Vignettatura** CSS sul viewport della scena (`App.tsx`): velo radiale che
+  scurisce gli angoli e mette a fuoco il diorama al centro; `pointer-events-none` così
+  orbita/selezione restano libere.
+- **Changed** — Tone mapping del Canvas su **ACESFilmic** con esposizione 1.06 → colori
+  più ricchi e highlight più morbidi.
+- **Note** — Puramente estetico, nessun cambio di comportamento o al contratto dati.
+  Bundle `OfficeScene` 82→90 kB (soft-shadow shader + sparkles). Suite invariata (440 test).
+
 ### 2026-07-09 — Config condivisa: model/instructions/repo/xp autorevoli 🧬
 - **Added** — Opzione B2 (SSOT incrementale a bassa frequenza): **model, instructions,
   repo, xp** ora sono autorevoli sul server e si propagano tra le viste, riusando il
