@@ -46,6 +46,9 @@ export interface WireEvent {
    *  Ephemeral like `cursor` — broadcast so views see each other's focus as an
    *  aura on the agent (Roadmap 4, frontiera #2). */
   selection?: { id: string; name: string; agentId: string | null; ts: number };
+  /** "driver": who currently holds the authoritative driver lease (opzione B3),
+   *  or holderId "" when no view is driving. Broadcast on handover. */
+  driver?: { holderId: string; name: string };
 }
 
 export interface AssignBody {

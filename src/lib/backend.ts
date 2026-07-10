@@ -35,6 +35,8 @@ export interface RemoteUpdate {
   cursor?: { id: string; name: string; x: number; z: number; ts: number };
   /** Selection: which agent another view has selected, or null (frontiera #2). */
   selection?: { id: string; name: string; agentId: string | null; ts: number };
+  /** Driver: who holds the authoritative driver lease, "" = none (opzione B3). */
+  driver?: { holderId: string; name: string };
 }
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter";
@@ -623,6 +625,36 @@ export function sendSelection(agentId: string | null): void {
   });
 }
 
+// Driver lease (opzione B3): rivendica/rinnova per questa vista il ruolo di
+// simulatore autorevole. Chiamato su un heartbeat; aggiorna subito lo store dal
+// risultato (senza aspettare l'eco SSE). Best-effort, gated "viewer" lato server.
+export async function claimDriver(): Promise<void> {
+  if (!useStore.getState().backendOnline) return;
+  try {
+    const res = await fetch(`${BASE}/api/driver`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: getViewerId(), name: viewerName() }),
+    });
+    if (!res.ok) return;
+    const d = (await res.json()) as { holderId: string; name: string };
+    useStore.getState().setWorldDriver(d.holderId ? d : null);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Read the current driver holder at connect (so a fresh view knows immediately). */
+export async function fetchDriver(): Promise<{ holderId: string; name: string } | null> {
+  try {
+    const res = await fetch(`${BASE}/api/driver`);
+    if (!res.ok) return null;
+    return (await res.json()) as { holderId: string; name: string };
+  } catch {
+    return null;
+  }
+}
+
 let source: EventSource | null = null;
 
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */
@@ -646,6 +678,8 @@ export function connectBackend(): () => void {
     void fetchChat().then((msgs) => useStore.getState().setChatMessages(msgs));
     // Learn our role so the UI can gate actions the role can't perform.
     void fetchWhoami().then((w) => useStore.getState().setViewer(w.role, w.enforced));
+    // Learn who currently drives the shared world (opzione B3).
+    void fetchDriver().then((d) => useStore.getState().setWorldDriver(d && d.holderId ? d : null));
   };
   source.onerror = () => useStore.getState().setBackendOnline(false);
   source.onmessage = (ev) => {

@@ -7,6 +7,24 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Driver lease: eletta una sola vista "regista" del mondo (opzione B3) 🕹️
+- **Added** — Primo mattone del *mondo animato condiviso* (opzione B3): un **lease rinnovabile**
+  che elegge **una sola vista** come simulatore autorevole ("driver"). **Non sposta ancora il game
+  loop** — stabilisce solo il coordinamento, quindi zero impatto sulla simulazione esistente.
+- **Added (server)** — `server/src/driver.ts` (puro: `claimDriver`/`releaseDriver`/`isLeaseValid`,
+  TTL 5s; il titolare vince sempre il rinnovo, gli altri solo a lease scaduto → **handover automatico**).
+  `GET/POST /api/driver` **gated `viewer`**, broadcast `driver` in `WireEvent` **solo al cambio
+  titolare**, rilascio immediato sul disconnect del driver (handover senza attendere la scadenza).
+  Rate-limit per-vista. +7 test.
+- **Added (client)** — store `worldDriver` (server-owned, non persistito) + `setWorldDriver`;
+  `claimDriver`/`fetchDriver` in `backend.ts`; `DriverBridge` (heartbeat 2s); badge `🕹️` nella
+  `StatusBar` — "guidi tu" / "guida <nome>" — mostrato **solo quando il mondo è condiviso** (≥2 viste),
+  così la UX in solitaria resta pulita.
+- **Note** — Verificato end-to-end: curl (titolo unico, negazione ai concorrenti, rinnovo, handover a
+  scadenza, broadcast solo al cambio) e **due viste reali** (una "guidi tu", l'altra "guida Ospite").
+  Prossimo slice B3: instradare lo snapshot ricco (posizione/bisogni) *dal solo driver* → movimento
+  condiviso. Server 241 → 248.
+
 ### 2026-07-10 — Presenza di selezione: vedi su cosa è focalizzato ogni altro 👁
 - **Added** — Gemella dei cursori live: ogni vista annuncia **quale agente ha selezionato** (o
   nessuno) e le altre lo mostrano con un'**aura pulsante colorata + etichetta 👁 nome** sull'agente.

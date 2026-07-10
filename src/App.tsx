@@ -18,7 +18,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
-import { assignRemote, backendEnabled, connectBackend, fetchWorld, pushWorld, sendSelection } from "./lib/backend";
+import { assignRemote, backendEnabled, claimDriver, connectBackend, fetchWorld, pushWorld, sendSelection } from "./lib/backend";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -360,6 +360,22 @@ function SelectionBridge() {
       unsub();
       clearInterval(beat);
     };
+  }, []);
+  return null;
+}
+
+/**
+ * Driver lease (opzione B3): questa vista rinnova periodicamente la richiesta di
+ * essere il simulatore autorevole. Il titolare vince sempre il rinnovo; se sparisce,
+ * un'altra vista subentra alla scadenza (o subito, via rilascio server-side sul
+ * disconnect). Primo mattone del "mondo animato condiviso" — non sposta ancora il
+ * game loop, elegge solo il driver.
+ */
+function DriverBridge() {
+  useEffect(() => {
+    void claimDriver();
+    const beat = setInterval(() => void claimDriver(), 2000);
+    return () => clearInterval(beat);
   }, []);
   return null;
 }
@@ -1067,6 +1083,7 @@ function Workspace() {
       <NotificationBridge />
       <WorldSyncBridge />
       <SelectionBridge />
+      <DriverBridge />
       <MetaProactiveBridge />
       <LifeBridge />
       <TalkBridge />

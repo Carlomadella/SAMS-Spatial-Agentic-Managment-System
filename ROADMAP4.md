@@ -281,6 +281,24 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-10 — driver lease: eletta una sola vista "regista" (opzione B3, primo mattone)
+Esauriti gli slice additivi-su-SSE più ovvi, su "continua, scegli il meglio" imboccata l'**opzione
+B a slice sicuri**, dal primo mattone: il **driver lease**. Con più viste che simulano il mondo in
+modo indipendente non c'è una verità sola sul movimento; B3 elegge **una** vista come simulatore
+autorevole. Questo slice fa **solo** l'elezione a titolo unico — **non sposta ancora il game loop**,
+quindi rischio nullo sulla simulazione esistente.
+- **Server**: `driver.ts` (puro `claimDriver`/`releaseDriver`/`isLeaseValid`, TTL 5s; il titolare
+  vince sempre il rinnovo, gli altri solo a scadenza → handover). `GET/POST /api/driver` gated
+  `viewer`, broadcast `driver` **solo al cambio**, rilascio immediato sul disconnect del driver.
+- **Client**: store `worldDriver` (non persistito) + `DriverBridge` (heartbeat 2s) + badge `🕹️`
+  nella StatusBar ("guidi tu" / "guida <nome>"), mostrato solo con ≥2 viste.
+- **Verifica**: curl (titolo unico, negazione, rinnovo, handover a scadenza, broadcast solo-al-cambio)
+  + **due viste reali** in Playwright (una "guidi tu", l'altra "guida Ospite"). Server 241 → 248.
+- **Prossimo slice B3** (dove sta il valore visibile): il **solo driver** spinge lo snapshot ricco
+  (posizione/bisogni/umore), le altre viste lo adottano read-only → **movimento condiviso**. Da fare
+  con verifica a due viste (muovi un agente nel driver → si muove nel follower). Resta anche il drag
+  libero dei mobili (#3).
+
 ### 2026-07-10 — presenza di selezione: chi guarda cosa (frontiera #2, su SSE)
 Continuando su "scegli l'opzione migliore senza domande", completata la **consapevolezza
 collaborativa** iniziata coi cursori: ora ogni vista vede **quale agente** stanno guardando gli

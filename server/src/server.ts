@@ -25,6 +25,7 @@ import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { sanitizeCursor } from "./cursors";
 import { sanitizeSelection } from "./selections";
+import { claimDriver, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
 import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
@@ -141,6 +142,21 @@ function broadcastWorld(snapshot: { agents: unknown[]; version: number; updatedA
   writeToClients(
     `data: ${JSON.stringify({ agentId: "world", agentName: "world", world: snapshot })}\n\n`,
   );
+}
+
+// Driver lease (opzione B3): quale vista è il simulatore autorevole. Vive in
+// memoria (effimero); un `holderId` vuoto significa "nessun driver".
+let driverLease: DriverLease | null = null;
+
+function currentDriver(now: number): { holderId: string; name: string } {
+  return isLeaseValid(driverLease, now)
+    ? { holderId: driverLease!.holderId, name: driverLease!.name }
+    : { holderId: "", name: "" };
+}
+
+function broadcastDriver(): void {
+  const d = currentDriver(Date.now());
+  writeToClients(`data: ${JSON.stringify({ agentId: "driver", agentName: "driver", driver: d })}\n\n`);
 }
 
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -298,6 +314,12 @@ app.get("/api/events", (req: Request, res: Response) => {
     clients.delete(res);
     log.info("Vista disconnessa", { views: clients.size, name: observer.name });
     broadcastPresence();
+    // Se il driver se ne va, rilascia subito il lease (handover immediato, senza
+    // aspettare la scadenza) e avvisa le altre viste.
+    if (driverLease && driverLease.holderId === observer.id) {
+      driverLease = releaseDriver(driverLease, observer.id);
+      broadcastDriver();
+    }
   }
   const heartbeat = setInterval(() => {
     if (res.writableEnded || res.destroyed) {
@@ -700,6 +722,37 @@ app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) 
     `data: ${JSON.stringify({ agentId: "selection", agentName: "selection", selection: { ...sel, ts: Date.now() } })}\n\n`,
   );
   res.status(204).end();
+});
+
+// --- Driver lease (Roadmap 4, opzione B3) --------------------------------
+// Elegge UNA vista come simulatore autorevole (primo mattone del mondo animato
+// condiviso — non sposta ancora il game loop). Le viste rinnovano il lease su un
+// heartbeat; il titolare vince sempre il rinnovo, gli altri solo se è scaduto →
+// handover automatico se il driver sparisce. Gated "viewer" come gli altri
+// canali di presenza.
+const driverLimiter = createRateLimiter(10, 5000); // heartbeat ~0.5/s, ampio margine
+
+app.get("/api/driver", (_req: Request, res: Response) => {
+  res.json(currentDriver(Date.now()));
+});
+
+app.post("/api/driver", requireRole("viewer"), (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { id?: unknown; name?: unknown };
+  const { id, name } = sanitizeObserverIdentity(body.id, body.name);
+  if (!id) {
+    res.status(400).json({ error: "id vista mancante" });
+    return;
+  }
+  const now = Date.now();
+  if (!driverLimiter.hit(id)) {
+    const d = currentDriver(now);
+    res.json({ ...d, youAreDriver: d.holderId === id });
+    return;
+  }
+  const { lease, changed } = claimDriver(driverLease, id, name, now);
+  driverLease = lease;
+  if (changed) broadcastDriver();
+  res.json({ holderId: lease.holderId, name: lease.name, youAreDriver: lease.holderId === id });
 });
 
 // --- Routine / trigger temporali ----------------------------------------

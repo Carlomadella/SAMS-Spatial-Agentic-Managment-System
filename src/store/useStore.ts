@@ -99,6 +99,8 @@ interface State {
   /** which agent each other view has selected, keyed by view id (server-owned,
    *  ephemeral — pruned on staleness, never persisted). */
   remoteSelections: Record<string, RemoteSelection>;
+  /** who holds the authoritative driver lease (opzione B3), or null if nobody. */
+  worldDriver: { holderId: string; name: string } | null;
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -267,7 +269,10 @@ interface State {
     world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
     cursor?: LiveCursor;
     selection?: RemoteSelection;
+    driver?: { holderId: string; name: string };
   }) => void;
+  /** set who holds the driver lease (null = nobody). */
+  setWorldDriver: (d: { holderId: string; name: string } | null) => void;
   /** upsert a live presence cursor from another view (frontiera #2). */
   applyCursor: (c: LiveCursor) => void;
   /** drop presence cursors that have gone stale. */
@@ -363,6 +368,7 @@ export const useStore = create<State>()(
   people: [],
   cursors: {},
   remoteSelections: {},
+  worldDriver: null,
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -748,7 +754,8 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {} }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {}, worldDriver: null }),
+  setWorldDriver: (d) => set({ worldDriver: d }),
   applyCursor: (c) => set((s) => ({ cursors: { ...s.cursors, [c.id]: { ...c, ts: Date.now() } } })),
   pruneCursors: () => {
     const s = get();
@@ -807,6 +814,11 @@ export const useStore = create<State>()(
     // Selection: which agent another view is focused on. Upsert and stop.
     if (e.selection) {
       get().applySelection(e.selection);
+      return;
+    }
+    // Driver: who holds the authoritative driver lease (opzione B3). Not an event.
+    if (e.driver) {
+      get().setWorldDriver(e.driver.holderId ? e.driver : null);
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.
