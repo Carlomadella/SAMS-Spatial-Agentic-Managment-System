@@ -38,6 +38,10 @@ export interface WireEvent {
    *  /api/world so other views adopt it immediately instead of waiting for their
    *  next pull (Roadmap 4 — presence realtime / agenti live). */
   world?: { agents: unknown[]; version: number; updatedAt: number };
+  /** "cursor": a live presence cursor — where another view is pointing on the
+   *  floor. Ephemeral (never persisted), broadcast on the SSE channel so views
+   *  see each other's pointers in the shared world (Roadmap 4, frontiera #2). */
+  cursor?: { id: string; name: string; x: number; z: number; ts: number };
 }
 
 export interface AssignBody {

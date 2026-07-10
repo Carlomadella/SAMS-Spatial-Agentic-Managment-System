@@ -25,6 +25,7 @@ import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/worl
 import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
+import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursors";
 import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
@@ -91,6 +92,9 @@ interface State {
   serverWorldVersion: number;
   /** distinct names of who is watching right now (empty on old runtimes) */
   people: string[];
+  /** live presence cursors from other views, keyed by view id (server-owned,
+   *  ephemeral — pruned on staleness, never persisted). */
+  cursors: Record<string, LiveCursor>;
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -257,7 +261,12 @@ interface State {
     people?: string[];
     chat?: { id: string; author: string; text: string; ts: number };
     world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
+    cursor?: LiveCursor;
   }) => void;
+  /** upsert a live presence cursor from another view (frontiera #2). */
+  applyCursor: (c: LiveCursor) => void;
+  /** drop presence cursors that have gone stale. */
+  pruneCursors: () => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -343,6 +352,7 @@ export const useStore = create<State>()(
   observers: 1,
   serverWorldVersion: 0,
   people: [],
+  cursors: {},
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -728,7 +738,13 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [] }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {} }),
+  applyCursor: (c) => set((s) => ({ cursors: { ...s.cursors, [c.id]: { ...c, ts: Date.now() } } })),
+  pruneCursors: () => {
+    const s = get();
+    const next = prunePureCursors(s.cursors, Date.now());
+    if (next !== s.cursors) set({ cursors: next });
+  },
   setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
   pushChatMessage: (message) =>
     set((s) =>
@@ -764,6 +780,12 @@ export const useStore = create<State>()(
     if (e.world) {
       get().adoptWorld(e.world.agents as RemoteWorldAgent[]);
       get().noteWorldVersion(e.world.version);
+      return;
+    }
+    // Cursor: a live presence pointer from another view. Upsert and stop — it's
+    // ephemeral and never touches agents/tasks/events.
+    if (e.cursor) {
+      get().applyCursor(e.cursor);
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.

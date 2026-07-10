@@ -23,6 +23,7 @@ import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
+import { sanitizeCursor } from "./cursors";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
 import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
@@ -648,6 +649,32 @@ app.post("/api/presence", requireRole("editor"), (req: Request, res: Response) =
   }
   if (changed > 0) broadcastPresence();
   res.json({ ok: true, changed, people: distinctPeople([...clients.values()]) });
+});
+
+// --- Cursori live (Roadmap 4, frontiera #2) ------------------------------
+// Ogni vista rimbalza la posizione del suo puntatore sul pavimento; le altre lo
+// disegnano in scena. Effimero (niente DB), rimbalzato sul canale SSE esistente e
+// tenuto fuori da `broadcast`/`recordEvent` (non è un evento runtime → non gonfia
+// le metriche). Gated "viewer": anche un osservatore read-only mostra il cursore,
+// ma con i token imposti serve comunque un token valido. Il rate-limit è per-vista
+// (chiave = id del cursore) così più schede sullo stesso IP non si rubano il budget;
+// oltre soglia si scarta in silenzio (204) — i cursori sono lossy per natura.
+const cursorLimiter = createRateLimiter(20, 1000); // ~20 update/s per vista
+
+app.post("/api/cursor", requireRole("viewer"), (req: Request, res: Response) => {
+  const c = sanitizeCursor(req.body);
+  if (!c) {
+    res.status(400).json({ error: "cursore non valido" });
+    return;
+  }
+  if (!cursorLimiter.hit(c.id)) {
+    res.status(204).end(); // troppo veloce → scarta senza rumore
+    return;
+  }
+  writeToClients(
+    `data: ${JSON.stringify({ agentId: "cursor", agentName: "cursor", cursor: { ...c, ts: Date.now() } })}\n\n`,
+  );
+  res.status(204).end();
 });
 
 // --- Routine / trigger temporali ----------------------------------------

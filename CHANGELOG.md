@@ -7,6 +7,26 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Cursori live: le viste si vedono puntare nel mondo condiviso 👆
+- **Added** — Frontiera #2 ("il salto grosso" dei cursori live, in forma de-riscata sul
+  **canale SSE esistente**, niente WebSocket nuovo). Ogni vista rimbalza la posizione del suo
+  puntatore sul pavimento; le altre la disegnano in scena come anello+dot colorato (colore
+  stabile per id) con la pill del nome, che pulsa e **sfuma con l'età**.
+- **Added (server)** — `server/src/cursors.ts` (puro: `sanitizeCursor` — id/nome ritagliati,
+  coordinate finite e clampate) + `POST /api/cursor` **gated `viewer`** (anche un osservatore
+  read-only può mostrarsi; con i token imposti serve comunque un token valido). Effimero:
+  broadcast su SSE (`cursor` in `WireEvent`), fuori da `recordEvent` (non gonfia le metriche),
+  **nessuna persistenza**. Rate-limit per-vista (chiave = id del cursore, ~20/s), oltre soglia
+  scarta in silenzio (204). +6 test.
+- **Added (client)** — `src/lib/cursors.ts` (puro: `pruneCursors` per staleness, `cursorOpacity`
+  per la dissolvenza, `cursorColor` stabile per id); store `cursors` (server-owned, **non
+  persistito**) con `applyCursor`/`pruneCursors`; `sendCursor` in `backend.ts` (auto-throttle
+  ~14/s, best-effort) collegato all'`onPointerMove` del pavimento; `PresenceCursors`/`RemoteCursor`
+  nell'`OfficeScene` (esclude il proprio id, nasconde le Html sotto il garden). TTL 4s. +7 test.
+- **Note** — Verificato end-to-end: POST → eco SSE con `ts`; e con la UI aperta un cursore
+  "fantasma" iniettato compare in scena col nome. Nessun impatto su verità del mondo/game loop.
+  Client 446 → 453 test, server 230 → 236.
+
 ### 2026-07-10 — Lampade interne col ciclo giorno/notte 💡
 - **Added** — `src/lib/daylight.ts` (puro): `daynessAt(date)` (0 di notte → 1 a mezzogiorno,
   stessa curva del sole del `DayNightCycle`) e `lampGain(dayness, floor=0.12)` (piena di notte,

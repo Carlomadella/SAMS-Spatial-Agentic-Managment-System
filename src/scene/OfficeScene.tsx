@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   Grid,
@@ -38,6 +38,8 @@ import { Agent3D } from "./Agent3D";
 import { monitorView, queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
 import { daylight } from "../lib/daylight";
+import { cursorColor, cursorOpacity, type LiveCursor } from "../lib/cursors";
+import { getViewerId, sendCursor } from "../lib/backend";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { getRoomTheme } from "../lib/roomThemes";
 import { getArrangement } from "../lib/officeLayout";
@@ -110,6 +112,7 @@ function Floor() {
         receiveShadow
         onPointerDown={onDown}
         onPointerUp={onUp}
+        onPointerMove={(e) => sendCursor(e.point.x, e.point.z)}
       >
         <planeGeometry args={[ROOM_WIDTH, ROOM_DEPTH]} />
         <meshStandardMaterial map={wood} roughness={0.7} metalness={0.04} />
@@ -548,6 +551,77 @@ function Weather() {
   );
 }
 
+/**
+ * Un singolo cursore di presence: dove un'altra vista sta puntando sul pavimento.
+ * Un anello + disco colorati (colore stabile per id) con una pill del nome. Pulsa
+ * dolcemente e sfuma con l'età (`cursorOpacity`) così sparisce con grazia invece
+ * di scomparire di colpo quando la vista smette di muoversi.
+ */
+function RemoteCursor({ cursor }: { cursor: LiveCursor }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const dotMat = useRef<THREE.MeshBasicMaterial>(null);
+  const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+  const color = useMemo(() => cursorColor(cursor.id), [cursor.id]);
+
+  useFrame((state) => {
+    const age = Date.now() - cursor.ts;
+    const o = cursorOpacity(age);
+    if (dotMat.current) dotMat.current.opacity = 0.65 * o;
+    if (ringMat.current) ringMat.current.opacity = 0.85 * o;
+    if (ringRef.current) {
+      const s = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.12;
+      ringRef.current.scale.set(s, s, s);
+    }
+    if (groupRef.current) groupRef.current.visible = o > 0.01;
+  });
+
+  return (
+    <group ref={groupRef} position={[cursor.x, 0.02, cursor.z]}>
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.17, 0.25, 32]} />
+        <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0.85} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
+        <circleGeometry args={[0.085, 24]} />
+        <meshBasicMaterial ref={dotMat} color={color} transparent opacity={0.65} depthWrite={false} />
+      </mesh>
+      <Html position={[0.18, 0.02, -0.3]} center distanceFactor={11} pointerEvents="none" zIndexRange={[55, 35]}>
+        <div
+          className="pointer-events-none -translate-y-1 select-none whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+          style={{ background: color }}
+        >
+          {cursor.name}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+/** Draws every OTHER view's live cursor and prunes stale ones on a slow tick. */
+function PresenceCursors() {
+  const cursors = useStore((s) => s.cursors);
+  const prune = useStore((s) => s.pruneCursors);
+  const gardenOpen = useStore((s) => s.gardenOpen);
+  const self = useMemo(() => getViewerId(), []);
+
+  useEffect(() => {
+    const id = setInterval(prune, 1000);
+    return () => clearInterval(id);
+  }, [prune]);
+
+  if (gardenOpen) return null; // the garden overlay is fullscreen — hide world Html
+  return (
+    <>
+      {Object.values(cursors)
+        .filter((c) => c.id !== self)
+        .map((c) => (
+          <RemoteCursor key={c.id} cursor={c} />
+        ))}
+    </>
+  );
+}
+
 /** Centro del cluster salotto (per ruotarlo attorno a sé stesso). */
 const LOUNGE_CENTER: [number, number, number] = [-7.4, 0, 3.2];
 
@@ -739,6 +813,7 @@ function SceneContents() {
         <Agent3D key={a.id} agent={a} selected={a.id === selectedAgentId} />
       ))}
 
+      <PresenceCursors />
       <Handoffs />
     </>
   );

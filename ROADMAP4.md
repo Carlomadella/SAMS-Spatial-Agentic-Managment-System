@@ -117,8 +117,11 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       la adotta in `applyRemote` e allinea la base CAS (`serverWorldVersion` nello store),
       così le viste convergono senza aspettare il pull ~20s né generare 409 inutili. Il
       "mondo condiviso" ha anche un **roster di avatar** in scena (`src/lib/observers.ts`
-      puro + `PresenceRoster`, visibile solo con ≥2 persone). _Resta il salto grosso: i
-      cursori live Figma-style (WebSocket)._
+      puro + `PresenceRoster`, visibile solo con ≥2 persone). ✅ Anche i **cursori live** (il
+      "salto grosso") sono fatti — sul **canale SSE esistente** invece che via WebSocket:
+      `server/src/cursors.ts` + `POST /api/cursor` (gated `viewer`, effimero, rate-limit
+      per-vista) → broadcast `cursor`; client `src/lib/cursors.ts` (prune/fade/colore puri) +
+      `sendCursor` sul pavimento + `PresenceCursors` in scena (anello+nome, esclude sé, TTL 4s).
 - [x] ✅ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
       `server/src/roles.ts` (puro: `bearerToken`, `resolveRole`, `roleAtLeast`) modella
       la gerarchia **viewer < editor < owner** sui tre token: `SAMS_TOKEN` (owner:
@@ -277,6 +280,26 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-10 — cursori live: le viste si vedono puntare (frontiera #2, su SSE)
+Su "continua con la roadmap, scegli sempre l'opzione migliore senza domande", scelto il fork a
+**miglior rapporto valore/rischio**: i **cursori live** (frontiera #2, "il salto grosso").
+Additivo e isolato — **non tocca la verità del mondo né il game loop** (a differenza dell'opzione
+B, 🔴 progetto) ed è verificabile end-to-end (a differenza del drag mobili, difficile in headless).
+De-riscato: costruito sul **canale SSE esistente**, niente dipendenza WebSocket nuova.
+- **Server**: `cursors.ts` (puro `sanitizeCursor`) + `POST /api/cursor` **gated `viewer`** (anche
+  read-only si mostra; con token imposti serve un token valido). Effimero (niente DB), broadcast
+  `cursor` in `WireEvent` fuori da `recordEvent`. Rate-limit per-vista (chiave = id cursore, ~20/s),
+  oltre soglia scarta in silenzio (204).
+- **Client**: `cursors.ts` (puro: `pruneCursors`/`cursorOpacity`/`cursorColor`); store `cursors`
+  (server-owned, non persistito); `sendCursor` (auto-throttle ~14/s) su `onPointerMove` del pavimento;
+  `PresenceCursors`/`RemoteCursor` in scena (anello+dot colore-per-id + pill nome, pulsa e sfuma,
+  esclude il proprio id, TTL 4s, nascosto sotto il garden).
+- **Verifica**: istanza server di test su :8799 (senza toccare il runtime utente su :8787) → POST
+  restituisce l'eco SSE con `ts`; poi UI aperta con backend :8799 e un cursore "fantasma" iniettato
+  compare in scena col nome (screenshot). Client 446 → 453, server 230 → 236; typecheck/lint/build
+  verdi. Nota ruoli: gated `viewer` di proposito (i cursori sono una feature da osservatori) →
+  nessun impatto sul modello auth. Restano decision-gated: opzione B (movimento/SSOT) e drag mobili.
 
 ### 2026-07-10 — rifinitura grafica del diorama (nodi sicuri esauriti → solo polish)
 Verificata l'intera R4: gli slice **sicuri e non decision-gated sono esauriti** (frontiere #1

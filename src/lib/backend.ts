@@ -31,6 +31,8 @@ export interface RemoteUpdate {
   chat?: { id: string; author: string; text: string; ts: number };
   /** World: authoritative snapshot broadcast live after another view saved it. */
   world?: { agents: WorldAgentSnapshot[]; version: number; updatedAt: number };
+  /** Cursor: a live presence cursor from another view (frontiera #2). */
+  cursor?: { id: string; name: string; x: number; z: number; ts: number };
 }
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter";
@@ -552,7 +554,7 @@ export async function clearMemory(agentId: string): Promise<void> {
 // scelto in chat (`chatName`), con fallback "Ospite".
 const VIEWER_ID_KEY = "sams-viewer-id";
 
-function getViewerId(): string {
+export function getViewerId(): string {
   try {
     let id = localStorage.getItem(VIEWER_ID_KEY);
     if (!id) {
@@ -583,6 +585,25 @@ export async function announcePresence(name: string): Promise<void> {
   } catch {
     /* best-effort: la presence non è critica */
   }
+}
+
+// Cursori live (frontiera #2): rimbalza la posizione del puntatore sul pavimento
+// alle altre viste. Auto-throttle a ~14 update/s (i cursori sono lossy) e best
+// effort: se il backend è offline non si tenta nemmeno. Gated "viewer" lato server
+// → ogni vista (anche read-only) può mostrarsi, nessun 403 a vuoto.
+let lastCursorSent = 0;
+export function sendCursor(x: number, z: number): void {
+  const now = Date.now();
+  if (now - lastCursorSent < 70) return;
+  lastCursorSent = now;
+  if (!useStore.getState().backendOnline) return;
+  void fetch(`${BASE}/api/cursor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: getViewerId(), name: viewerName(), x, z }),
+  }).catch(() => {
+    /* best-effort: i cursori non sono critici */
+  });
 }
 
 let source: EventSource | null = null;
