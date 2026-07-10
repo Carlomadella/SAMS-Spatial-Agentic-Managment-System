@@ -278,6 +278,23 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-10 — rifinitura grafica del diorama (nodi sicuri esauriti → solo polish)
+Verificata l'intera R4: gli slice **sicuri e non decision-gated sono esauriti** (frontiere #1
+opzione A + B2 config, #2 mondo condiviso, #3 prodotto; gli agenti idle erano già molto vivi —
+look-around/bob/blink/micro-attività). Quello che resta è **decision-gated** (movimento/SSOT
+condiviso opz. B, cursori live WebSocket #2, drag libero dei mobili #3): su richiesta, l'utente
+ha scelto **"solo rifinitura sicura"**, niente fork architetturale. Consegnati due slice estetici
+a basso rischio, tema "Mondo 3D & feel":
+- **Diorama più curato**: ombre morbide PCSS (`<SoftShadows>`), pulviscolo atmosferico caldo
+  (`<Sparkles>`), vignettatura CSS sul viewport (mette a fuoco il centro, `pointer-events-none`),
+  tone mapping ACESFilmic (esposizione 1.06). Nessuna nuova dipendenza (drei già presente).
+- **Lampade col ciclo giorno/notte**: le point-light interne (floor lamp, table lamp, applique)
+  restavano a piena potenza anche a mezzogiorno. Ora affievoliscono con la luce del giorno —
+  `src/lib/daylight.ts` (puro: `daynessAt`/`lampGain`, floor 0.12; + singleton `daylight` scritto
+  ogni frame dal `DayNightCycle`) e un wrapper `LampLight` che rampa l'intensità. Effetto
+  verificato end-to-end forzando il clock (notte = pozze calde su stanza buia, mezzogiorno = luce
+  nitida senza lampade accese). 6 test puri; suite 440 → 446; typecheck/lint/build verdi.
+
 ### 2026-07-09 — opzione B2: config autorevole a bassa frequenza (model/instructions/repo/xp)
 Creato il doc di decisione per l'opzione B (SSOT completo) e, su "scegli e continua",
 imboccata la mossa raccomandata: **B2** (SSOT incrementale a bassa frequenza), lasciando i

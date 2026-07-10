@@ -37,6 +37,7 @@ import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
 import { monitorView, queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
+import { daylight } from "../lib/daylight";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { getRoomTheme } from "../lib/roomThemes";
 import { getArrangement } from "../lib/officeLayout";
@@ -344,6 +345,7 @@ function DayNightCycle() {
     const sunY = Math.sin(sunAngle);          // -1 (night) … +1 (noon)
     const sunX = Math.cos(sunAngle);
     const dayness = Math.max(0, sunY);        // 0..1, zero when sun is below horizon
+    daylight.dayness = dayness;               // publish for the interior lamps
 
     if (dirRef.current) {
       dirRef.current.position.set(sunX * 14, Math.max(sunY * 14, -3), 7);

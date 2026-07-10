@@ -1,7 +1,45 @@
 import { RoundedBox } from "@react-three/drei";
-import { useMemo, type ReactNode } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { rugTexture } from "./textures";
+import { daylight, lampGain } from "../lib/daylight";
+
+/**
+ * A warm interior light that ramps with the time of day: full at night, faint at
+ * noon (see `lampGain`). Reads the frame-shared `daylight.dayness` each frame so
+ * lamps don't blaze at midday. Drop-in replacement for a `<pointLight>`; `base`
+ * is the night-time intensity.
+ */
+function LampLight({
+  base,
+  position,
+  color = "#ffce8a",
+  distance,
+  decay = 2,
+}: {
+  base: number;
+  position: Vec3;
+  color?: string;
+  distance: number;
+  decay?: number;
+}) {
+  const ref = useRef<THREE.PointLight>(null);
+  useFrame(() => {
+    if (ref.current) ref.current.intensity = base * lampGain(daylight.dayness);
+  });
+  return (
+    <pointLight
+      ref={ref}
+      position={position}
+      color={color}
+      intensity={base}
+      distance={distance}
+      decay={decay}
+      castShadow={false}
+    />
+  );
+}
 
 type Vec3 = [number, number, number];
 
@@ -390,8 +428,8 @@ export function FloorLamp({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropPr
         <coneGeometry args={[0.42, 0.5, 24, 1, true]} />
         <meshStandardMaterial color={LINEN} emissive="#ffd9a0" emissiveIntensity={0.35} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
-      {/* warm glow */}
-      <pointLight position={[0, 1.85, 0]} color="#ffce8a" intensity={6} distance={7} decay={2} castShadow={false} />
+      {/* warm glow — dims with the day/night cycle */}
+      <LampLight base={6} position={[0, 1.85, 0]} distance={7} />
       <mesh position={[0, 1.92, 0]}>
         <sphereGeometry args={[0.1, 12, 12]} />
         <meshBasicMaterial color="#fff0d0" toneMapped={false} />
@@ -415,7 +453,7 @@ export function TableLamp({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropPr
         <coneGeometry args={[0.2, 0.26, 20, 1, true]} />
         <meshStandardMaterial color={LINEN} emissive="#ffd9a0" emissiveIntensity={0.45} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
-      <pointLight position={[0, 0.36, 0]} color="#ffce8a" intensity={2.4} distance={4.5} decay={2} />
+      <LampLight base={2.4} position={[0, 0.36, 0]} distance={4.5} />
     </group>
   );
 }
@@ -506,7 +544,7 @@ export function WallSconce({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropP
         <sphereGeometry args={[0.05, 12, 12]} />
         <meshBasicMaterial color="#fff0d0" toneMapped={false} />
       </mesh>
-      <pointLight position={[0, 0.3, 0.5]} color="#ffce8a" intensity={3} distance={6} decay={2} />
+      <LampLight base={3} position={[0, 0.3, 0.5]} distance={6} />
     </group>
   );
 }

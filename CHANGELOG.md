@@ -7,6 +7,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Lampade interne col ciclo giorno/notte 💡
+- **Added** — `src/lib/daylight.ts` (puro): `daynessAt(date)` (0 di notte → 1 a mezzogiorno,
+  stessa curva del sole del `DayNightCycle`) e `lampGain(dayness, floor=0.12)` (piena di notte,
+  al minimo a mezzogiorno). Singleton `daylight` scritto ogni frame dal `DayNightCycle`.
+- **Changed** — Le point-light interne (`FloorLamp`/`TableLamp`/`WallSconce`) usano un wrapper
+  `LampLight` che **rampa l'intensità con `lampGain`**: prima restavano a piena potenza anche
+  a mezzogiorno (7 luci sempre al massimo, poco realistico). Ora la stanza è calda di sera e
+  nitida di giorno. La luce della finestra (daylight) resta invariata.
+- **Note** — Solo estetico, nessun cambio al contratto dati. Verificato forzando il clock del
+  browser (notte vs mezzogiorno). +6 test puri (`daylight.test.ts`).
+
 ### 2026-07-10 — Rifinitura grafica del diorama 3D ✨
 - **Added** — **Ombre morbide (PCSS)** nell'`OfficeScene` via `<SoftShadows>` di drei:
   il contatto resta nitido, i bordi si sfumano con la distanza → ombre molto più
