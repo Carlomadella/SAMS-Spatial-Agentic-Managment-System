@@ -27,6 +27,7 @@ import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
 import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursors";
 import { pruneSelections as prunePureSelections, type RemoteSelection } from "../lib/selections";
+import { pruneSim as prunePureSim, ingestSim, type SimAgent } from "../lib/worldsim";
 import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
@@ -101,6 +102,10 @@ interface State {
   remoteSelections: Record<string, RemoteSelection>;
   /** who holds the authoritative driver lease (opzione B3), or null if nobody. */
   worldDriver: { holderId: string; name: string } | null;
+  /** live agent positions pushed by the driver (opzione B3), keyed by agent id —
+   *  followers adopt these read-only to animate the shared movement. Server-owned,
+   *  ephemeral (pruned on staleness, never persisted). */
+  remoteSim: Record<string, SimAgent>;
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -270,6 +275,7 @@ interface State {
     cursor?: LiveCursor;
     selection?: RemoteSelection;
     driver?: { holderId: string; name: string };
+    worldsim?: { agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[]; ts: number };
   }) => void;
   /** set who holds the driver lease (null = nobody). */
   setWorldDriver: (d: { holderId: string; name: string } | null) => void;
@@ -281,6 +287,10 @@ interface State {
   applySelection: (s: RemoteSelection) => void;
   /** drop remote selections that have gone stale. */
   pruneSelections: () => void;
+  /** adopt the driver's live movement snapshot (opzione B3); replaces prior sim. */
+  applyWorldSim: (agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[]) => void;
+  /** drop live movement states that have gone stale (driver went quiet). */
+  pruneSim: () => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -369,6 +379,7 @@ export const useStore = create<State>()(
   cursors: {},
   remoteSelections: {},
   worldDriver: null,
+  remoteSim: {},
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -754,7 +765,7 @@ export const useStore = create<State>()(
   setRightWidth: (w) => set({ rightWidth: clamp(w, 220, 560) }),
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
-  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {}, worldDriver: null }),
+  setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {}, worldDriver: null, remoteSim: {} }),
   setWorldDriver: (d) => set({ worldDriver: d }),
   applyCursor: (c) => set((s) => ({ cursors: { ...s.cursors, [c.id]: { ...c, ts: Date.now() } } })),
   pruneCursors: () => {
@@ -767,6 +778,14 @@ export const useStore = create<State>()(
     const s = get();
     const next = prunePureSelections(s.remoteSelections, Date.now());
     if (next !== s.remoteSelections) set({ remoteSelections: next });
+  },
+  // timbro con l'ora locale (non il `ts` del server): la staleness usa il clock del
+  // ricevente, come per i cursori, così clock disallineati non scadono male.
+  applyWorldSim: (agents) => set({ remoteSim: ingestSim(agents, Date.now()) }),
+  pruneSim: () => {
+    const s = get();
+    const next = prunePureSim(s.remoteSim, Date.now());
+    if (next !== s.remoteSim) set({ remoteSim: next });
   },
   setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
   pushChatMessage: (message) =>
@@ -819,6 +838,12 @@ export const useStore = create<State>()(
     // Driver: who holds the authoritative driver lease (opzione B3). Not an event.
     if (e.driver) {
       get().setWorldDriver(e.driver.holderId ? e.driver : null);
+      return;
+    }
+    // Worldsim: the driver's live agent positions (opzione B3). Adopt read-only and
+    // stop — ephemeral, never touches agents/tasks/events (followers render from it).
+    if (e.worldsim) {
+      get().applyWorldSim(e.worldsim.agents);
       return;
     }
     // Chat: a workspace message. Append (deduped) and stop — not an agent event.

@@ -24,6 +24,7 @@ import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState"
 import { sanitizeChatInput, type ChatMessage } from "./chat";
 import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer } from "./presence";
 import { sanitizeCursor } from "./cursors";
+import { sanitizeWorldSim } from "./worldsim";
 import { sanitizeSelection } from "./selections";
 import { claimDriver, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 import { createRateLimiter, identityKey } from "./rateLimit";
@@ -753,6 +754,35 @@ app.post("/api/driver", requireRole("viewer"), (req: Request, res: Response) => 
   driverLease = lease;
   if (changed) broadcastDriver();
   res.json({ holderId: lease.holderId, name: lease.name, youAreDriver: lease.holderId === id });
+});
+
+// --- Movimento condiviso: snapshot cinematico (Roadmap 4, opzione B3) -----
+// Il driver — e SOLO il driver — spinge le posizioni live degli agenti; le altre
+// viste le adottano read-only e interpolano → tutti vedono lo stesso ufficio
+// animarsi insieme. Effimero come i cursori (niente DB), broadcast SSE fuori da
+// `recordEvent`. Gated "viewer", ma in più si accetta solo dal titolare corrente
+// del lease: una vista non-driver che tentasse di spingere viene scartata in
+// silenzio (204), così non esistono due simulatori che si contendono il movimento.
+const worldSimLimiter = createRateLimiter(15, 1000); // fino a ~15 update/s dal driver
+
+app.post("/api/worldsim", requireRole("viewer"), (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { id?: unknown; agents?: unknown };
+  const id = typeof body.id === "string" ? body.id : "";
+  const now = Date.now();
+  // Solo il driver in carica può spingere il mondo animato (evita la doppia simulazione).
+  if (!id || !isLeaseValid(driverLease, now) || driverLease!.holderId !== id) {
+    res.status(204).end();
+    return;
+  }
+  if (!worldSimLimiter.hit(id)) {
+    res.status(204).end(); // oltre soglia → scarta senza rumore (il movimento è lossy)
+    return;
+  }
+  const agents = sanitizeWorldSim(body.agents);
+  writeToClients(
+    `data: ${JSON.stringify({ agentId: "worldsim", agentName: "worldsim", worldsim: { agents, ts: now } })}\n\n`,
+  );
+  res.status(204).end();
 });
 
 // --- Routine / trigger temporali ----------------------------------------

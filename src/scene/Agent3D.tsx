@@ -11,6 +11,7 @@ import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
+import { iAmSimulator, liveAgentPositions } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -158,9 +159,20 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     if (!g) return;
     const d = Math.min(delta, 0.05); // guard against tab-switch spikes
 
-    // Walk toward the current waypoint; the final waypoint is the destination.
-    const hasPath = agent.target != null && path.length > 0;
-    const wp = hasPath ? path[Math.min(wpIndex.current, path.length - 1)] : agent.position;
+    // Movimento condiviso (opzione B3): se un'ALTRA vista guida, seguiamo la sua
+    // posizione live invece di simulare per conto nostro. Lettura ref-stabile dallo
+    // store (getState → nessun re-render, come cursori/selezione).
+    const rt = useStore.getState();
+    const follow = iAmSimulator(rt.worldDriver, selfViewer) ? undefined : rt.remoteSim[agent.id];
+
+    // Walk toward the current waypoint; the final waypoint is the destination. When
+    // following the driver, chase its live position instead (no local path/commit).
+    const hasPath = !follow && agent.target != null && path.length > 0;
+    const wp: Vec2 = hasPath
+      ? path[Math.min(wpIndex.current, path.length - 1)]
+      : follow
+        ? [follow.x, follow.z]
+        : agent.position;
     const dest = wp;
     const dx = dest[0] - cur.current.x;
     const dz = dest[1] - cur.current.z;
@@ -182,6 +194,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     }
     g.position.x = cur.current.x;
     g.position.z = cur.current.z;
+    // Pubblica la posizione live della mesh (interpolata lungo il cammino) così il
+    // WorldSimBridge del driver la spinge alle altre viste; lo store committa solo
+    // all'arrivo, quindi qui c'è la sola verità del movimento fluido.
+    liveAgentPositions.set(agent.id, [cur.current.x, cur.current.z]);
 
     // face direction of travel
     if (moving) {

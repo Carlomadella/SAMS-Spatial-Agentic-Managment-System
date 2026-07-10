@@ -7,6 +7,28 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Movimento condiviso: il driver anima, i follower seguono (opzione B3) 🎞️
+- **Added** — Secondo mattone del *mondo animato condiviso* (opzione B3), dove sta il valore visibile:
+  il **solo driver** spinge le **posizioni live** degli agenti e le altre viste le **adottano
+  read-only** interpolando → tutti vedono lo stesso ufficio muoversi insieme. Canale **effimero su
+  SSE** (niente DB), sulla scia dei cursori.
+- **Added (server)** — `server/src/worldsim.ts` (puro: `sanitizeWorldSim`/`sanitizeWorldSimAgent`).
+  `POST /api/worldsim` **gated `viewer`** ma **accettato solo dal titolare del lease** (una vista
+  non-driver → 204 muto: niente doppia simulazione), broadcast `worldsim` in `WireEvent` fuori da
+  `recordEvent`, rate-limit ~15/s. +7 test.
+- **Added (client)** — `src/lib/worldsim.ts` (puro: `pruneSim`/`ingestSim`/`iAmSimulator` + singleton
+  `liveAgentPositions`). Store `remoteSim` (server-owned, non persistito) + `applyWorldSim`/`pruneSim`;
+  `sendWorldSim` in `backend.ts`; `WorldSimBridge` (heartbeat ~3.5/s: il **driver** spinge la posizione
+  *live della mesh* — lo store committa solo all'arrivo). +8 test.
+- **Changed** — I tre bridge di "vita" (`LifeBridge`/`HungerBridge`/`TalkBridge`) sono **driver-gated**:
+  solo il simulatore fa vivere il mondo, i follower restano quieti. `Agent3D`: se un'altra vista guida,
+  insegue `remoteSim[id]` (lettura ref-stabile, nessun re-render) invece del path locale e **non
+  committa** (read-only). Da soli → simulazione identica a prima.
+- **Note** — Verificato end-to-end: server di test :8799 + curl (driver spinge → broadcast; non-driver
+  → 204 senza broadcast). La convergenza a due viste nel browser resta da provare a mano. Prossimo
+  slice: adozione dei bisogni/umore sullo stesso canale + smooth handover. Client 458 → 466, server
+  248 → 255.
+
 ### 2026-07-10 — Driver lease: eletta una sola vista "regista" del mondo (opzione B3) 🕹️
 - **Added** — Primo mattone del *mondo animato condiviso* (opzione B3): un **lease rinnovabile**
   che elegge **una sola vista** come simulatore autorevole ("driver"). **Non sposta ancora il game

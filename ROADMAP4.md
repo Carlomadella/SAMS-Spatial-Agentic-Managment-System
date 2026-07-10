@@ -281,6 +281,34 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-10 — movimento condiviso: il driver anima, i follower seguono (opzione B3, secondo mattone)
+Su "continua", il secondo mattone B3 — **dove sta il valore visibile**: dopo l'elezione del driver
+(primo mattone), ora il **solo driver** spinge le **posizioni live** degli agenti e le altre viste le
+**adottano read-only** interpolando → tutti vedono lo stesso ufficio animarsi insieme. Il doc di
+decisione dell'opzione B aveva già scelto **B3** (driver/lease) come strada per il "mondo animato
+condiviso" senza costruire un simulatore server; questo slice la concretizza per il movimento.
+De-riscato come i cursori: **canale effimero su SSE**, nessun DB, staleness lato client, e — dietro
+al driver-gating — **zero cambi quando si è da soli**.
+- **Server**: `worldsim.ts` (puro `sanitizeWorldSim`/`sanitizeWorldSimAgent`; fix: `null` ≠ `0` nel
+  parsing coordinate) + `POST /api/worldsim` gated `viewer` **ma accettato solo dal titolare del lease**
+  (una vista non-driver → 204 muto, niente doppia simulazione), broadcast `worldsim` fuori da
+  `recordEvent`, rate-limit ~15/s.
+- **Client**: `worldsim.ts` (puro `pruneSim`/`ingestSim`/`iAmSimulator` + singleton `liveAgentPositions`);
+  store `remoteSim` (server-owned, non persistito) + `applyWorldSim`/`pruneSim`; `sendWorldSim`;
+  `WorldSimBridge` (heartbeat ~3.5/s: il **driver** spinge la posizione **live della mesh** — lo store
+  committa solo all'arrivo — le altre viste ripuliscono lo stato scaduto). **Driver-gating** dei tre
+  bridge di "vita" (`LifeBridge`/`HungerBridge`/`TalkBridge`): solo il simulatore fa vivere il mondo,
+  i follower restano quieti e adottano. `Agent3D` (lettura store ref-stabile, nessun re-render): se
+  un'altra vista guida, insegue `remoteSim[id]` invece del path locale e **non committa** (read-only).
+- **Verifica**: server di test :8799 (senza toccare il runtime utente) → curl a due identità: `d1`
+  (driver) spinge → broadcast `worldsim`; `d2` (non-driver) spinge → 204 **senza** broadcast. Client
+  458→466, server 248→255; typecheck/lint/build verdi. La convergenza **a due viste nel browser**
+  (muovi nel driver → si muove nel follower) resta da provare a mano.
+- **Prossimo**: adozione dei **bisogni/umore** (energy/hunger/mood) sullo stesso canale (oggi solo
+  posizione; i bisogni sui follower restano fermi finché non guidano), e uno **smooth handover** che
+  semini la posizione mesh nello store al passaggio di lease (oggi un possibile micro-scatto). Resta
+  anche il drag libero dei mobili (#3).
+
 ### 2026-07-10 — driver lease: eletta una sola vista "regista" (opzione B3, primo mattone)
 Esauriti gli slice additivi-su-SSE più ovvi, su "continua, scegli il meglio" imboccata l'**opzione
 B a slice sicuri**, dal primo mattone: il **driver lease**. Con più viste che simulano il mondo in

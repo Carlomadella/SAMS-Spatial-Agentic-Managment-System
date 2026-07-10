@@ -18,7 +18,9 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
 import { useStore } from "./store/useStore";
-import { assignRemote, backendEnabled, claimDriver, connectBackend, fetchWorld, pushWorld, sendSelection } from "./lib/backend";
+import { assignRemote, backendEnabled, claimDriver, connectBackend, fetchWorld, getViewerId, pushWorld, sendSelection, sendWorldSim } from "./lib/backend";
+import { iAmSimulator, liveAgentPositions } from "./lib/worldsim";
+import { isShared } from "./lib/presence";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -375,6 +377,43 @@ function DriverBridge() {
   useEffect(() => {
     void claimDriver();
     const beat = setInterval(() => void claimDriver(), 2000);
+    return () => clearInterval(beat);
+  }, []);
+  return null;
+}
+
+/**
+ * Movimento condiviso (opzione B3): il secondo mattone del "mondo animato condiviso",
+ * dove sta il valore visibile. Se questa vista tiene il driver lease spinge, ad alta
+ * frequenza, le posizioni live degli agenti (dal ref della mesh, non dallo store che
+ * committa solo all'arrivo) alle altre viste, che le adottano read-only e interpolano
+ * (vedi `Agent3D`). Se un'ALTRA vista guida, questa è follower: non manda nulla e, sul
+ * battito, ripulisce lo stato cinematico scaduto. Attivo solo a mondo condiviso (≥2
+ * viste); da soli non c'è nessuno che ascolta e la simulazione resta identica a prima.
+ */
+const WORLD_SIM_MS = 280; // ~3.5 update/s: fluido interpolando, payload minuscolo
+function WorldSimBridge() {
+  useEffect(() => {
+    const self = getViewerId();
+    const beat = setInterval(() => {
+      const st = useStore.getState();
+      if (!st.backendOnline) return;
+      st.pruneSim();
+      if (!isShared(st.observers)) return; // nessuno che segue → non spingere
+      if (!iAmSimulator(st.worldDriver, self)) return; // solo il driver spinge
+      sendWorldSim(
+        st.agents.map((a) => {
+          const live = liveAgentPositions.get(a.id);
+          return {
+            id: a.id,
+            x: live ? live[0] : a.position[0],
+            z: live ? live[1] : a.position[1],
+            tx: a.target ? a.target[0] : null,
+            tz: a.target ? a.target[1] : null,
+          };
+        }),
+      );
+    }, WORLD_SIM_MS);
     return () => clearInterval(beat);
   }, []);
   return null;
@@ -769,7 +808,14 @@ function NarrationToggle() {
  */
 function HungerBridge() {
   useEffect(() => {
-    const id = setInterval(() => useStore.getState().growHunger(1), 7000);
+    const self = getViewerId();
+    const id = setInterval(() => {
+      // Solo il simulatore fa vivere il mondo: un follower adotta i bisogni dal
+      // driver (per ora la posizione; movimento condiviso B3) e non li fa scorrere
+      // per conto suo, così non divergono. Da solo → simula come prima.
+      if (!iAmSimulator(useStore.getState().worldDriver, self)) return;
+      useStore.getState().growHunger(1);
+    }, 7000);
     return () => clearInterval(id);
   }, []);
   return null;
@@ -789,8 +835,13 @@ function LifeBridge() {
   useEffect(() => {
     const near = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.6;
 
+    const self = getViewerId();
     const tick = () => {
       const st = useStore.getState();
+      // Solo il simulatore muove gli agenti liberi: un follower segue il movimento
+      // del driver (opzione B3), non ne genera uno proprio con Math.random → niente
+      // due mondi che vagano diversamente. Da solo → guida sé stesso, come prima.
+      if (!iAmSimulator(st.worldDriver, self)) return;
       const night = isNightNow();
       // Only "free" agents live a life: an agent on a real task keeps working,
       // day or night — it doesn't get dragged to bed.
@@ -838,9 +889,13 @@ const CHATTER: [string, string][] = [
  */
 function TalkBridge() {
   useEffect(() => {
+    const self = getViewerId();
     const tick = () => {
       if (isNightNow()) return; // everyone's asleep
       const st = useStore.getState();
+      // Solo il simulatore anima la socialità (chiacchiere = Math.random locale, non
+      // condivise): un follower resta quieto e vede il mondo del driver. Da solo, come prima.
+      if (!iAmSimulator(st.worldDriver, self)) return;
       const free = st.agents.filter(isFreeAgent);
       if (free.length < 2 || Math.random() > 0.5) return;
 
@@ -1082,6 +1137,7 @@ function Workspace() {
       <PlaybookBridge />
       <NotificationBridge />
       <WorldSyncBridge />
+      <WorldSimBridge />
       <SelectionBridge />
       <DriverBridge />
       <MetaProactiveBridge />

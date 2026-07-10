@@ -49,6 +49,10 @@ export interface WireEvent {
   /** "driver": who currently holds the authoritative driver lease (opzione B3),
    *  or holderId "" when no view is driving. Broadcast on handover. */
   driver?: { holderId: string; name: string };
+  /** "worldsim": live agent positions pushed by the driver so follower views
+   *  animate the same shared movement (Roadmap 4, opzione B3). Ephemeral, only
+   *  the lease holder may push. */
+  worldsim?: { agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[]; ts: number };
 }
 
 export interface AssignBody {
