@@ -201,6 +201,30 @@ export const BUILTIN_PLAYBOOKS: ReadonlyArray<Omit<Playbook, "id">> = [
       { role: "reviewer", title: "Rivedi note di rilascio e docs di {goal}" },
     ],
   },
+  // I due seguenti usano i nomi-ruolo *reali* del selettore (Architetto/
+  // Documentatore/Revisore/Tester/Generalist) così `findRelayTarget` li aggancia
+  // per ruolo esatto agli agenti seed — pensati per un knowledge base di codice.
+  {
+    name: "Nuova guida",
+    goal: "",
+    branch: "",
+    stages: [
+      { role: "Architetto", title: "Struttura la guida su {goal}" },
+      { role: "Documentatore", title: "Scrivi la guida su {goal}" },
+      { role: "Revisore", title: "Rivedi la guida su {goal}" },
+      { role: "Tester", title: "Aggiungi esempi verificati a {goal}" },
+    ],
+  },
+  {
+    name: "Fix guidato",
+    goal: "",
+    branch: "",
+    stages: [
+      { role: "Generalist", title: "Correggi {goal}" },
+      { role: "Tester", title: "Testa la fix di {goal}" },
+      { role: "Revisore", title: "Rivedi e approva la PR di {goal}" },
+    ],
+  },
 ];
 
 /** Riepilogo breve di un playbook, es. "Rilascio · 3 stadi". */

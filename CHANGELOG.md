@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-10 — Playbook pronti: "Nuova guida" e "Fix guidato" 🤝
+- **Added** — Due nuovi modelli in `BUILTIN_PLAYBOOKS` (`src/lib/collaboration.ts`), pensati per un
+  knowledge base di codice: **Nuova guida** (Architetto → Documentatore → Revisore → Tester) e
+  **Fix guidato** (Generalist → Tester → Revisore). Compaiono come chip "Modelli" nel pannello
+  *Tavoli di collaborazione* (Live Sim → + Tavolo).
+- **Note** — A differenza dei built-in preesistenti (ruoli generici dev/reviewer/qa/docs), questi
+  usano i **nomi-ruolo reali del selettore** (Architetto/Documentatore/Revisore/Tester/Generalist)
+  così `findRelayTarget` li aggancia **per ruolo esatto** agli agenti seed → le staffette partono
+  senza rinominare nulla. Solo dati; suite `collaboration` invariata (31 test, nomi unici / ≥2 stadi).
+
 ### 2026-07-10 — Cursori live: le viste si vedono puntare nel mondo condiviso 👆
 - **Added** — Frontiera #2 ("il salto grosso" dei cursori live, in forma de-riscata sul
   **canale SSE esistente**, niente WebSocket nuovo). Ogni vista rimbalza la posizione del suo
