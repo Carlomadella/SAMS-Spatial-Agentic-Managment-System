@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import { CheckCheck, Eye, Moon, Play, Trash2 } from "lucide-react";
+import { CheckCheck, Coffee, Dumbbell, Eye, Moon, Pencil, Play, Trash2, Utensils, type LucideIcon } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
@@ -22,7 +22,6 @@ const STATUS_HEX: Record<AgentStatus, string> = Object.fromEntries(
 
 const SPEED = 2.7; // world units / second
 const MIN_SEP = 1.6; // "due passi": distanza minima tra due agenti (world units)
-const SEP_PUSH = 3.0; // quanto rapidamente si separano quando si avvicinano troppo
 
 /** Idle "life" micro-activities, derived from where a free agent is standing. */
 type Activity = null | "coffee" | "sketch" | "stretch";
@@ -41,43 +40,16 @@ function shade(hex: string, amt: number) {
 }
 
 /**
- * Indicatore fluttuante sopra l'agente (fame/caffè/schizzo/stretch). Un chip di vetro
- * scuro con anello e alone nella tinta del significato, invece dell'emoji nuda: legge
- * come un elemento *disegnato*, coerente tra i vari simboli. Bob morbido via CSS.
+ * Indicatore di stato-di-vita mostrato *inline* nell'etichetta dell'agente (fame,
+ * caffè, schizzo, stretch): icona vettoriale nitida + tinta semantica, invece di
+ * un'emoji fluttuante che collideva col nome. `hunger` ha precedenza sull'attività.
  */
-function AgentBadge({
-  position,
-  glyph,
-  tint,
-}: {
-  position: [number, number, number];
-  glyph: string;
-  tint: string;
-}) {
-  return (
-    <Html position={position} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
-      <div
-        className="agent-badge pointer-events-none flex h-[27px] w-[27px] select-none items-center justify-center rounded-full text-[14px] leading-none"
-        style={{
-          background: "rgba(15,23,42,0.82)",
-          border: `1.5px solid ${tint}`,
-          boxShadow: `0 0 11px ${tint}66, 0 2px 6px rgba(0,0,0,0.45)`,
-          backdropFilter: "blur(3px)",
-        }}
-      >
-        <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.55))" }}>{glyph}</span>
-      </div>
-    </Html>
-  );
-}
-
-/** Tinte semantiche dei badge sopra l'agente. */
-const BADGE_TINT = {
-  hunger: "#f59e0b", // ambra: fame
-  coffee: "#d8a15a", // caldo: caffè
-  sketch: "#8b93f8", // indaco: idee/schizzo
-  stretch: "#37c8a0", // verde acqua: stretch
-} as const;
+const LIFE_ICON: Record<"hunger" | "coffee" | "sketch" | "stretch", { Icon: LucideIcon; tint: string }> = {
+  hunger: { Icon: Utensils, tint: "#fbbf24" }, // ambra: fame
+  coffee: { Icon: Coffee, tint: "#e0a56b" }, // caldo: caffè
+  sketch: { Icon: Pencil, tint: "#a5b4fc" }, // indaco: idee/schizzo
+  stretch: { Icon: Dumbbell, tint: "#5eead4" }, // verde acqua: stretch
+};
 
 export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -133,6 +105,16 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     const id = setInterval(pick, 2600);
     return () => clearInterval(id);
   }, [agent.status, agent.target, agent.task, agent.position, nightTime]);
+
+  // Indicatore di vita mostrato inline nell'etichetta: la fame ha precedenza
+  // sull'attività; nessuno mentre dorme.
+  const lifeIndicator = sleeping
+    ? null
+    : agent.hunger >= 75
+      ? LIFE_ICON.hunger
+      : activity
+        ? LIFE_ICON[activity]
+        : null;
 
   // Waypoints that steer around furniture; last entry is always the destination.
   // Recomputed only when a new target is set (position is committed, not per-frame).
@@ -246,7 +228,9 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         MIN_SEP,
       );
       if (pushX !== 0 || pushZ !== 0) {
-        const [cx, cz] = clampToRoom([cur.current.x + pushX * SEP_PUSH * d, cur.current.z + pushZ * SEP_PUSH * d]);
+        // vincolo duro: applico la correzione posizionale direttamente (non scalata
+        // dal dt) così la distanza minima regge anche contro il richiamo del cammino.
+        const [cx, cz] = clampToRoom([cur.current.x + pushX, cur.current.z + pushZ]);
         cur.current.x = cx;
         cur.current.z = cz;
       }
@@ -643,20 +627,6 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         </Html>
       )}
 
-      {/* micro-activity badge (coffee / sketch / stretch) */}
-      {activity && !sleeping && !bubble && !gardenOpen && (
-        <AgentBadge
-          position={[0.45, 2.35, 0]}
-          glyph={activity === "coffee" ? "☕" : activity === "sketch" ? "✏️" : "🤸"}
-          tint={BADGE_TINT[activity]}
-        />
-      )}
-
-      {/* hunger indicator — a hungry agent shows a plate until fed */}
-      {agent.hunger >= 75 && !sleeping && !gardenOpen && (
-        <AgentBadge position={[-0.45, 2.35, 0]} glyph="🍽️" tint={BADGE_TINT.hunger} />
-      )}
-
       {/* sleeping indicator */}
       {sleeping && !gardenOpen && (
         <Html position={[0.4, 2.5, 0]} center distanceFactor={10} zIndexRange={[70, 50]} pointerEvents="none">
@@ -676,6 +646,14 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
             <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-amber-300" title={levelFromXp(agent.xp).name}>
               ⭐{levelFromXp(agent.xp).level}
             </span>
+            {lifeIndicator && (
+              <span
+                className="flex h-[18px] w-[18px] items-center justify-center rounded-md"
+                style={{ background: `${lifeIndicator.tint}26`, color: lifeIndicator.tint }}
+              >
+                <lifeIndicator.Icon size={12} strokeWidth={2.4} />
+              </span>
+            )}
             {agent.status === "working" && (
               <span className="flex gap-0.5">
                 {[0, 1, 2].map((i) => (

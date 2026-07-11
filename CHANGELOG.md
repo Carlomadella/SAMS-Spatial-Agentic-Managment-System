@@ -7,14 +7,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
-### 2026-07-11 — Badge agente + separazione (niente sovrapposizioni) 🎨
-- **Changed** — I simboli fluttuanti sopra gli agenti (fame 🍽️, caffè ☕, schizzo ✏️, stretch 🤸) non
-  sono più emoji nude ma **badge**: chip di vetro scuro con anello e alone nella tinta del significato
-  + bob morbido (`AgentBadge` in `Agent3D`, keyframe `agent-bob`).
-- **Added** — **Separazione**: gli agenti non si sovrappongono mai — restano ad almeno ~1.6 unità
-  ("due passi"). `separationPush` puro in `lib/worldsim` (spinta pesata dai vicini troppo stretti),
-  applicata in `Agent3D` quando la vista simula l'agente (non sui follower, non da addormentati),
-  clampata ai muri. +5 test.
+### 2026-07-11 — Indicatori di vita puliti + separazione dura (niente sovrapposizioni) 🎨
+- **Changed** — Fame/caffè/schizzo/stretch non sono più emoji fluttuanti che collidevano col nome, ma
+  un **indicatore inline** nell'etichetta dell'agente: icona vettoriale lucide nitida (Utensils/Coffee/
+  Pencil/Dumbbell) in un chip con tinta semantica, accanto alla stella. La fame ha precedenza.
+- **Added** — **Separazione dura**: gli agenti non si sovrappongono mai (min ~1.6u, "due passi").
+  `separationPush` puro in `lib/worldsim` è ora una **correzione posizionale** (metà compenetrazione per
+  lato, risolta ogni frame) che regge anche contro il richiamo del cammino — verificato: min 1.01→1.48
+  sotto stress. Applicata in `Agent3D` solo quando la vista simula l'agente, clampata ai muri. +5 test.
 
 ### 2026-07-11 — Bisogni condivisi + smooth handover (opzione B3, 3° mattone) 🍽️
 - **Added** — Terzo mattone del *mondo animato condiviso* (opzione B3): oltre alla posizione, il canale

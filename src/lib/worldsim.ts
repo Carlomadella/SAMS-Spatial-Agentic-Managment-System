@@ -74,10 +74,13 @@ export function iAmSimulator(driver: { holderId: string } | null, selfId: string
 }
 
 /**
- * Vettore di separazione: somma le spinte "via da" ogni altro agente più vicino di
- * `minSep` ("due passi"), pesate quanto più si è vicini (0 al bordo, 1 sovrapposti).
- * Serve a evitare che gli agenti si sovrappongano. Puro: `self` è la posizione di
- * chi calcola, `others` sono le coppie [id, [x,z]] di tutti (il proprio id è escluso).
+ * Correzione posizionale di separazione: gli agenti non si sovrappongono mai. Somma,
+ * per ogni altro agente più vicino di `minSep` ("due passi"), uno spostamento pari a
+ * METÀ della compenetrazione lungo l'asse che li unisce — l'altra metà la applica il
+ * vicino (simmetrico) → a regime restano esattamente a `minSep`. È un **vincolo duro**
+ * (non una forza morbida): risolto ogni frame, tiene la distanza minima anche mentre
+ * il cammino li spinge verso lo stesso punto. Puro: `self` è la posizione di chi
+ * calcola, `others` le coppie [id, [x,z]] di tutti (il proprio id è escluso).
  * Ritorna [0,0] se nessuno è troppo vicino.
  */
 export function separationPush(
@@ -94,9 +97,9 @@ export function separationPush(
     const oz = self[1] - pos[1];
     const dd = Math.hypot(ox, oz);
     if (dd > 1e-4 && dd < minSep) {
-      const w = (minSep - dd) / minSep; // più forte quanto più vicini
-      px += (ox / dd) * w;
-      pz += (oz / dd) * w;
+      const half = (minSep - dd) * 0.5; // metà della compenetrazione (il vicino fa l'altra metà)
+      px += (ox / dd) * half;
+      pz += (oz / dd) * half;
     }
   }
   return [px, pz];

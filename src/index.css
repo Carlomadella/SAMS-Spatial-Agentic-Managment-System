@@ -154,22 +154,3 @@
     animation: none;
   }
 }
-
-/* Floating status badge above an agent (fame/caffè/schizzo/stretch): gentle bob. */
-.agent-badge {
-  animation: agent-bob 2.6s ease-in-out infinite;
-}
-@keyframes agent-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .agent-badge {
-    animation: none;
-  }
-}
