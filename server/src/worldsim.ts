@@ -15,6 +15,9 @@ export interface WorldSimAgent {
   /** waypoint verso cui l'agente sta camminando, o null se fermo */
   tx: number | null;
   tz: number | null;
+  /** bisogni simulati dal driver (0–100), adottati dai follower; assenti = non spinti */
+  energy?: number;
+  hunger?: number;
 }
 
 /** Massimo numero di agenti in uno snapshot cinematico (difesa contro payload gonfiati). */
@@ -24,6 +27,13 @@ const finite = (v: unknown): number | null => {
   if (v == null) return null; // null/undefined = assente (Number(null) darebbe 0, non lo vogliamo)
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+};
+
+/** Bisogno 0–100: assente (null/non finito) → `undefined`, così non viene spinto. */
+const need01 = (v: unknown): number | undefined => {
+  const n = finite(v);
+  if (n == null) return undefined;
+  return Math.max(0, Math.min(100, n));
 };
 
 /** Normalizza un singolo agente cinematico; `null` se manca l'id o la posizione. */
@@ -39,7 +49,13 @@ export function sanitizeWorldSimAgent(raw: unknown): WorldSimAgent | null {
   const tz = finite(r.tz);
   // il waypoint conta solo se entrambe le coordinate sono valide (fermo altrimenti)
   const hasTarget = tx != null && tz != null;
-  return { id, x, z, tx: hasTarget ? tx : null, tz: hasTarget ? tz : null };
+  const agent: WorldSimAgent = { id, x, z, tx: hasTarget ? tx : null, tz: hasTarget ? tz : null };
+  // bisogni opzionali: inclusi solo se spinti (retro-compat con i client che mandano solo la posizione)
+  const energy = need01(r.energy);
+  const hunger = need01(r.hunger);
+  if (energy != null) agent.energy = energy;
+  if (hunger != null) agent.hunger = hunger;
+  return agent;
 }
 
 /**

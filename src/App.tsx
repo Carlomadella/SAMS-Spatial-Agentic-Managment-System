@@ -395,6 +395,7 @@ const WORLD_SIM_MS = 280; // ~3.5 update/s: fluido interpolando, payload minusco
 function WorldSimBridge() {
   useEffect(() => {
     const self = getViewerId();
+    useStore.getState().setSelfViewerId(self); // così lo store sa se è driver o follower
     const beat = setInterval(() => {
       const st = useStore.getState();
       if (!st.backendOnline) return;
@@ -410,11 +411,33 @@ function WorldSimBridge() {
             z: live ? live[1] : a.position[1],
             tx: a.target ? a.target[0] : null,
             tz: a.target ? a.target[1] : null,
+            // bisogni: i follower li adottano così barra/piattino/umore combaciano col driver
+            energy: a.energy,
+            hunger: a.hunger,
           };
         }),
       );
     }, WORLD_SIM_MS);
     return () => clearInterval(beat);
+  }, []);
+  return null;
+}
+
+/**
+ * Smooth handover del lease (opzione B3, 3° mattone): quando QUESTA vista passa da
+ * follower a simulatore (il driver è sparito o è passato a noi), semina la posizione
+ * degli agenti nello store dall'ultima posizione live seguita. Senza, la simulazione
+ * ripartirebbe dalla `position` committata (potenzialmente stantìa) → micro-scatto.
+ */
+function DriverHandoverBridge() {
+  useEffect(() => {
+    const self = getViewerId();
+    let wasSimulator = iAmSimulator(useStore.getState().worldDriver, self);
+    return useStore.subscribe((state) => {
+      const nowSimulator = iAmSimulator(state.worldDriver, self);
+      if (nowSimulator && !wasSimulator) useStore.getState().seedLivePositions();
+      wasSimulator = nowSimulator;
+    });
   }, []);
   return null;
 }
@@ -1138,6 +1161,7 @@ function Workspace() {
       <NotificationBridge />
       <WorldSyncBridge />
       <WorldSimBridge />
+      <DriverHandoverBridge />
       <SelectionBridge />
       <DriverBridge />
       <MetaProactiveBridge />

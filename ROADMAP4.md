@@ -281,6 +281,31 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
 
+### 2026-07-11 — bisogni condivisi + smooth handover (opzione B3, terzo mattone)
+Su "continua con l'ultima task", chiuso il "Prossimo" annotato dopo il movimento condiviso: i
+**bisogni/umore** viaggiavano solo localmente e sui follower restavano **congelati** (i bridge di
+vita sono driver-gated). Creato un doc di decisione sul Drive (dove vivono i bisogni adottati:
+overlay effimero vs commit nello store vs sim server; umore adottato vs ricalcolato; handover) e,
+su "scegli il meglio", imboccata la raccomandazione **A2 (commit nello store, con diff) +
+B-recompute + C1**. Additivo, effimero, driver-gated: da soli, comportamento identico a prima.
+- **Slice 1 — adozione bisogni.** Il canale `worldsim` porta ora `energy?`/`hunger?` (server:
+  `sanitizeWorldSimAgent` li clampa 0–100, omessi se assenti → retro-compat; relay SSE invariato).
+  Client: `SimAgent`/`ingestSim` li portano, il `WorldSimBridge` (driver) li spinge. `applyWorldSim`,
+  **solo se follower** (nuovo `selfViewerId` nello store — evita d'importare `backend`, ciclo — +
+  `iAmSimulator`), committa energy/hunger negli `agents[]` con **diff** e ricalcola `moodFor` (una
+  sola sorgente d'umore, payload minimo); il simulatore non adotta. Scelta A2 perché i bisogni sono
+  **scalari lenti** già letti da molte superfici 2D: un solo punto di wiring le rende tutte coerenti,
+  invece di cablare l'overlay effimero superficie per superficie.
+- **Slice 2 — smooth handover.** `DriverHandoverBridge` rileva la transizione follower→simulatore e
+  `seedLivePositions` semina `agent.position` dall'ultima posizione live seguita
+  (`liveAgentPositions`); il `path` di `Agent3D` (memo su `[target, position]`) si ricalcola dal
+  punto a schermo → ripresa senza micro-scatto, senza toccare il target.
+- **Verifica**: server di test :8799 + SSE — il driver spinge `energy:33/hunger:77` → l'eco SSE
+  contiene i bisogni (POST 204, frame corretto). +2 lib +6 store/server; typecheck/lint/build verdi;
+  client 466 → 473, server 255 → 257. La convergenza a due viste nel browser resta da provare a mano.
+- **Prossimo**: resta il **drag libero dei mobili** (#3, naturale con lo stato autorevole) e le
+  decisioni aperte di frontiera #1 (schema completo di scrittura autorevole → opzione B piena).
+
 ### 2026-07-10 — movimento condiviso: il driver anima, i follower seguono (opzione B3, secondo mattone)
 Su "continua", il secondo mattone B3 — **dove sta il valore visibile**: dopo l'elezione del driver
 (primo mattone), ora il **solo driver** spinge le **posizioni live** degli agenti e le altre viste le

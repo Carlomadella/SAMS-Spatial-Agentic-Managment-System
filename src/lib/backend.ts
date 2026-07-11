@@ -39,7 +39,7 @@ export interface RemoteUpdate {
   driver?: { holderId: string; name: string };
   /** Worldsim: the driver's live agent positions, adopted read-only by followers
    *  so everyone sees the same shared movement (opzione B3). */
-  worldsim?: { agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[]; ts: number };
+  worldsim?: { agents: { id: string; x: number; z: number; tx: number | null; tz: number | null; energy?: number; hunger?: number }[]; ts: number };
 }
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter";
@@ -651,7 +651,7 @@ export async function claimDriver(): Promise<void> {
 // alle altre viste, che le adottano read-only e interpolano. Best-effort e lossy come
 // i cursori; il server accetta la POST solo dal titolare del lease (altrimenti 204).
 export function sendWorldSim(
-  agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[],
+  agents: { id: string; x: number; z: number; tx: number | null; tz: number | null; energy?: number; hunger?: number }[],
 ): void {
   if (!useStore.getState().backendOnline) return;
   void fetch(`${BASE}/api/worldsim`, {

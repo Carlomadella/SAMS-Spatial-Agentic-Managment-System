@@ -7,6 +7,26 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-11 — Bisogni condivisi + smooth handover (opzione B3, 3° mattone) 🍽️
+- **Added** — Terzo mattone del *mondo animato condiviso* (opzione B3): oltre alla posizione, il canale
+  `worldsim` porta ora i **bisogni** (energy/hunger). I follower li **adottano** e ricalcolano l'umore,
+  così barra energia, piattino "ho fame" e badge combaciano con la vista che guida (prima erano
+  **congelati** sui follower, coi bridge di vita driver-gated). Additivo, effimero, retro-compatibile.
+- **Added (server)** — `sanitizeWorldSimAgent` include `energy?`/`hunger?` clampati a 0–100 (omessi se
+  assenti/non finiti). Il relay SSE li propaga senza altri cambi. +2 test.
+- **Added (client)** — `SimAgent`/`ingestSim` portano i bisogni; `WorldSimBridge` (driver) li spinge.
+  `applyWorldSim`, **solo se follower** (nuovo `selfViewerId` nello store + `iAmSimulator`), committa
+  energy/hunger negli `agents[]` con **diff** e ricalcola `moodFor` (una sola sorgente d'umore); il
+  simulatore non adotta (simula per sé). +4 test (lib + store).
+- **Added (client)** — **Smooth handover**: `DriverHandoverBridge` rileva la transizione
+  follower→simulatore e `seedLivePositions` semina `agent.position` dall'ultima posizione live seguita
+  (`liveAgentPositions`); il `path` in `Agent3D` si ricalcola dal punto a schermo → la simulazione
+  riparte senza micro-scatto. +2 test.
+- **Note** — Verificato end-to-end: server di test :8799 + SSE — il driver spinge un worldsim con
+  `energy:33/hunger:77` → l'eco SSE contiene i bisogni. La convergenza a due viste nel browser resta da
+  provare a mano. Doc di decisione (A2 commit + B-recompute + C1) sul Drive. Client 466 → 473, server
+  255 → 257.
+
 ### 2026-07-10 — Movimento condiviso: il driver anima, i follower seguono (opzione B3) 🎞️
 - **Added** — Secondo mattone del *mondo animato condiviso* (opzione B3), dove sta il valore visibile:
   il **solo driver** spinge le **posizioni live** degli agenti e le altre viste le **adottano

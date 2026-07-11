@@ -34,6 +34,21 @@ describe("sanitizeWorldSimAgent", () => {
     expect(a?.id).toBe("x");
     expect(a?.tx).toBeNull();
   });
+
+  it("include i bisogni (energy/hunger) clampati a 0–100 quando presenti", () => {
+    const a = sanitizeWorldSimAgent({ id: "a", x: 0, z: 0, energy: 150, hunger: -5 });
+    expect(a?.energy).toBe(100);
+    expect(a?.hunger).toBe(0);
+  });
+
+  it("omette i bisogni se assenti o non finiti (retro-compat)", () => {
+    const a = sanitizeWorldSimAgent({ id: "a", x: 0, z: 0 });
+    expect(a).not.toHaveProperty("energy");
+    expect(a).not.toHaveProperty("hunger");
+    const b = sanitizeWorldSimAgent({ id: "b", x: 0, z: 0, energy: "nope", hunger: Infinity });
+    expect(b).not.toHaveProperty("energy");
+    expect(b).not.toHaveProperty("hunger");
+  });
 });
 
 describe("sanitizeWorldSim", () => {

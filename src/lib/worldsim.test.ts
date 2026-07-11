@@ -38,6 +38,18 @@ describe("ingestSim", () => {
     );
     expect(Object.keys(out)).toEqual(["a"]);
   });
+
+  it("porta i bisogni (energy/hunger) quando spinti dal driver", () => {
+    const out = ingestSim([{ id: "a", x: 0, z: 0, tx: null, tz: null, energy: 42, hunger: 88 }], 0);
+    expect(out.a.energy).toBe(42);
+    expect(out.a.hunger).toBe(88);
+  });
+
+  it("lascia i bisogni undefined se il driver non li spinge", () => {
+    const out = ingestSim([{ id: "a", x: 0, z: 0, tx: null, tz: null }], 0);
+    expect(out.a.energy).toBeUndefined();
+    expect(out.a.hunger).toBeUndefined();
+  });
 });
 
 describe("iAmSimulator", () => {

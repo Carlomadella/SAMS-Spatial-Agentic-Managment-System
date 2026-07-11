@@ -27,7 +27,7 @@ import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
 import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursors";
 import { pruneSelections as prunePureSelections, type RemoteSelection } from "../lib/selections";
-import { pruneSim as prunePureSim, ingestSim, type SimAgent } from "../lib/worldsim";
+import { pruneSim as prunePureSim, ingestSim, iAmSimulator, liveAgentPositions, type SimAgent } from "../lib/worldsim";
 import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
@@ -106,6 +106,10 @@ interface State {
    *  followers adopt these read-only to animate the shared movement. Server-owned,
    *  ephemeral (pruned on staleness, never persisted). */
   remoteSim: Record<string, SimAgent>;
+  /** id di QUESTA vista (dal backend), per capire se siamo il driver senza importare
+   *  `backend` nello store (eviterebbe un ciclo). Seminato una volta all'avvio; ""
+   *  finché non impostato → trattati come simulatore, come una vista da sola. */
+  selfViewerId: string;
   /** workspace chat: server-owned messages (not persisted locally) */
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
@@ -288,9 +292,14 @@ interface State {
   /** drop remote selections that have gone stale. */
   pruneSelections: () => void;
   /** adopt the driver's live movement snapshot (opzione B3); replaces prior sim. */
-  applyWorldSim: (agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[]) => void;
+  applyWorldSim: (agents: { id: string; x: number; z: number; tx: number | null; tz: number | null; energy?: number; hunger?: number }[]) => void;
   /** drop live movement states that have gone stale (driver went quiet). */
   pruneSim: () => void;
+  /** id di questa vista dal backend (per il gating driver/follower). */
+  setSelfViewerId: (id: string) => void;
+  /** al passaggio di lease (follower→simulatore) semina la posizione degli agenti
+   *  dall'ultima posizione live seguita, così la simulazione riparte senza scatto. */
+  seedLivePositions: () => void;
 }
 
 function nextColor(agents: Agent[]): AgentColor {
@@ -380,6 +389,7 @@ export const useStore = create<State>()(
   remoteSelections: {},
   worldDriver: null,
   remoteSim: {},
+  selfViewerId: "",
   chatMessages: [],
   chatName: "",
   chatUnread: 0,
@@ -781,12 +791,49 @@ export const useStore = create<State>()(
   },
   // timbro con l'ora locale (non il `ts` del server): la staleness usa il clock del
   // ricevente, come per i cursori, così clock disallineati non scadono male.
-  applyWorldSim: (agents) => set({ remoteSim: ingestSim(agents, Date.now()) }),
+  applyWorldSim: (agents) => {
+    set({ remoteSim: ingestSim(agents, Date.now()) });
+    // Adozione dei bisogni (opzione B3, 3° mattone): il follower committa energy/hunger
+    // dal driver e ricalcola l'umore, così barra energia/piattino/badge combaciano con
+    // la vista che guida. Il simulatore NON adotta (simula per sé); da solo o senza
+    // driver eletto → simulatore → nessun commit, comportamento identico a prima.
+    const st = get();
+    if (iAmSimulator(st.worldDriver, st.selfViewerId)) return;
+    const needs = new Map(agents.map((a) => [a.id, a] as const));
+    let changed = false;
+    const next = st.agents.map((x) => {
+      const n = needs.get(x.id);
+      if (!n) return x;
+      // adotta solo un valore spinto (il driver può omettere i bisogni): altrimenti conserva
+      const energy = typeof n.energy === "number" ? n.energy : x.energy;
+      const hunger = typeof n.hunger === "number" ? n.hunger : x.hunger;
+      if (energy === x.energy && hunger === x.hunger) return x;
+      changed = true;
+      return { ...x, energy, hunger, mood: moodFor(x.status, energy, hunger, x.mood) };
+    });
+    if (changed) set({ agents: next });
+  },
   pruneSim: () => {
     const s = get();
     const next = prunePureSim(s.remoteSim, Date.now());
     if (next !== s.remoteSim) set({ remoteSim: next });
   },
+  setSelfViewerId: (id) => set((s) => (s.selfViewerId === id ? s : { selfViewerId: id })),
+  seedLivePositions: () =>
+    set((s) => {
+      let changed = false;
+      const next = s.agents.map((a) => {
+        const live = liveAgentPositions.get(a.id);
+        // niente posizione live seguita (mai stati follower di quell'agente) → lascia
+        if (!live) return a;
+        if (a.position[0] === live[0] && a.position[1] === live[1]) return a;
+        changed = true;
+        // solo la posizione: il `path` in Agent3D si ricalcola da qui verso il target
+        // esistente (percorso fresco dal punto a schermo), quindi nessuno scatto.
+        return { ...a, position: [live[0], live[1]] as Vec2 };
+      });
+      return changed ? { agents: next } : s;
+    }),
   setChatMessages: (messages) => set({ chatMessages: messages.slice(-200) }),
   pushChatMessage: (message) =>
     set((s) =>

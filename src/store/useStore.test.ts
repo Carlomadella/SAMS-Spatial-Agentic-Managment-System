@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useStore } from "./useStore";
 import { SEED_AGENTS } from "../data/seed";
+import { liveAgentPositions } from "../lib/worldsim";
 
 // Reset to a clean, deterministic baseline before each test (without wiping the
 // action functions, which a full replace would do).
@@ -189,6 +190,64 @@ describe("world autorevole (adoptWorld / noteWorldVersion / evento world)", () =
     useStore.getState().adoptWorld([{ id: "remote-gone", status: "idle", task: null, progress: 0, deleted: true }]);
     expect(agent("remote-gone")).toBeUndefined();
     expect(useStore.getState().agents).toHaveLength(before - 1);
+  });
+});
+
+describe("applyWorldSim — adozione bisogni (opzione B3)", () => {
+  beforeEach(() =>
+    useStore.setState((s) => ({
+      worldDriver: null,
+      remoteSim: {},
+      selfViewerId: "me",
+      // baseline deterministico dei bisogni (i seed hanno hunger vari)
+      agents: s.agents.map((a) => ({ ...a, energy: 100, hunger: 0 })),
+    })),
+  );
+
+  it("il follower adotta energy/hunger dal driver e ricalcola l'umore", () => {
+    const id = firstId();
+    useStore.setState({ worldDriver: { holderId: "other", name: "Driver" } }); // un'altra vista guida
+    useStore.getState().applyWorldSim([{ id, x: 0, z: 0, tx: null, tz: null, energy: 20, hunger: 90 }]);
+    const a = agent(id)!;
+    expect(a.energy).toBe(20);
+    expect(a.hunger).toBe(90);
+    expect(a.mood).toBe("hungry"); // hunger>=80 → moodFor dà "hungry"
+  });
+
+  it("il simulatore (guido io) NON adotta i bisogni: simula per sé", () => {
+    const id = firstId();
+    useStore.setState({ worldDriver: { holderId: "me", name: "Io" } }); // guido io
+    useStore.getState().applyWorldSim([{ id, x: 0, z: 0, tx: null, tz: null, energy: 5, hunger: 99 }]);
+    const a = agent(id)!;
+    expect(a.energy).toBe(100); // invariato (baseline)
+    expect(a.hunger).toBe(0);
+  });
+
+  it("conserva il valore locale se il driver omette un bisogno", () => {
+    const id = firstId();
+    useStore.setState({ worldDriver: { holderId: "other", name: "Driver" } });
+    useStore.getState().applyWorldSim([{ id, x: 0, z: 0, tx: null, tz: null, hunger: 50 }]);
+    const a = agent(id)!;
+    expect(a.energy).toBe(100); // omesso → conservato
+    expect(a.hunger).toBe(50);
+  });
+});
+
+describe("seedLivePositions — smooth handover (opzione B3)", () => {
+  beforeEach(() => liveAgentPositions.clear());
+
+  it("semina la posizione dello store dall'ultima posizione live seguita", () => {
+    const id = firstId();
+    liveAgentPositions.set(id, [3.5, -2]);
+    useStore.getState().seedLivePositions();
+    expect(agent(id)!.position).toEqual([3.5, -2]);
+  });
+
+  it("lascia invariati gli agenti senza posizione live", () => {
+    const id = firstId();
+    const before = agent(id)!.position;
+    useStore.getState().seedLivePositions();
+    expect(agent(id)!.position).toBe(before); // stesso riferimento: nessun cambio
   });
 });
 

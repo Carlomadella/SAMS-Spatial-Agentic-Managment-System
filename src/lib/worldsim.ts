@@ -8,6 +8,9 @@ export interface SimAgent {
   z: number;
   tx: number | null;
   tz: number | null;
+  /** bisogni adottati dal driver (0–100); assenti se il driver non li spinge. */
+  energy?: number;
+  hunger?: number;
   /** ora di ricezione lato client, per la staleness. */
   ts: number;
 }
@@ -40,13 +43,21 @@ export function pruneSim(
  * scomparso dallo snapshot semplicemente non c'è più). Scarta le voci senza id.
  */
 export function ingestSim(
-  agents: { id: string; x: number; z: number; tx: number | null; tz: number | null }[],
+  agents: {
+    id: string;
+    x: number;
+    z: number;
+    tx: number | null;
+    tz: number | null;
+    energy?: number;
+    hunger?: number;
+  }[],
   now: number,
 ): Record<string, SimAgent> {
   const map: Record<string, SimAgent> = {};
   for (const a of agents) {
     if (!a || typeof a.id !== "string" || !a.id) continue;
-    map[a.id] = { x: a.x, z: a.z, tx: a.tx, tz: a.tz, ts: now };
+    map[a.id] = { x: a.x, z: a.z, tx: a.tx, tz: a.tz, energy: a.energy, hunger: a.hunger, ts: now };
   }
   return map;
 }
