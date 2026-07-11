@@ -74,6 +74,35 @@ export function iAmSimulator(driver: { holderId: string } | null, selfId: string
 }
 
 /**
+ * Vettore di separazione: somma le spinte "via da" ogni altro agente più vicino di
+ * `minSep` ("due passi"), pesate quanto più si è vicini (0 al bordo, 1 sovrapposti).
+ * Serve a evitare che gli agenti si sovrappongano. Puro: `self` è la posizione di
+ * chi calcola, `others` sono le coppie [id, [x,z]] di tutti (il proprio id è escluso).
+ * Ritorna [0,0] se nessuno è troppo vicino.
+ */
+export function separationPush(
+  self: [number, number],
+  others: Iterable<[string, [number, number]]>,
+  selfId: string,
+  minSep: number,
+): [number, number] {
+  let px = 0;
+  let pz = 0;
+  for (const [id, pos] of others) {
+    if (id === selfId) continue;
+    const ox = self[0] - pos[0];
+    const oz = self[1] - pos[1];
+    const dd = Math.hypot(ox, oz);
+    if (dd > 1e-4 && dd < minSep) {
+      const w = (minSep - dd) / minSep; // più forte quanto più vicini
+      px += (ox / dd) * w;
+      pz += (oz / dd) * w;
+    }
+  }
+  return [px, pz];
+}
+
+/**
  * Posizioni live degli agenti (mesh), scritte ogni frame da `Agent3D` e lette dal
  * `WorldSimBridge` del driver per spingerle. Non passa dallo store: la posizione
  * interpolata del cammino vive nel ref della mesh (lo store committa solo all'arrivo),

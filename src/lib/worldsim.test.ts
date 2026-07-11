@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SIM_TTL, iAmSimulator, ingestSim, pruneSim, type SimAgent } from "./worldsim";
+import { SIM_TTL, iAmSimulator, ingestSim, pruneSim, separationPush, type SimAgent } from "./worldsim";
 
 const mk = (ts: number): SimAgent => ({ x: 0, z: 0, tx: null, tz: null, ts });
 
@@ -49,6 +49,36 @@ describe("ingestSim", () => {
     const out = ingestSim([{ id: "a", x: 0, z: 0, tx: null, tz: null }], 0);
     expect(out.a.energy).toBeUndefined();
     expect(out.a.hunger).toBeUndefined();
+  });
+});
+
+describe("separationPush", () => {
+  const others = (arr: [string, [number, number]][]) => arr;
+
+  it("è [0,0] se nessun altro è entro minSep", () => {
+    expect(separationPush([0, 0], others([["b", [5, 0]]]), "a", 1.6)).toEqual([0, 0]);
+  });
+
+  it("spinge lontano da un vicino troppo stretto", () => {
+    const [px, pz] = separationPush([0, 0], others([["b", [1, 0]]]), "a", 1.6);
+    expect(px).toBeLessThan(0); // b è a +x → spinge verso -x
+    expect(pz).toBe(0);
+  });
+
+  it("esclude se stesso", () => {
+    expect(separationPush([0, 0], others([["a", [0.1, 0]]]), "a", 1.6)).toEqual([0, 0]);
+  });
+
+  it("più vicino = spinta più forte", () => {
+    const near = separationPush([0, 0], others([["b", [0.4, 0]]]), "a", 1.6)[0];
+    const far = separationPush([0, 0], others([["b", [1.2, 0]]]), "a", 1.6)[0];
+    expect(Math.abs(near)).toBeGreaterThan(Math.abs(far));
+  });
+
+  it("somma le spinte di più vicini", () => {
+    const [px, pz] = separationPush([0, 0], others([["b", [1, 0]], ["c", [0, 1]]]), "a", 1.6);
+    expect(px).toBeLessThan(0);
+    expect(pz).toBeLessThan(0);
   });
 });
 

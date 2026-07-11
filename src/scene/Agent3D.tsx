@@ -7,11 +7,11 @@ import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath } from "../lib/pathfind";
 import { levelFromXp } from "../lib/skill";
-import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow } from "../data/world";
+import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow, clampToRoom } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
-import { iAmSimulator, liveAgentPositions } from "../lib/worldsim";
+import { iAmSimulator, liveAgentPositions, separationPush } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -21,6 +21,8 @@ const STATUS_HEX: Record<AgentStatus, string> = Object.fromEntries(
 ) as Record<AgentStatus, string>;
 
 const SPEED = 2.7; // world units / second
+const MIN_SEP = 1.6; // "due passi": distanza minima tra due agenti (world units)
+const SEP_PUSH = 3.0; // quanto rapidamente si separano quando si avvicinano troppo
 
 /** Idle "life" micro-activities, derived from where a free agent is standing. */
 type Activity = null | "coffee" | "sketch" | "stretch";
@@ -37,6 +39,45 @@ function shade(hex: string, amt: number) {
   c.lerp(new THREE.Color(amt >= 0 ? "#ffffff" : "#000000"), Math.abs(amt));
   return `#${c.getHexString()}`;
 }
+
+/**
+ * Indicatore fluttuante sopra l'agente (fame/caffè/schizzo/stretch). Un chip di vetro
+ * scuro con anello e alone nella tinta del significato, invece dell'emoji nuda: legge
+ * come un elemento *disegnato*, coerente tra i vari simboli. Bob morbido via CSS.
+ */
+function AgentBadge({
+  position,
+  glyph,
+  tint,
+}: {
+  position: [number, number, number];
+  glyph: string;
+  tint: string;
+}) {
+  return (
+    <Html position={position} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
+      <div
+        className="agent-badge pointer-events-none flex h-[27px] w-[27px] select-none items-center justify-center rounded-full text-[14px] leading-none"
+        style={{
+          background: "rgba(15,23,42,0.82)",
+          border: `1.5px solid ${tint}`,
+          boxShadow: `0 0 11px ${tint}66, 0 2px 6px rgba(0,0,0,0.45)`,
+          backdropFilter: "blur(3px)",
+        }}
+      >
+        <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.55))" }}>{glyph}</span>
+      </div>
+    </Html>
+  );
+}
+
+/** Tinte semantiche dei badge sopra l'agente. */
+const BADGE_TINT = {
+  hunger: "#f59e0b", // ambra: fame
+  coffee: "#d8a15a", // caldo: caffè
+  sketch: "#8b93f8", // indaco: idee/schizzo
+  stretch: "#37c8a0", // verde acqua: stretch
+} as const;
 
 export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -192,6 +233,25 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       cur.current.x += (dx / dist) * step;
       cur.current.z += (dz / dist) * step;
     }
+
+    // Separazione: gli agenti non si sovrappongono mai — se un altro è a meno di
+    // MIN_SEP ("due passi"), spingi via da lui. Solo quando questa vista simula
+    // l'agente (`!follow`: i follower rendono le posizioni già risolte dal driver)
+    // e non mentre dorme (resta nel letto). Legge le posizioni live degli altri.
+    if (!follow && !sleeping) {
+      const [pushX, pushZ] = separationPush(
+        [cur.current.x, cur.current.z],
+        liveAgentPositions,
+        agent.id,
+        MIN_SEP,
+      );
+      if (pushX !== 0 || pushZ !== 0) {
+        const [cx, cz] = clampToRoom([cur.current.x + pushX * SEP_PUSH * d, cur.current.z + pushZ * SEP_PUSH * d]);
+        cur.current.x = cx;
+        cur.current.z = cz;
+      }
+    }
+
     g.position.x = cur.current.x;
     g.position.z = cur.current.z;
     // Pubblica la posizione live della mesh (interpolata lungo il cammino) così il
@@ -583,20 +643,18 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         </Html>
       )}
 
-      {/* micro-activity emoji (coffee / sketch / stretch) */}
+      {/* micro-activity badge (coffee / sketch / stretch) */}
       {activity && !sleeping && !bubble && !gardenOpen && (
-        <Html position={[0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
-          <div className="pointer-events-none select-none text-[15px] drop-shadow">
-            {activity === "coffee" ? "☕" : activity === "sketch" ? "✏️" : "🤸"}
-          </div>
-        </Html>
+        <AgentBadge
+          position={[0.45, 2.35, 0]}
+          glyph={activity === "coffee" ? "☕" : activity === "sketch" ? "✏️" : "🤸"}
+          tint={BADGE_TINT[activity]}
+        />
       )}
 
       {/* hunger indicator — a hungry agent shows a plate until fed */}
       {agent.hunger >= 75 && !sleeping && !gardenOpen && (
-        <Html position={[-0.45, 2.35, 0]} center distanceFactor={10} zIndexRange={[68, 48]} pointerEvents="none">
-          <div className="pointer-events-none select-none text-[14px] drop-shadow">🍽️</div>
-        </Html>
+        <AgentBadge position={[-0.45, 2.35, 0]} glyph="🍽️" tint={BADGE_TINT.hunger} />
       )}
 
       {/* sleeping indicator */}
