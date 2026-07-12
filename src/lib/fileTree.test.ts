@@ -37,6 +37,20 @@ describe("buildFileTree", () => {
     expect(buildFileTree([])).toEqual([]);
     expect(buildFileTree([{ path: "", type: "blob" }])).toEqual([]);
   });
+
+  it("nasconde i dotfile e le dot-cartelle (.gitignore, .github/…)", () => {
+    const tree = buildFileTree([
+      { path: ".gitignore", type: "blob" },
+      { path: ".github", type: "tree" },
+      { path: ".github/workflows/ci.yml", type: "blob" },
+      { path: "src/.hidden", type: "blob" },
+      { path: "src/app.ts", type: "blob" },
+      { path: "README.md", type: "blob" },
+    ]);
+    // niente dotfile/dot-cartelle né file nascosti dentro le cartelle
+    expect(tree.map((n) => n.name)).toEqual(["src", "README.md"]);
+    expect(tree[0].children!.map((n) => n.name)).toEqual(["app.ts"]);
+  });
 });
 
 describe("flattenBadgedFiles", () => {

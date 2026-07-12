@@ -30,6 +30,9 @@ export function buildFileTree(entries: RepoEntry[]): FileNode[] {
     if (!e || typeof e.path !== "string") continue;
     const parts = e.path.split("/").filter(Boolean);
     if (parts.length === 0) continue;
+    // Nascondi i file/cartelle "nascosti" (dotfile: .gitignore, .github, …): sono
+    // rumore di configurazione, non contenuto del workspace.
+    if (parts.some((p) => p.startsWith("."))) continue;
     if (e.type === "tree") {
       childrenOf(parts.join("/"));
     } else {
