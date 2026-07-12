@@ -72,6 +72,10 @@ interface State {
   commandOpen: boolean;
   settingsOpen: boolean;
   gardenOpen: boolean;
+  /** Percorso del file del repo aperto nel visualizzatore, o null (transient). */
+  openedFilePath: string | null;
+  /** Branch del repo di lavoro (dalla sidebar), per leggere il contenuto dei file. */
+  repoBranch: string;
   /** Interactive UI tour overlay (transient — never persisted). */
   tourOpen: boolean;
   theme: "dark" | "light";
@@ -232,6 +236,12 @@ interface State {
   setCommandOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setGardenOpen: (open: boolean) => void;
+  /** Apre un file del repo nel visualizzatore (per percorso repo-relativo). */
+  openRepoFile: (path: string) => void;
+  /** Chiude il visualizzatore di file. */
+  closeRepoFile: () => void;
+  /** Registra il branch del repo di lavoro (dalla sidebar). */
+  setRepoBranch: (branch: string) => void;
   setTourOpen: (open: boolean) => void;
   toggleTheme: () => void;
   setRoomTheme: (id: string) => void;
@@ -368,6 +378,8 @@ export const useStore = create<State>()(
   commandOpen: false,
   settingsOpen: false,
   gardenOpen: false,
+  openedFilePath: null,
+  repoBranch: "",
   tourOpen: false,
   theme:
     typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
@@ -757,6 +769,9 @@ export const useStore = create<State>()(
   setCommandOpen: (open) => set({ commandOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setGardenOpen: (open) => set({ gardenOpen: open }),
+  openRepoFile: (path) => set({ openedFilePath: path }),
+  closeRepoFile: () => set({ openedFilePath: null }),
+  setRepoBranch: (branch) => set((s) => (s.repoBranch === branch ? s : { repoBranch: branch })),
   setTourOpen: (open) => set({ tourOpen: open }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   setRoomTheme: (id) => set({ roomTheme: id }),

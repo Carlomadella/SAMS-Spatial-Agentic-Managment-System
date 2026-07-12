@@ -368,21 +368,31 @@ function FileRow({
   depth,
   expanded,
   toggle,
+  onOpenFile,
+  activePath,
 }: {
   node: FileNode;
   depth: number;
   expanded: Set<string>;
   toggle: (id: string) => void;
+  onOpenFile?: (path: string) => void;
+  activePath?: string | null;
 }) {
   const isFolder = node.kind === "folder";
   const isOpen = expanded.has(node.id);
   const Icon = isFolder ? (isOpen ? FolderOpen : Folder) : fileIcon(node.name);
+  // I file veri portano il percorso repo-relativo nell'id (`file:<path>`).
+  const filePath = !isFolder && node.id.startsWith("file:") ? node.id.slice(5) : null;
+  const isActive = filePath != null && filePath === activePath;
 
   return (
     <>
       <button
-        onClick={() => isFolder && toggle(node.id)}
-        className="group flex w-full items-center gap-1 rounded px-1 py-[3px] text-left text-[12px] text-slate-400 transition-colors hover:bg-ink-700/50 hover:text-slate-300"
+        onClick={() => (isFolder ? toggle(node.id) : filePath && onOpenFile?.(filePath))}
+        className={cn(
+          "group flex w-full items-center gap-1 rounded px-1 py-[3px] text-left text-[12px] transition-colors",
+          isActive ? "bg-brand/15 text-white" : "text-slate-400 hover:bg-ink-700/50 hover:text-slate-300",
+        )}
         style={{ paddingLeft: 8 + depth * 10 }}
       >
         {isFolder ? (
@@ -416,6 +426,8 @@ function FileRow({
             depth={depth + 1}
             expanded={expanded}
             toggle={toggle}
+            onOpenFile={onOpenFile}
+            activePath={activePath}
           />
         ))}
     </>
@@ -429,6 +441,10 @@ function FilesSection() {
   const [status, setStatus] = useState<"loading" | "ready" | "disconnected" | "error">("loading");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
+  const openRepoFile = useStore((s) => s.openRepoFile);
+  const setRepoBranch = useStore((s) => s.setRepoBranch);
+  const activePath = useStore((s) => s.openedFilePath);
+
   // I file veri del repo di lavoro (via GitHub), non più un albero finto.
   useEffect(() => {
     let alive = true;
@@ -436,6 +452,7 @@ function FilesSection() {
       if (!alive) return;
       if (!res) return setStatus("error");
       setBranch(res.branch);
+      setRepoBranch(res.branch); // il visualizzatore legge i file su questo branch
       if (!res.connected) return setStatus("disconnected");
       setTree(buildFileTree(res.entries));
       setTruncated(res.truncated);
@@ -444,7 +461,7 @@ function FilesSection() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setRepoBranch]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -476,7 +493,15 @@ function FilesSection() {
         {status === "ready" && tree.length === 0 && <p className="px-2 py-1 text-[11px] text-mut">Nessun file nel repo.</p>}
         {status === "ready" &&
           tree.map((node) => (
-            <FileRow key={node.id} node={node} depth={0} expanded={expanded} toggle={toggle} />
+            <FileRow
+              key={node.id}
+              node={node}
+              depth={0}
+              expanded={expanded}
+              toggle={toggle}
+              onOpenFile={openRepoFile}
+              activePath={activePath}
+            />
           ))}
         {truncated && <p className="px-2 pt-1 text-[9px] text-mut">Elenco troncato (repo grande).</p>}
       </div>

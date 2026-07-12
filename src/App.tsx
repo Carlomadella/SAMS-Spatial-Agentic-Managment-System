@@ -10,6 +10,7 @@ import { MobileBar, MobileDrawer, useIsMobile } from "./components/MobileBar";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { FileViewer } from "./components/FileViewer";
 import { GardenView } from "./components/GardenView";
 import { PublicDashboard } from "./components/PublicDashboard";
 import { RuntimeBanner } from "./components/RuntimeBanner";
@@ -1148,6 +1149,7 @@ function Workspace() {
       <StatusBar />
       <CommandPalette />
       <SettingsModal />
+      <FileViewer />
       <GardenView />
       <Toaster />
       <OnboardingWizard />

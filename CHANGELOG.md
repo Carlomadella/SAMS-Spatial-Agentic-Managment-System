@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-12 — Apri e leggi il contenuto dei file dalla sidebar 📄
+- **Added** — Cliccando un file nella sidebar si apre un **visualizzatore** (modale) col contenuto reale
+  letto dal repo sul branch corrente (`FileViewer`, riusa `fetchFile`). Numeri di riga, path + branch,
+  chiusura con Esc/click fuori. Gestisce file binari (per estensione), mancanti e troncati (cap righe).
+  Store: `openedFilePath`/`repoBranch` (transient) + `openRepoFile`/`closeRepoFile`.
+
 ### 2026-07-12 — Sidebar: file veri del repo (via GitHub) al posto dei finti 🗂️
 - **Changed** — La sezione "File" della sidebar non mostra più segnaposto hardcoded (dev.env, sams.yaml,
   architecture.spatial…) ma i **file reali del repo di lavoro**. Nuovo `GET /api/repo/tree` (Git Trees
