@@ -106,6 +106,26 @@ export function separationPush(
 }
 
 /**
+ * Applica la correzione di separazione SENZA cacciare l'agente dentro un ostacolo.
+ * `target` è la posizione desiderata (posizione + spinta, già clampata ai muri
+ * esterni); `clear(x,z)` dice se un punto è calpestabile (lontano da muri/mobili).
+ * Prova il target pieno; se finisce in un ostacolo prova a scivolare lungo un solo
+ * asse (movimento radente al muro); se nemmeno quello è libero **rinuncia** e resta
+ * dov'è — così la separazione non incastra mai l'agente contro uno stipite e lui può
+ * proseguire lungo il suo cammino attraverso la porta. Puro e testabile.
+ */
+export function resolveSeparation(
+  pos: [number, number],
+  target: [number, number],
+  clear: (x: number, z: number) => boolean,
+): [number, number] {
+  if (clear(target[0], target[1])) return target;
+  if (clear(target[0], pos[1])) return [target[0], pos[1]]; // scivola in orizzontale
+  if (clear(pos[0], target[1])) return [pos[0], target[1]]; // scivola in verticale
+  return pos; // ogni spostamento entrerebbe in un muro → non spingere
+}
+
+/**
  * Posizioni live degli agenti (mesh), scritte ogni frame da `Agent3D` e lette dal
  * `WorldSimBridge` del driver per spingerle. Non passa dallo store: la posizione
  * interpolata del cammino vive nel ref della mesh (lo store committa solo all'arrivo),

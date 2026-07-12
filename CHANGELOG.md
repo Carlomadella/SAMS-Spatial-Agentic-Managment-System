@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-12 — Fix: gli agenti passano di nuovo le porte 🚪
+- **Fixed** — La separazione dura poteva cacciare un agente dentro un muro interno/stipite (clamp solo
+  ai muri esterni) → restava incastrato e non attraversava le porte. Ora `resolveSeparation` (puro,
+  `lib/worldsim`) non sposta mai in un ostacolo: prova la spinta piena, altrimenti scivola lungo il muro,
+  altrimenti rinuncia e l'agente prosegue lungo il suo cammino. +6 test (incl. proprietà: mai nel muro).
+
 ### 2026-07-11 — Indicatori di vita puliti + separazione dura (niente sovrapposizioni) 🎨
 - **Changed** — Fame/caffè/schizzo/stretch non sono più emoji fluttuanti che collidevano col nome, ma
   un **indicatore inline** nell'etichetta dell'agente: icona vettoriale lucide nitida (Utensils/Coffee/

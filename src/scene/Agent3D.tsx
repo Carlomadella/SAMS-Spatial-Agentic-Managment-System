@@ -5,13 +5,13 @@ import * as THREE from "three";
 import { CheckCheck, Coffee, Dumbbell, Eye, Moon, Pencil, Play, Trash2, Utensils, type LucideIcon } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
-import { findPath } from "../lib/pathfind";
+import { findPath, isPointClear } from "../lib/pathfind";
 import { levelFromXp } from "../lib/skill";
 import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow, clampToRoom } from "../data/world";
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
-import { iAmSimulator, liveAgentPositions, separationPush } from "../lib/worldsim";
+import { iAmSimulator, liveAgentPositions, separationPush, resolveSeparation } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -228,11 +228,18 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         MIN_SEP,
       );
       if (pushX !== 0 || pushZ !== 0) {
-        // vincolo duro: applico la correzione posizionale direttamente (non scalata
-        // dal dt) così la distanza minima regge anche contro il richiamo del cammino.
-        const [cx, cz] = clampToRoom([cur.current.x + pushX, cur.current.z + pushZ]);
-        cur.current.x = cx;
-        cur.current.z = cz;
+        // vincolo duro: correzione posizionale diretta (non scalata dal dt) così la
+        // distanza minima regge anche contro il richiamo del cammino. La spinta però
+        // non deve MAI cacciare l'agente dentro un muro/mobile (altrimenti resta
+        // incastrato e non passa le porte): `resolveSeparation` scivola o rinuncia.
+        const target = clampToRoom([cur.current.x + pushX, cur.current.z + pushZ]);
+        const [rx, rz] = resolveSeparation(
+          [cur.current.x, cur.current.z],
+          target,
+          (x, z) => isPointClear([x, z], OBSTACLES),
+        );
+        cur.current.x = rx;
+        cur.current.z = rz;
       }
     }
 
