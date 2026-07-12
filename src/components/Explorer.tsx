@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -7,6 +7,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  GitBranch,
   GitPullRequest,
   Play,
   Plus,
@@ -15,9 +16,10 @@ import {
   X,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { STATIC_TREE, WORKFLOW_DEFS } from "../data/seed";
+import { WORKFLOW_DEFS } from "../data/seed";
 import { AGENT_HEX, type Agent, type FileNode, type WorkflowDef } from "../types";
-import { assignRemote, backendEnabled } from "../lib/backend";
+import { assignRemote, backendEnabled, fetchRepoTree } from "../lib/backend";
+import { buildFileTree } from "../lib/fileTree";
 import { metaRepo } from "../lib/metaAgent";
 import { cn } from "../lib/utils";
 
@@ -421,9 +423,28 @@ function FileRow({
 }
 
 function FilesSection() {
-  const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(["environments", "configs"]),
-  );
+  const [tree, setTree] = useState<FileNode[]>([]);
+  const [branch, setBranch] = useState("");
+  const [truncated, setTruncated] = useState(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "disconnected" | "error">("loading");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  // I file veri del repo di lavoro (via GitHub), non più un albero finto.
+  useEffect(() => {
+    let alive = true;
+    fetchRepoTree().then((res) => {
+      if (!alive) return;
+      if (!res) return setStatus("error");
+      setBranch(res.branch);
+      if (!res.connected) return setStatus("disconnected");
+      setTree(buildFileTree(res.entries));
+      setTruncated(res.truncated);
+      setStatus("ready");
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -433,18 +454,31 @@ function FilesSection() {
       return next;
     });
 
-  // Everything except the agents and workflows folders
-  const fileNodes = STATIC_TREE.filter((n) => n.id !== "workflows");
-
   return (
     <div className="mb-2">
-      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-mut">
-        File
+      <div className="flex items-center justify-between px-2 py-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-mut">File</span>
+        {status === "ready" && branch && (
+          <span className="flex items-center gap-1 text-[9px] text-mut" title={`branch ${branch}`}>
+            <GitBranch size={9} />
+            {branch}
+          </span>
+        )}
       </div>
       <div className="px-1">
-        {fileNodes.map((node) => (
-          <FileRow key={node.id} node={node} depth={0} expanded={expanded} toggle={toggle} />
-        ))}
+        {status === "loading" && <p className="px-2 py-1 text-[11px] text-mut">Carico i file dal repo…</p>}
+        {status === "disconnected" && (
+          <p className="px-2 py-1 text-[11px] leading-relaxed text-mut">
+            Collega un repo GitHub nelle impostazioni per vedere i file del workspace.
+          </p>
+        )}
+        {status === "error" && <p className="px-2 py-1 text-[11px] text-mut">Repo non raggiungibile.</p>}
+        {status === "ready" && tree.length === 0 && <p className="px-2 py-1 text-[11px] text-mut">Nessun file nel repo.</p>}
+        {status === "ready" &&
+          tree.map((node) => (
+            <FileRow key={node.id} node={node} depth={0} expanded={expanded} toggle={toggle} />
+          ))}
+        {truncated && <p className="px-2 pt-1 text-[9px] text-mut">Elenco troncato (repo grande).</p>}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
-import { addIssueLabel, createBranch, createPullRequest, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, getRepoTree, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { parseGithubEvent, parsePushWatering, verifyGithubSignature } from "./webhook";
@@ -252,6 +252,22 @@ app.get("/api/file", async (req: Request, res: Response) => {
       return;
     }
     res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/** L'albero dei file del repo di lavoro, per la sidebar "Esplora risorse". Senza
+ *  token GitHub risponde `connected:false` (la UI mostra un invito a collegarlo). */
+app.get("/api/repo/tree", async (_req: Request, res: Response) => {
+  const s = getSettings();
+  if (!s.githubToken) {
+    res.json({ repo: s.githubRepo, branch: s.baseBranch, entries: [], truncated: false, connected: false });
+    return;
+  }
+  try {
+    const { entries, truncated, branch } = await getRepoTree(s.baseBranch);
+    res.json({ repo: s.githubRepo, branch, entries, truncated, connected: true });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err), entries: [], connected: false });
   }
 });
 

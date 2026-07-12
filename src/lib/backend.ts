@@ -674,6 +674,25 @@ export async function fetchDriver(): Promise<{ holderId: string; name: string } 
   }
 }
 
+export interface RepoTreeResponse {
+  repo: string;
+  branch: string;
+  entries: { path: string; type: "blob" | "tree" }[];
+  truncated: boolean;
+  connected: boolean;
+}
+
+/** L'albero dei file del repo di lavoro per la sidebar. `null` se irraggiungibile. */
+export async function fetchRepoTree(): Promise<RepoTreeResponse | null> {
+  try {
+    const res = await fetch(`${BASE}/api/repo/tree`);
+    if (!res.ok) return null;
+    return (await res.json()) as RepoTreeResponse;
+  } catch {
+    return null;
+  }
+}
+
 let source: EventSource | null = null;
 
 /** Subscribe to the runtime's event stream; returns an unsubscribe function. */

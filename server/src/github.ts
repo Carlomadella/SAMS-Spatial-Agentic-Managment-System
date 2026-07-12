@@ -91,6 +91,47 @@ export async function listFiles(dirPath: string, ref: string): Promise<string[]>
   return [(data as { name: string }).name];
 }
 
+export interface RepoTreeEntry {
+  path: string;
+  type: "blob" | "tree";
+}
+
+async function treeOf(branch: string, max: number): Promise<{ entries: RepoTreeEntry[]; truncated: boolean }> {
+  const data = (await gh(`/git/trees/${encodeURIComponent(branch)}?recursive=1`)) as {
+    tree?: Array<{ path: string; type: string }>;
+    truncated?: boolean;
+  };
+  const all = (data.tree ?? []).filter((e) => e.type === "blob" || e.type === "tree");
+  return {
+    entries: all.slice(0, max).map((e) => ({ path: e.path, type: e.type as "blob" | "tree" })),
+    truncated: Boolean(data.truncated) || all.length > max,
+  };
+}
+
+/**
+ * L'intero albero dei file del repo su `branch` (Git Trees API, ricorsivo). Ritorna
+ * un elenco piatto di percorsi (blob=file, tree=cartella); il client lo annida. Cap a
+ * `max` voci per non spedire payload enormi (`truncated` segnala il taglio). Se il
+ * `branch` configurato non esiste (404), ricade sul **default branch** del repo e lo
+ * ritorna in `branch`, così la sidebar mostra i file anche con un `baseBranch` sbagliato.
+ */
+export async function getRepoTree(
+  branch: string,
+  max = 4000,
+): Promise<{ entries: RepoTreeEntry[]; truncated: boolean; branch: string }> {
+  try {
+    return { ...(await treeOf(branch, max)), branch };
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) {
+      const repo = (await gh("")) as { default_branch?: string };
+      if (repo.default_branch && repo.default_branch !== branch) {
+        return { ...(await treeOf(repo.default_branch, max)), branch: repo.default_branch };
+      }
+    }
+    throw err;
+  }
+}
+
 export async function readFile(filePath: string, ref: string): Promise<string> {
   const clean = cleanPath(filePath);
   const data = (await gh(`/contents/${clean}?ref=${encodeURIComponent(ref)}`)) as {

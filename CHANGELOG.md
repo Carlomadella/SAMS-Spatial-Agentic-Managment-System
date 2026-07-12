@@ -7,6 +7,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-12 — Sidebar: file veri del repo (via GitHub) al posto dei finti 🗂️
+- **Changed** — La sezione "File" della sidebar non mostra più segnaposto hardcoded (dev.env, sams.yaml,
+  architecture.spatial…) ma i **file reali del repo di lavoro**. Nuovo `GET /api/repo/tree` (Git Trees
+  API, con fallback al default branch se `baseBranch` non esiste); client `buildFileTree` puro annida i
+  percorsi; la sidebar mostra branch + fallback "collega GitHub" senza token. +4 test.
+- **Nota** — SCM ("modifiche workspace") e Ricerca usano ancora `STATIC_TREE` finto: fuori dallo scope
+  di questa modifica (solo la sidebar).
+
 ### 2026-07-12 — Fix: gli agenti passano di nuovo le porte 🚪
 - **Fixed** — La separazione dura poteva cacciare un agente dentro un muro interno/stipite (clamp solo
   ai muri esterni) → restava incastrato e non attraversava le porte. Ora `resolveSeparation` (puro,
