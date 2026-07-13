@@ -10,6 +10,25 @@ export const BASE = ((import.meta.env.VITE_SAMS_BACKEND_URL as string | undefine
 
 export const backendEnabled = true;
 
+/**
+ * Header per le richieste al runtime. Se l'utente è loggato sul sito (auth reale), allega
+ * il **token di sessione** come `Authorization: Bearer …`, così il server fa valere il suo
+ * ruolo (owner/editor/viewer) anche nella workspace. Senza login → nessun token, il runtime
+ * ricade sui token statici da env (dev aperto = owner). `json` aggiunge il Content-Type.
+ */
+export function authHeaders(json = true): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (json) h["Content-Type"] = "application/json";
+  let token = "";
+  try {
+    token = localStorage.getItem("sams.site.token") ?? "";
+  } catch {
+    /* localStorage non disponibile → nessun token */
+  }
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
 export interface RemoteUpdate {
   agentId: string;
   agentName?: string;
@@ -196,7 +215,7 @@ export interface WhoAmI {
  *  irraggiungibile o su un runtime vecchio senza l'endpoint. */
 export async function fetchWhoami(): Promise<WhoAmI> {
   try {
-    const res = await fetch(`${BASE}/api/whoami`);
+    const res = await fetch(`${BASE}/api/whoami`, { headers: authHeaders(false) });
     if (!res.ok) return { role: "owner", enforced: false };
     const data = (await res.json()) as { role?: unknown; enforced?: unknown };
     return { role: normalizeRole(data.role), enforced: Boolean(data.enforced) };
@@ -216,7 +235,7 @@ export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
 export async function saveSettings(input: SettingsInput): Promise<RuntimeStatus> {
   const res = await fetch(`${BASE}/api/settings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
@@ -225,7 +244,7 @@ export async function saveSettings(input: SettingsInput): Promise<RuntimeStatus>
 
 /** Create (or re-create) the managed Agent + Environment. */
 export async function provisionAgents(): Promise<RuntimeStatus> {
-  const res = await fetch(`${BASE}/api/provision`, { method: "POST" });
+  const res = await fetch(`${BASE}/api/provision`, { method: "POST", headers: authHeaders(false) });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -251,7 +270,7 @@ export async function assignRemote(
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/assign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, actor: viewerName() }),
   });
   if (!res.ok) {
@@ -271,7 +290,7 @@ export async function assignRemote(
 export async function approveChanges(agentId: string): Promise<void> {
   const res = await fetch(`${BASE}/api/approve/${encodeURIComponent(agentId)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ actor: viewerName() }),
   });
   if (!res.ok) {
@@ -284,7 +303,7 @@ export async function approveChanges(agentId: string): Promise<void> {
 export async function rejectChanges(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ actor: viewerName() }),
   });
 }
@@ -322,14 +341,14 @@ export async function fetchSimStatus(): Promise<SimStatusRemote | null> {
 export async function startSimMode(label = "sams"): Promise<void> {
   await fetch(`${BASE}/api/sim/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ label }),
   });
 }
 
 /** Stop Live Sim mode on the server. */
 export async function stopSimMode(): Promise<void> {
-  await fetch(`${BASE}/api/sim/stop`, { method: "POST" });
+  await fetch(`${BASE}/api/sim/stop`, { method: "POST", headers: authHeaders(false) });
 }
 
 /** Fetch open issues available for the Live Sim (with claim info). */
@@ -348,7 +367,7 @@ export async function claimSimIssue(issueNumber: number, agentId: string): Promi
   try {
     const res = await fetch(`${BASE}/api/sim/claim/${issueNumber}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ agentId }),
     });
     return res.ok;
@@ -361,7 +380,7 @@ export async function claimSimIssue(issueNumber: number, agentId: string): Promi
 export async function releaseSimIssue(issueNumber: number, agentId?: string): Promise<void> {
   await fetch(`${BASE}/api/sim/release/${issueNumber}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ agentId: agentId ?? "" }),
   }).catch(() => {});
 }
@@ -431,7 +450,7 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
   try {
     const res = await fetch(`${BASE}/api/world`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ agents, baseVersion }),
     });
     const data = (await res.json().catch(() => ({}))) as { version?: number; agents?: unknown };
@@ -470,7 +489,7 @@ export async function sendChat(author: string, text: string): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ author, text }),
     });
     return res.ok;
@@ -521,7 +540,7 @@ export async function fetchRoutines(): Promise<RoutineRemote[]> {
 export async function createRoutine(draft: RoutineDraft): Promise<RoutineRemote> {
   const res = await fetch(`${BASE}/api/routines`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(draft),
   });
   if (!res.ok) {
@@ -534,13 +553,13 @@ export async function createRoutine(draft: RoutineDraft): Promise<RoutineRemote>
 export async function toggleRoutine(id: string, enabled: boolean): Promise<void> {
   await fetch(`${BASE}/api/routines/${encodeURIComponent(id)}/toggle`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ enabled }),
   }).catch(() => {});
 }
 
 export async function deleteRoutine(id: string): Promise<void> {
-  await fetch(`${BASE}/api/routines/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+  await fetch(`${BASE}/api/routines/${encodeURIComponent(id)}`, { method: "DELETE", headers: authHeaders(false) }).catch(() => {});
 }
 
 export interface MemoryEntry { key: string; value: string; updatedAt: number }
@@ -552,7 +571,7 @@ export async function fetchMemory(agentId: string): Promise<MemoryEntry[]> {
 }
 
 export async function clearMemory(agentId: string): Promise<void> {
-  await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE" });
+  await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE", headers: authHeaders(false) });
 }
 
 // --- Presence: identità della vista (mondo condiviso, Roadmap 4) ----------
@@ -586,7 +605,7 @@ export async function announcePresence(name: string): Promise<void> {
   try {
     await fetch(`${BASE}/api/presence`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ id: getViewerId(), name: name.trim() || "Ospite" }),
     });
   } catch {
@@ -606,7 +625,7 @@ export function sendCursor(x: number, z: number): void {
   if (!useStore.getState().backendOnline) return;
   void fetch(`${BASE}/api/cursor`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ id: getViewerId(), name: viewerName(), x, z }),
   }).catch(() => {
     /* best-effort: i cursori non sono critici */
@@ -621,7 +640,7 @@ export function sendSelection(agentId: string | null): void {
   if (!useStore.getState().backendOnline) return;
   void fetch(`${BASE}/api/selection`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ id: getViewerId(), name: viewerName(), agentId }),
   }).catch(() => {
     /* best-effort: la presenza non è critica */
@@ -636,7 +655,7 @@ export async function claimDriver(): Promise<void> {
   try {
     const res = await fetch(`${BASE}/api/driver`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ id: getViewerId(), name: viewerName() }),
     });
     if (!res.ok) return;
@@ -656,7 +675,7 @@ export function sendWorldSim(
   if (!useStore.getState().backendOnline) return;
   void fetch(`${BASE}/api/worldsim`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ id: getViewerId(), agents }),
   }).catch(() => {
     /* best-effort: il movimento condiviso non è critico */

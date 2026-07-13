@@ -192,9 +192,13 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       `AuthContext` riscritto (login/register/logout async + ripristino via `/me`), `Login` con
       password reale + errori, `Profile` mostra il ruolo. Verificato end-to-end (curl) + 40 test
       server + 6 RTL client. **Doc di decisione su Drive** (problema/soluzione/alternative:
-      OAuth, magic-link, JWT, cookie). _Resta:_ **integrazione ruoli ↔ workspace** (una sessione
-      utente valida risolve il ruolo in `roleOf`, oggi ancora da token env), **gestione password**
-      (reset/verifica email → serve un canale email) e onboarding/inviti owner.
+      OAuth, magic-link, JWT, cookie). _Fatto (integrazione ruoli ↔ workspace):_ `roleOf` consulta
+      prima le **sessioni** (una sessione valida porta il ruolo dell'account), fallback ai token env;
+      il client (`authHeaders` in `lib/backend`) allega `Authorization: Bearer <token>` a tutte le
+      richieste → una persona loggata governa anche `/app` col proprio ruolo. Verificato end-to-end
+      (viewer→403 su assign/settings, owner passa; whoami riflette il ruolo). 2° doc di decisione su
+      Drive. _Resta:_ **gestione password** (reset/verifica email → serve un canale email), inviti/
+      promozione ruoli dalla UI owner, ed eventuale cookie httpOnly (difesa XSS).
       _Portato qui da ROADMAP5 ("mock prima, auth reale in roadmap4")._
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
@@ -315,6 +319,26 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-14 — la sessione utente governa i ruoli della workspace (frontiera #3)
+Continuando dopo l'auth reale, chiuso il follow-up §5.1 del suo doc: **unificare identità e ruoli**.
+Prima c'erano due piani scollegati — i ruoli di `/app` venivano dai token env, mentre l'account
+utente aveva un `role` proprio → un viewer loggato poteva agire da owner sulla workspace (dev aperto).
+- **Scelta (2° doc su Drive)**: la **sessione risolve il ruolo, con fallback ai token env**. Un token,
+  due usi; additivo e retro-compatibile. Alternative scartate: tenere i piani separati (incoerente),
+  consegnare i token env al client (espone segreti condivisi), solo-UI (aggirabile lato client).
+  Doc: https://docs.google.com/document/d/1G3w0_3OkUL_eFPqKFw24deydjzBirbGKyo4PTKuilFU
+- **Server** (`server.ts`): `roleOf` consulta `getSessionUser` prima dei token env; `requireRole`
+  passa per `roleOf`; `whoami` segnala `enforced` anche con una sessione valida.
+- **Client** (`lib/backend.ts`): `authHeaders()` allega `Authorization: Bearer <sams.site.token>` a
+  tutte le richieste (helper unico al posto dei literal `Content-Type` ripetuti). SSE invariato.
+- **Verifica end-to-end (curl, :8791)**: whoami riflette il ruolo della sessione (owner/viewer);
+  `POST /api/assign` e `/api/settings` con viewer → **403**, con owner passano il gate (503 = runtime
+  non pronto, non 403); senza token → dev-open owner. typecheck/lint/build verdi; suite 516/270
+  invariate (gli 11 "errori" di un run erano spawn-timeout dei fork worker, non regressioni — verde
+  con `--pool=threads`).
+- **Prossimo**: gestione password (reset/verifica → canale email), inviti/promozione ruoli owner,
+  cookie httpOnly. E il progetto grosso B1/B4 (game loop autorevole) resta gated sul §7.
 
 ### 2026-07-13 (b) — auth reale: account veri al posto del login mock (frontiera #3)
 Su "committa e pusha, poi continua la roadmap fino al 90% del limite; per le scelte importanti

@@ -7,6 +7,12 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-14 — Il tuo account governa i ruoli della stanza 👥
+- **Changed** — Chi accede col proprio account ora agisce nella workspace `/app` **col proprio
+  ruolo** (owner/editor/viewer): il runtime riconosce la sessione utente e applica i permessi di
+  conseguenza (un osservatore non può assegnare task o toccare le impostazioni). Senza login, il
+  comportamento resta invariato (dev aperto o token da ambiente).
+
 ### 2026-07-13 — Auth reale: account veri al posto del login mock 🔐
 - **Added** — Il login del sito ora crea **account veri** sul runtime: registrazione/accesso con
   email+password (hashing **scrypt**, nessuna dipendenza nuova), sessione via **bearer token** con

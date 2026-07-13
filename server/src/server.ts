@@ -42,9 +42,19 @@ function roleTokens(): RoleTokens {
   return { owner: s.runtimeToken, editor: s.editorToken, viewer: s.readonlyToken };
 }
 
-/** Ruolo risolto per la richiesta corrente (owner se nessun token è configurato). */
+/**
+ * Ruolo risolto per la richiesta corrente. Un **token di sessione utente valido** (auth
+ * reale) vince e porta il ruolo dell'account; altrimenti si ricade sui token statici da
+ * env (owner se nessuno è configurato → dev aperto). Così una persona loggata sul sito
+ * governa anche la workspace col proprio ruolo, senza doppioni di configurazione.
+ */
 function roleOf(req: Request): Role {
-  return resolveRole(roleTokens(), bearerToken(req.headers.authorization));
+  const provided = bearerToken(req.headers.authorization);
+  if (provided) {
+    const user = getSessionUser(db(), provided);
+    if (user) return user.role;
+  }
+  return resolveRole(roleTokens(), provided);
 }
 
 /**
@@ -56,7 +66,7 @@ function roleOf(req: Request): Role {
 function requireRole(min: Role): (req: Request, res: Response, next: NextFunction) => void {
   return (req, res, next) => {
     const provided = bearerToken(req.headers.authorization);
-    const role = resolveRole(roleTokens(), provided);
+    const role = roleOf(req);
     if (roleAtLeast(role, min)) { next(); return; }
     log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip, role, need: min });
     if (!provided) {
@@ -177,7 +187,9 @@ app.get("/api/status", (_req: Request, res: Response) => {
  */
 app.get("/api/whoami", (req: Request, res: Response) => {
   const s = getSettings();
-  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken);
+  const provided = bearerToken(req.headers.authorization);
+  const hasSession = provided ? Boolean(getSessionUser(db(), provided)) : false;
+  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken) || hasSession;
   res.json({ role: roleOf(req), enforced });
 });
 
