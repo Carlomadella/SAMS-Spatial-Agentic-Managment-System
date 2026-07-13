@@ -74,25 +74,32 @@ export function iAmSimulator(driver: { holderId: string } | null, selfId: string
 }
 
 /**
- * Correzione posizionale di separazione: gli agenti non si sovrappongono mai. Somma,
- * per ogni altro agente più vicino di `minSep` ("due passi"), uno spostamento pari a
- * METÀ della compenetrazione lungo l'asse che li unisce — l'altra metà la applica il
- * vicino (simmetrico) → a regime restano esattamente a `minSep`. È un **vincolo duro**
- * (non una forza morbida): risolto ogni frame, tiene la distanza minima anche mentre
- * il cammino li spinge verso lo stesso punto. Puro: `self` è la posizione di chi
- * calcola, `others` le coppie [id, [x,z]] di tutti (il proprio id è escluso).
- * Ritorna [0,0] se nessuno è troppo vicino.
+ * Correzione posizionale di separazione: due agenti **fermi** non si sovrappongono mai.
+ * Somma, per ogni altro agente più vicino di `minSep` ("due passi"), uno spostamento
+ * pari a METÀ della compenetrazione lungo l'asse che li unisce — l'altra metà la applica
+ * il vicino (simmetrico) → a regime restano esattamente a `minSep`. È un **vincolo duro**
+ * (non una forza morbida): risolto ogni frame, tiene la distanza minima quando entrambi
+ * sono fermi allo stesso punto. Puro: `self` è la posizione di chi calcola, `others` le
+ * coppie [id, [x,z]] di tutti (il proprio id è escluso).
+ *
+ * `skip(id)` esclude un vicino dalla separazione: lo usiamo per **saltare gli agenti in
+ * movimento**, così chi cammina può passare vicino/attraverso senza respingere né essere
+ * respinto — è ciò che evita il "balletto"/cerchio di due agenti che vanno verso lo stesso
+ * punto e si spingono a vicenda invece di passarsi. La distanza minima resta solo tra fermi.
+ * Ritorna [0,0] se nessuno (rilevante) è troppo vicino.
  */
 export function separationPush(
   self: [number, number],
   others: Iterable<[string, [number, number]]>,
   selfId: string,
   minSep: number,
+  skip?: (id: string) => boolean,
 ): [number, number] {
   let px = 0;
   let pz = 0;
   for (const [id, pos] of others) {
     if (id === selfId) continue;
+    if (skip?.(id)) continue; // vicino in movimento → lascialo passare, niente spinta
     const ox = self[0] - pos[0];
     const oz = self[1] - pos[1];
     const dd = Math.hypot(ox, oz);
@@ -132,3 +139,12 @@ export function resolveSeparation(
  * quindi serve un canale diretto e senza re-render per condividere il movimento fluido.
  */
 export const liveAgentPositions = new Map<string, [number, number]>();
+
+/**
+ * Insieme effimero degli agenti attualmente **in transito** (stanno camminando verso un
+ * target), gemello di `liveAgentPositions`. La separazione lo consulta per lasciar passare
+ * chi si muove: la distanza minima è un vincolo solo tra agenti **fermi**, così due che si
+ * spostano possono passarsi vicino/attraversarsi senza creare il cerchio, ma da fermi non
+ * finiscono nella stessa cella. Aggiornato ogni frame da `Agent3D`, come le posizioni.
+ */
+export const movingAgents = new Set<string>();

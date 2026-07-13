@@ -80,6 +80,24 @@ describe("separationPush", () => {
     expect(px).toBeLessThan(0);
     expect(pz).toBeLessThan(0);
   });
+
+  it("salta i vicini in movimento (`skip`): ci si può attraversare camminando", () => {
+    // 'b' è vicinissimo ma in movimento → nessuna spinta: passa attraverso
+    expect(separationPush([0, 0], others([["b", [0.4, 0]]]), "a", 1.6, (id) => id === "b")).toEqual([0, 0]);
+  });
+
+  it("con più vicini, spinge solo via da quelli fermi", () => {
+    // 'b' (fermo, a +x) spinge; 'c' (in movimento, a +z) viene saltato
+    const [px, pz] = separationPush(
+      [0, 0],
+      others([["b", [1, 0]], ["c", [0, 1]]]),
+      "a",
+      1.6,
+      (id) => id === "c",
+    );
+    expect(px).toBeLessThan(0); // separato dal fermo 'b'
+    expect(pz).toBe(0); // 'c' in movimento non contribuisce
+  });
 });
 
 describe("resolveSeparation", () => {

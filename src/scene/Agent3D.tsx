@@ -11,7 +11,7 @@ import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow, clampToRoom } from "../data/wo
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
-import { iAmSimulator, liveAgentPositions, separationPush, resolveSeparation } from "../lib/worldsim";
+import { iAmSimulator, liveAgentPositions, movingAgents, separationPush, resolveSeparation } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
@@ -70,6 +70,16 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const headGroupRef = useRef<THREE.Group>(null);
   const idleTimer = useRef(0); // seconds idle, drives look-around animation
   const wpIndex = useRef(0); // index into the current path's waypoints
+
+  // Allo smontaggio (agente rimosso), togli le voci effimere: una posizione/stato di
+  // movimento fantasma continuerebbe altrimenti a influenzare la separazione dei vivi.
+  useEffect(() => {
+    const id = agent.id;
+    return () => {
+      liveAgentPositions.delete(id);
+      movingAgents.delete(id);
+    };
+  }, [agent.id]);
 
   const [hovered, setHovered] = useState(false);
   const [nightTime, setNightTime] = useState(isNightNow);
@@ -201,6 +211,13 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     const dz = dest[1] - cur.current.z;
     const dist = Math.hypot(dx, dz);
     const moving = dist > 0.03;
+    // "In transito": ha un cammino attivo o si sta ancora spostando. Da fermo (target
+    // raggiunto, `arriveAgent` azzera il target) questo è falso → scatta la separazione.
+    const traveling = hasPath || moving;
+    // Pubblica lo stato di movimento (gemello di liveAgentPositions): la separazione
+    // altrui salta chi è in transito, così ci si può attraversare mentre si cammina.
+    if (traveling) movingAgents.add(agent.id);
+    else movingAgents.delete(agent.id);
 
     if (hasPath && dist < 0.08) {
       if (wpIndex.current < path.length - 1) {
@@ -216,16 +233,19 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       cur.current.z += (dz / dist) * step;
     }
 
-    // Separazione: gli agenti non si sovrappongono mai — se un altro è a meno di
-    // MIN_SEP ("due passi"), spingi via da lui. Solo quando questa vista simula
-    // l'agente (`!follow`: i follower rendono le posizioni già risolte dal driver)
-    // e non mentre dorme (resta nel letto). Legge le posizioni live degli altri.
-    if (!follow && !sleeping) {
+    // Separazione: due agenti FERMI non condividono la stessa cella — se un altro fermo
+    // è a meno di MIN_SEP ("due passi"), spingi via da lui. Chi cammina (`traveling`) è
+    // escluso da entrambi i lati: questo agente non spinge mentre si muove, e i vicini in
+    // movimento vengono saltati (`movingAgents`) — così ci si passa vicino/attraverso senza
+    // il cerchio, ma da fermi ci si separa. Solo quando questa vista simula l'agente
+    // (`!follow`: i follower rendono le posizioni già risolte dal driver) e non mentre dorme.
+    if (!follow && !sleeping && !traveling) {
       const [pushX, pushZ] = separationPush(
         [cur.current.x, cur.current.z],
         liveAgentPositions,
         agent.id,
         MIN_SEP,
+        (id) => movingAgents.has(id),
       );
       if (pushX !== 0 || pushZ !== 0) {
         // vincolo duro: correzione posizionale diretta (non scalata dal dt) così la

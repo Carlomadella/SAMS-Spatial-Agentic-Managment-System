@@ -7,6 +7,16 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-13 — Hitbox: gli agenti si attraversano camminando, si separano da fermi 🚶
+- **Fixed** — Niente più "cerchio"/balletto: due o più agenti diretti verso lo stesso punto non si
+  respingono più a vicenda mentre camminano. La separazione dura ora è un vincolo **solo tra agenti
+  fermi** — chi è in transito passa vicino/attraverso liberamente; da fermi non finiscono mai nella stessa
+  cella (min ~1.6u). `separationPush` (puro, `lib/worldsim`) prende uno `skip(id)` che salta i vicini in
+  movimento; nuovo registro effimero `movingAgents` (gemello di `liveAgentPositions`), aggiornato ogni
+  frame da `Agent3D`, e la separazione parte solo quando l'agente è fermo (`!traveling`).
+- **Fixed** — Cleanup allo smontaggio: un agente rimosso non lascia più voci fantasma in
+  `liveAgentPositions`/`movingAgents` (prima una posizione stantìa continuava a spingere i vivi). +2 test.
+
 ### 2026-07-12 — Apri e leggi il contenuto dei file dalla sidebar 📄
 - **Added** — Cliccando un file nella sidebar si apre un **visualizzatore** (modale) col contenuto reale
   letto dal repo sul branch corrente (`FileViewer`, riusa `fetchFile`). Numeri di riga, path + branch,
