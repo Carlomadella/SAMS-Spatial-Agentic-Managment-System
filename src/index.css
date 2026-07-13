@@ -79,6 +79,41 @@
     min-height: 100%;
   }
 
+  /* Palette dedicata del sito — "Ambra / Tramonto", distinta dal blu dell'app. Ridefinisce
+     i token colore SOLO sotto le pagine del sito (body.site-scroll), quindi la workspace su
+     /app resta invariata. Variante scura (default) e chiara (con .theme-light). L'accento
+     secondario --c-accent-2 (corallo) è usato dal logo e dai bagliori della hero. */
+  body.site-scroll {
+    --c-ink-950: 20 15 10;
+    --c-ink-900: 26 20 14;
+    --c-ink-850: 33 26 18;
+    --c-ink-800: 41 32 22;
+    --c-ink-700: 54 43 30;
+    --c-ink-600: 71 57 40;
+    --c-ink-500: 92 75 54;
+    --c-line: 58 46 32;
+    --c-mut: 168 156 140;
+    --c-text: 245 236 224;
+    --c-text-strong: 255 250 244;
+    --c-accent: 245 158 11; /* ambra */
+    --c-accent-2: 251 113 133; /* corallo (accento secondario) */
+  }
+  .theme-light body.site-scroll {
+    --c-ink-950: 250 246 240;
+    --c-ink-900: 255 253 249;
+    --c-ink-850: 244 238 230;
+    --c-ink-800: 236 229 219;
+    --c-ink-700: 226 217 205;
+    --c-ink-600: 210 199 184;
+    --c-ink-500: 188 175 158;
+    --c-line: 224 214 200;
+    --c-mut: 122 108 90;
+    --c-text: 41 32 22;
+    --c-text-strong: 26 20 14;
+    --c-accent: 194 120 8; /* ambra più profonda per il contrasto su chiaro */
+    --c-accent-2: 225 90 110;
+  }
+
   /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */
   .habbo-canvas canvas {
     image-rendering: pixelated;

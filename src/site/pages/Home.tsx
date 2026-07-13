@@ -26,7 +26,7 @@ export function Home() {
             className="absolute inset-0"
             style={{
               backgroundImage:
-                "radial-gradient(900px 460px at 50% -10%, rgba(79,140,255,0.18), transparent 60%), radial-gradient(700px 400px at 85% 20%, rgba(120,90,255,0.10), transparent 60%)",
+                "radial-gradient(900px 460px at 50% -10%, rgb(var(--c-accent) / 0.20), transparent 60%), radial-gradient(700px 400px at 85% 20%, rgb(var(--c-accent-2) / 0.12), transparent 60%)",
             }}
           />
           <div

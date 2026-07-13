@@ -8,7 +8,7 @@ const VARIANT: Record<Variant, string> = {
   // pieno brand: la CTA principale. `!text-white` così resta bianco anche in tema chiaro
   // (il testo bianco è corretto su fondo blu; la rimappa globale del light non deve toccarlo).
   primary:
-    "bg-brand !text-white shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgba(79,140,255,0.8)] hover:bg-brand/90",
+    "bg-brand !text-white shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgba(245,158,11,0.55)] hover:bg-brand/90",
   // bordo sottile su fondo trasparente: azione secondaria
   ghost: "border border-line bg-ink-800/40 text-slate-200 hover:border-brand/50 hover:bg-ink-700/60 hover:text-white",
   // riempimento tenue brand: terza gerarchia

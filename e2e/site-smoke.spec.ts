@@ -45,6 +45,12 @@ test("changelog vive su /changelog (fuori dalla home)", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Novità di SAMS" })).toBeVisible();
 });
 
+test("palette del sito è ambra, non il blu dell'app", async ({ page }) => {
+  await page.goto("/");
+  const accent = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-accent").trim());
+  expect(accent).toBe("245 158 11"); // ambra
+});
+
 test("tema chiaro: il titolo hero resta leggibile (non bianco)", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("sams.theme", "light"));
