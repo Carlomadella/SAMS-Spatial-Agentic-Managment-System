@@ -7,13 +7,22 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-14 — Gestione utenti: l'owner assegna i ruoli 🧑‍🤝‍🧑
+- **Added** — Un **owner** può ora vedere gli account registrati e cambiarne il ruolo
+  (osservatore/editor/proprietario) dalla pagina Profilo. Così i ruoli sono utilizzabili in un team:
+  senza, dopo il primo utente restavano tutti osservatori. L'ultimo owner non può declassarsi (il
+  workspace non resta mai senza un proprietario). Endpoint owner-only `GET /api/auth/users` e
+  `POST /api/auth/users/role`.
+
 ### 2026-07-14 — Il tuo account governa i ruoli della stanza 👥
+
 - **Changed** — Chi accede col proprio account ora agisce nella workspace `/app` **col proprio
   ruolo** (owner/editor/viewer): il runtime riconosce la sessione utente e applica i permessi di
   conseguenza (un osservatore non può assegnare task o toccare le impostazioni). Senza login, il
   comportamento resta invariato (dev aperto o token da ambiente).
 
 ### 2026-07-13 — Auth reale: account veri al posto del login mock 🔐
+
 - **Added** — Il login del sito ora crea **account veri** sul runtime: registrazione/accesso con
   email+password (hashing **scrypt**, nessuna dipendenza nuova), sessione via **bearer token** con
   scadenza a 30 giorni, e ripristino automatico al riavvio. Il primo account registrato è **owner**.
@@ -25,6 +34,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   token env) e la gestione password (reset/verifica via email). Vedi il doc di decisione su Drive.
 
 ### 2026-07-13 — Riordina la stanza: drag libero dei mobili 🪑
+
 - **Added** — Nuova **modalità riordino**: dalla palette ("Riordina la stanza") i mobili diventano
   trascinabili con un anello a terra; li sposti sul pavimento e la posizione è **salvata localmente**
   (persistita). Un banner mostra l'istruzione con Fatto/Reset; comando "Reset mobili" per rimettere
@@ -35,11 +45,13 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   autorevole sul server (frontiera #1, ancora un progetto a sé).
 
 ### 2026-07-13 — Sito: hero della home con lo screenshot reale della stanza 🖼️
+
 - **Added** — La hero della homepage del sito di benvenuto ora ha come sfondo uno **screenshot reale
   della stanza 3D degli agenti** (sfumato con uno scrim per la leggibilità del testo), al posto del solo
   bagliore CSS. `src/site/assets/room-hero.jpg`, cablato in `Home.tsx`.
 
 ### 2026-07-13 — Hitbox: gli agenti si attraversano camminando, si separano da fermi 🚶
+
 - **Fixed** — Niente più "cerchio"/balletto: due o più agenti diretti verso lo stesso punto non si
   respingono più a vicenda mentre camminano. La separazione dura ora è un vincolo **solo tra agenti
   fermi** — chi è in transito passa vicino/attraverso liberamente; da fermi non finiscono mai nella stessa
@@ -50,12 +62,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   `liveAgentPositions`/`movingAgents` (prima una posizione stantìa continuava a spingere i vivi). +2 test.
 
 ### 2026-07-12 — Apri e leggi il contenuto dei file dalla sidebar 📄
+
 - **Added** — Cliccando un file nella sidebar si apre un **visualizzatore** (modale) col contenuto reale
   letto dal repo sul branch corrente (`FileViewer`, riusa `fetchFile`). Numeri di riga, path + branch,
   chiusura con Esc/click fuori. Gestisce file binari (per estensione), mancanti e troncati (cap righe).
   Store: `openedFilePath`/`repoBranch` (transient) + `openRepoFile`/`closeRepoFile`.
 
 ### 2026-07-12 — Sidebar: file veri del repo (via GitHub) al posto dei finti 🗂️
+
 - **Changed** — La sezione "File" della sidebar non mostra più segnaposto hardcoded (dev.env, sams.yaml,
   architecture.spatial…) ma i **file reali del repo di lavoro**. Nuovo `GET /api/repo/tree` (Git Trees
   API, con fallback al default branch se `baseBranch` non esiste); client `buildFileTree` puro annida i
@@ -64,12 +78,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   di questa modifica (solo la sidebar).
 
 ### 2026-07-12 — Fix: gli agenti passano di nuovo le porte 🚪
+
 - **Fixed** — La separazione dura poteva cacciare un agente dentro un muro interno/stipite (clamp solo
   ai muri esterni) → restava incastrato e non attraversava le porte. Ora `resolveSeparation` (puro,
   `lib/worldsim`) non sposta mai in un ostacolo: prova la spinta piena, altrimenti scivola lungo il muro,
   altrimenti rinuncia e l'agente prosegue lungo il suo cammino. +6 test (incl. proprietà: mai nel muro).
 
 ### 2026-07-11 — Indicatori di vita puliti + separazione dura (niente sovrapposizioni) 🎨
+
 - **Changed** — Fame/caffè/schizzo/stretch non sono più emoji fluttuanti che collidevano col nome, ma
   un **indicatore inline** nell'etichetta dell'agente: icona vettoriale lucide nitida (Utensils/Coffee/
   Pencil/Dumbbell) in un chip con tinta semantica, accanto alla stella. La fame ha precedenza.
@@ -79,7 +95,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   sotto stress. Applicata in `Agent3D` solo quando la vista simula l'agente, clampata ai muri. +5 test.
 
 ### 2026-07-11 — Bisogni condivisi + smooth handover (opzione B3, 3° mattone) 🍽️
-- **Added** — Terzo mattone del *mondo animato condiviso* (opzione B3): oltre alla posizione, il canale
+
+- **Added** — Terzo mattone del _mondo animato condiviso_ (opzione B3): oltre alla posizione, il canale
   `worldsim` porta ora i **bisogni** (energy/hunger). I follower li **adottano** e ricalcolano l'umore,
   così barra energia, piattino "ho fame" e badge combaciano con la vista che guida (prima erano
   **congelati** sui follower, coi bridge di vita driver-gated). Additivo, effimero, retro-compatibile.
@@ -99,7 +116,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   255 → 257.
 
 ### 2026-07-10 — Movimento condiviso: il driver anima, i follower seguono (opzione B3) 🎞️
-- **Added** — Secondo mattone del *mondo animato condiviso* (opzione B3), dove sta il valore visibile:
+
+- **Added** — Secondo mattone del _mondo animato condiviso_ (opzione B3), dove sta il valore visibile:
   il **solo driver** spinge le **posizioni live** degli agenti e le altre viste le **adottano
   read-only** interpolando → tutti vedono lo stesso ufficio muoversi insieme. Canale **effimero su
   SSE** (niente DB), sulla scia dei cursori.
@@ -110,7 +128,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added (client)** — `src/lib/worldsim.ts` (puro: `pruneSim`/`ingestSim`/`iAmSimulator` + singleton
   `liveAgentPositions`). Store `remoteSim` (server-owned, non persistito) + `applyWorldSim`/`pruneSim`;
   `sendWorldSim` in `backend.ts`; `WorldSimBridge` (heartbeat ~3.5/s: il **driver** spinge la posizione
-  *live della mesh* — lo store committa solo all'arrivo). +8 test.
+  _live della mesh_ — lo store committa solo all'arrivo). +8 test.
 - **Changed** — I tre bridge di "vita" (`LifeBridge`/`HungerBridge`/`TalkBridge`) sono **driver-gated**:
   solo il simulatore fa vivere il mondo, i follower restano quieti. `Agent3D`: se un'altra vista guida,
   insegue `remoteSim[id]` (lettura ref-stabile, nessun re-render) invece del path locale e **non
@@ -121,7 +139,8 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   248 → 255.
 
 ### 2026-07-10 — Driver lease: eletta una sola vista "regista" del mondo (opzione B3) 🕹️
-- **Added** — Primo mattone del *mondo animato condiviso* (opzione B3): un **lease rinnovabile**
+
+- **Added** — Primo mattone del _mondo animato condiviso_ (opzione B3): un **lease rinnovabile**
   che elegge **una sola vista** come simulatore autorevole ("driver"). **Non sposta ancora il game
   loop** — stabilisce solo il coordinamento, quindi zero impatto sulla simulazione esistente.
 - **Added (server)** — `server/src/driver.ts` (puro: `claimDriver`/`releaseDriver`/`isLeaseValid`,
@@ -135,14 +154,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   così la UX in solitaria resta pulita.
 - **Note** — Verificato end-to-end: curl (titolo unico, negazione ai concorrenti, rinnovo, handover a
   scadenza, broadcast solo al cambio) e **due viste reali** (una "guidi tu", l'altra "guida Ospite").
-  Prossimo slice B3: instradare lo snapshot ricco (posizione/bisogni) *dal solo driver* → movimento
+  Prossimo slice B3: instradare lo snapshot ricco (posizione/bisogni) _dal solo driver_ → movimento
   condiviso. Server 241 → 248.
 
 ### 2026-07-10 — Presenza di selezione: vedi su cosa è focalizzato ogni altro 👁
+
 - **Added** — Gemella dei cursori live: ogni vista annuncia **quale agente ha selezionato** (o
   nessuno) e le altre lo mostrano con un'**aura pulsante colorata + etichetta 👁 nome** sull'agente.
-  Completa la consapevolezza collaborativa della frontiera #2 (cursori = *dove* punti, selezione =
-  *chi* guardi). Effimero, sullo stesso canale SSE, nessuna dipendenza nuova.
+  Completa la consapevolezza collaborativa della frontiera #2 (cursori = _dove_ punti, selezione =
+  _chi_ guardi). Effimero, sullo stesso canale SSE, nessuna dipendenza nuova.
 - **Added (server)** — `server/src/selections.ts` (puro `sanitizeSelection`; `agentId` vuoto = nessuna
   selezione) + `POST /api/selection` **gated `viewer`**, broadcast `selection` in `WireEvent` fuori da
   `recordEvent`, rate-limit per-vista. +5 test.
@@ -155,16 +175,18 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   resi sugli agenti giusti). Nessun impatto su verità del mondo/game loop. Client 453 → 458, server 236 → 241.
 
 ### 2026-07-10 — Playbook pronti: "Nuova guida" e "Fix guidato" 🤝
+
 - **Added** — Due nuovi modelli in `BUILTIN_PLAYBOOKS` (`src/lib/collaboration.ts`), pensati per un
   knowledge base di codice: **Nuova guida** (Architetto → Documentatore → Revisore → Tester) e
   **Fix guidato** (Generalist → Tester → Revisore). Compaiono come chip "Modelli" nel pannello
-  *Tavoli di collaborazione* (Live Sim → + Tavolo).
+  _Tavoli di collaborazione_ (Live Sim → + Tavolo).
 - **Note** — A differenza dei built-in preesistenti (ruoli generici dev/reviewer/qa/docs), questi
   usano i **nomi-ruolo reali del selettore** (Architetto/Documentatore/Revisore/Tester/Generalist)
   così `findRelayTarget` li aggancia **per ruolo esatto** agli agenti seed → le staffette partono
   senza rinominare nulla. Solo dati; suite `collaboration` invariata (31 test, nomi unici / ≥2 stadi).
 
 ### 2026-07-10 — Cursori live: le viste si vedono puntare nel mondo condiviso 👆
+
 - **Added** — Frontiera #2 ("il salto grosso" dei cursori live, in forma de-riscata sul
   **canale SSE esistente**, niente WebSocket nuovo). Ogni vista rimbalza la posizione del suo
   puntatore sul pavimento; le altre la disegnano in scena come anello+dot colorato (colore
@@ -185,6 +207,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   Client 446 → 453 test, server 230 → 236.
 
 ### 2026-07-10 — Lampade interne col ciclo giorno/notte 💡
+
 - **Added** — `src/lib/daylight.ts` (puro): `daynessAt(date)` (0 di notte → 1 a mezzogiorno,
   stessa curva del sole del `DayNightCycle`) e `lampGain(dayness, floor=0.12)` (piena di notte,
   al minimo a mezzogiorno). Singleton `daylight` scritto ogni frame dal `DayNightCycle`.
@@ -196,6 +219,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   browser (notte vs mezzogiorno). +6 test puri (`daylight.test.ts`).
 
 ### 2026-07-10 — Rifinitura grafica del diorama 3D ✨
+
 - **Added** — **Ombre morbide (PCSS)** nell'`OfficeScene` via `<SoftShadows>` di drei:
   il contatto resta nitido, i bordi si sfumano con la distanza → ombre molto più
   naturali di quelle dure a mappa singola. Nessuna nuova dipendenza (drei già presente).
@@ -210,6 +234,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   Bundle `OfficeScene` 82→90 kB (soft-shadow shader + sparkles). Suite invariata (440 test).
 
 ### 2026-07-09 — Config condivisa: model/instructions/repo/xp autorevoli 🧬
+
 - **Added** — Opzione B2 (SSOT incrementale a bassa frequenza): **model, instructions,
   repo, xp** ora sono autorevoli sul server e si propagano tra le viste, riusando il
   trasporto per-riga dell'opzione A. Colonne nuove su `world_agents` + ALTER idempotente
@@ -226,6 +251,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   (`reconcile`: adozione, no-azzeramento, xp monotono, materializzazione).
 
 ### 2026-07-09 — I viewer non spingono il mondo (niente 403 a vuoto) 🚫
+
 - **Changed** — `WorldSyncBridge` (`src/App.tsx`) non tenta più il `POST /api/world`
   quando il ruolo è **viewer** (`!canAssign(viewerRole)`): un viewer adotta lo stato via
   SSE/`fetchWorld` e basta, invece di prendere un 403 a ogni adozione (l'adozione cambia il
@@ -233,6 +259,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   come prima. Retro-compatibile.
 
 ### 2026-07-09 — Sync più silenzioso: le scritture no-op non fanno rumore 🤫
+
 - **Changed** — `saveWorldAgents` (`server/src/db.ts`) ora ritorna un flag `changed` e
   **bumpa la versione globale solo se qualcosa è cambiato** (create/update/tombstone).
   Il `POST /api/world` fa **broadcast solo quando `changed`**: un push no-op (una vista
@@ -243,6 +270,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — +1 test server (`db.test.ts`: changed/versione su no-op vs. cambiamento reale).
 
 ### 2026-07-09 — Identità condivisa: rename/ricolore si propagano 🎨
+
 - **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora adotta anche **nome,
   colore e ruolo** dal remoto per gli agenti **già presenti**, non solo alla creazione:
   un rename/ricolore/cambio-ruolo fatto in una vista si riflette nelle altre (lo scheletro
@@ -254,6 +282,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   stabilità del riferimento quando nulla cambia).
 
 ### 2026-07-09 — Cancellazione propagata: il delete degli agenti è sicuro 🪦
+
 - **Added** — Tabella `world_agents` per-riga (`server/src/db.ts`): una riga per agente
   con `rev` (versione per-agente) e `deleted_at` (tombstone), al posto del solo blob
   `world_snapshot` — che resta come contatore di versione globale (CAS). Migrazione
@@ -272,6 +301,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   migrazione), +1 (`worldState.test.ts`), +4 puri e +1 di store lato client.
 
 ### 2026-07-08 — Scheletro condiviso: gli agenti creati altrove compaiono 👥
+
 - **Changed** — `reconcileAgents` (`src/lib/reconcile.ts`) ora **crea** gli agenti
   presenti solo nello scheletro autorevole del server, adottandone identità
   (id/nome/colore/ruolo) e stato/task; i campi ricchi (posizione, energia, umore, xp)
@@ -285,12 +315,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — +4 test puri (`reconcile.test.ts`) e +1 di store (`useStore.test.ts`).
 
 ### 2026-07-08 — Sola lettura per i viewer: Live Sim e Routine 👁
+
 - **Changed** — `LiveSimPanel`: avvio/stop della Live Sim disabilitato ai viewer
   (con avviso quando il runtime è pronto ma il ruolo no).
 - **Changed** — `Routines`: aggiunta, attiva/disattiva ed elimina disabilitate ai
   viewer. Coerente con le guardie server-side (`/api/sim/*`, `/api/routines*` → editor).
 
 ### 2026-07-08 — Sola lettura coerente per i viewer 👁
+
 - **Changed** — `ScmView`: i pulsanti Approva/Rifiuta compaiono solo per editor/owner;
   un viewer vede un avviso "sola lettura" al loro posto.
 - **Changed** — `ChatPanel`: input e invio disabilitati ai viewer (placeholder-hint);
@@ -299,6 +331,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — test di rendering (RTL) del gating di `ScmView` (owner vs viewer). +2 test.
 
 ### 2026-07-08 — Attribuzione per-utente nel log del runtime 🕵️
+
 - **Added** — `server/src/attribution.ts` (puro): `sanitizeActor` (nome dichiarato
   dal client, input non fidato → niente caratteri di controllo, cap 40) e
   `actorLabel(role, name)` → `"Marco (editor)"` / `"editor"`. +4 test.
@@ -309,6 +342,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   il nome della vista (`chatName` o "Ospite"). Retro-compat: assente → solo ruolo.
 
 ### 2026-07-08 — La UI si adatta al ruolo (owner/editor/viewer) 👑
+
 - **Added** — `src/lib/roleUi.ts` (puro): `normalizeRole` (fallback owner in
   dev-aperto), `roleAtLeast`, `canAssign` (editor+), `canConfigure` (owner),
   `roleMeta` (badge). +5 test.
@@ -320,6 +354,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   Impostazioni nascosto ai non-owner. Retro-compat: dev-aperto = owner, UI identica.
 
 ### 2026-07-07 — Tavoli: esporta/importa un protocollo 📋
+
 - **Added** — `exportPlaybook(p)` / `importPlaybook(json)` (puri): un tavolo si
   serializza in JSON condivisibile (senza id locale) e si reimporta passando per
   `sanitizePlaybookInput` (input malformato/senza stadi → `null`). +4 test.
@@ -328,6 +363,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   condividere protocolli di collaborazione tra workspace.
 
 ### 2026-07-07 — Tavoli: contributori e retrospettiva di fine corsa 🤝
+
 - **Added** — `PlaybookRun.contributors`: i nomi degli agenti che chiudono uno
   stadio si accumulano nella run (deduplicati, immutabile via `addContributor`).
 - **Added** — `runRetrospective(run, now)` + `formatDuration(ms)` (puri): a fine
@@ -338,6 +374,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — la card della run mostra i contributori man mano che avanza.
 
 ### 2026-07-07 — Task urgenti che saltano la coda ⚡
+
 - **Added** — `enqueueOrdered(queue, task)` (puro, `lib/orchestration`): un task
   `urgent` si inserisce davanti a quelli normali (FIFO tra gli urgenti), un task
   normale va in fondo. La coda si consuma sempre dall'indice 0, quindi basta
@@ -348,10 +385,11 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   quando l'agente è occupato → si accoda) e chip ⚡ sugli item urgenti in coda.
 
 ### 2026-07-07 — Notifiche desktop rifinite (opt-in, solo a scheda nascosta) 🔔
+
 - **Added** — `src/lib/notify.ts` (puro): `shouldNotify` (avvisa su `SUCCESS`/`ERROR`
   e sui `WARN` che chiedono attenzione — approvazioni/blocchi), `notificationTitle`,
   `notificationBody` (troncato). +8 test.
-- **Changed** — il `NotificationBridge` non è più *sempre attivo* e non chiede più il
+- **Changed** — il `NotificationBridge` non è più _sempre attivo_ e non chiede più il
   permesso da solo al primo completamento: ora è **opt-in** (flag `desktopNotifications`
   **persistito**), notifica **solo quando la scheda è in secondo piano** (`document.hidden`)
   e copre **più eventi** (completamenti, milestone, errori, richieste di approvazione),
@@ -364,9 +402,10 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   ora scelto esplicitamente dall'utente.
 
 ### 2026-07-07 — Protocolli di collaborazione (tavoli multi-agente) 🤝
+
 - **Added** — `src/lib/collaboration.ts` (puro): `Playbook` come sequenza ordinata
-  di stadi `ruolo→titolo` (`{goal}` come segnaposto) e `PlaybookRun` come *stato
-  condiviso* del tavolo (con `stageIndex`). `startRun`/`advanceRun` (immutabili,
+  di stadi `ruolo→titolo` (`{goal}` come segnaposto) e `PlaybookRun` come _stato
+  condiviso_ del tavolo (con `stageIndex`). `startRun`/`advanceRun` (immutabili,
   idempotenti a fine corsa), `runMatching` (aggancia lo stadio corrente a un task
   completato per titolo espanso + ruolo), `runProgress`/`runLabel`/`playbookSummary`,
   `sanitizePlaybookInput` (scarta stadi vuoti, cappa a 8 stadi). +19 test.
@@ -387,12 +426,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   playbook è una **pipeline bounded** con inizio, fine e avanzamento visibile.
 
 ### 2026-07-07 — Fix: dialoghi e simboli degli agenti visibili nel garden 🩹
+
 - **Fixed** — `Agent3D`: il Commit Garden è un overlay a schermo intero, ma le
   `<Html>` degli agenti (bolle di dialogo, ☕/✏️/🍽️/zzz, etichetta nome, tooltip,
   menu radiale) sono portali DOM con z-index alto che "bucavano" l'overlay e
   restavano visibili sopra il giardino. Ora sono soppresse quando `gardenOpen`.
 
 ### 2026-07-07 — Tema della stanza (personalizzazione dell'ufficio) 🎨
+
 - **Added** — `src/lib/roomThemes.ts` (puro): 5 palette della stanza (pareti,
   boiserie, base pedana, modanature, battiscopa) + `getRoomTheme` con fallback al
   default; "warm" riproduce l'aspetto storico. +5 test.
@@ -402,6 +443,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Added** — palette comandi: voci "Stanza: … " per scegliere il tema (✓ sull'attivo).
 
 ### 2026-07-07 — Multi-repo per-task ⑂
+
 - **Added** — `resolveTaskRepo(agent, taskRepo)` (puro, `lib/metaAgent`): override
   del repository per singolo task (`owner/repo` valido) che vince su `metaRepo`;
   fallback alla risoluzione per-agente. +3 test.
@@ -412,6 +454,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   coda con override. Il server già accettava l'override per-task.
 
 ### 2026-07-07 — Voto di qualità pre-PR sulle modifiche in staging ⚑
+
 - **Added** — `src/lib/quality.ts` (puro): `gradeChanges` valuta i `PendingFile`
   con euristiche locali (codice senza test, messaggi di commit mancanti, residui di
   debug TODO/FIXME/console.log/debugger, file >400 righe, scope >8 file; note
@@ -421,6 +464,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   col dettaglio dei motivi nel tooltip, come segnale prima di "Approva e committa".
 
 ### 2026-07-07 — Preset ruolo/modello per-agente (salvati e persistiti) 💾
+
 - **Added** — `src/lib/agentPresets.ts` (puro): `addPreset` (dedup per nome
   case-insensitive + cap a `MAX_PRESETS`, più recente in testa) e `removePreset`,
   immutabili. Un preset **è** un `AgentTemplate`. +6 test.
@@ -431,6 +475,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   preset" (click per applicare a qualsiasi agente, ✕ per rimuovere).
 
 ### 2026-07-07 — Oggetti interagibili dell'utente 🖱️
+
 - **Added** — `src/lib/interactions.ts` (puro): `coffeeBreak` (sazia gli agenti
   affamati) e `officeClockChime` (ora + fase della giornata). +6 test.
 - **Added** — `OfficeScene`: componente `Interactable` (hotspot cliccabile con
@@ -441,15 +486,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   rendono le interazioni della stanza raggiungibili anche senza l'hotspot 3D.
 
 ### 2026-07-07 — Stagioni/meteo nella casa ❄️
+
 - **Added** — `src/lib/weather.ts` (puro): `seasonOf`/`getWeather` — stagione
   meteorologica dal mese → precipitazione (neve/pioggia/petali/sereno), colore
   particelle e tinta di luce sottile. +6 test.
-- **Added** — `OfficeScene`: il `DayNightCycle` inclina *di poco* il fondale verso
+- **Added** — `OfficeScene`: il `DayNightCycle` inclina _di poco_ il fondale verso
   la tinta stagionale (solo di giorno); `Weather`/`WeatherCurtain` — due cortine di
   particelle oltre i vetri, geometria e caduta per tipo, riciclate a terra.
   Complementare a `seasonalEvents.ts` (ricorrenze festive del garden).
 
 ### 2026-07-07 — Umano→agente dalla chat (con conferma esplicita) ⚡
+
 - **Added** — `src/lib/chatCommands.ts` (puro): `parseTaskCommand`/`isTaskCommand`
   per `/task [@agente] <titolo>` — `@` obbligatorio per targettizzare (un titolo con
   `:` non è ambiguo), case-insensitive, clamp di agente/titolo. +8 test.
@@ -459,6 +506,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   inesistente/occupato, nessun libero, runtime non pronto.
 
 ### 2026-07-07 — Presence con nomi + canale bidirezionale 👤
+
 - **Added** — `server/src/presence.ts` (puro): `sanitizeObserverIdentity`,
   `distinctPeople` (deduplica per id, ordine stabile), `presenceState`. +9 test.
 - **Changed** — `clients` da `Set<Response>` a `Map<Response,Observer>`;
@@ -472,7 +520,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   `announcePresence`; store slice `people`; `presenceTooltip`/`sanitizePeople` in
   `lib/presence.ts` (+7 test); `StatusBar` elenca i nomi nel tooltip del badge 👁;
   `ChatPanel` annuncia il nome sul blur.
-- **Added** — roster presence in cima al `ChatPanel`: mostra live *chi* sta
+- **Added** — roster presence in cima al `ChatPanel`: mostra live _chi_ sta
   guardando (chip con i nomi) e `watchingLabel` per il conteggio delle persone
   distinte (fallback alle viste). +3 test.
 - _Verifica_: end-to-end sul runtime — 2 viste con nomi (`Ada`, `Bob`) + una
@@ -480,15 +528,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   propagato via SSE (`changed:1`).
 
 ### 2026-07-06 — Osservabilità del workspace condiviso 📈
+
 - **Added** — `metrics.ts`: contatori `chatMessages` (cumulativo) e `peakClients`
   (picco di viste connesse simultaneamente), esposti in `/api/metrics`;
   `recordChatMessage`/`recordClients`. +3 test.
 - **Added** — log strutturati "Vista connessa/disconnessa" con il numero di viste.
 - **Added** — `SystemOverview` mostra 👁 viste correnti·picco quando ci sono viste.
 - _Verifica_: end-to-end — 2 viste + 2 messaggi → `clients:2, chatMessages:2,
-  peakClients:2`; dopo la disconnessione `clients:0` ma il picco resta.
+peakClients:2`; dopo la disconnessione `clients:0` ma il picco resta.
 
 ### 2026-07-06 — Rate-limit sulla chat 🚦 (workspace condiviso)
+
 - **Added** — `server/src/rateLimit.ts` (puro): `createRateLimiter(max, windowMs)`
   a finestra scorrevole con `now` iniettabile (`hit`/`retryAfterMs`), memoria per
   chiave limitata a `max`. +5 test.
@@ -498,12 +548,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - _Verifica_: end-to-end — 10 POST → 200, dall'11° → 429 "riprova tra 29s".
 
 ### 2026-07-06 — Presence anche nella dashboard pubblica 👁
+
 - **Added** — `buildPublicSnapshot` include `viewers` (clamp a intero ≥ 0) e
   `/api/public` passa `clients.size`; la `PublicDashboard` mostra "N stanno
   guardando" accanto allo stato runtime. +1 test.
 - _Verifica_: end-to-end sul runtime reale — `viewers` 0 → 2 (due stream SSE) → 0.
 
 ### 2026-07-06 — Chat: badge messaggi non letti 🔴 (frontiera #2)
+
 - **Added** — `src/lib/chat.ts` (puro): `countsAsUnread` (non conta i propri
   messaggi né quando la chat è attiva) e `unreadBadge` (cap "9+"). +7 test.
 - **Added** — store: campo transiente `chatUnread`, incrementato in `applyRemote`
@@ -513,6 +565,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - _Test_: client 258 → 265.
 
 ### 2026-07-06 — Chat di workspace 💬 (frontiera #2)
+
 - **Added** — `server/src/chat.ts` (puro): `sanitizeChatInput` (autore con
   fallback "Ospite", testo con trim/clamp). +4 test.
 - **Added** — persistenza SQLite: tabella `chat_messages` + `listChatMessages`/
@@ -528,6 +581,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   `chat` ricevuto + persistenza confermata; `POST` vuoto → 400.
 
 ### 2026-07-06 — Presence: osservatori connessi 👁 (frontiera #2, primo slice)
+
 - **Added** — `src/lib/presence.ts` (puro): `sanitizeObservers`, `observerLabel`,
   `observerBadge`, `isShared` per il badge presence. +9 test.
 - **Added** — il runtime rimbalza via SSE quante viste sono collegate:
@@ -542,6 +596,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - _Test_: client 246 → 258.
 
 ### 2026-07-05 — Roadmap 4: avvio (fondazione + prodotto) 🚀
+
 - **Added** — multi-repo per-agente: campo `Agent.repo` + override in `metaRepo`
   (`isValidRepo`) e sezione "Repository" nell'inspector; i task dell'agente
   lavorano sul repo scelto.
@@ -565,9 +620,10 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - _Test_: client 236 → 246, server 163 → 173.
 
 ### 2026-07-05 — PWA: SAMS diventa una web app installabile 📲
+
 - **Added** — `public/manifest.webmanifest`: manifest PWA (name/short_name,
   `display: standalone`, theme/background color, 5 icone 192/512 in versione
-  *any* e *maskable*).
+  _any_ e _maskable_).
 - **Added** — `public/sw.js`: service worker che rende l'app **offline-capable**
   (network-first sul guscio SPA, stale-while-revalidate sugli asset). **Non
   intercetta mai** `/api/**` (lo stream SSE `/api/events`), `/u/**` né richieste
@@ -584,6 +640,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   manifest `application/manifest+json`, `sw.js`, icone e index tutti `200`.
 
 ### 2026-07-05 — Trigger temporali / routine ⏰ (frontiera #1 completa)
+
 - **Added** — `server/src/routines.ts` (puro): una `Routine` in modalità
   `interval` (ogni N min) o `daily` (a HH:MM locale); `sanitizeRoutine`,
   `isDue`, `nextRun`, `dueRoutines`, `describeSchedule`. +11 test.
@@ -600,6 +657,7 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - _Test_: server 149 → 163.
 
 ### 2026-07-05 — Reazioni a catena ⛓ (pipeline dichiarative)
+
 - **Added** — `src/lib/chains.ts` (puro): una `ChainRule`
   (`when`/`fromRole`/`target`/`title`/`branch`/`enabled`) automatizza la
   staffetta; `ruleMatches` (filtri + guardia anti-loop diretto), `matchingChains`,

@@ -197,8 +197,12 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       il client (`authHeaders` in `lib/backend`) allega `Authorization: Bearer <token>` a tutte le
       richieste → una persona loggata governa anche `/app` col proprio ruolo. Verificato end-to-end
       (viewer→403 su assign/settings, owner passa; whoami riflette il ruolo). 2° doc di decisione su
-      Drive. _Resta:_ **gestione password** (reset/verifica email → serve un canale email), inviti/
-      promozione ruoli dalla UI owner, ed eventuale cookie httpOnly (difesa XSS).
+      Drive. _Fatto (gestione utenti owner):_ `GET /api/auth/users` + `POST /api/auth/users/role`
+      (solo owner) + `listUsers`/`countOwners`/`setUserRole` in `db.ts`; l'**ultimo owner non può
+      declassarsi** (409). UI: `UsersAdmin` nella Profile (solo owner) con selettore ruolo per utente
+      (self disabilitato). Così i ruoli sono davvero usabili in team (senza, dopo il primo restano tutti
+      viewer). Verificato end-to-end (curl: list/promote/400/404/409/403) + db test + 3 RTL. _Resta:_
+      **gestione password** (reset/verifica email → serve un canale email) ed eventuale cookie httpOnly.
       _Portato qui da ROADMAP5 ("mock prima, auth reale in roadmap4")._
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
@@ -319,6 +323,21 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-14 (b) — gestione utenti per l'owner: i ruoli diventano usabili in team
+Continuando, chiuso il gap che rendeva i ruoli **inerti**: dopo il primo utente (owner) tutti gli altri
+restavano viewer per sempre, senza modo di promuoverli. Ora l'owner gestisce gli account.
+- **Server**: `db.ts` (`listUsers` senza hash, `countOwners`, `setUserRole`) + endpoint owner-only
+  `GET /api/auth/users` e `POST /api/auth/users/role`. Guardia di sicurezza: l'**ultimo owner non può
+  declassarsi** (409, non lasciare il workspace senza owner). Validazione ruolo (400), utente assente (404).
+- **Client**: `src/site/components/UsersAdmin.tsx` (fetch + selettore ruolo per riga, self disabilitato,
+  ripristino su errore) montato nella `Profile` solo se `role === owner`. `fetchUsers`/`setUserRoleRemote`
+  in `lib/backend`.
+- **Verifica end-to-end (curl, :8792)**: list owner-only (viewer→403), promozione viewer→editor,
+  ruolo invalido→400, assente→404, ultimo-owner→409, editor-promosso non lista→403. +2 db test + 3 RTL.
+  typecheck/lint verdi.
+- **Scelta**: canonica (owner-only, protezione ultimo owner) → nessun fork da documentare separatamente;
+  è il completamento naturale dell'auth (i due doc auth su Drive restano il riferimento).
 
 ### 2026-07-14 — la sessione utente governa i ruoli della workspace (frontiera #3)
 Continuando dopo l'auth reale, chiuso il follow-up §5.1 del suo doc: **unificare identità e ruoli**.

@@ -525,6 +525,23 @@ export function getUserById(db: DatabaseSync, id: string): User | null {
   return rowToUser(db.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as Record<string, unknown> | undefined);
 }
 
+/** Tutti gli utenti (senza hash), più vecchi prima. Per la gestione ruoli dell'owner. */
+export function listUsers(db: DatabaseSync): Array<{ email: string; name: string; role: Role; createdAt: number }> {
+  return (
+    db.prepare(`SELECT email, name, role, created_at FROM users ORDER BY created_at ASC`).all() as Record<string, unknown>[]
+  ).map((r) => ({ email: String(r.email), name: String(r.name), role: String(r.role) as Role, createdAt: Number(r.created_at) }));
+}
+
+/** Quanti owner esistono (per non lasciare il workspace senza owner). */
+export function countOwners(db: DatabaseSync): number {
+  return Number((db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'owner'`).get() as { n: number }).n);
+}
+
+/** Cambia il ruolo di un utente (per email). Ritorna true se una riga è stata aggiornata. */
+export function setUserRole(db: DatabaseSync, email: string, role: Role): boolean {
+  return Number(db.prepare(`UPDATE users SET role = ? WHERE email = ?`).run(role, email).changes) > 0;
+}
+
 /** Crea una sessione (token → utente) con scadenza. */
 export function createAuthSession(db: DatabaseSync, token: string, userId: string, expiresAt: number): void {
   db.prepare(

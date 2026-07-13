@@ -18,7 +18,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, taskStats } from "./db";
+import { clearMemory, countOwners, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, setUserRole, taskStats } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
@@ -253,6 +253,30 @@ app.get("/api/auth/me", (req: Request, res: Response) => {
   const user = getSessionUser(db(), bearerToken(req.headers.authorization));
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
   res.json({ user: publicUser(user) });
+});
+
+// Gestione utenti (solo owner): elenca gli account e cambia i ruoli. Serve a rendere
+// utilizzabili i ruoli in un team — senza, dopo il primo utente restano tutti viewer.
+app.get("/api/auth/users", requireRole("owner"), (_req: Request, res: Response) => {
+  res.json({ users: listUsers(db()) });
+});
+
+app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
+  const email = normalizeEmail(body.email);
+  const role = body.role;
+  if (role !== "owner" && role !== "editor" && role !== "viewer") { res.status(400).json({ error: "Ruolo non valido" }); return; }
+  const database = db();
+  const target = getUserByEmail(database, email);
+  if (!target) { res.status(404).json({ error: "Utente non trovato" }); return; }
+  // Non lasciare mai il workspace senza owner: l'ultimo owner non può declassarsi.
+  if (target.role === "owner" && role !== "owner" && countOwners(database) <= 1) {
+    res.status(409).json({ error: "Non puoi declassare l'ultimo owner" });
+    return;
+  }
+  setUserRole(database, email, role);
+  log.info("Ruolo utente aggiornato", { email, role });
+  res.json({ user: { email: target.email, name: target.name, role } });
 });
 
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */

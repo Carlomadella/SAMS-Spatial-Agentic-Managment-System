@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   clearMemory,
+  countOwners,
   countUsers,
   createAuthSession,
   createUser,
@@ -12,7 +13,9 @@ import {
   getSessionUser,
   getUserByEmail,
   getUserById,
+  listUsers,
   pruneAuthSessions,
+  setUserRole,
   getMemory,
   insertChatMessage,
   insertRoutine,
@@ -401,5 +404,30 @@ describe("auth: utenti + sessioni", () => {
     createAuthSession(d, "tok2", "u9", 9999999999999);
     deleteAuthSession(d, "tok2");
     expect(getSessionUser(d, "tok2")).toBeNull();
+  });
+});
+
+describe("auth: gestione utenti (owner)", () => {
+  const freshDb = () => openDb(":memory:");
+  const mk = (email: string, role: import("./roles").Role): import("./auth").User => ({
+    id: email, email, name: email.split("@")[0], passHash: "s:h", role, createdAt: 1000,
+  });
+
+  it("listUsers elenca senza hash, più vecchi prima; countOwners conta gli owner", () => {
+    const d = freshDb();
+    createUser(d, mk("o@x.co", "owner"));
+    createUser(d, mk("v@x.co", "viewer"));
+    const list = listUsers(d);
+    expect(list.map((u) => u.email)).toEqual(["o@x.co", "v@x.co"]);
+    expect((list[0] as Record<string, unknown>).passHash).toBeUndefined();
+    expect(countOwners(d)).toBe(1);
+  });
+
+  it("setUserRole cambia il ruolo; ritorna false per email assente", () => {
+    const d = freshDb();
+    createUser(d, mk("v@x.co", "viewer"));
+    expect(setUserRole(d, "v@x.co", "editor")).toBe(true);
+    expect(getUserByEmail(d, "v@x.co")?.role).toBe("editor");
+    expect(setUserRole(d, "nope@x.co", "owner")).toBe(false);
   });
 });

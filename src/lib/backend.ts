@@ -224,6 +224,44 @@ export async function fetchWhoami(): Promise<WhoAmI> {
   }
 }
 
+/** Un account come lo vede l'owner nella gestione utenti. */
+export interface ManagedUser {
+  email: string;
+  name: string;
+  role: ViewerRole;
+  createdAt: number;
+}
+
+/** Elenca gli utenti (solo owner). Vuoto se non autorizzato o irraggiungibile. */
+export async function fetchUsers(): Promise<ManagedUser[]> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/users`, { headers: authHeaders(false) });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { users?: ManagedUser[] };
+    return body.users ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Cambia il ruolo di un utente (solo owner). */
+export async function setUserRoleRemote(email: string, role: ViewerRole): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/users/role`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email, role }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Aggiornamento non riuscito" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
 /** Fetch status and reflect `ready` into the store (drives the banner). */
 export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
   const st = await fetchStatus();
