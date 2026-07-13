@@ -86,6 +86,22 @@ describe("separationPush", () => {
     expect(separationPush([0, 0], others([["b", [0.4, 0]]]), "a", 1.6, (id) => id === "b")).toEqual([0, 0]);
   });
 
+  it("agenti esattamente sovrapposti si separano comunque, in versi opposti", () => {
+    // due agenti sullo stesso identico punto-zona: la direzione è indefinita, ma
+    // l'asse deterministico li separa (magnitudo ~ metà di minSep) senza vibrare.
+    const a = separationPush([0, 0], others([["b", [0, 0]]]), "a", 1.6);
+    const b = separationPush([0, 0], others([["a", [0, 0]]]), "b", 1.6);
+    expect(Math.hypot(a[0], a[1])).toBeGreaterThan(0.5);
+    // versi opposti → la somma delle due spinte si annulla
+    expect(Math.hypot(a[0] + b[0], a[1] + b[1])).toBeLessThan(1e-9);
+  });
+
+  it("la separazione da sovrapposti è stabile (stessa direzione a ogni chiamata)", () => {
+    const first = separationPush([0, 0], others([["b", [0, 0]]]), "a", 1.6);
+    const second = separationPush([0, 0], others([["b", [0, 0]]]), "a", 1.6);
+    expect(first).toEqual(second);
+  });
+
   it("con più vicini, spinge solo via da quelli fermi", () => {
     // 'b' (fermo, a +x) spinge; 'c' (in movimento, a +z) viene saltato
     const [px, pz] = separationPush(
