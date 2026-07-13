@@ -182,13 +182,19 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 📦 Prodotto & distribuzione (frontiera #3)
 
-- [ ] 🔜 🔴 **Auth reale** — oggi il login del sito di benvenuto è **mock** (`src/site/auth/
-      AuthContext.tsx`: qualunque email valida "accede", stato in `localStorage`, nessun backend;
-      un banner lo dichiara). Il contratto `user/login/logout` è pensato per essere rimpiazzato
-      **senza toccare la UI**. Serve: registrazione/login veri (email+password o OAuth), sessioni
-      server-side, e legare l'identità utente ai **ruoli/token** già esistenti (owner/editor/viewer,
-      `server/src/roles.ts`) al posto dei token statici via env. È un pezzo di backend a sé
-      (schema utenti, hashing, sessioni/JWT, reset password) → da pianificare, non uno slice.
+- [ ] 🏗️ 🔴 **Auth reale** — _Fatto (server + sito):_ account veri al posto del login mock.
+      `server/src/auth.ts` (puro/crypto: `hashPassword`/`verifyPassword` con **scrypt** di
+      `node:crypto` a tempo costante, `newSessionToken`, validazione email/password/nome) +
+      tabelle SQLite `users`/`auth_sessions` (`db.ts`, TTL 30gg + prune) + endpoint
+      `POST /api/auth/{register,login,logout}` e `GET /api/auth/me`. Sessione via **bearer
+      token opaco** (non cookie → dev multi-porta e prod same-origin identici; si innesta sui
+      ruoli), rate-limit 12/5min, hash civetta anti-enumeration, **primo utente = owner**. Client:
+      `AuthContext` riscritto (login/register/logout async + ripristino via `/me`), `Login` con
+      password reale + errori, `Profile` mostra il ruolo. Verificato end-to-end (curl) + 40 test
+      server + 6 RTL client. **Doc di decisione su Drive** (problema/soluzione/alternative:
+      OAuth, magic-link, JWT, cookie). _Resta:_ **integrazione ruoli ↔ workspace** (una sessione
+      utente valida risolve il ruolo in `roleOf`, oggi ancora da token env), **gestione password**
+      (reset/verifica email → serve un canale email) e onboarding/inviti owner.
       _Portato qui da ROADMAP5 ("mock prima, auth reale in roadmap4")._
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
@@ -309,6 +315,30 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-13 (b) — auth reale: account veri al posto del login mock (frontiera #3)
+Su "committa e pusha, poi continua la roadmap fino al 90% del limite; per le scelte importanti
+scegli la soluzione migliore e crea un doc sul Drive con problema/soluzione/alternative": committati
+e pushati hero + drag mobili (`9b9e36b`, `b1b1f48`), poi imboccato il residuo più concreto e
+self-contained di R4 — l'**auth reale** (l'altro residuo, B1/B4, resta un progetto gated sul §7).
+- **Scelta (doc su Drive)**: email+password con **sessioni opache bearer** in SQLite, hashing
+  **scrypt** di `node:crypto` (zero dipendenze nuove). Bearer e non cookie perché funziona identico
+  in dev (porte diverse) e prod (same-origin) e si innesta sul meccanismo a token dei ruoli.
+  Alternative valutate e scartate: OAuth (dep+secret), magic-link (serve email), JWT stateless
+  (revoca difficile), cookie httpOnly (attrito CORS cross-origin). Doc:
+  https://docs.google.com/document/d/1r593ngj3j52EbmQC9loLnPRt415pydmTwAHsaOk3xvo
+- **Server** (`auth.ts` puro + `db.ts` + `server.ts`): tabelle `users`/`auth_sessions` (TTL 30gg +
+  prune), endpoint register/login/logout/me, rate-limit 12/5min, hash civetta anti-enumeration,
+  primo utente = owner. CORS esteso ad `Authorization`. **Verificato end-to-end via curl** (server
+  di test su :8790, cwd temp per DB fresco): tutti i casi (owner/viewer, 409/401, logout invalida).
+- **Client**: `AuthContext` riscritto (async + ripristino sessione via `/me`, token in
+  `localStorage`), `Login` con password reale + errori + busy, `Profile` mostra il ruolo. `BASE`
+  esportato da `lib/backend`. Verificato con **6 test RTL** (fetch mockato).
+- **Verifica**: server 230→270 test (+40: auth core + db), client 510→516 (+6 RTL); typecheck/lint/
+  build tutti verdi.
+- **Prossimo (follow-up nel doc)**: integrazione ruoli ↔ workspace (una sessione risolve il ruolo in
+  `roleOf`), gestione password (reset/verifica → canale email), inviti/onboarding owner. E resta il
+  progetto grosso B1/B4 (game loop autorevole).
 
 ### 2026-07-13 — drag libero dei mobili + chiusura del residuo sicuro di R4
 Su "continua la task precedente, poi finisci la roadmap4": prima chiusa la task in sospeso del

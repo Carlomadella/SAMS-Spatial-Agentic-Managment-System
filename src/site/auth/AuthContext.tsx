@@ -1,66 +1,143 @@
-// Auth *mock* per il sito (Roadmap 5): nessun backend, solo uno stato utente
-// persistito in localStorage così "Accedi/Profilo" e le route protette funzionano
-// end-to-end. L'auth reale è rimandata alla Roadmap 4 (vedi ROADMAP5.md) — questo
-// contratto (user/login/logout) è pensato per essere rimpiazzato senza toccare la UI.
+// Auth del sito (Roadmap 4, frontiera #3) — ora **reale**: account veri sul runtime
+// (users/sessions in SQLite, hashing scrypt) al posto del mock in localStorage. Il
+// client conserva solo il **token di sessione** (bearer) e ricava l'utente da
+// `GET /api/auth/me`; login/register/logout parlano con `/api/auth/*`. Il contratto
+// (user/login/register/logout) è pensato per non toccare la UI.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { BASE } from "../../lib/backend";
 import { useNavigate } from "../router";
+
+export type SiteRole = "owner" | "editor" | "viewer";
 
 export interface SiteUser {
   name: string;
   email: string;
+  role: SiteRole;
+}
+
+export interface AuthResult {
+  ok: boolean;
+  error?: string;
 }
 
 interface AuthValue {
   user: SiteUser | null;
-  login: (email: string, name?: string) => void;
-  logout: () => void;
+  /** true finché il primo `GET /me` (ripristino sessione) non è concluso. */
+  loading: boolean;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (email: string, password: string, name?: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
-const STORAGE_KEY = "sams.site.auth";
+const TOKEN_KEY = "sams.site.token";
 
-/** Deriva un nome leggibile dalla parte locale dell'email (mock). */
-function nameFromEmail(email: string): string {
-  const local = email.split("@")[0] || "utente";
-  return local.charAt(0).toUpperCase() + local.slice(1);
+function readToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
-function readStored(): SiteUser | null {
+function writeToken(token: string): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const u = JSON.parse(raw);
-    if (u && typeof u.email === "string") return { name: String(u.name ?? nameFromEmail(u.email)), email: u.email };
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
   } catch {
-    /* localStorage non disponibile o JSON rotto → nessun utente */
+    /* localStorage non disponibile → sessione solo in memoria */
   }
-  return null;
+}
+
+/** Estrae il messaggio d'errore dal corpo JSON di una risposta non-ok. */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: string };
+    return body.error || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SiteUser | null>(readStored);
+  const [user, setUser] = useState<SiteUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((email: string, name?: string) => {
-    const u: SiteUser = { email: email.trim(), name: (name?.trim() || nameFromEmail(email)) };
-    setUser(u);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    } catch {
-      /* ignore */
+  // Ripristino sessione all'avvio: se c'è un token, chiedi chi sono.
+  useEffect(() => {
+    const token = readToken();
+    if (!token) {
+      setLoading(false);
+      return;
     }
+    let alive = true;
+    void fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (res) => {
+        if (!alive) return;
+        if (res.ok) {
+          const body = (await res.json()) as { user: SiteUser };
+          setUser(body.user);
+        } else {
+          writeToken(""); // token scaduto/invalido
+        }
+      })
+      .catch(() => {
+        /* runtime irraggiungibile → resta sloggato, il token si ritenta al prossimo avvio */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const logout = useCallback(() => {
+  const authenticate = useCallback(
+    async (path: "login" | "register", payload: Record<string, string>): Promise<AuthResult> => {
+      let res: Response;
+      try {
+        res = await fetch(`${BASE}/api/auth/${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        return { ok: false, error: "Runtime non raggiungibile — avvia il server con npm start." };
+      }
+      if (!res.ok) return { ok: false, error: await errorMessage(res, "Accesso non riuscito") };
+      const body = (await res.json()) as { token: string; user: SiteUser };
+      writeToken(body.token);
+      setUser(body.user);
+      return { ok: true };
+    },
+    [],
+  );
+
+  const login = useCallback(
+    (email: string, password: string) => authenticate("login", { email, password }),
+    [authenticate],
+  );
+
+  const register = useCallback(
+    (email: string, password: string, name?: string) =>
+      authenticate("register", { email, password, ...(name ? { name } : {}) }),
+    [authenticate],
+  );
+
+  const logout = useCallback(async () => {
+    const token = readToken();
+    writeToken("");
     setUser(null);
+    if (!token) return;
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      await fetch(`${BASE}/api/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
     } catch {
-      /* ignore */
+      /* la sessione locale è già chiusa; quella server scadrà da sola */
     }
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
+  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
@@ -71,16 +148,16 @@ export function useAuth(): AuthValue {
 }
 
 /**
- * Guardia di route: se non c'è un utente, reindirizza a /login (replace, così il back
- * non rimbalza sulla pagina protetta). Finché il redirect non è avvenuto non renderizza
- * nulla. Usata per /profilo; pronta per qualunque pagina riservata futura.
+ * Guardia di route: se non c'è un utente (e non stiamo ancora ripristinando la
+ * sessione), reindirizza a /login. Durante il caricamento non renderizza nulla —
+ * evita un rimbalzo su /login mentre `GET /me` è in corso.
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    if (!user) navigate("/login", { replace: true });
-  }, [user, navigate]);
-  if (!user) return null;
+    if (!loading && !user) navigate("/login", { replace: true });
+  }, [user, loading, navigate]);
+  if (loading || !user) return null;
   return <>{children}</>;
 }

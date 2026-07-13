@@ -1,35 +1,48 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Info } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Container } from "../components/Container";
 import { Logo } from "../components/Logo";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
 
 /**
- * Pagina di accesso/registrazione — auth *mock* (Roadmap 5): qualunque email valida
- * "accede" e reindirizza alla stanza. Nessuna password verificata, nessun backend;
- * l'auth reale arriverà con la Roadmap 4. Un banner lo dichiara esplicitamente.
+ * Pagina di accesso/registrazione — auth **reale** (Roadmap 4): account veri sul
+ * runtime (email+password, hashing scrypt, sessione via bearer token). Su successo
+ * reindirizza alla stanza. Il primo account registrato diventa owner.
  */
 export function Login() {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: FormEvent) {
+  const isSignup = mode === "signup";
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
     const value = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setError("Inserisci un'email valida.");
       return;
     }
-    login(value, mode === "signup" ? name : undefined);
-    navigate("/app");
+    if (password.length < 8) {
+      setError("La password deve avere almeno 8 caratteri.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = isSignup ? await register(value, password, name.trim() || undefined) : await login(value, password);
+    setBusy(false);
+    if (res.ok) {
+      navigate("/app");
+    } else {
+      setError(res.error ?? "Operazione non riuscita.");
+    }
   }
-
-  const isSignup = mode === "signup";
 
   return (
     <Container className="flex min-h-[calc(100vh-4rem)] items-center justify-center py-16">
@@ -42,11 +55,6 @@ export function Login() {
           <p className="mt-1.5 text-sm text-slate-400">
             {isSignup ? "Registrati per entrare nella stanza." : "Accedi per entrare nella stanza."}
           </p>
-        </div>
-
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200/90">
-          <Info size={15} className="mt-0.5 shrink-0" />
-          <span>Accesso dimostrativo (mock): qualunque email valida entra. L'autenticazione reale arriverà più avanti.</span>
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-3 rounded-2xl border border-line/70 bg-ink-900/40 p-6">
@@ -78,7 +86,13 @@ export function Login() {
             <span className="text-xs font-medium text-slate-400">Password</span>
             <input
               type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
               placeholder="••••••••"
+              autoComplete={isSignup ? "new-password" : "current-password"}
               className="rounded-lg border border-line bg-ink-950/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand/60"
             />
           </label>
@@ -87,9 +101,10 @@ export function Login() {
 
           <button
             type="submit"
-            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90 active:scale-[0.98]"
+            disabled={busy}
+            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSignup ? "Registrati" : "Accedi"}
+            {busy ? "Attendere…" : isSignup ? "Registrati" : "Accedi"}
             <ArrowRight size={16} />
           </button>
         </form>

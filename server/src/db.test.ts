@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   clearMemory,
+  countUsers,
+  createAuthSession,
+  createUser,
+  deleteAuthSession,
   deleteRoutine,
+  getSessionUser,
+  getUserByEmail,
+  getUserById,
+  pruneAuthSessions,
   getMemory,
   insertChatMessage,
   insertRoutine,
@@ -345,5 +353,53 @@ describe("db chat_messages", () => {
     }
     const last3 = listChatMessages(db, 3);
     expect(last3.map((m) => m.id)).toEqual(["m3", "m4", "m5"]);
+  });
+});
+
+describe("auth: utenti + sessioni", () => {
+  const freshDb = () => openDb(":memory:");
+  const mkUser = (over: Partial<import("./auth").User> = {}): import("./auth").User => ({
+    id: over.id ?? "u1",
+    email: over.email ?? "carlo@x.com",
+    name: over.name ?? "Carlo",
+    passHash: over.passHash ?? "salt:hash",
+    role: over.role ?? "owner",
+    createdAt: over.createdAt ?? 1000,
+  });
+
+  it("countUsers cresce quando si crea un utente", () => {
+    const d = freshDb();
+    expect(countUsers(d)).toBe(0);
+    createUser(d, mkUser());
+    expect(countUsers(d)).toBe(1);
+  });
+
+  it("getUserByEmail / getUserById round-trip; assenti → null", () => {
+    const d = freshDb();
+    createUser(d, mkUser({ id: "abc", email: "a@b.co", name: "Ann", role: "editor" }));
+    const byEmail = getUserByEmail(d, "a@b.co");
+    expect(byEmail?.name).toBe("Ann");
+    expect(byEmail?.role).toBe("editor");
+    expect(getUserById(d, "abc")?.email).toBe("a@b.co");
+    expect(getUserByEmail(d, "nope@x.co")).toBeNull();
+  });
+
+  it("email duplicata → vincolo UNIQUE lancia", () => {
+    const d = freshDb();
+    createUser(d, mkUser({ id: "1", email: "dup@x.co" }));
+    expect(() => createUser(d, mkUser({ id: "2", email: "dup@x.co" }))).toThrow();
+  });
+
+  it("sessione valida finché non scade; delete e prune la rimuovono", () => {
+    const d = freshDb();
+    createUser(d, mkUser({ id: "u9", email: "s@x.co" }));
+    createAuthSession(d, "tok", "u9", 5000);
+    expect(getSessionUser(d, "tok", 1000)?.id).toBe("u9");
+    expect(getSessionUser(d, "tok", 6000)).toBeNull(); // scaduta
+    expect(getSessionUser(d, "assente", 1000)).toBeNull();
+    expect(pruneAuthSessions(d, 6000)).toBe(1);
+    createAuthSession(d, "tok2", "u9", 9999999999999);
+    deleteAuthSession(d, "tok2");
+    expect(getSessionUser(d, "tok2")).toBeNull();
   });
 });

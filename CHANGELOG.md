@@ -7,6 +7,17 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-13 — Auth reale: account veri al posto del login mock 🔐
+- **Added** — Il login del sito ora crea **account veri** sul runtime: registrazione/accesso con
+  email+password (hashing **scrypt**, nessuna dipendenza nuova), sessione via **bearer token** con
+  scadenza a 30 giorni, e ripristino automatico al riavvio. Il primo account registrato è **owner**.
+  Nuovi endpoint `POST /api/auth/{register,login,logout}` e `GET /api/auth/me`; tabelle SQLite
+  `users`/`auth_sessions`. Rate-limit sui tentativi e protezione contro l'enumerazione degli account.
+- **Changed** — La pagina di accesso usa una password reale (min 8 caratteri) con messaggi d'errore;
+  il profilo mostra il ruolo dell'account. Rimosso il banner "accesso dimostrativo".
+- **Nota** — Resta da collegare l'identità dell'account ai **ruoli della workspace** (oggi ancora da
+  token env) e la gestione password (reset/verifica via email). Vedi il doc di decisione su Drive.
+
 ### 2026-07-13 — Riordina la stanza: drag libero dei mobili 🪑
 - **Added** — Nuova **modalità riordino**: dalla palette ("Riordina la stanza") i mobili diventano
   trascinabili con un anello a terra; li sposti sul pavimento e la posizione è **salvata localmente**

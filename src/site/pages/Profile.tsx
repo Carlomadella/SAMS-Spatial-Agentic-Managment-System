@@ -4,9 +4,12 @@ import { CTAButton } from "../components/CTAButton";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
 
+/** Etichetta leggibile del ruolo dell'account. */
+const ROLE_LABEL: Record<string, string> = { owner: "Proprietario", editor: "Editor", viewer: "Osservatore" };
+
 /**
- * Profilo dell'utente mock. Protetta da <ProtectedRoute> in SiteApp: senza login si
- * viene rimandati a /login. Mostra le info dell'utente e permette il logout.
+ * Profilo dell'utente. Protetta da <ProtectedRoute> in SiteApp: senza login si
+ * viene rimandati a /login. Mostra le info dell'account reale e permette il logout.
  */
 export function Profile() {
   const { user, logout } = useAuth();
@@ -25,6 +28,9 @@ export function Profile() {
           </div>
           <h1 className="mt-4 text-xl font-semibold text-slate-50">{user.name}</h1>
           <p className="mt-0.5 text-sm text-slate-400">{user.email}</p>
+          <span className="mt-2 inline-flex items-center rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand">
+            {ROLE_LABEL[user.role] ?? user.role}
+          </span>
 
           <div className="mt-6 flex w-full flex-col gap-2.5">
             <CTAButton to="/app" variant="primary">
@@ -33,7 +39,7 @@ export function Profile() {
             <button
               type="button"
               onClick={() => {
-                logout();
+                void logout();
                 navigate("/");
               }}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-ink-800/40 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-red-400/40 hover:text-red-300"
@@ -43,7 +49,7 @@ export function Profile() {
             </button>
           </div>
         </div>
-        <p className="mt-4 text-center text-xs text-slate-500">Account dimostrativo (mock) — nessun dato reale è memorizzato lato server.</p>
+        <p className="mt-4 text-center text-xs text-slate-500">Sessione sul runtime SAMS — esci per chiuderla su questo dispositivo.</p>
       </div>
     </Container>
   );

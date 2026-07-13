@@ -6,7 +6,7 @@ import { normalizeRole, type ViewerRole } from "./roleUi";
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
 // makes a cross-origin request and CORS can't get in the way. Override with an
 // absolute VITE_SAMS_BACKEND_URL only if you host the runtime elsewhere.
-const BASE = ((import.meta.env.VITE_SAMS_BACKEND_URL as string | undefined) ?? "").replace(/\/$/, "");
+export const BASE = ((import.meta.env.VITE_SAMS_BACKEND_URL as string | undefined) ?? "").replace(/\/$/, "");
 
 export const backendEnabled = true;
 

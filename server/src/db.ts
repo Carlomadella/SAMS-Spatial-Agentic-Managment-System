@@ -3,6 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 import type { Routine, RoutineInput } from "./routines";
 import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
 import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
+import type { User } from "./auth";
+import type { Role } from "./roles";
 
 /**
  * Durable storage for the runtime, backed by SQLite (Node's built-in
@@ -105,6 +107,23 @@ export function openDb(location: string): DatabaseSync {
       ts     INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat_messages (ts DESC);
+
+    CREATE TABLE IF NOT EXISTS users (
+      id         TEXT    PRIMARY KEY,
+      email      TEXT    NOT NULL UNIQUE,
+      name       TEXT    NOT NULL,
+      pass_hash  TEXT    NOT NULL,
+      role       TEXT    NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      token      TEXT    PRIMARY KEY,
+      user_id    TEXT    NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions (user_id);
   `);
   ensureWorldAgentColumns(db);
   migrateWorldAgents(db);
@@ -470,6 +489,68 @@ export function taskStats(db: DatabaseSync): TaskStats {
     )
     .get() as { total: number; completed: number | null; tokens: number };
   return { total: Number(row.total), completed: Number(row.completed ?? 0), tokens: Number(row.tokens) };
+}
+
+// --- auth: utenti + sessioni (frontiera #3) --------------------------------
+
+function rowToUser(row: Record<string, unknown> | undefined): User | null {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    name: String(row.name),
+    passHash: String(row.pass_hash),
+    role: String(row.role) as Role,
+    createdAt: Number(row.created_at),
+  };
+}
+
+/** Quanti account esistono (il primo registrato diventa owner). */
+export function countUsers(db: DatabaseSync): number {
+  return Number((db.prepare(`SELECT COUNT(*) AS n FROM users`).get() as { n: number }).n);
+}
+
+/** Crea un utente. Lancia se l'email esiste già (vincolo UNIQUE). */
+export function createUser(db: DatabaseSync, u: User): void {
+  db.prepare(
+    `INSERT INTO users (id, email, name, pass_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(u.id, u.email, u.name, u.passHash, u.role, u.createdAt);
+}
+
+export function getUserByEmail(db: DatabaseSync, email: string): User | null {
+  return rowToUser(db.prepare(`SELECT * FROM users WHERE email = ?`).get(email) as Record<string, unknown> | undefined);
+}
+
+export function getUserById(db: DatabaseSync, id: string): User | null {
+  return rowToUser(db.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as Record<string, unknown> | undefined);
+}
+
+/** Crea una sessione (token → utente) con scadenza. */
+export function createAuthSession(db: DatabaseSync, token: string, userId: string, expiresAt: number): void {
+  db.prepare(
+    `INSERT INTO auth_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
+  ).run(token, userId, Date.now(), expiresAt);
+}
+
+/** L'utente dietro un token di sessione **valido** (non scaduto), o null. */
+export function getSessionUser(db: DatabaseSync, token: string, now = Date.now()): User | null {
+  if (!token) return null;
+  const row = db
+    .prepare(
+      `SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND s.expires_at > ?`,
+    )
+    .get(token, now) as Record<string, unknown> | undefined;
+  return rowToUser(row);
+}
+
+export function deleteAuthSession(db: DatabaseSync, token: string): void {
+  db.prepare(`DELETE FROM auth_sessions WHERE token = ?`).run(token);
+}
+
+/** Rimuove le sessioni scadute (GC). Ritorna quante ne ha tolte. */
+export function pruneAuthSessions(db: DatabaseSync, now = Date.now()): number {
+  return Number(db.prepare(`DELETE FROM auth_sessions WHERE expires_at <= ?`).run(now).changes);
 }
 
 // --- lazy singleton (file-backed) ------------------------------------------

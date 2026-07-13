@@ -18,7 +18,8 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, db, deleteRoutine, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, taskStats } from "./db";
+import { clearMemory, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, taskStats } from "./db";
+import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
@@ -70,7 +71,7 @@ function requireRole(min: Role): (req: Request, res: Response, next: NextFunctio
 app.use((req: Request, res: Response, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
@@ -178,6 +179,68 @@ app.get("/api/whoami", (req: Request, res: Response) => {
   const s = getSettings();
   const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken);
   res.json({ role: roleOf(req), enforced });
+});
+
+// --- Auth reale: account utente (Roadmap 4, frontiera #3) ------------------
+// Sessione via **bearer token opaco** (Authorization: Bearer …), non cookie — così
+// dev (porte diverse) e prod (stessa origine) si comportano identici. Il primo
+// utente registrato è owner; gli altri partono viewer. Endpoint pubblici (niente
+// requireRole): sono proprio il modo per ottenere un'identità.
+const authLimiter = createRateLimiter(12, 5 * 60_000); // 12 tentativi / 5 min per IP
+// Hash "civetta": mantiene la verifica a tempo (quasi) costante anche quando l'utente
+// non esiste, così un attaccante non distingue "email assente" da "password errata".
+const DUMMY_PASS_HASH = hashPassword("__sams_dummy_password__");
+
+app.post("/api/auth/register", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const body = (req.body ?? {}) as { email?: unknown; password?: unknown; name?: unknown };
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) { res.status(400).json({ error: "Email non valida" }); return; }
+  const pw = validatePassword(body.password);
+  if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
+  const database = db();
+  if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
+  const role: Role = countUsers(database) === 0 ? "owner" : "viewer";
+  const user: User = {
+    id: randomUUID(),
+    email,
+    name: sanitizeName(body.name, email),
+    passHash: hashPassword(body.password as string),
+    role,
+    createdAt: Date.now(),
+  };
+  createUser(database, user);
+  const token = newSessionToken();
+  createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
+  log.info("Nuovo account registrato", { email, role });
+  res.status(201).json({ token, user: publicUser(user) });
+});
+
+app.post("/api/auth/login", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
+  const email = normalizeEmail(body.email);
+  const database = db();
+  const user = getUserByEmail(database, email);
+  const password = typeof body.password === "string" ? body.password : "";
+  // Verifica sempre un hash (quello dell'utente o il civetta) per non trapelare via timing.
+  const ok = verifyPassword(password, user ? user.passHash : DUMMY_PASS_HASH);
+  if (!user || !ok) { res.status(401).json({ error: "Email o password non corretti" }); return; }
+  const token = newSessionToken();
+  createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
+  res.json({ token, user: publicUser(user) });
+});
+
+app.post("/api/auth/logout", (req: Request, res: Response) => {
+  const token = bearerToken(req.headers.authorization);
+  if (token) deleteAuthSession(db(), token);
+  res.status(204).end();
+});
+
+app.get("/api/auth/me", (req: Request, res: Response) => {
+  const user = getSessionUser(db(), bearerToken(req.headers.authorization));
+  if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  res.json({ user: publicUser(user) });
 });
 
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
