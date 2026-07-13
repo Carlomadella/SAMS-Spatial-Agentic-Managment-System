@@ -7,6 +7,21 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-13 — Riordina la stanza: drag libero dei mobili 🪑
+- **Added** — Nuova **modalità riordino**: dalla palette ("Riordina la stanza") i mobili diventano
+  trascinabili con un anello a terra; li sposti sul pavimento e la posizione è **salvata localmente**
+  (persistita). Un banner mostra l'istruzione con Fatto/Reset; comando "Reset mobili" per rimettere
+  tutto a posto. Applicato a scrivania, libreria, lampada, piante, isola cucina, credenza e i sei letti.
+  `src/lib/furnitureLayout.ts` (puro: `clampPlacement` ai muri, `placedCount`), slice store
+  `furniturePlacements`/`roomEditMode`, wrapper `Movable` + `MoveHandle` in `OfficeScene`. +13 test.
+- **Nota** — Il layout è per ora **locale al browser**; la condivisione tra viste è legata allo stato
+  autorevole sul server (frontiera #1, ancora un progetto a sé).
+
+### 2026-07-13 — Sito: hero della home con lo screenshot reale della stanza 🖼️
+- **Added** — La hero della homepage del sito di benvenuto ora ha come sfondo uno **screenshot reale
+  della stanza 3D degli agenti** (sfumato con uno scrim per la leggibilità del testo), al posto del solo
+  bagliore CSS. `src/site/assets/room-hero.jpg`, cablato in `Home.tsx`.
+
 ### 2026-07-13 — Hitbox: gli agenti si attraversano camminando, si separano da fermi 🚶
 - **Fixed** — Niente più "cerchio"/balletto: due o più agenti diretti verso lo stesso punto non si
   respingono più a vicenda mentre camminano. La separazione dura ora è un vincolo **solo tra agenti

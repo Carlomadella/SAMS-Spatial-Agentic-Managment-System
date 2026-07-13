@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   Grid,
@@ -43,6 +43,7 @@ import { getViewerId, sendCursor } from "../lib/backend";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { getRoomTheme } from "../lib/roomThemes";
 import { getArrangement } from "../lib/officeLayout";
+import { clampPlacement } from "../lib/furnitureLayout";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
 import {
@@ -625,6 +626,113 @@ function PresenceCursors() {
 /** Centro del cluster salotto (per ruotarlo attorno a sé stesso). */
 const LOUNGE_CENTER: [number, number, number] = [-7.4, 0, 3.2];
 
+/**
+ * Maniglia di trascinamento di un mobile (visibile solo in "modalità riordino").
+ * Un anello a terra sotto il mobile: al pointer-down disabilita l'orbita e cattura il
+ * movimento sul piano del pavimento (raycast su un piano matematico y=0, così il drag
+ * continua anche quando il cursore esce dall'anello), aggiornando l'offset del mobile
+ * nello store con clamp ai muri. Al rilascio riabilita l'orbita. Locale e persistito.
+ */
+function MoveHandle({ id, baseX, baseZ }: { id: string; baseX: number; baseZ: number }) {
+  // `controls` è disponibile perché OrbitControls è `makeDefault`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { camera, gl, controls } = useThree() as any;
+  const dragging = useRef(false);
+  const grab = useRef<[number, number]>([0, 0]);
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const hitv = useMemo(() => new THREE.Vector3(), []);
+
+  const floorPoint = useCallback(
+    (clientX: number, clientY: number): [number, number] | null => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      if (!raycaster.ray.intersectPlane(plane, hitv)) return null;
+      return [hitv.x, hitv.z];
+    },
+    [camera, gl, raycaster, plane, hitv],
+  );
+
+  useEffect(() => {
+    function onMove(e: PointerEvent) {
+      if (!dragging.current) return;
+      const p = floorPoint(e.clientX, e.clientY);
+      if (!p) return;
+      const wx = p[0] - grab.current[0];
+      const wz = p[1] - grab.current[1];
+      useStore.getState().setFurniturePlacement(id, clampPlacement([baseX, baseZ], [wx - baseX, wz - baseZ], ROOM));
+    }
+    function onUp() {
+      if (!dragging.current) return;
+      dragging.current = false;
+      if (controls) controls.enabled = true;
+      gl.domElement.style.cursor = "";
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [id, baseX, baseZ, floorPoint, controls, gl]);
+
+  function onDown(e: ThreeEvent<PointerEvent>) {
+    e.stopPropagation();
+    dragging.current = true;
+    if (controls) controls.enabled = false;
+    const cur = useStore.getState().furniturePlacements[id];
+    const fx = baseX + (cur?.dx ?? 0);
+    const fz = baseZ + (cur?.dz ?? 0);
+    const p = floorPoint(e.nativeEvent.clientX, e.nativeEvent.clientY);
+    grab.current = p ? [p[0] - fx, p[1] - fz] : [0, 0];
+    gl.domElement.style.cursor = "grabbing";
+  }
+
+  return (
+    <group position={[0, 0.03, 0]} onPointerDown={onDown} onPointerOver={() => (gl.domElement.style.cursor = "grab")} onPointerOut={() => { if (!dragging.current) gl.domElement.style.cursor = ""; }}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.52, 0.72, 44]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.92} depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.002, 0]}>
+        <circleGeometry args={[0.52, 36]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.14} depthTest={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Involucro di un mobile riposizionabile: applica l'offset persistito (`furniturePlacements`)
+ * alla posa base e, in modalità riordino, monta la `MoveHandle`. Fuori dalla modalità è un
+ * semplice `<group>` con l'offset — nessun costo d'interazione. I figli mantengono la loro
+ * posa/rotazione locale (il mobile è renderizzato a [0,0,0] dentro il gruppo).
+ */
+function Movable({
+  id,
+  position,
+  rotation,
+  children,
+}: {
+  id: string;
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  children: React.ReactNode;
+}) {
+  const edit = useStore((s) => s.roomEditMode);
+  const placement = useStore((s) => s.furniturePlacements[id]);
+  const dx = placement?.dx ?? 0;
+  const dz = placement?.dz ?? 0;
+  return (
+    <group position={[position[0] + dx, position[1], position[2] + dz]} rotation={rotation}>
+      {children}
+      {edit && <MoveHandle id={id} baseX={position[0]} baseZ={position[2]} />}
+    </group>
+  );
+}
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -685,16 +793,24 @@ function SceneContents() {
           )}
         </div>
       </Html>
-      <Bookshelf position={[-12, 0, -8.55]} />
-      <FloorLamp position={[-11, 0, -1.6]} />
-      <Plant position={[-1.6, 0, -7.5]} />
+      <Movable id="bookshelf" position={[-12, 0, -8.55]}>
+        <Bookshelf />
+      </Movable>
+      <Movable id="floor-lamp" position={[-11, 0, -1.6]}>
+        <FloorLamp />
+      </Movable>
+      <Movable id="plant-studio" position={[-1.6, 0, -7.5]}>
+        <Plant />
+      </Movable>
       <WallArt position={[-7, 1.9, -8.84]} color="#6b8f8a" />
       <WallSconce position={[-12.82, 2.15, -4]} rotation={[0, Math.PI / 2, 0]} />
 
       {/* ── Cucina — back-right quadrant ── */}
       <KitchenCounter position={[6.5, 0, -8.2]} length={10} />
       <Fridge position={[12.2, 0, -7.6]} rotation={[0, -Math.PI / 2, 0]} />
-      <KitchenIsland position={[6.5, 0, -3.8]} />
+      <Movable id="kitchen-island" position={[6.5, 0, -3.8]}>
+        <KitchenIsland />
+      </Movable>
       <WallSconce position={[3, 2.15, -8.84]} />
       <WallSconce position={[10, 2.15, -8.84]} />
 
@@ -746,12 +862,18 @@ function SceneContents() {
         [3.0, 2.4, "#6b8f8a"], [6.5, 2.4, "#b07a5e"], [10.0, 2.4, "#8a6f9e"],
         [3.0, 6.0, "#5a8fb0"], [6.5, 6.0, "#b0975a"], [10.0, 6.0, "#8aae6a"],
       ] as [number, number, string][]).map(([x, z, c], i) => (
-        <Bed key={i} position={[x, 0, z]} color={c} />
+        <Movable key={i} id={`bed-${i}`} position={[x, 0, z]}>
+          <Bed color={c} />
+        </Movable>
       ))}
-      <Sideboard position={[12.4, 0, 5]} rotation={[0, -Math.PI / 2, 0]} />
+      <Movable id="sideboard" position={[12.4, 0, 5]} rotation={[0, -Math.PI / 2, 0]}>
+        <Sideboard />
+      </Movable>
       <Window position={[12.84, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
       <WallSconce position={[12.82, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
-      <Plant position={[1.3, 0, 8.2]} />
+      <Movable id="plant-bedroom" position={[1.3, 0, 8.2]}>
+        <Plant />
+      </Movable>
 
       <GardenDoor />
 
@@ -898,6 +1020,7 @@ export function OfficeScene() {
       </Suspense>
       <OrbitControls
         ref={controlsRef}
+        makeDefault
         target={[0, 0.8, 0]}
         enablePan={false}
         zoomToCursor

@@ -36,7 +36,7 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 | #   | Frontiera                                                             | Perché                                                                          | Effort | Stato |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ | ----- |
 | 1   | **Stato autorevole sul server** — la verità del mondo migra su SQLite | Prerequisito di tutto il resto: senza, la presence realtime non sta in piedi    | 🔴     | 🏗️    |
-| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | 🏗️    |
+| 2   | **Mondo condiviso** — presence realtime + ruoli/permessi + chat       | Da demo personale a strumento di squadra: più persone, stesso ufficio, live     | 🔴     | ✅    |
 | 3   | **Prodotto & distribuzione** — deploy, onboarding, temi               | Chiunque può ospitare e usare SAMS; la PWA è il primo tassello, non l'ultimo    | 🟡     | 🏗️    |
 
 > Sequenza voluta: prima l'**architettura** (lo stato autorevole è la fondazione),
@@ -70,8 +70,15 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       _Fatto (identità condivisa): `reconcileAgents` adotta **nome/colore/ruolo** dal remoto
       anche per gli agenti già presenti (non solo su creazione), così un rename/ricolore in
       una vista si propaga; il locale è conservato se il remoto omette il campo. +3 test._
-      Manca il resto: lo **schema completo** di scrittura autorevole (campi ricchi: posizione,
-      energia, umore, xp — oggi cosmetici per-vista) col server come unica sorgente di verità.
+      _Fatto (opzione B2 — config a bassa frequenza): **model, instructions, repo, xp** autorevoli
+      sullo stesso trasporto per-riga (ALTER idempotente + `sanitizeWorldAgent`; adozione solo di
+      valori remoti non vuoti, xp col massimo)._ **Percorso raccomandato dal doc di decisione
+      completato** (Opzione B, Drive 2026-07-09): B2 (config) fatto, B3 (driver/lease + movimento
+      condiviso + bisogni/umore) fatto in frontiera #2. **Resta solo B1/B4 — il simulatore server-side
+      autorevole (game loop sul runtime).** Il doc lo qualifica esplicitamente come *"progetto a sé,
+      non uno slice"* e lo gate sulle 5 domande di prodotto del §7 (serve il multiplayer simmetrico?
+      c'è budget per settimane? chi ospita il game loop?). **Parcheggiato in attesa di quella
+      decisione** — non va iniziato unilateralmente come slice.
 - [ ] 🏗️ **Canale bidirezionale** — oggi lo stream è solo server→client (SSE). Per
       lo stato autorevole serve anche client→server strutturato (WebSocket, o SSE +
       POST) con una **riconciliazione** deterministica dello store. _Fatto: primo
@@ -87,9 +94,16 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       `adoptWorld`, non solo la versione; +7 test._ Resta solo lo schema completo di
       scrittura autorevole (vedi item sopra).
 - [ ] 💡 **Migrazione morbida** — un import dallo stato locale (localStorage) alla
-      prima connessione, così nessuno perde il proprio ufficio nel passaggio.
+      prima connessione, così nessuno perde il proprio ufficio nel passaggio. _Nota: già
+      in gran parte coperta dalla riconciliazione attuale — `reconcileAgents` è **create-only
+      + preserve-local** (un agente locale non ancora propagato non viene mai cancellato per
+      assenza, solo su tombstone esplicito), quindi connettendosi a un server vuoto il proprio
+      ufficio viene spinto e a uno popolato viene fuso. Un import esplicito one-shot ha senso
+      solo insieme a B1 (verità ricca autorevole)._
 - [ ] 💡 **Ottimismo + conferma** — la UI applica subito le azioni e le riconcilia
-      con l'eco autorevole del server (come già fa `applyRemote` per i task).
+      con l'eco autorevole del server (come già fa `applyRemote` per i task). _Parcheggiata
+      con B1: senza game loop autorevole non c'è un'eco ricca da riconciliare oltre a status/task
+      (che già fanno ottimismo+conferma)._
 
 ## 🤝 Mondo condiviso (frontiera #2)
 
@@ -168,6 +182,14 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 📦 Prodotto & distribuzione (frontiera #3)
 
+- [ ] 🔜 🔴 **Auth reale** — oggi il login del sito di benvenuto è **mock** (`src/site/auth/
+      AuthContext.tsx`: qualunque email valida "accede", stato in `localStorage`, nessun backend;
+      un banner lo dichiara). Il contratto `user/login/logout` è pensato per essere rimpiazzato
+      **senza toccare la UI**. Serve: registrazione/login veri (email+password o OAuth), sessioni
+      server-side, e legare l'identità utente ai **ruoli/token** già esistenti (owner/editor/viewer,
+      `server/src/roles.ts`) al posto dei token statici via env. È un pezzo di backend a sé
+      (schema utenti, hashing, sessioni/JWT, reset password) → da pianificare, non uno slice.
+      _Portato qui da ROADMAP5 ("mock prima, auth reale in roadmap4")._
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
       distribuzione: SAMS si installa e parte standalone.
@@ -249,15 +271,22 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       **lavagna della coda** → apre il tab Task (`setBottomTab`); l'**orologio a
       muro** → rintocca ora + fase della giornata (`pushToast`). Logica pura testata
       (6 test); resa/posizioni 3D da rifinire a occhio nel browser.
-- [ ] 🏗️ ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
-      tema della stanza; layout persistito (naturale una volta che lo stato è
-      autorevole sul server). _Fatto: **tema della stanza** (`src/lib/roomThemes.ts`,
+- [x] ✅ ⬅️ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il
+      tema della stanza; layout persistito. _Fatto: **tema della stanza** (`src/lib/roomThemes.ts`,
       5 palette, `roomTheme` persistito) e **disposizioni del salotto** — `src/lib/
       officeLayout.ts` (puro: 4 arrangiamenti Classico/Raccolto/Arioso/Diagonale con
       offset+rotazione di gruppo, `getArrangement`), `officeLayout` persistito, cluster
       salotto che ruota/trasla in blocco senza toccare le pose base; comandi "Salotto:
-      …" nella palette. 5+4 test._ Resta: il **drag libero** dei singoli mobili (il pezzo
-      grande, naturale con lo stato autorevole #1).
+      …" nella palette. 5+4 test._ ✅ **Drag libero dei mobili** — `src/lib/furnitureLayout.ts`
+      (puro: `clampPlacement` ai muri, `isPlaced`, `placedCount`) + slice store
+      `furniturePlacements` (offset per-mobile, **persistito**) + `roomEditMode`. In scena un
+      wrapper `Movable` applica l'offset alla posa base e, in modalità riordino, monta una
+      `MoveHandle`: anello a terra che al drag disabilita l'orbita e sposta il mobile sul piano
+      del pavimento (raycast su piano y=0, clamp ai muri). Comandi palette "Riordina la stanza"/
+      "Reset mobili" + `RoomEditBanner` (istruzione + Fatto/Reset). Applicato a scrivania/
+      libreria/lampada/piante/isola cucina/credenza/6 letti (esclusi i pezzi con overlay HTML
+      ancorati). Layout **locale** di proposito; il layout _condiviso_ tra viste resta il pezzo
+      autorevole (frontiera #1). 7+3+3 test; offset applicato verificato a video (bed spostato).
 
 ## 🛠️ Solidità & produzione (engineering)
 
@@ -280,6 +309,38 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-13 — drag libero dei mobili + chiusura del residuo sicuro di R4
+Su "continua la task precedente, poi finisci la roadmap4": prima chiusa la task in sospeso del
+sito (hero della home = screenshot reale della stanza 3D catturato via Playwright, cablato come
+sfondo con scrim, `src/site/assets/room-hero.jpg`), poi affrontato il residuo di R4 in ordine
+d'importanza. Mappa onesta dello stato: quasi tutto ✅; il "vero" residuo è **decision-gated**.
+- **Frontiera #1 — chiarito lo stato reale rileggendo il doc di decisione (Drive, 2026-07-09).**
+  Il percorso *raccomandato* — **B2** (config a bassa frequenza: model/instructions/repo/xp) +
+  **B3** (driver/lease + movimento/bisogni condivisi, frontiera #2) — è **completo**. Ciò che resta
+  di "opzione B piena" è **B1/B4 (simulatore server-side autorevole)**, che il doc definisce
+  *"progetto a sé, non uno slice"* e gate sulle 5 domande di prodotto del §7. **Non l'ho iniziato
+  unilateralmente** (sarebbe contro la guida del doc): marcato come progetto parcheggiato in attesa
+  della decisione. I due 💡 (migrazione morbida, ottimismo+conferma) risultano in gran parte già
+  coperti (reconcile create-only + preserve-local; ottimismo su status/task) o parcheggiati con B1.
+- **Frontiera #3 — drag libero dei mobili (chiuso il pezzo aperto, versione locale).** `src/lib/
+  furnitureLayout.ts` (puro: `clampPlacement` ai muri, `isPlaced`, `placedCount`) + slice store
+  `furniturePlacements` (**persistito**) e `roomEditMode`. In scena un wrapper `Movable` applica
+  l'offset alla posa base; in "modalità riordino" monta `MoveHandle` (anello a terra che al drag
+  disabilita l'orbita e sposta il mobile sul piano y=0 via raycast, clamp ai muri; OrbitControls
+  reso `makeDefault` per poterlo disabilitare). Comandi palette "Riordina la stanza"/"Reset mobili"
+  + `RoomEditBanner` (istruzione + Fatto/Reset). Applicato a scrivania-2/libreria/lampada/piante/
+  isola cucina/credenza/6 letti (esclusi i pezzi con overlay HTML ancorati: scrivania-monitor,
+  TV-media-wall). **Locale di proposito**; il layout *condiviso* è un pezzo autorevole (B1). Layout
+  condiviso a parte, chiude "personalizzazione dell'ufficio".
+- **Auth reale** — la login del sito è mock; aggiunto come item 🔜 di frontiera #3 (era annotato in
+  ROADMAP5). È backend a sé (utenti/sessioni/hashing) da legare ai ruoli esistenti → pianificato.
+- **Verifica**: `clampPlacement` 7 test; `RoomEditBanner` 3 test (RTL); azioni store 3 test; offset
+  applicato **verificato a video** (bed spostato fuori dalla camera via Playwright). Typecheck, lint,
+  build verdi; suite **510** test (era ~473). La resa/drag reale è da rifinire a occhio nel browser.
+- **Prossimo**: la vera frontiera aperta di R4 è **B1/B4** (game loop autorevole sul server),
+  che richiede le decisioni di prodotto del §7 del doc; e **l'auth reale** (backend). Entrambi
+  progetti, non slice.
 
 ### 2026-07-11 — bisogni condivisi + smooth handover (opzione B3, terzo mattone)
 Su "continua con l'ultima task", chiuso il "Prossimo" annotato dopo il movimento condiviso: i

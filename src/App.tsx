@@ -24,6 +24,7 @@ import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, claimDriver, connectBackend, fetchWorld, getViewerId, pushWorld, sendSelection, sendWorldSim } from "./lib/backend";
 import { iAmSimulator, liveAgentPositions } from "./lib/worldsim";
 import { isShared } from "./lib/presence";
+import { RoomEditBanner } from "./components/RoomEditBanner";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
 import { affinityBetween } from "./lib/relationships";
@@ -1142,6 +1143,7 @@ function Workspace() {
               }}
             />
             <StageHint />
+            <RoomEditBanner />
             <PresenceRoster />
             <SoundToggle />
             <NarrationToggle />

@@ -35,6 +35,7 @@ import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/age
 import { addPreset, removePreset } from "../lib/agentPresets";
 import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
 import { DEFAULT_OFFICE_ARRANGEMENT } from "../lib/officeLayout";
+import type { FurniturePlacement } from "../lib/furnitureLayout";
 import { bumpAffinity as bumpAffinityMap, type AffinityMap } from "../lib/relationships";
 import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
@@ -83,6 +84,10 @@ interface State {
   roomTheme: string;
   /** Disposizione dei mobili del salotto (personalizzazione dell'ufficio). */
   officeLayout: string;
+  /** Offset per-mobile dal drag libero (id → dx/dz), persistito localmente. */
+  furniturePlacements: Record<string, FurniturePlacement>;
+  /** Modalità "riordino": in scena i mobili diventano trascinabili (non persistita). */
+  roomEditMode: boolean;
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
@@ -246,6 +251,9 @@ interface State {
   toggleTheme: () => void;
   setRoomTheme: (id: string) => void;
   setOfficeLayout: (id: string) => void;
+  setRoomEditMode: (on: boolean) => void;
+  setFurniturePlacement: (id: string, placement: FurniturePlacement) => void;
+  resetFurniture: (id?: string) => void;
   setLeftOpen: (open: boolean) => void;
   setRightOpen: (open: boolean) => void;
   toggleLeft: () => void;
@@ -387,6 +395,8 @@ export const useStore = create<State>()(
       : "dark",
   roomTheme: DEFAULT_ROOM_THEME,
   officeLayout: DEFAULT_OFFICE_ARRANGEMENT,
+  furniturePlacements: {},
+  roomEditMode: false,
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
@@ -776,6 +786,17 @@ export const useStore = create<State>()(
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
   setRoomTheme: (id) => set({ roomTheme: id }),
   setOfficeLayout: (id) => set({ officeLayout: id }),
+  setRoomEditMode: (on) => set({ roomEditMode: on }),
+  setFurniturePlacement: (id, placement) =>
+    set((s) => ({ furniturePlacements: { ...s.furniturePlacements, [id]: placement } })),
+  resetFurniture: (id) =>
+    set((s) => {
+      if (!id) return { furniturePlacements: {} };
+      if (!(id in s.furniturePlacements)) return s;
+      const next = { ...s.furniturePlacements };
+      delete next[id];
+      return { furniturePlacements: next };
+    }),
   setLeftOpen: (open) => set({ leftOpen: open }),
   setRightOpen: (open) => set({ rightOpen: open }),
   toggleLeft: () => set((s) => ({ leftOpen: !s.leftOpen })),
@@ -1035,6 +1056,7 @@ export const useStore = create<State>()(
         theme: s.theme,
         roomTheme: s.roomTheme,
         officeLayout: s.officeLayout,
+        furniturePlacements: s.furniturePlacements,
         chatName: s.chatName,
         activity: s.activity,
         bottomTab: s.bottomTab,
@@ -1055,6 +1077,7 @@ export const useStore = create<State>()(
           if (!state.playbooks) state.playbooks = [];
           if (!state.playbookRuns) state.playbookRuns = [];
           if (!state.agentPresets) state.agentPresets = [];
+          if (!state.furniturePlacements) state.furniturePlacements = {};
           if (!state.roomTheme) state.roomTheme = DEFAULT_ROOM_THEME;
           if (!state.officeLayout) state.officeLayout = DEFAULT_OFFICE_ARRANGEMENT;
           for (const a of state.agents) {

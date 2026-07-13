@@ -496,3 +496,35 @@ describe("agent lifecycle", () => {
     expect(a.status).toBe("idle");
   });
 });
+
+describe("drag mobili (personalizzazione ufficio)", () => {
+  beforeEach(() => {
+    useStore.setState({ roomEditMode: false, furniturePlacements: {} });
+  });
+
+  it("setRoomEditMode attiva/disattiva la modalità riordino", () => {
+    useStore.getState().setRoomEditMode(true);
+    expect(useStore.getState().roomEditMode).toBe(true);
+    useStore.getState().setRoomEditMode(false);
+    expect(useStore.getState().roomEditMode).toBe(false);
+  });
+
+  it("setFurniturePlacement salva l'offset per mobile senza toccare gli altri", () => {
+    useStore.getState().setFurniturePlacement("bed-0", { dx: 2, dz: -1 });
+    useStore.getState().setFurniturePlacement("sofa", { dx: 0.5, dz: 0 });
+    expect(useStore.getState().furniturePlacements["bed-0"]).toEqual({ dx: 2, dz: -1 });
+    useStore.getState().setFurniturePlacement("bed-0", { dx: 3, dz: 3 });
+    expect(useStore.getState().furniturePlacements["bed-0"]).toEqual({ dx: 3, dz: 3 });
+    expect(useStore.getState().furniturePlacements["sofa"]).toEqual({ dx: 0.5, dz: 0 });
+  });
+
+  it("resetFurniture(id) rimuove un solo mobile; resetFurniture() svuota tutto", () => {
+    useStore.getState().setFurniturePlacement("bed-0", { dx: 2, dz: -1 });
+    useStore.getState().setFurniturePlacement("sofa", { dx: 0.5, dz: 0 });
+    useStore.getState().resetFurniture("bed-0");
+    expect(useStore.getState().furniturePlacements["bed-0"]).toBeUndefined();
+    expect(useStore.getState().furniturePlacements["sofa"]).toBeDefined();
+    useStore.getState().resetFurniture();
+    expect(useStore.getState().furniturePlacements).toEqual({});
+  });
+});

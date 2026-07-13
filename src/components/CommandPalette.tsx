@@ -30,6 +30,7 @@ import { useStore } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ROOM_THEMES } from "../lib/roomThemes";
 import { OFFICE_ARRANGEMENTS } from "../lib/officeLayout";
+import { placedCount } from "../lib/furnitureLayout";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
@@ -146,6 +147,29 @@ export function CommandPalette() {
         icon: Paintbrush,
         keywords: `salotto mobili disposizione layout divano ufficio ${arr.label} ${arr.id}`,
         run: () => s.setOfficeLayout(arr.id),
+      });
+    }
+    list.push({
+      id: "room-edit",
+      label: `Riordina la stanza: ${s.roomEditMode ? "esci" : "trascina i mobili"}`,
+      icon: Paintbrush,
+      keywords: "riordina sposta mobili drag trascina arreda ufficio personalizza modalità",
+      run: () => {
+        const next = !s.roomEditMode;
+        s.setRoomEditMode(next);
+        s.pushToast("INFO", next ? "Modalità riordino: trascina i mobili con l'anello arancione" : "Riordino terminato");
+      },
+    });
+    if (placedCount(s.furniturePlacements) > 0) {
+      list.push({
+        id: "room-reset",
+        label: "Reset mobili: rimetti tutto a posto",
+        icon: Paintbrush,
+        keywords: "reset mobili ripristina posizione originale annulla riordino",
+        run: () => {
+          s.resetFurniture();
+          s.pushToast("INFO", "Mobili riportati alla disposizione originale");
+        },
       });
     }
     list.push({ id: "meta", label: `Meta-agente proattivo: ${s.metaProactive ? "disattiva" : "attiva"}`, icon: Bot, keywords: "meta proattivo autonomo toggle", run: () => s.setMetaProactive(!s.metaProactive) });
