@@ -18,6 +18,8 @@ import { Toaster } from "./components/Toaster";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Tour } from "./components/Tour";
 import { SimBridge } from "./components/SimBridge";
+import { RouterProvider, useLocation } from "./site/router";
+import { SiteApp } from "./site/SiteApp";
 import { useStore } from "./store/useStore";
 import { assignRemote, backendEnabled, claimDriver, connectBackend, fetchWorld, getViewerId, pushWorld, sendSelection, sendWorldSim } from "./lib/backend";
 import { iAmSimulator, liveAgentPositions } from "./lib/worldsim";
@@ -1017,7 +1019,20 @@ export default function App() {
   // Shareable read-only dashboard: a separate, self-contained view that doesn't
   // mount the workspace (no SSE, no scene, no controls).
   if (IS_PUBLIC) return <PublicDashboard />;
-  return <Workspace />;
+  // Altrimenti il router interno leggero decide: la workspace 3D vive su /app, il resto
+  // (/, /login, /docs, /profilo) è il sito di benvenuto.
+  return (
+    <RouterProvider>
+      <RootRoutes />
+    </RouterProvider>
+  );
+}
+
+/** Route di primo livello: la stanza (workspace) su /app, il sito su tutto il resto. */
+function RootRoutes() {
+  const { path } = useLocation();
+  if (path === "/app" || path.startsWith("/app/")) return <Workspace />;
+  return <SiteApp />;
 }
 
 function Workspace() {

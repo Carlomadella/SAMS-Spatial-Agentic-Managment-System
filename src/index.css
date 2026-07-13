@@ -43,6 +43,7 @@
   /* In light mode, re-map the hard-coded light text colors to dark ones.
      (Safe because no component @apply's these utilities — see below.) */
   .theme-light .text-white { color: #0b0e14; }
+  .theme-light .text-slate-50 { color: #0b0e14; }
   .theme-light .text-slate-100 { color: #11151f; }
   .theme-light .text-slate-200 { color: #1b2230; }
   .theme-light .text-slate-300 { color: #2e3950; }
@@ -64,6 +65,18 @@
       radial-gradient(1200px 520px at 78% -8%, rgba(79, 140, 255, 0.1), transparent 60%),
       radial-gradient(900px 480px at 0% 0%, rgba(120, 90, 255, 0.06), transparent 55%);
     background-attachment: fixed;
+  }
+
+  /* Il sito di benvenuto scorre a livello di documento (la workspace no): mentre una
+     pagina del sito è montata, `useSiteChrome` mette questa classe sul body per
+     riabilitare lo scroll verticale senza cambiare l'overflow:hidden globale. */
+  body.site-scroll {
+    overflow: visible;
+    height: auto;
+  }
+  body.site-scroll #root {
+    height: auto;
+    min-height: 100%;
   }
 
   /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */
