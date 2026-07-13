@@ -5,6 +5,7 @@ import { SectionHeading } from "../components/SectionHeading";
 import { Logo } from "../components/Logo";
 import { Link } from "../router";
 import { TAGLINE } from "../data/site";
+import roomHero from "../assets/room-hero.jpg";
 
 const FEATURES = [
   { icon: Boxes, title: "Stanza 3D interattiva", desc: "Seleziona gli agenti, mandali a camminare, orbita la telecamera. Un diorama vivo, non una dashboard statica." },
@@ -20,8 +21,22 @@ export function Home() {
     <>
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section id="top" className="relative overflow-hidden">
-        {/* sfondo decorativo: bagliori brand + griglia sottile (nessun media esterno) */}
+        {/* sfondo: screenshot reale della stanza 3D, sfumato per leggibilità, + bagliori brand */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
+          {/* la stanza vera, ancorata in alto e schiarita così i robot restano riconoscibili */}
+          <img
+            src={roomHero}
+            alt=""
+            className="absolute inset-x-0 top-0 h-[120%] w-full object-cover object-top opacity-[0.38]"
+          />
+          {/* scrim verticale: fonde l'immagine nel colore della pagina (regge tema scuro/chiaro/ambra) */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                "linear-gradient(to bottom, rgb(var(--c-ink-950) / 0.55) 0%, rgb(var(--c-ink-950) / 0.72) 45%, rgb(var(--c-ink-950)) 100%)",
+            }}
+          />
           <div
             className="absolute inset-0"
             style={{
