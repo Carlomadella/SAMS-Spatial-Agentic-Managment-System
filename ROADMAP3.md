@@ -120,16 +120,14 @@ sciolgono ciascuna un pezzo di questo isolamento.
 
 ## 🤝 Mondo condiviso (frontiera #3)
 
-- [ ] 💡 ⬅️ **Presence in tempo reale** — più utenti vedono gli stessi agenti muoversi
-      e gli stessi eventi, live. Richiede un canale bidirezionale (WebSocket o SSE +
-      POST) e una riconciliazione dello store autorevole lato server.
-- [ ] 💡 ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
-      Si appoggia all'auth opzionale già esistente (`SAMS_TOKEN`) estesa a ruoli.
-- [ ] 💡 ⬅️ **Ufficio multiplayer** — più _umani_ nello stesso workspace in tempo
-      reale, con cursori/avatar e cronologia condivisa. Il salto architetturale del
-      capitolo: stato del mondo autorevole sul server, client come viste.
-- [ ] 💡 **Chat di workspace** — un canale umano-umano e umano→agente accanto alla
-      scena, separato dall'event log.
+- [x] ✅ ⬅️ **Presence in tempo reale** — più utenti vedono gli stessi agenti muoversi
+      e gli stessi eventi, live. (fatto in Roadmap 4, frontiera #2)
+- [x] ✅ ⬅️ **Ruoli/permessi sul workspace** — chi assegna task, chi solo osserva.
+      (fatto in Roadmap 4: `roles.ts`, viewer<editor<owner)
+- [x] ✅ ⬅️ **Ufficio multiplayer** — più _umani_ nello stesso workspace in tempo
+      reale, con cursori/avatar e cronologia condivisa. (mondo condiviso + cursori live, Roadmap 4)
+- [x] ✅ **Chat di workspace** — un canale umano-umano e umano→agente accanto alla
+      scena, separato dall'event log. (`chat.ts` + `/api/chat` + SSE)
 
 ## 🧠 Profondità simulativa (trasversale)
 
@@ -161,36 +159,36 @@ sciolgono ciascuna un pezzo di questo isolamento.
       sparsi su anelli concentrici attorno alla pianta principale invece che in fila; modulo puro
       `src/lib/forest.ts` (`forestSlots`, deterministico, lascia libero un cono frontale verso la
       camera) + alberi d'ambiente non etichettati che infoltiscono la scena. 5 test.
-- [ ] 💡 **Stagioni/meteo nella casa** — il ciclo giorno/notte c'è; aggiungere pioggia
-      sui vetri, luce stagionale, festoni negli eventi (riusa `seasonalEvents.ts`).
-- [ ] 💡 **Oggetti interagibili** — clic su lavagna/monitor/caffè per micro-interazioni
-      dell'utente, non solo degli agenti.
-- [ ] 💡 **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il tema della
-      stanza; layout persistito.
+- [x] ✅ **Stagioni/meteo nella casa** — il ciclo giorno/notte c'è; aggiungere pioggia
+      sui vetri, luce stagionale, festoni negli eventi. (`lib/weather.ts` + `WeatherCurtain`/`Weather()` in OfficeScene, tint stagionale)
+- [x] ✅ **Oggetti interagibili** — clic su lavagna/monitor/caffè per micro-interazioni
+      dell'utente, non solo degli agenti. (`Hotspot` in OfficeScene: CoffeeTable→pausa caffè, WallClock→ora, Lavagna→tab Task)
+- [x] ✅ **Personalizzazione dell'ufficio** — spostare i mobili, scegliere il tema della
+      stanza; layout persistito. (drag libero dei mobili + `RoomEditBanner`, layout locale)
 
 ## ♿ UX / Accessibilità & prodotto
 
-- [ ] 💡 ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono
-      ancora hardcoded); centralizzare i token di colore.
-- [ ] 💡 ⬅️ **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
-      l'onboarding spiega i _concetti_, il tour mostra l'_UI_.
-- [ ] 💡 ⬅️ **Mobile usabile** — sotto i 768px i pannelli collassano ma scena+inspector
-      non sono davvero usabili; ripensare il layout touch.
+- [x] ✅ ⬅️ **Tema chiaro/scuro** rifinito su tutti i pannelli; token di colore
+      centralizzati come CSS var in `index.css` (dark/light).
+- [x] ✅ ⬅️ **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
+      l'onboarding spiega i _concetti_, il tour mostra l'_UI_. (`Tour.tsx`)
+- [x] ✅ ⬅️ **Mobile usabile** — sotto i 768px i pannelli collassano ma scena+inspector
+      non sono davvero usabili; ripensare il layout touch. (`MobileBar` + layout touch)
 - [x] ✅ **Import di un template agente** dalla UI — sezione "Importa template" nell'`AgentInspector`:
       incolla un JSON (riusa il puro `parseTemplate`, già testato) e scegli **Applica a questo** o
       **Crea nuovo agente**; JSON non valido → errore inline. Completa il marketplace (export ↔ import).
-- [ ] 💡 **Palette comandi estesa** — azioni rapide per ogni feature nuova (applica
-      template, esporta, avvia replay…).
+- [x] ✅ **Palette comandi estesa** — azioni rapide per ogni feature nuova (replay,
+      chat, tour, temi stanza, caffè, meta-agente, webhook…). (`CommandPalette.tsx`)
 
 ## 🛠️ Solidità & produzione (engineering)
 
-- [ ] 💡 **Stato del mondo autorevole sul server** — prerequisito del multiplayer:
+- [x] ✅ **Stato del mondo autorevole sul server** — prerequisito del multiplayer:
       migrare la verità di agenti/task da Zustand-persist (client) a SQLite (server),
-      con il client come vista. Grande, ma abilita le frontiere #1 e #3.
-- [ ] 💡 **Test di rendering dei componenti** — la logica pura è ben coperta; manca il
-      rendering (React Testing Library) dei pannelli critici.
-- [ ] 💡 **Rate-limit & quota per-utente** — quando il workspace è condiviso, evitare
-      che un utente saturi il runtime.
+      con il client come vista. (fatto in Roadmap 4: tabella `world_agents`; resta solo il game-loop server-side B1, parcheggiato)
+- [x] ✅ **Test di rendering dei componenti** — la logica pura è ben coperta; manca il
+      rendering (React Testing Library) dei pannelli critici. (ScmView/MobileBar/PresenceRoster/SystemOverview/RoomEditBanner + auth)
+- [x] ✅ **Rate-limit & quota per-utente** — quando il workspace è condiviso, evitare
+      che un utente saturi il runtime. (`rateLimit.ts` + `identityKey`, assignQuota/chatLimiter)
 - [x] ✅ ⬅️ **Auto-innaffiatura via webhook** — un evento `push` innaffia in tempo reale il
       giardino di chi ha spinto. `parsePushWatering` (puro) estrae autore (`sender.login`) e
       commit; l'endpoint webhook aggiorna lo store e imposta `lastSeen` all'head commit così il

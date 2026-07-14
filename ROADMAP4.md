@@ -182,7 +182,7 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 
 ## 📦 Prodotto & distribuzione (frontiera #3)
 
-- [ ] 🏗️ 🔴 **Auth reale** — _Fatto (server + sito):_ account veri al posto del login mock.
+- [x] ✅ 🔴 **Auth reale** — _Fatto (server + sito):_ account veri al posto del login mock.
       `server/src/auth.ts` (puro/crypto: `hashPassword`/`verifyPassword` con **scrypt** di
       `node:crypto` a tempo costante, `newSessionToken`, validazione email/password/nome) +
       tabelle SQLite `users`/`auth_sessions` (`db.ts`, TTL 30gg + prune) + endpoint

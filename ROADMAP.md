@@ -46,26 +46,26 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Collaborazione tra agenti** — strumento `relay_task`: l'agente specifica il ruolo (Tester/Revisore/Documentatore/Architetto) o il nome del destinatario; il runtime trova l'agente e assegna il task automaticamente (o lo mette in coda se occupato).
 
 ## 🔌 Più strumenti per gli agenti
-- [ ] 💡 **Web search / fetch** — ricerca prima di scrivere.
+- [x] ✅ **Web search / fetch** — ricerca prima di scrivere. (tool `web_fetch` in `agentTools.ts`)
 - [x] ✅ **gh_create_issue** — l'agente può aprire issue su GitHub (per segnalare bug o richiedere feature trovate durante il lavoro).
 - [x] ✅ **GitHub esteso** — `gh_list_prs`, `gh_read_pr`, `gh_comment_pr`, `gh_list_ci`; gli agenti leggono PR, postano commenti e vedono lo stato CI.
 - [x] ✅ **Notion completo** — `notion_read` (legge prima di scrivere), `notion_create_page` (pagina figlia con contenuto markdown), `notion_replace_page` (sostituzione blocchi).
 - [x] ✅ **Notifiche a fine task** — browser Notification API; la permission viene richiesta al primo completamento e poi ogni task finito mostra una notifica nativa.
-- [ ] 💡 **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva.
+- [x] ✅ **Sfruttare gli MCP disponibili** — report su Google Drive, eventi su Calendar, grafiche su Canva. (tool `mcp_call` implementato; serve configurare `SAMS_MCP_SERVERS` per usarlo davvero)
 
 ## 🎮 Mondo 3D (feel "The Sims")
 - [x] ✅ **Cammino mirato** — all'assegnazione del task l'agente cammina verso la zona pertinente (docs→Reading Nook, codice→Work Desk).
 - [x] ✅ **Animazione di digitazione** — quando l'agente è working e fermo, le braccia vanno in posizione di typing con stutter alternato; testa inclinata in avanti.
-- [ ] 💡 **Animazioni extra** — disegna sul muro, coffee break idle.
+- [x] ✅ **Animazioni extra** — disegna sul muro, coffee break idle. (fatto in Roadmap 2: caffè/lavagna/stretching)
 - [x] ✅ **Fumetti di stato** — sopra ogni agente compare l'ultima azione (dagli eventi SSE), per qualche secondo.
 - [x] ✅ **Mobili vivi** — il monitor in scena mostra l'agente attivo e la barra di progresso del task in corso.
 - [x] ✅ **Ciclo giorno/notte** — `DayNightCycle` anima luci, cielo e nebbia su un periodo di 120 s.
-- [ ] 💡 **Mood/energia** degli agenti (pausa caffè quando idle).
-- [ ] 💡 **Camera cinematografica** che segue l'agente selezionato.
-- [ ] 💡 **Pathfinding** attorno ai mobili (ora è in linea retta).
+- [x] ✅ **Mood/energia** degli agenti (pausa caffè quando idle).
+- [x] ✅ **Camera cinematografica** che segue l'agente selezionato. (fatto in Roadmap 2)
+- [x] ✅ **Pathfinding** attorno ai mobili (ora è in linea retta). (fatto in Roadmap 2: `lib/pathfind.ts`, A\*)
 
 ## 🖱️ UX / UI
-- [ ] 💡 **Anteprima & approvazione del diff** nel pannello destro prima del push.
+- [x] ✅ **Anteprima & approvazione del diff** nel pannello destro prima del push. (`ScmView` + `StagedFileDiff`)
 - [x] ✅ **Libreria di istruzioni pronte** — 12 template categorizzati (Notion / Codice / Documentazione / Contenuti / Manutenzione) nell'inspector; riempiono titolo+branch e selezionano il primo segnaposto da editare.
 - [x] ✅ **Onboarding guidato** al primo avvio — wizard 2-step (dismissibile, in localStorage) che spiega SAMS e guida ai 3 passi per iniziare.
 - [x] ✅ **Meter di utilizzo/token** — token Gemini per task (TasksPanel) + totale cumulativo nella StatusBar.
@@ -76,16 +76,16 @@ isometrica + agenti AI autonomi (Gemini Flash) con strumenti GitHub/Notion, il
 - [x] ✅ **Specie/biomi diversi** — bioma (oak/pine/birch) derivato dall'username via hash; palette per tronco, foglie e foglie scure.
 - [x] ✅ **Stagioni/meteo** — stagione rilevata dal mese corrente; cielo/nebbia/sole stagionali; `FallingLeaves` in autunno, `Snowflakes` in inverno; farfalle nascoste in inverno.
 - [x] ✅ **Achievement/badge** — `computeBadges()` restituisce emoji+etichetta in base a innaffiature, streak, stadio e crescita; mostrati come pill nel pannello di controllo del giardino.
-- [ ] 💡 **Immagine OG condivisibile** per i social.
-- [ ] 💡 **Giardini di team** (tutta l'organizzazione).
-- [ ] ❄️ **Auto-innaffiatura via webhook** — opzionale (per ora refresh manuale, scelta voluta).
+- [x] ✅ **Immagine OG condivisibile** per i social. (`ogImage.ts`: `buildGardenOgCard`/`downloadOgCard`, bottone "Immagine" in GardenView)
+- [x] ✅ **Giardini di team** (tutta l'organizzazione). (`teamGarden.ts`: pannello "Giardino di team" con classifica e stats aggregate)
+- [x] ✅ **Auto-innaffiatura via webhook** — fatto in Roadmap 3 (`parsePushWatering`: un push innaffia il giardino).
 
 ## 🛠️ Solidità (engineering)
 - [x] ✅ **Persistenza** — agenti/task/eventi/layout sopravvivono al refresh (Zustand `persist` su localStorage; flag transitori esclusi).
 - [x] ✅ **CI su PR** — `.github/workflows/ci.yml`: npm build + server typecheck + server test (vitest) su ogni push/PR.
 - [x] ✅ **Test frontend / e2e** (Playwright) — 5 smoke test (`e2e/smoke.spec.ts`): caricamento, onboarding wizard, impostazioni, command palette, garden view. Tutti 5 passano.
 - [x] ✅ **Dockerizzare il runtime** — `Dockerfile` multi-stage (Vite build + tsx server) + `docker-compose.yml`; `docker compose up` serve frontend e API sulla porta 3000.
-- [ ] 💡 **Gestione rate-limit/retry** centralizzata (oltre al backoff Gemini esistente).
+- [x] ✅ **Gestione rate-limit/retry** centralizzata (oltre al backoff Gemini esistente). (`rateLimit.ts`: authLimiter/assignQuota/chatLimiter)
 - [x] ✅ **Provider Groq** — Llama 3.3 70B via API OpenAI-compatible (free tier); selezionabile in Impostazioni con chiave `gsk_…`.
 
 ## ✅ Già fatto (storico)

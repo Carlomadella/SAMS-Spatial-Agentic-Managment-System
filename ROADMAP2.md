@@ -129,9 +129,9 @@ collega.
       titolo). I tipi delle proprietà sono dedotti dallo schema del DB
       (title/rich_text/number/select/multi_select/url/checkbox/date) dalla funzione
       pura testata `buildDatabaseProps`; le proprietà fuori schema sono ignorate.
-- [ ] 💡 **Webhook in ingresso** — eventi GitHub (push/PR/CI) che svegliano gli agenti.
-- [ ] 💡 **Sfruttare gli MCP** — report su Google Drive, eventi su Calendar, grafiche su
-      Canva come strumenti agente.
+- [x] ✅ **Webhook in ingresso** — eventi GitHub (push/PR/CI) che svegliano gli agenti. (`webhook.ts`: `parseGithubEvent` → `wake`)
+- [x] ✅ **Sfruttare gli MCP** — report su Google Drive, eventi su Calendar, grafiche su
+      Canva come strumenti agente. (tool `mcp_call`; serve configurare `SAMS_MCP_SERVERS`)
 
 ## 📊 Osservabilità
 
@@ -167,7 +167,7 @@ collega.
       piano quando nessun file è ancora staged; la media-wall (TV) mostra la coda dei
       task di tutti gli agenti. Logica pura in `lib/sceneDisplays.ts` (`monitorView`/
       `queueBoard`), 8 test.
-- [ ] 💡 **Replay cinematografico** di un task completato — ottimo per demo/condivisione.
+- [x] ✅ **Replay cinematografico** di un task completato — ottimo per demo/condivisione. (`ReplayPanel.tsx` + `lib/replay.ts`, tab "Replay")
 - [x] ✅ **Animazioni extra** — gli agenti liberi fanno micro-attività in base a dove
       stanno: caffè in cucina (☕), schizzi alla lavagna (✏️), stretching altrove (🤸).
       Pose in `Agent3D` layerate sopra l'idle; `LifeBridge` instrada ogni tanto verso
@@ -182,24 +182,24 @@ collega.
 - [x] ✅ **Garden connesso agli agenti** — `waterAgentGarden(agentName)` in `finalizeTask`:
       ogni task completato con modifiche reali innaffia la pianta SAMS dell'agente
       (`user = sams-<agentName>`). Il lavoro reale fa crescere il giardino.
-- [ ] 💡 **Immagine OG condivisibile** — esporta il giardino come PNG (canvas/OG meta)
-      per i social. (Rimasto dalla Roadmap 1.)
-- [ ] 💡 **Giardini di team / organizzazione** — vista aggregata di tutti i contributor.
+- [x] ✅ **Immagine OG condivisibile** — esporta il giardino come PNG (canvas/OG meta)
+      per i social. (`ogImage.ts` + bottone "Immagine")
+- [x] ✅ **Giardini di team / organizzazione** — vista aggregata di tutti i contributor. (`teamGarden.ts`)
 - [x] ✅ **Eventi stagionali** — ricorrenze datate (Capodanno, San Valentino,
       fioritura di primavera, solstizio, Halloween, Natale) accendono particelle
       festive del colore-accento attorno alla pianta (`FestiveParticles`) e un
       badge nel pannello giardino. Logica pura `getSeasonalEvent(date)` in
       `lib/seasonalEvents.ts` (range mutuamente esclusivi), 8 test.
-- [ ] ❄️ **Auto-innaffiatura via webhook** — opzionale (oggi refresh manuale, scelta voluta).
+- [x] ✅ **Auto-innaffiatura via webhook** — fatto in Roadmap 3 (`parsePushWatering`).
 
 ## 🤝 Collaborazione & multi-utente
 
-- [ ] 💡 **Presence in tempo reale** — più utenti vedono gli stessi agenti muoversi.
+- [x] ✅ **Presence in tempo reale** — più utenti vedono gli stessi agenti muoversi. (fatto in Roadmap 4, frontiera #2)
 - [x] ✅ **Visualizzazione degli handoff** — un arco 3D tratteggiato del colore del
       mittente con un impulso che viaggia da chi delega a chi riceve quando parte un
       `relay_task` (più whoosh audio); svanisce dopo ~3s. Stato `handoffs` nello store;
       `HandoffArc`/`Handoffs` in `OfficeScene`.
-- [ ] 💡 **Ruoli/permessi** sul workspace (chi assegna task, chi solo osserva).
+- [x] ✅ **Ruoli/permessi** sul workspace (chi assegna task, chi solo osserva). (fatto in Roadmap 4: `roles.ts`, viewer<editor<owner)
 - [x] ✅ **Marketplace di "template agente"** (ruolo + istruzioni + modello) condivisibili —
       `lib/agentTemplates.ts`: libreria curata (`AGENT_TEMPLATES`: cacciatore di bug,
       autore di test, documentatore, revisore, architetto, rifattorizzatore),
@@ -234,9 +234,9 @@ collega.
 
 - [x] ✅ **Accessibilità tastiera** — Tab/Shift-Tab cicla tra agenti nel canvas (salta
       se focus in input/textarea), Escape deseleziona. Funziona in sinergia con Ctrl+K.
-- [ ] 💡 **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
-      l'onboarding spiega i _concetti_, non l'_UI_.
-- [ ] 💡 **Tema chiaro/scuro** rifinito su tutti i pannelli (alcuni colori sono hardcoded).
+- [x] ✅ **Tour interattivo** post-onboarding (evidenzia inspector, scena, garden):
+      l'onboarding spiega i _concetti_, non l'_UI_. (`src/components/Tour.tsx`)
+- [x] ✅ **Tema chiaro/scuro** rifinito su tutti i pannelli. (token colore centralizzati come CSS var in `index.css`; `App.tsx` applica `theme-light`)
 
 ## 🃏 Wild cards
 
@@ -250,7 +250,7 @@ collega.
       (Novizio→Apprendista→Esperto→Veterano→Maestro). Curva pura in `lib/skill.ts`
       (`levelFromXp`, 6 test); badge ⭐Lv nell'etichetta 3D + riga Livello con barra XP
       nell'AgentInspector.
-- [ ] 💡 **Ufficio multiplayer** — più umani nello stesso workspace in tempo reale.
+- [x] ✅ **Ufficio multiplayer** — più umani nello stesso workspace in tempo reale. (mondo condiviso + cursori/presence live, Roadmap 4)
 
 ---
 
