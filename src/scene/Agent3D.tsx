@@ -201,6 +201,12 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     // Walk toward the current waypoint; the final waypoint is the destination. When
     // following the driver, chase its live position instead (no local path/commit).
     const hasPath = !follow && agent.target != null && path.length > 0;
+    // C'è davvero una destinazione verso cui camminare? Solo con un cammino attivo o
+    // seguendo il driver. A RIPOSO (target raggiunto, `arriveAgent` ha azzerato il
+    // target) non c'è: la posizione la possiede la separazione e NON va richiamata
+    // indietro alla cella committata — quel richiamo era la causa del "cerchio",
+    // perché un agente spinto via dalla separazione ci rientrava e ricollideva.
+    const goingSomewhere = hasPath || !!follow;
     const wp: Vec2 = hasPath
       ? path[Math.min(wpIndex.current, path.length - 1)]
       : follow
@@ -210,9 +216,11 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     const dx = dest[0] - cur.current.x;
     const dz = dest[1] - cur.current.z;
     const dist = Math.hypot(dx, dz);
-    const moving = dist > 0.03;
-    // "In transito": ha un cammino attivo o si sta ancora spostando. Da fermo (target
-    // raggiunto, `arriveAgent` azzera il target) questo è falso → scatta la separazione.
+    // "In movimento" solo se sta raggiungendo una destinazione reale: uno spostamento
+    // dovuto alla sola separazione (da fermo) non è una camminata, quindi non conta.
+    const moving = goingSomewhere && dist > 0.03;
+    // "In transito": ha un cammino attivo o si sta ancora spostando verso una meta. Da
+    // fermo questo è falso → scatta la separazione (e non viene segnato come moving).
     const traveling = hasPath || moving;
     // Pubblica lo stato di movimento (gemello di liveAgentPositions): la separazione
     // altrui salta chi è in transito, così ci si può attraversare mentre si cammina.
@@ -227,7 +235,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       }
     }
 
-    if (dist > 1e-4) {
+    // Cammina verso la meta SOLO se ne ha una (cammino/follow). A riposo non si
+    // auto-richiama alla cella committata: così la separazione può tenerlo a distanza
+    // minima dagli altri fermi senza che lui rientri di continuo nella collisione.
+    if (goingSomewhere && dist > 1e-4) {
       const step = Math.min(dist, SPEED * d);
       cur.current.x += (dx / dist) * step;
       cur.current.z += (dz / dist) * step;
