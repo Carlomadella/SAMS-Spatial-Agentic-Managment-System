@@ -16,6 +16,8 @@ import {
   listUsers,
   pruneAuthSessions,
   setUserRole,
+  updateUserPassword,
+  deleteUserSessionsExcept,
   getMemory,
   insertChatMessage,
   insertRoutine,
@@ -429,5 +431,31 @@ describe("auth: gestione utenti (owner)", () => {
     expect(setUserRole(d, "v@x.co", "editor")).toBe(true);
     expect(getUserByEmail(d, "v@x.co")?.role).toBe("editor");
     expect(setUserRole(d, "nope@x.co", "owner")).toBe(false);
+  });
+});
+
+describe("auth: cambio password + sessioni", () => {
+  const freshDb = () => openDb(":memory:");
+  const mk = (id: string): import("./auth").User => ({
+    id, email: `${id}@x.co`, name: id, passHash: "old:hash", role: "owner", createdAt: 1,
+  });
+
+  it("updateUserPassword aggiorna l'hash", () => {
+    const d = freshDb();
+    createUser(d, mk("u1"));
+    updateUserPassword(d, "u1", "new:hash");
+    expect(getUserById(d, "u1")?.passHash).toBe("new:hash");
+  });
+
+  it("deleteUserSessionsExcept slogga gli altri dispositivi, tiene quello corrente", () => {
+    const d = freshDb();
+    createUser(d, mk("u1"));
+    createAuthSession(d, "cur", "u1", 9999999999999);
+    createAuthSession(d, "other1", "u1", 9999999999999);
+    createAuthSession(d, "other2", "u1", 9999999999999);
+    deleteUserSessionsExcept(d, "u1", "cur");
+    expect(getSessionUser(d, "cur")?.id).toBe("u1");
+    expect(getSessionUser(d, "other1")).toBeNull();
+    expect(getSessionUser(d, "other2")).toBeNull();
   });
 });

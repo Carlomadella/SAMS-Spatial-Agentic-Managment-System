@@ -565,6 +565,19 @@ export function deleteAuthSession(db: DatabaseSync, token: string): void {
   db.prepare(`DELETE FROM auth_sessions WHERE token = ?`).run(token);
 }
 
+/** Aggiorna l'hash password di un utente. */
+export function updateUserPassword(db: DatabaseSync, userId: string, passHash: string): void {
+  db.prepare(`UPDATE users SET pass_hash = ? WHERE id = ?`).run(passHash, userId);
+}
+
+/**
+ * Invalida tutte le sessioni dell'utente **tranne** una (quella corrente): dopo un cambio
+ * password gli altri dispositivi vengono sloggati, quello che l'ha cambiata resta attivo.
+ */
+export function deleteUserSessionsExcept(db: DatabaseSync, userId: string, keepToken: string): void {
+  db.prepare(`DELETE FROM auth_sessions WHERE user_id = ? AND token != ?`).run(userId, keepToken);
+}
+
 /** Rimuove le sessioni scadute (GC). Ritorna quante ne ha tolte. */
 export function pruneAuthSessions(db: DatabaseSync, now = Date.now()): number {
   return Number(db.prepare(`DELETE FROM auth_sessions WHERE expires_at <= ?`).run(now).changes);

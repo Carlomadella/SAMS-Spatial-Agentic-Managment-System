@@ -8,6 +8,7 @@ import { runTask } from "./sessions";
 import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
+import { runOpenaiTask } from "./openai";
 import { addIssueLabel, createBranch, createPullRequest, getRepoTree, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
@@ -18,7 +19,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, countOwners, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, recentTasks, saveWorldAgents, setRoutineEnabled, setUserRole, taskStats } from "./db";
+import { clearMemory, countOwners, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, recentTasks, saveWorldAgents, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
@@ -261,6 +262,26 @@ app.get("/api/auth/users", requireRole("owner"), (_req: Request, res: Response) 
   res.json({ users: listUsers(db()) });
 });
 
+// Cambio password del proprio account (autenticato): verifica la vecchia, imposta la nuova
+// e slogga gli altri dispositivi (le altre sessioni). Nessuna email → solo cambio, non reset.
+app.post("/api/auth/password", (req: Request, res: Response) => {
+  const token = bearerToken(req.headers.authorization);
+  const user = getSessionUser(db(), token);
+  if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  const body = (req.body ?? {}) as { oldPassword?: unknown; newPassword?: unknown };
+  if (!verifyPassword(typeof body.oldPassword === "string" ? body.oldPassword : "", user.passHash)) {
+    res.status(401).json({ error: "Password attuale non corretta" });
+    return;
+  }
+  const pw = validatePassword(body.newPassword);
+  if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
+  const database = db();
+  updateUserPassword(database, user.id, hashPassword(body.newPassword as string));
+  deleteUserSessionsExcept(database, user.id, token);
+  log.info("Password cambiata", { email: user.email });
+  res.status(204).end();
+});
+
 app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
   const email = normalizeEmail(body.email);
@@ -374,9 +395,10 @@ app.get("/api/repo/tree", async (_req: Request, res: Response) => {
 app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
-  if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq" || body.provider === "openrouter") patch.provider = body.provider;
+  if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq" || body.provider === "openrouter" || body.provider === "openai") patch.provider = body.provider;
   if (typeof body.groqApiKey === "string" && body.groqApiKey.trim()) patch.groqApiKey = body.groqApiKey.trim();
   if (typeof body.openrouterApiKey === "string" && body.openrouterApiKey.trim()) patch.openrouterApiKey = body.openrouterApiKey.trim();
+  if (typeof body.openaiApiKey === "string" && body.openaiApiKey.trim()) patch.openaiApiKey = body.openaiApiKey.trim();
   if (typeof body.geminiApiKey === "string" && body.geminiApiKey.trim()) patch.geminiApiKey = body.geminiApiKey.trim();
   if (typeof body.anthropicApiKey === "string" && body.anthropicApiKey.trim()) patch.anthropicApiKey = body.anthropicApiKey.trim();
   if (typeof body.githubToken === "string" && body.githubToken.trim()) patch.githubToken = body.githubToken.trim();
@@ -500,6 +522,7 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
     provider === "gemini" ? runGeminiTask
     : provider === "groq" ? runGroqTask
     : provider === "openrouter" ? runOpenrouterTask
+    : provider === "openai" ? runOpenaiTask
     : runTask;
   // A meta-agente task carries a repo override (owner/repo). Run the whole task
   // inside that repo context so every GitHub call targets it instead of the
@@ -1078,4 +1101,15 @@ app.listen(port, () => {
     .catch((err) => log.error("Garden store init fallito", { error: (err as Error).message }));
   // Start the routine scheduler (checks for due recurring tasks every 30s).
   setInterval(routineTick, ROUTINE_TICK_MS);
+  // Garbage-collect expired auth sessions: once at boot, then every 6 hours.
+  const pruneSessions = () => {
+    try {
+      const n = pruneAuthSessions(db());
+      if (n > 0) log.info("Sessioni scadute rimosse", { count: n });
+    } catch {
+      /* DB non disponibile → riprova al prossimo giro */
+    }
+  };
+  pruneSessions();
+  setInterval(pruneSessions, 6 * 60 * 60 * 1000);
 });

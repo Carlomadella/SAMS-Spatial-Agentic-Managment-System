@@ -187,6 +187,7 @@ export const DOCS_SECTIONS: DocSection[] = [
       { term: "OpenRouter", desc: "Provider attivo di default: dà accesso a molti modelli, sia gratuiti (varianti :free) sia a pagamento, con un'unica chiave." },
       { term: "Gemini", desc: "I modelli Google Gemini, con il loro piano gratuito." },
       { term: "Anthropic", desc: "I modelli Claude di Anthropic." },
+      { term: "ChatGPT (OpenAI)", desc: "I modelli GPT di OpenAI (ChatGPT) come provider nativo: si sceglie \"ChatGPT — OpenAI\" nel motore e si incolla una chiave sk- da platform.openai.com. Sono a consumo (default gpt-4o-mini)." },
       { term: "Groq", desc: "Inference molto veloce su modelli aperti." },
       { term: "Configurazione", desc: "Si imposta il provider e la chiave nel file .env del server (o nelle variabili d'ambiente del deploy). Basta almeno una chiave valida." },
     ],

@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { Container } from "../components/Container";
 import { CTAButton } from "../components/CTAButton";
 import { UsersAdmin } from "../components/UsersAdmin";
+import { ChangePassword } from "../components/ChangePassword";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
 
@@ -51,6 +52,10 @@ export function Profile() {
           </div>
         </div>
         <p className="mt-4 text-center text-xs text-slate-500">Sessione sul runtime SAMS — esci per chiuderla su questo dispositivo.</p>
+
+        <div className="text-center">
+          <ChangePassword />
+        </div>
 
         {user.role === "owner" && <UsersAdmin selfEmail={user.email} />}
       </div>

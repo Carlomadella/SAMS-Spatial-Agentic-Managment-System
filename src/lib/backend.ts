@@ -61,7 +61,7 @@ export interface RemoteUpdate {
   worldsim?: { agents: { id: string; x: number; z: number; tx: number | null; tz: number | null; energy?: number; hunger?: number }[]; ts: number };
 }
 
-export type Provider = "gemini" | "claude" | "groq" | "openrouter";
+export type Provider = "gemini" | "claude" | "groq" | "openrouter" | "openai";
 
 export interface RuntimeStatus {
   provider: Provider;
@@ -69,6 +69,7 @@ export interface RuntimeStatus {
   hasAnthropicKey: boolean;
   hasGroqKey: boolean;
   hasOpenrouterKey: boolean;
+  hasOpenaiKey: boolean;
   hasGithubToken: boolean;
   provisioned: boolean;
   ready: boolean;
@@ -88,6 +89,7 @@ export interface SettingsInput {
   anthropicApiKey?: string;
   groqApiKey?: string;
   openrouterApiKey?: string;
+  openaiApiKey?: string;
   githubToken?: string;
   githubRepo?: string;
   baseBranch?: string;
@@ -241,6 +243,24 @@ export async function fetchUsers(): Promise<ManagedUser[]> {
     return body.users ?? [];
   } catch {
     return [];
+  }
+}
+
+/** Cambia la password del proprio account (verifica la vecchia). Slogga gli altri dispositivi. */
+export async function changePasswordRemote(oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/password`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Cambio password non riuscito" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
   }
 }
 

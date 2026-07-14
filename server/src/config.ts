@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import "dotenv/config";
 
-export type Provider = "gemini" | "claude" | "groq" | "openrouter";
+export type Provider = "gemini" | "claude" | "groq" | "openrouter" | "openai";
 
 /**
  * Runtime settings. Defaults come from the environment (.env), but the SAMS UI
@@ -16,6 +16,7 @@ export interface Settings {
   anthropicApiKey: string;
   groqApiKey: string;
   openrouterApiKey: string;
+  openaiApiKey: string;
   // github
   githubToken: string;
   githubRepo: string;
@@ -52,6 +53,7 @@ function fromEnv(): Settings {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
     groqApiKey: process.env.GROQ_API_KEY ?? "",
     openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
+    openaiApiKey: process.env.OPENAI_API_KEY ?? "",
     githubToken: process.env.GITHUB_TOKEN ?? "",
     githubRepo: process.env.GITHUB_REPO ?? "Carlomadella/Tutto-sulla-programmazione",
     baseBranch: process.env.GITHUB_BASE_BRANCH ?? "main",
@@ -102,6 +104,7 @@ function persist(): void {
     anthropicApiKey: s.anthropicApiKey,
     groqApiKey: s.groqApiKey,
     openrouterApiKey: s.openrouterApiKey,
+    openaiApiKey: s.openaiApiKey,
     githubToken: s.githubToken,
     githubRepo: s.githubRepo,
     baseBranch: s.baseBranch,
@@ -140,6 +143,7 @@ export type SettingsPatch = Partial<
     | "anthropicApiKey"
     | "groqApiKey"
     | "openrouterApiKey"
+    | "openaiApiKey"
     | "githubToken"
     | "githubRepo"
     | "baseBranch"
@@ -171,13 +175,14 @@ export function isConfigured(): boolean {
   if (s.provider === "gemini") return s.geminiApiKey.length > 0;
   if (s.provider === "groq") return s.groqApiKey.length > 0;
   if (s.provider === "openrouter") return s.openrouterApiKey.length > 0;
+  if (s.provider === "openai") return s.openaiApiKey.length > 0;
   return s.anthropicApiKey.length > 0;
 }
 
 export function isProvisioned(): boolean {
   const s = getSettings();
   // Gemini, Groq and OpenRouter are self-hosted loops — no provisioning step.
-  if (s.provider === "gemini" || s.provider === "groq" || s.provider === "openrouter") return true;
+  if (s.provider === "gemini" || s.provider === "groq" || s.provider === "openrouter" || s.provider === "openai") return true;
   return s.agentId.length > 0 && s.environmentId.length > 0;
 }
 
@@ -194,6 +199,7 @@ export function publicStatus() {
     hasAnthropicKey: s.anthropicApiKey.length > 0,
     hasGroqKey: s.groqApiKey.length > 0,
     hasOpenrouterKey: s.openrouterApiKey.length > 0,
+    hasOpenaiKey: s.openaiApiKey.length > 0,
     hasGithubToken: s.githubToken.length > 0,
     provisioned: isProvisioned(),
     ready: isReady(),
