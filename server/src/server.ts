@@ -189,9 +189,11 @@ app.get("/api/status", (_req: Request, res: Response) => {
 app.get("/api/whoami", (req: Request, res: Response) => {
   const s = getSettings();
   const provided = bearerToken(req.headers.authorization);
-  const hasSession = provided ? Boolean(getSessionUser(db(), provided)) : false;
-  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken) || hasSession;
-  res.json({ role: roleOf(req), enforced });
+  const user = provided ? getSessionUser(db(), provided) : null;
+  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken) || Boolean(user);
+  // `name`/`email` valorizzati solo con una sessione utente reale: così la workspace
+  // può presentarsi con l'identità dell'account (presence/cursori/chat) invece di "Ospite".
+  res.json({ role: roleOf(req), enforced, name: user?.name ?? "", email: user?.email ?? "" });
 });
 
 // --- Auth reale: account utente (Roadmap 4, frontiera #3) ------------------

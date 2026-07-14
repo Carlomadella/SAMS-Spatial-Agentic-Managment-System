@@ -211,6 +211,10 @@ export async function fetchStatus(): Promise<RuntimeStatus | null> {
 export interface WhoAmI {
   role: ViewerRole;
   enforced: boolean;
+  /** nome dell'account loggato ("" se non autenticato o runtime vecchio) */
+  name: string;
+  /** email dell'account loggato ("" se non autenticato) */
+  email: string;
 }
 
 /** Chiedi al runtime il ruolo del chiamante; fallback a owner/dev-aperto quando
@@ -218,11 +222,16 @@ export interface WhoAmI {
 export async function fetchWhoami(): Promise<WhoAmI> {
   try {
     const res = await fetch(`${BASE}/api/whoami`, { headers: authHeaders(false) });
-    if (!res.ok) return { role: "owner", enforced: false };
-    const data = (await res.json()) as { role?: unknown; enforced?: unknown };
-    return { role: normalizeRole(data.role), enforced: Boolean(data.enforced) };
+    if (!res.ok) return { role: "owner", enforced: false, name: "", email: "" };
+    const data = (await res.json()) as { role?: unknown; enforced?: unknown; name?: unknown; email?: unknown };
+    return {
+      role: normalizeRole(data.role),
+      enforced: Boolean(data.enforced),
+      name: typeof data.name === "string" ? data.name : "",
+      email: typeof data.email === "string" ? data.email : "",
+    };
   } catch {
-    return { role: "owner", enforced: false };
+    return { role: "owner", enforced: false, name: "", email: "" };
   }
 }
 
@@ -465,6 +474,8 @@ export interface WorldAgentSnapshot {
   instructions?: string;
   repo?: string;
   xp?: number;
+  /** Nome dell'utente che ha assegnato il task corrente (attribuzione multi-utente). */
+  assignedBy?: string;
   /** Tombstone autorevole (opzione 1): l'agente è stato cancellato sul server. */
   deleted?: boolean;
 }
@@ -652,7 +663,11 @@ export function getViewerId(): string {
 }
 
 function viewerName(): string {
-  return useStore.getState().chatName?.trim() || "Ospite";
+  const s = useStore.getState();
+  // Precedenza: nome scelto a mano in chat → nome dell'account loggato → "Ospite".
+  // Così due utenti loggati compaiono col loro vero nome (presence/cursori/selezioni/
+  // chat/attribuzione azioni) invece che tutti come "Ospite".
+  return s.chatName?.trim() || s.accountName?.trim() || "Ospite";
 }
 
 /**
@@ -791,8 +806,20 @@ export function connectBackend(): () => void {
     });
     // Hydrate the workspace chat from the server (the durable source of truth).
     void fetchChat().then((msgs) => useStore.getState().setChatMessages(msgs));
-    // Learn our role so the UI can gate actions the role can't perform.
-    void fetchWhoami().then((w) => useStore.getState().setViewer(w.role, w.enforced));
+    // Learn our role so the UI can gate actions the role can't perform, and adopt
+    // the logged-in account's name as our workspace identity (so concurrent users
+    // show their real name in presence/cursors/chat, not "Ospite"). Non sovrascrive
+    // un nome scelto a mano: se l'utente ha già digitato un nome in chat, quello vince.
+    void fetchWhoami().then((w) => {
+      const st = useStore.getState();
+      st.setViewer(w.role, w.enforced);
+      if (w.name) {
+        st.setAccountName(w.name);
+        // Ripresenta la presence col nome vero appena appreso (la connessione SSE si
+        // era già annunciata come "Ospite" col query param, prima di sapere chi siamo).
+        if (!st.chatName.trim()) void announcePresence(w.name);
+      }
+    });
     // Learn who currently drives the shared world (opzione B3).
     void fetchDriver().then((d) => useStore.getState().setWorldDriver(d && d.holderId ? d : null));
   };

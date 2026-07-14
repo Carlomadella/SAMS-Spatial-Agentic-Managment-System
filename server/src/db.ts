@@ -94,6 +94,7 @@ export function openDb(location: string): DatabaseSync {
       instructions TEXT    NOT NULL DEFAULT '',
       repo         TEXT    NOT NULL DEFAULT '',
       xp           INTEGER NOT NULL DEFAULT 0,
+      assigned_by  TEXT    NOT NULL DEFAULT '',
       rev          INTEGER NOT NULL DEFAULT 1,
       updated_at   INTEGER NOT NULL DEFAULT 0,
       deleted_at   INTEGER
@@ -146,6 +147,7 @@ function ensureWorldAgentColumns(db: DatabaseSync): void {
   add("instructions", "instructions TEXT NOT NULL DEFAULT ''");
   add("repo", "repo TEXT NOT NULL DEFAULT ''");
   add("xp", "xp INTEGER NOT NULL DEFAULT 0");
+  add("assigned_by", "assigned_by TEXT NOT NULL DEFAULT ''");
 }
 
 /**
@@ -229,12 +231,13 @@ interface WorldAgentRow {
   instructions: string;
   repo: string;
   xp: number;
+  assigned_by: string;
   rev: number;
   deleted_at: number | null;
 }
 
 /** Colonne del roster lette in giro (senza rev/updated_at/deleted_at ove non servono). */
-const AGENT_COLS = "id, name, color, role, status, task, progress, model, instructions, repo, xp";
+const AGENT_COLS = "id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by";
 
 /** Versione globale + updatedAt (contatore CAS); zeri se mai scritto. */
 function loadWorldVersion(db: DatabaseSync): { version: number; updatedAt: number } {
@@ -267,6 +270,7 @@ const rowToAgent = (r: WorldAgentRow): WorldAgentSnapshot => ({
   instructions: String(r.instructions ?? ""),
   repo: String(r.repo ?? ""),
   xp: Number(r.xp ?? 0),
+  assignedBy: String(r.assigned_by ?? ""),
   ...(r.deleted_at != null ? { deleted: true } : {}),
 });
 
@@ -300,7 +304,8 @@ const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
   String(prev.model ?? "") === (a.model ?? "") &&
   String(prev.instructions ?? "") === (a.instructions ?? "") &&
   String(prev.repo ?? "") === (a.repo ?? "") &&
-  Number(prev.xp ?? 0) === (a.xp ?? 0);
+  Number(prev.xp ?? 0) === (a.xp ?? 0) &&
+  String(prev.assigned_by ?? "") === (a.assignedBy ?? "");
 
 /** Esito di una fusione: lo snapshot autorevole + se ha davvero cambiato qualcosa. */
 export interface WorldMergeResult extends WorldSnapshot {
@@ -335,12 +340,13 @@ export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]
   const incomingIds = new Set(incoming.map((a) => a.id));
 
   const upsert = db.prepare(
-    `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, rev, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
      ON CONFLICT (id) DO UPDATE SET
        name = excluded.name, color = excluded.color, role = excluded.role, status = excluded.status,
        task = excluded.task, progress = excluded.progress, model = excluded.model,
        instructions = excluded.instructions, repo = excluded.repo, xp = excluded.xp,
+       assigned_by = excluded.assigned_by,
        rev = excluded.rev, updated_at = excluded.updated_at, deleted_at = NULL`,
   );
   const tombstone = db.prepare(
@@ -352,7 +358,7 @@ export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]
     const prev = existing.get(a.id);
     if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
     const rev = prev ? Number(prev.rev) + 1 : 1;
-    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "", a.xp ?? 0, rev, now);
+    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "", a.xp ?? 0, a.assignedBy ?? "", rev, now);
     changed = true;
   }
   for (const [id, r] of existing) {

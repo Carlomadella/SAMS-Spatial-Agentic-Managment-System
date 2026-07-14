@@ -58,6 +58,8 @@ export interface RemoteWorldAgent {
   status: string;
   task: string | null;
   progress: number;
+  /** nome dell'utente che ha assegnato il task corrente (attribuzione multi-utente). */
+  assignedBy?: string;
   name?: string;
   color?: string;
   role?: string;
@@ -129,7 +131,9 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     status,
     position: scatterPosition(r.id),
     target: null,
-    task: r.task ? { title: r.task, branch: "", progress } : null,
+    task: r.task
+      ? { title: r.task, branch: "", progress, ...(r.assignedBy?.trim() ? { assignedBy: r.assignedBy.trim() } : {}) }
+      : null,
     taskQueue: [],
     energy: 100,
     hunger: 0,
@@ -188,13 +192,21 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     const repo = r.repo?.trim() || a.repo;
     const xp = Math.max(a.xp, r.xp ?? 0);
     const progress = clampPct(r.progress);
+    // Attribuzione: adotta il nome remoto di chi ha assegnato il task (se presente),
+    // altrimenti conserva quello locale — così ogni vista vede *chi* l'ha avviato.
+    const assignedBy = r.assignedBy?.trim() || a.task?.assignedBy;
+    const withBy = (t: Agent["task"]): Agent["task"] =>
+      t ? { ...t, ...(assignedBy ? { assignedBy } : {}) } : t;
     let task: Agent["task"];
     if (r.task == null) {
       task = null;
     } else if (a.task && a.task.title === r.task) {
-      task = a.task.progress === progress ? a.task : { ...a.task, progress };
+      task =
+        a.task.progress === progress && (a.task.assignedBy ?? "") === (assignedBy ?? "")
+          ? a.task
+          : withBy({ ...a.task, progress });
     } else {
-      task = { title: r.task, branch: a.task?.branch ?? "", progress, ...(a.task?.plan ? { plan: a.task.plan } : {}) };
+      task = { title: r.task, branch: a.task?.branch ?? "", progress, ...(a.task?.plan ? { plan: a.task.plan } : {}), ...(assignedBy ? { assignedBy } : {}) };
     }
     if (
       a.status === status && task === a.task && a.name === name && a.color === color && a.role === role &&

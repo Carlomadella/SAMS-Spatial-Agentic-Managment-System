@@ -44,6 +44,11 @@ export function TasksPanel() {
 
             <div className="mt-0.5 flex items-center gap-2 text-[10px] text-mut">
               <span className="truncate font-mono">{t.branch}</span>
+              {t.assignedBy ? (
+                <span className="shrink-0" title={`Assegnato da ${t.assignedBy}`}>
+                  · {t.status === "done" ? "completato per" : "da"} {t.assignedBy}
+                </span>
+              ) : null}
               {t.tokens ? <span className="shrink-0">· {fmtTokens(t.tokens)} tok</span> : null}
               {t.url && (
                 <a

@@ -123,6 +123,9 @@ interface State {
   chatMessages: ChatMessage[];
   /** the name this view posts under in the workspace chat (persisted) */
   chatName: string;
+  /** nome dell'account loggato (dal server, non persistito): identità di default
+   *  per presence/cursori/chat quando l'utente non ha scelto un nome personalizzato. */
+  accountName: string;
   /** unread chat messages while the Chat tab isn't the active one (transient) */
   chatUnread: number;
   /** ruolo del chiamante sul workspace (server-owned; owner in dev aperto) */
@@ -273,6 +276,8 @@ interface State {
   setChatMessages: (messages: ChatMessage[]) => void;
   pushChatMessage: (message: ChatMessage) => void;
   setChatName: (name: string) => void;
+  /** Registra il nome dell'account loggato appreso dal server (`/api/whoami`). */
+  setAccountName: (name: string) => void;
   markChatRead: () => void;
   /** Registra il ruolo del chiamante appreso dal server (`/api/whoami`). */
   setViewer: (role: ViewerRole, enforced: boolean) => void;
@@ -346,6 +351,14 @@ function uniqueName(agents: Agent[], color: AgentColor): string {
   return `${base}-${i}`;
 }
 
+/** Identità dell'utente di *questa* vista per l'attribuzione (chi assegna/completa
+ *  il task): il nome scelto a mano in chat, poi l'account loggato, infine "Ospite".
+ *  Rispecchia `viewerName()` in `lib/backend`, ma vive qui per non importare il
+ *  backend nello store (eviterebbe un ciclo). */
+function selfActor(s: Pick<State, "chatName" | "accountName">): string {
+  return s.chatName?.trim() || s.accountName?.trim() || "Ospite";
+}
+
 /** Compute mood from status, energy and hunger — outcome signals take priority. */
 function moodFor(status: AgentStatus, energy: number, hunger: number, prevMood: AgentMood): AgentMood {
   if (status === "blocked") return "frustrated";
@@ -414,6 +427,7 @@ export const useStore = create<State>()(
   selfViewerId: "",
   chatMessages: [],
   chatName: "",
+  accountName: "",
   chatUnread: 0,
   viewerRole: "owner",
   roleEnforced: false,
@@ -560,6 +574,9 @@ export const useStore = create<State>()(
   assignTask: (id, title, branch) => {
     const a = get().agents.find((x) => x.id === id);
     if (!a) return;
+    // Chi sta assegnando (e quindi completerà) il task, da questa vista. Viaggia col
+    // task nello snapshot del mondo → ogni utente vede *chi* l'ha avviato/completato.
+    const assignedBy = selfActor(get());
     const rec: TaskRecord = {
       id: uid("task"),
       agentId: id,
@@ -569,6 +586,7 @@ export const useStore = create<State>()(
       branch: branch || "main",
       status: "working",
       progress: 0,
+      assignedBy,
       createdAt: Date.now(),
     };
     set((s) => ({
@@ -579,7 +597,7 @@ export const useStore = create<State>()(
         return {
           ...x,
           status: "working",
-          task: { title, branch: branch || "main", progress: 0 },
+          task: { title, branch: branch || "main", progress: 0, assignedBy },
           hunger,
           mood: moodFor("working", x.energy, hunger, x.mood),
         };
@@ -612,7 +630,8 @@ export const useStore = create<State>()(
       tasks: patchLatestTask(s.tasks, id, { progress: p, ...(p >= 100 ? { status: "done" as const } : {}) }),
     }));
     if (willComplete) {
-      get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task completato: ${a.task.title}` });
+      const by = a.task.assignedBy ? ` · assegnato da ${a.task.assignedBy}` : "";
+      get().log({ agentId: id, agentName: a.name, color: a.color, level: "SUCCESS", message: `Task completato: ${a.task.title}${by}` });
       setTimeout(() => {
         const agent = get().agents.find((x) => x.id === id);
         if (agent?.status === "done" && agent.task) get().clearTask(id);
@@ -878,6 +897,7 @@ export const useStore = create<State>()(
         : { chatMessages: [...s.chatMessages, message].slice(-200) },
     ),
   setChatName: (name) => set({ chatName: name.slice(0, 40) }),
+  setAccountName: (name) => set({ accountName: name.slice(0, 40) }),
   setViewer: (role, enforced) => set({ viewerRole: role, roleEnforced: enforced }),
   markChatRead: () => set((s) => (s.chatUnread === 0 ? s : { chatUnread: 0 })),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
@@ -1024,7 +1044,11 @@ export const useStore = create<State>()(
     // notify when an agent reaches a terminal state
     if (e.status === "done" || e.status === "review") {
       const name = e.agentName ?? e.agentId;
-      get().pushToast("SUCCESS", e.status === "done" ? `✓ ${name} ha completato il task` : `⏳ ${name} — task in revisione`);
+      // Attribuzione: se il task porta il nome di chi l'ha assegnato, mostralo — così si
+      // vede *quale utente* ha completato il lavoro, non solo *quale agente*.
+      const by = get().agents.find((x) => x.id === e.agentId)?.task?.assignedBy;
+      const suffix = by ? ` (${by})` : "";
+      get().pushToast("SUCCESS", e.status === "done" ? `✓ ${name} ha completato il task${suffix}` : `⏳ ${name} — task in revisione${suffix}`);
     } else if (e.status === "blocked") {
       const name = e.agentName ?? e.agentId;
       get().pushToast("ERROR", `⚠ ${name} bloccato`);

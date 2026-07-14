@@ -20,8 +20,13 @@ describe("sanitizeWorldAgent", () => {
       sanitizeWorldAgent({ id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 250 }),
     ).toEqual({
       id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 100,
-      model: "", instructions: "", repo: "", xp: 0,
+      model: "", instructions: "", repo: "", xp: 0, assignedBy: "",
     });
+  });
+
+  it("porta il nome di chi ha assegnato il task (attribuzione multi-utente)", () => {
+    const a = sanitizeWorldAgent({ id: "a1", status: "working", task: "Fix", assignedBy: "  Marco  " });
+    expect(a).toMatchObject({ assignedBy: "Marco" });
   });
 
   it("normalizza e ritaglia la config a bassa frequenza (opzione B2)", () => {

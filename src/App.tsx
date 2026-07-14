@@ -289,6 +289,9 @@ function WorldSyncBridge() {
         instructions: a.instructions,
         repo: a.repo ?? "",
         xp: a.xp,
+        // Chi ha assegnato il task corrente: viaggia col task così ogni vista vede
+        // *quale utente* l'ha avviato e completato.
+        assignedBy: a.task?.assignedBy ?? "",
       }));
 
     const flush = () => {

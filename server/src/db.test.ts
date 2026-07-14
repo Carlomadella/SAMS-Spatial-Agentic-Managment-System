@@ -245,6 +245,16 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     expect(loadWorldAgents(db)[0].model).toBe("Claude Sonnet");
   });
 
+  it("persiste e rilegge chi ha assegnato il task (attribuzione multi-utente)", () => {
+    const db = openDb(":memory:");
+    saveWorldAgents(db, [agent({ assignedBy: "Marco" })]);
+    expect(loadWorldAgents(db)[0]).toMatchObject({ assignedBy: "Marco" });
+    // cambiare solo l'attore è un cambiamento reale (changed=true)
+    const res = saveWorldAgents(db, [agent({ assignedBy: "Giulia" })]);
+    expect(res.changed).toBe(true);
+    expect(loadWorldAgents(db)[0].assignedBy).toBe("Giulia");
+  });
+
   it("aggiunge le colonne config a un world_agents preesistente (ALTER idempotente)", () => {
     const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
     tmpDirs.push(dir);

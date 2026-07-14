@@ -69,6 +69,9 @@ export interface Task {
   progress: number;
   /** step-by-step plan broadcast by announce_plan before the agent starts */
   plan?: string[];
+  /** nome dell'utente che ha assegnato il task (attribuzione multi-utente). Viaggia
+   *  nello snapshot del mondo così ogni vista sa *chi* lo ha avviato e completato. */
+  assignedBy?: string;
 }
 
 /** A historical record of an assigned task (for the Tasks panel). */
@@ -82,6 +85,8 @@ export interface TaskRecord {
   status: AgentStatus;
   /** 0..100 */
   progress: number;
+  /** nome dell'utente che ha assegnato (e quindi completato) il task. */
+  assignedBy?: string;
   /** a result link (PR or Notion), if any */
   url?: string;
   /** Gemini tokens used by this task, if reported by the runtime */

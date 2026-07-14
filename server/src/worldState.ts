@@ -30,6 +30,9 @@ export interface WorldAgentSnapshot {
   repo?: string;
   /** punti esperienza cumulativi (monotoni) */
   xp?: number;
+  /** nome dell'utente che ha assegnato il task corrente (attribuzione multi-utente);
+   *  "" o assente se nessuno/sconosciuto. Viaggia con il task per-riga. */
+  assignedBy?: string;
   /**
    * Tombstone (Roadmap 4, frontiera #1 — opzione 1): presente e `true` quando
    * l'agente è stato **cancellato** in modo autorevole. Viaggia in lettura
@@ -87,6 +90,7 @@ export function sanitizeWorldAgent(raw: unknown): WorldAgentSnapshot | null {
     instructions: str(r.instructions, 2000),
     repo: str(r.repo, 120),
     xp: nonNegInt(r.xp),
+    assignedBy: str(r.assignedBy, 40).trim(),
   };
 }
 

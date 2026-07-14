@@ -16,6 +16,7 @@ import { clock } from "../lib/utils";
 export function ChatPanel() {
   const messages = useStore((s) => s.chatMessages);
   const chatName = useStore((s) => s.chatName);
+  const accountName = useStore((s) => s.accountName);
   const setChatName = useStore((s) => s.setChatName);
   const backendOnline = useStore((s) => s.backendOnline);
   const observers = useStore((s) => s.observers);
@@ -39,7 +40,8 @@ export function ChatPanel() {
     if (!t || sending) return;
     setSending(true);
     setError("");
-    const ok = await sendChat(chatName.trim() || "Ospite", t);
+    // Stessa precedenza della presence: nome scelto a mano → account loggato → Ospite.
+    const ok = await sendChat(chatName.trim() || accountName.trim() || "Ospite", t);
     setSending(false);
     if (ok) setText("");
     else setError("Messaggio non inviato — riprova tra poco.");
@@ -111,8 +113,8 @@ export function ChatPanel() {
         <input
           value={chatName}
           onChange={(e) => setChatName(e.target.value)}
-          onBlur={() => void announcePresence(chatName)}
-          placeholder="Nome"
+          onBlur={() => void announcePresence(chatName.trim() || accountName)}
+          placeholder={accountName || "Nome"}
           aria-label="Il tuo nome in chat"
           className="w-24 shrink-0 rounded-md bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none ring-1 ring-inset ring-line/50 placeholder:text-mut/60 focus:ring-brand"
         />
