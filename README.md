@@ -2,12 +2,15 @@
 
 > **The Sims, but for managing AI agents.** A 3D, game-like workspace where each
 > AI agent is a little character you can spawn, select, walk around an office and
-> assign work to — wrapped in a familiar IDE-style shell.
+> assign work to — wrapped in a familiar IDE-style shell. Now **multiplayer**:
+> multiple people, each with a real account, share the same live office.
 
-This is **v1: a manual sandbox**. You are in control — spawn agents, click to
-select them, send them walking across the floor, dispatch them to zones
-(Desk, Whiteboard, Kanban Wall, Vault, Security Gate, Lounge) and assign tasks.
-Everything you do streams into a live Event Log.
+You are in control — spawn agents, click to select them, send them walking across
+the floor, dispatch them to zones (Desk, Whiteboard, Kanban Wall, Vault, Security
+Gate, Lounge) and assign tasks. Everything you do streams into a live Event Log.
+And it's **collaborative**: teammates connected to the same runtime see each
+other's cursors, selections and edits in real time, chat side-by-side, and every
+task shows **which person** assigned and completed it.
 
 ![SAMS layout](docs/preview.svg)
 
@@ -60,6 +63,36 @@ never during `npm run dev`.
 | Remove an agent | Radial menu (trash) or the inspector |
 | Source-control actions | The **Security Gate** panel (right): open PR, commit, push, approve… (streamed to the Event Log) |
 | Command everything | `⌘/Ctrl + K` command palette |
+
+## Accounts, roles & realtime collaboration
+
+SAMS is a **shared product**, not a single-player demo. It ships a welcome **site**
+(homepage, **login/register**, docs, profile) at `/`, and the 3D workspace lives at
+`/app`. Several people can operate the **same office at the same time**:
+
+- **Real accounts** — email + password, hashed with scrypt (no native deps),
+  opaque **bearer-token sessions** persisted server-side in SQLite. The *first*
+  account to register becomes **owner**.
+- **Roles / permissions** — `owner > editor > viewer`. Owners manage settings,
+  secrets and other users' roles; editors assign/approve work, run the sim, chat;
+  viewers watch (and can open the public dashboard). Every mutating route is
+  guarded server-side, and the UI hides actions your role can't perform. Your
+  logged-in session governs your workspace role automatically.
+- **Live presence** — a roster of **who's watching**, Figma-style **cursors** on
+  the floor, and **selection auras** so you can see which agent a teammate has
+  picked. Everyone appears with their **real account name** (not "Ospite").
+- **Shared world** — the roster of agents + their tasks is an **authoritative
+  server state** (SQLite, versioned). Edits are reconciled to every view over SSE
+  with optimistic concurrency (compare-and-swap), and a **driver lease** elects one
+  view to simulate movement so agents animate consistently for everyone.
+- **Workspace chat** — a human-to-human channel next to the scene, live for
+  everyone watching the same office.
+- **Per-user task attribution** — each task carries **who assigned it**; it travels
+  with the world snapshot, so every view (and the Tasks panel, event log and
+  completion toast) shows **which person** started and completed the work.
+
+> Run **without any tokens/accounts** and SAMS stays in **open dev mode** — every
+> request is treated as `owner`, exactly like the original single-user sandbox.
 
 ## Layout (mirrors the reference design)
 
@@ -253,7 +286,7 @@ Fly.io/Railway/any Docker host work too. Full guide + env vars:
 
 ## Roadmap
 
-The story so far, all checked off in their own files:
+The story so far, chapter by chapter (each with its own file):
 
 - [`ROADMAP.md`](./ROADMAP.md) — **chapter 1**: made things _work_ (live 3D room,
   autonomous multi-provider agents, Commit Garden, Express runtime with SSE).
@@ -267,15 +300,21 @@ The story so far, all checked off in their own files:
   proactive meta-agent). The **shared world** frontier (realtime presence,
   roles/permissions) was deliberately deferred and carries into chapter 4.
 
-The next chapter — **[`ROADMAP4.md`](./ROADMAP4.md)** — turns SAMS from a personal
-demo into a **shared product**: realtime presence, roles/permissions, an
-authoritative server state, deployment & hosting, and deeper real-agent
-collaboration.
+- [`ROADMAP4.md`](./ROADMAP4.md) — **chapter 4**: from a personal demo to a
+  **shared product** — ✅ realtime presence with identity (cursors, selections,
+  shared chat), ✅ **real accounts** (email/password, sessions) and
+  **roles/permissions** (owner/editor/viewer), ✅ an **authoritative server world**
+  (versioned, CAS-reconciled over SSE, driver lease), and deeper real-agent
+  collaboration.
+- [`ROADMAP5.md`](./ROADMAP5.md) — **chapter 5** (in progress): the welcome site,
+  polish (hitboxes, free furniture drag), and per-user task attribution.
 
 A per-session log of recent changes lives in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
 *Italiano:* SAMS è un "The Sims" per gli agenti AI — un ufficio 3D dove crei,
-selezioni e comandi gli agenti dentro una shell in stile IDE. Questa è la v1
-**sandbox manuale**: sei tu a guidare tutto.
+selezioni e comandi gli agenti dentro una shell in stile IDE. Ora è **multiutente**:
+più persone, ognuna con un account reale (email/password, ruoli owner/editor/viewer),
+condividono lo stesso ufficio dal vivo — si vedono cursori, selezioni e modifiche in
+tempo reale, chattano, e ogni task mostra **quale utente** l'ha assegnato e completato.
