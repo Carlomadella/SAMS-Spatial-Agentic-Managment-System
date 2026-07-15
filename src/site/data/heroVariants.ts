@@ -28,9 +28,9 @@ export const HERO_VARIANTS: HeroVariant[] = [
     id: "video",
     name: "Video della stanza",
     blurb:
-      "La stanza che si muove davvero, in loop muto: gli agenti camminano dietro al titolo mentre la camera fa una lenta carrellata. La variante del sito.",
+      "Una giornata in venti secondi, in loop muto: gli agenti camminano, si mettono al lavoro alle scrivanie e infine dormono nei letti mentre scende la notte. La variante del sito.",
     tradeoff:
-      "603 kB per 15s a 30 fps: la più convincente e la più cara. Su rete lenta parte per ultima (intanto si vede lo screenshot, che fa da poster) e su mobile consuma batteria.",
+      "943 kB per 20s a 30 fps: la più convincente e la più cara. Su rete lenta parte per ultima (intanto si vede lo screenshot, che fa da poster) e su mobile consuma batteria.",
   },
   {
     id: "bagliori",

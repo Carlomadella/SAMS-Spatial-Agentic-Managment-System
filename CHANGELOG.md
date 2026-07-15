@@ -11,9 +11,10 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 - **Changed** — Scelte dal design lab le varianti del sito: palette **Abisso / Ciano**, sfondo della
   hero col **video della stanza**, navbar completa. Le altre restano provabili su `/design`.
-- **Changed** — **Video della hero rifatto**: 15 secondi a 30 fps (erano 6 a ~4 fps, a scatti),
-  inquadra solo il diorama senza i pannelli, e la camera fa una lenta carrellata che **torna al punto
-  di partenza**, così il loop non ha stacchi. 603 kB.
+- **Changed** — **Video della hero rifatto**: ora racconta una giornata in 20 secondi a 30 fps
+  (erano 6 secondi a ~4 fps, a scatti) — gli agenti camminano, si mettono al lavoro alle scrivanie e
+  infine dormono nei letti mentre scende la notte. Inquadra solo la stanza: nessun pannello, menu o
+  schermata di benvenuto. 943 kB.
 - **Added** — Il design lab ora copre **tutti** i componenti condivisi: logo (orbitale, monogramma,
   punto), forma dei bottoni (arrotondato, pillola, squadrato), footer (completo, compatto), testate di
   sezione (etichetta, nudo, linea), larghezza del contenuto (1024/1152/1280px) e toggle del tema (solo

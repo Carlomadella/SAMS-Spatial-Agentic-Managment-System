@@ -13,7 +13,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
     date: "2026-07-15",
     title: "Il sito prende la sua faccia",
     summary:
-      "Palette Abisso/Ciano e la stanza che si muove dietro al titolo. Le altre varianti restano provabili dal design lab.",
+      "Palette Abisso/Ciano e, dietro al titolo, una giornata nella stanza: gli agenti camminano, lavorano e vanno a dormire.",
     tag: "Changed",
   },
   {
