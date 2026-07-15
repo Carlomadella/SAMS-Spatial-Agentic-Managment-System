@@ -103,8 +103,8 @@ describe("paletteById", () => {
     expect(paletteById(undefined).id).toBe(DEFAULT_PALETTE_ID);
   });
 
-  it("il default è la palette attuale del sito (nessun cambio di look non richiesto)", () => {
-    expect(DEFAULT_PALETTE_ID).toBe("ambra");
+  it("il default è la palette scelta dal lab (Abisso)", () => {
+    expect(DEFAULT_PALETTE_ID).toBe("abisso");
   });
 });
 

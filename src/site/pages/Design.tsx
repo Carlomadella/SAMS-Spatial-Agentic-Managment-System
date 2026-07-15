@@ -2,10 +2,21 @@ import { Check, RotateCcw } from "lucide-react";
 import { Container } from "../components/Container";
 import { SectionHeading } from "../components/SectionHeading";
 import { HeroBackground } from "../components/HeroBackground";
+import { CTAButton } from "../components/CTAButton";
+import { Logo } from "../components/Logo";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { useDesign } from "../design/DesignContext";
 import { PALETTES, paletteSwatch } from "../data/palettes";
 import { NAVBAR_VARIANTS } from "../data/navbarVariants";
 import { HERO_VARIANTS } from "../data/heroVariants";
+import {
+  BUTTON_VARIANTS,
+  CONTAINER_VARIANTS,
+  FOOTER_VARIANTS,
+  HEADING_VARIANTS,
+  LOGO_VARIANTS,
+  THEME_TOGGLE_VARIANTS,
+} from "../data/componentVariants";
 import { Link } from "../router";
 
 /**
@@ -57,8 +68,22 @@ function Option({
   );
 }
 
+/** Titolo + spiegazione di una sezione del lab. */
+function Group({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-14">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
+      <p className="mt-1 text-xs text-slate-500">{hint}</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
 export function Design() {
-  const { paletteId, navbarId, heroId, setPalette, setNavbar, setHero, reset } = useDesign();
+  const { choice, set, reset } = useDesign();
+  const paletteId = choice("palette");
+  const navbarId = choice("navbar");
+  const heroId = choice("hero");
 
   return (
     <Container className="py-16">
@@ -80,7 +105,7 @@ export function Design() {
             <Option
               key={p.id}
               active={paletteId === p.id}
-              onClick={() => setPalette(p.id)}
+              onClick={() => set("palette", p.id)}
               title={p.name}
               blurb={p.blurb}
             >
@@ -104,7 +129,7 @@ export function Design() {
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {NAVBAR_VARIANTS.map((v) => (
-            <Option key={v.id} active={navbarId === v.id} onClick={() => setNavbar(v.id)} title={v.name} blurb={v.blurb}>
+            <Option key={v.id} active={navbarId === v.id} onClick={() => set("navbar", v.id)} title={v.name} blurb={v.blurb}>
               {/* schema in scala: logo · link · azioni — dà il ritmo senza fingere uno screenshot */}
               <div className="flex h-12 items-center gap-2 rounded-lg border border-line/60 bg-ink-950/60 px-2.5">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand" />
@@ -137,7 +162,7 @@ export function Design() {
             <Option
               key={v.id}
               active={heroId === v.id}
-              onClick={() => setHero(v.id)}
+              onClick={() => set("hero", v.id)}
               title={v.name}
               blurb={v.blurb}
               footer={<p className="mt-2 border-t border-line/50 pt-2 text-[11px] leading-relaxed text-slate-500">{v.tradeoff}</p>}
@@ -155,6 +180,118 @@ export function Design() {
           ))}
         </div>
       </section>
+
+      {/* ── COMPONENTI CONDIVISI ─────────────────────────────────────────── */}
+
+      <Group title="Logo" hint="Il mark accanto al nome, in cima a ogni pagina e nel footer. Le anteprime disegnano il mark vero, ognuna col suo.">
+        {LOGO_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("logo") === v.id} onClick={() => set("logo", v.id)} title={v.name} blurb={v.blurb}>
+            <div className="flex h-14 items-center justify-center rounded-lg border border-line/60 bg-ink-950/60">
+              {/* `variant` forzato: senza, ogni anteprima mostrerebbe il logo già scelto */}
+              <Logo variant={v.id} />
+            </div>
+          </Option>
+        ))}
+      </Group>
+
+      <Group title="Bottoni" hint="La forma degli angoli, uguale per tutte le call-to-action del sito. Guarda anche i bottoni qui sopra: cambiano insieme.">
+        {BUTTON_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("button") === v.id} onClick={() => set("button", v.id)} title={v.name} blurb={v.blurb}>
+            <div className="flex h-14 items-center justify-center gap-2 rounded-lg border border-line/60 bg-ink-950/60">
+              {/* i bottoni veri, nella forma della variante */}
+              <span className="pointer-events-none">
+                <CTAButton to="/design" variant="primary" shape={v.id}>
+                  Entra
+                </CTAButton>
+              </span>
+              <span className="pointer-events-none">
+                <CTAButton to="/design" variant="ghost" shape={v.id}>
+                  Docs
+                </CTAButton>
+              </span>
+            </div>
+          </Option>
+        ))}
+      </Group>
+
+      <Group title="Testate di sezione" hint="Come si annuncia una sezione: l'etichetta colorata, niente, o una barretta d'accento.">
+        {HEADING_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("heading") === v.id} onClick={() => set("heading", v.id)} title={v.name} blurb={v.blurb}>
+            <div className="rounded-lg border border-line/60 bg-ink-950/60 p-3">
+              <SectionHeading
+                variant={v.id}
+                eyebrow="Funzionalità"
+                title={<span className="text-base">Un mondo vivo</span>}
+                className="[&_p:last-child]:text-xs"
+              />
+            </div>
+          </Option>
+        ))}
+      </Group>
+
+      <Group title="Footer" hint="Quanto deve pesare il fondo pagina. Scorri fino in fondo per vedere quello scelto.">
+        {FOOTER_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("footer") === v.id} onClick={() => set("footer", v.id)} title={v.name} blurb={v.blurb}>
+            {/* schema in scala: dà l'ingombro, che è la cosa che si sta scegliendo */}
+            <div className="flex h-14 flex-col justify-center gap-1.5 rounded-lg border border-line/60 bg-ink-950/60 px-3">
+              {v.id === "completo" ? (
+                <>
+                  <div className="flex gap-3">
+                    <span className="h-1.5 w-8 rounded-full bg-brand/70" />
+                    {[0, 1, 2, 3].map((i) => (
+                      <span key={i} className="flex flex-1 flex-col gap-1">
+                        <span className="h-1 w-full rounded-full bg-slate-600" />
+                        <span className="h-1 w-2/3 rounded-full bg-slate-700" />
+                        <span className="h-1 w-1/2 rounded-full bg-slate-700" />
+                      </span>
+                    ))}
+                  </div>
+                  <span className="mt-1 h-px w-full bg-slate-700" />
+                  <span className="h-1 w-16 rounded-full bg-slate-700" />
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1.5 w-8 rounded-full bg-brand/70" />
+                    <span className="h-1 w-6 rounded-full bg-slate-600" />
+                    <span className="h-1 w-6 rounded-full bg-slate-600" />
+                  </span>
+                  <span className="h-1 w-10 rounded-full bg-slate-700" />
+                </div>
+              )}
+            </div>
+          </Option>
+        ))}
+      </Group>
+
+      <Group title="Larghezza del contenuto" hint="Quanto è largo il testo su uno schermo grande. Cambia tutta la pagina, questa compresa: si sente subito.">
+        {CONTAINER_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("container") === v.id} onClick={() => set("container", v.id)} title={v.name} blurb={v.blurb}>
+            <div className="flex h-14 items-center justify-center rounded-lg border border-line/60 bg-ink-950/60 px-2">
+              <span
+                className={`flex h-9 items-center justify-center rounded border border-brand/40 bg-brand/10 ${
+                  v.id === "stretto" ? "w-2/3" : v.id === "largo" ? "w-full" : "w-5/6"
+                }`}
+              >
+                <span className="h-1 w-1/2 rounded-full bg-slate-500" />
+              </span>
+            </div>
+          </Option>
+        ))}
+      </Group>
+
+      <Group title="Toggle del tema" hint="Il comando chiaro/scuro nella barra in cima: solo icona o con l'etichetta accanto.">
+        {THEME_TOGGLE_VARIANTS.map((v) => (
+          <Option key={v.id} active={choice("themeToggle") === v.id} onClick={() => set("themeToggle", v.id)} title={v.name} blurb={v.blurb}>
+            <div className="flex h-14 items-center justify-center rounded-lg border border-line/60 bg-ink-950/60">
+              {/* il toggle vero: cliccarlo qui cambierebbe il tema, quindi è solo da guardare */}
+              <span className="pointer-events-none">
+                <ThemeToggle variant={v.id} />
+              </span>
+            </div>
+          </Option>
+        ))}
+      </Group>
 
       <div className="mt-12 flex justify-center">
         <button

@@ -91,10 +91,33 @@ test("changelog vive su /changelog (fuori dalla home)", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Novità di SAMS" })).toBeVisible();
 });
 
-test("palette del sito è ambra, non il blu dell'app", async ({ page }) => {
+test("palette del sito è Abisso, non il blu dell'app", async ({ page }) => {
   await page.goto("/");
   const accent = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-accent").trim());
-  expect(accent).toBe("245 158 11"); // ambra
+  expect(accent).toBe("6 182 212"); // ciano di Abisso — la palette scelta dal lab
+  expect(accent).not.toBe("79 140 255"); // il blu della workspace resta all'app
+});
+
+test("il testo sul bottone primario contrasta con l'accento, in entrambi i temi", async ({ page }) => {
+  // Regressione: era bianco su ambra (2.15:1) e in tema chiaro diventava nero su accento
+  // scuro. Ora `--c-on-accent` è derivato dal contrasto — vedi onAccent in data/palettes.ts.
+  for (const theme of ["dark", "light"]) {
+    await page.goto("/");
+    await page.evaluate((t) => localStorage.setItem("sams.theme", t), theme);
+    await page.reload();
+    const cta = page.getByRole("link", { name: "Entra nella stanza" });
+    const { color, bg } = await cta.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { color: cs.color, bg: cs.backgroundColor };
+    });
+    const lum = (c: string) => {
+      const [r, g, b] = c.match(/\d+/g)!.map(Number).slice(0, 3);
+      const ch = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+      return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+    };
+    const [hi, lo] = [lum(color), lum(bg)].sort((a, b) => b - a);
+    expect((hi + 0.05) / (lo + 0.05), `contrasto in tema ${theme}`).toBeGreaterThanOrEqual(4.5);
+  }
 });
 
 test("tema chiaro: il titolo hero resta leggibile (non bianco)", async ({ page }) => {

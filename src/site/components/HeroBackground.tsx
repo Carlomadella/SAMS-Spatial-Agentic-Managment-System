@@ -22,7 +22,10 @@ export function HeroBackground({ kind }: { kind: HeroKind }) {
       )}
 
       {/* Video: `poster` è lo screenshot, così su rete lenta la hero non è mai vuota — il
-          video subentra quando è pronto. muted+playsInline perché l'autoplay funzioni. */}
+          video subentra quando è pronto. muted+playsInline perché l'autoplay funzioni.
+          Un filo più visibile dello screenshot (0.5 contro 0.38): è la variante scelta per
+          il sito e il movimento è il motivo per cui c'è — troppo velato non si nota. Il
+          titolo resta leggibile perché lo scrim qui sotto scurisce comunque il centro. */}
       {kind === "video" && (
         <video
           autoPlay
@@ -30,7 +33,7 @@ export function HeroBackground({ kind }: { kind: HeroKind }) {
           muted
           playsInline
           poster={roomHero}
-          className="absolute inset-x-0 top-0 h-[120%] w-full object-cover object-top opacity-[0.38]"
+          className="absolute inset-x-0 top-0 h-[120%] w-full object-cover object-top opacity-50"
         >
           <source src="/room-hero.webm" type="video/webm" />
         </video>

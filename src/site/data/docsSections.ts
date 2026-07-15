@@ -211,10 +211,11 @@ export const DOCS_SECTIONS: DocSection[] = [
     intro:
       "La pagina /design (in fondo, sotto «Docs») serve a provare le varianti di aspetto del sito applicandole per davvero: la barra in cima cambia mentre scegli e la home usa la hero selezionata. Le scelte restano su questo dispositivo e non toccano gli altri visitatori.",
     items: [
-      { term: "Palette", desc: "Cinque combinazioni di colore: Ambra (di partenza), SAMS (gli stessi blu della stanza), Foresta, Nebulosa e Abisso. Ognuna funziona sia in tema chiaro sia in scuro, quindi si combina col toggle del tema." },
+      { term: "Palette", desc: "Cinque combinazioni di colore: Abisso/Ciano (quella del sito), Ambra, SAMS (gli stessi blu della stanza), Foresta e Nebulosa. Ognuna funziona sia in tema chiaro sia in scuro, quindi si combina col toggle del tema." },
       { term: "Navbar", desc: "Quattro varianti che tolgono un elemento diverso ciascuna (il link a GitHub, il toggle del tema, la CTA «Apri la stanza»), per capire cosa cambia davvero togliendo una cosa per volta." },
-      { term: "Hero", desc: "Cinque sfondi: lo screenshot della stanza, il video della stanza in loop, i bagliori, la griglia tecnica e la versione piatta. Ognuno dichiara il suo compromesso, peso compreso." },
-      { term: "Ripristina", desc: "Rimette le tre scelte com'erano all'inizio (Ambra, navbar completa, screenshot)." },
+      { term: "Hero", desc: "Cinque sfondi: il video della stanza in loop (quello del sito), lo screenshot, i bagliori, la griglia tecnica e la versione piatta. Ognuno dichiara il suo compromesso, peso compreso." },
+      { term: "Componenti", desc: "La forma del logo, degli angoli dei bottoni, del footer, delle testate di sezione, della larghezza del contenuto e del toggle del tema. Le anteprime usano i componenti veri, non immagini." },
+      { term: "Ripristina", desc: "Rimette tutte le scelte a quelle del sito (Abisso, navbar completa, video, e le forme di partenza dei componenti)." },
     ],
   },
 ];

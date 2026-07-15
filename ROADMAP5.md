@@ -64,14 +64,25 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
       (AA); l'accento di Abisso/chiaro è stato scurito perché era l'unico in cui né bianco né
       nero ci arrivavano.
 
+- [x] **Varianti di ogni componente condiviso** (`data/componentVariants.ts`) — logo (orbitale/
+      monogramma/punto), forma dei bottoni (arrotondato/pillola/squadrato), footer (completo/
+      compatto), testate (eyebrow/nudo/linea), larghezza del contenuto (1024/1152/1280) e toggle
+      tema (icona/etichetta). Le anteprime montano i **componenti veri** (`variant`/`shape`
+      espliciti servono solo al lab, per disegnare le opzioni *non* scelte). Fuori dalla lista di
+      proposito: `SiteLayout` è la somma di Navbar/Footer/Container, e `AuthContext`/
+      `ProtectedRoute` sono logica di sessione — non hanno una forma da scegliere.
+- [x] **Scelta fatta** (2026-07-15, dall'utente sul lab): **Abisso / Ciano** + hero **video** +
+      **navbar completa**. Sono i `DEFAULT_*`; le altre restano provabili su `/design` finché
+      non si decide di potarle.
+- [x] **Video della hero, rifatto** — il primo era a ~4 fps (una serie di fotografie). Causa:
+      `captureStream` su GPU software copia ogni frame e affossa il rendering (scena a 1.7 fps).
+      Ora: screencast di Playwright (non tocca il rendering) + taglio dell'avvio con ffmpeg →
+      **15s a 30 fps**, 1280x720, 603 kB. Inquadra il solo diorama (canvas a tutta finestra) e la
+      camera fa una carrellata **andata e ritorno**, così il loop non stacca.
+
 **Resta aperto**
-- [ ] **Varianti degli altri componenti condivisi** — la roadmap chiede diversi design anche
-      per SiteLayout, Footer, Button/CTAButton, ThemeToggle, Logo, Container, SectionHeading.
-      Fatti: Navbar e Hero (le due scelte con più impatto), più le palette che li attraversano
-      tutti. Gli altri sono ancora a una sola versione: da fare col meccanismo già in piedi
-      (dati + `DesignContext`), senza inventare nulla di nuovo.
-- [ ] **Scelta finale** — il lab serve a decidere: quando la combinazione è scelta, i default
-      in `DEFAULT_*_ID` diventano quella e le varianti scartate si possono togliere.
+- [ ] **Potare le varianti scartate** — quando le scelte sono definitive, il lab e i dati delle
+      opzioni non scelte si possono togliere (o tenere, se serve ancora sperimentare).
 
 ---
 

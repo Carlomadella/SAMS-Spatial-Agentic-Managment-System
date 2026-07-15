@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_NAVBAR_ID, NAVBAR_VARIANTS, navbarById } from "./navbarVariants";
 import { DEFAULT_HERO_ID, HERO_VARIANTS, heroById } from "./heroVariants";
+import { VARIANTS, choiceById, firstId } from "./componentVariants";
 
 describe("NAVBAR_VARIANTS", () => {
   it("gli id sono unici", () => {
@@ -70,13 +71,63 @@ describe("HERO_VARIANTS", () => {
     }
   });
 
-  it("il default è lo screenshot (il look attuale)", () => {
-    expect(DEFAULT_HERO_ID).toBe("immagine");
+  it("il default è il video della stanza (scelto dal lab)", () => {
+    expect(DEFAULT_HERO_ID).toBe("video");
   });
 
   it("ricade sul default per id sconosciuto o assente", () => {
     expect(heroById("boh").id).toBe(DEFAULT_HERO_ID);
     expect(heroById(null).id).toBe(DEFAULT_HERO_ID);
     expect(heroById(undefined).id).toBe(DEFAULT_HERO_ID);
+  });
+});
+
+// --- varianti dei componenti condivisi (Roadmap 5) -------------------------
+
+describe("varianti dei componenti condivisi", () => {
+  it("ogni gruppo ha almeno due opzioni: una sola non è una scelta", () => {
+    for (const [key, list] of Object.entries(VARIANTS)) {
+      expect(list.length, key).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("gli id sono unici dentro ogni gruppo", () => {
+    for (const [key, list] of Object.entries(VARIANTS)) {
+      expect(new Set(list.map((c) => c.id)).size, key).toBe(list.length);
+    }
+  });
+
+  it("ogni opzione si spiega: nome e blurb non sono segnaposto", () => {
+    for (const [key, list] of Object.entries(VARIANTS)) {
+      for (const c of list) {
+        expect(c.name.length, `${key}.${c.id}`).toBeGreaterThan(2);
+        expect(c.blurb.length, `${key}.${c.id}`).toBeGreaterThan(20);
+      }
+    }
+  });
+
+  it("copre i componenti condivisi che hanno un aspetto da scegliere", () => {
+    // SiteLayout è la somma di Navbar/Footer/Container; AuthContext/ProtectedRoute
+    // sono logica di sessione: nessuno dei due ha una forma da variare.
+    expect(Object.keys(VARIANTS).sort()).toEqual(
+      ["button", "container", "footer", "heading", "logo", "themeToggle"].sort(),
+    );
+  });
+
+  it("firstId dà il default (la variante scelta per il sito)", () => {
+    expect(firstId(VARIANTS.logo)).toBe("orbitale");
+    expect(firstId(VARIANTS.button)).toBe("arrotondato");
+    expect(firstId(VARIANTS.footer)).toBe("completo");
+  });
+
+  it("choiceById ricade sulla prima per id sconosciuto, vuoto o assente", () => {
+    expect(choiceById(VARIANTS.button, "inventata").id).toBe("arrotondato");
+    expect(choiceById(VARIANTS.button, "").id).toBe("arrotondato");
+    expect(choiceById(VARIANTS.button, null).id).toBe("arrotondato");
+    expect(choiceById(VARIANTS.button, undefined).id).toBe("arrotondato");
+  });
+
+  it("choiceById trova la variante giusta quando l'id è valido", () => {
+    expect(choiceById(VARIANTS.logo, "punto").name).toBe("Punto");
   });
 });

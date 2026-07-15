@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: "2026-07-15",
+    title: "Il sito prende la sua faccia",
+    summary:
+      "Palette Abisso/Ciano e la stanza che si muove dietro al titolo. Le altre varianti restano provabili dal design lab.",
+    tag: "Changed",
+  },
+  {
+    date: "2026-07-15",
     title: "Password dimenticata? Ora si rientra",
     summary:
       "Link di reset monouso via email, verifica dell'indirizzo, e — se non hai un server di posta — il link lo emette il proprietario.",

@@ -41,9 +41,9 @@ describe("<Design /> — il design lab", () => {
     expect(screen.getByText("Hero")).toBeTruthy();
   });
 
-  it("parte con la palette attuale del sito selezionata", () => {
+  it("parte con la palette del sito selezionata (Abisso)", () => {
     lab();
-    expect(screen.getByText("Ambra / Tramonto").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Abisso / Ciano").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("scegliere una palette la applica al sito (CSS iniettato) e la persiste", () => {
@@ -82,20 +82,22 @@ describe("<Design /> — il design lab", () => {
     expect(localStorage.getItem("sams.site.navbar")).toBe("minima");
   });
 
-  it("«Ripristina» riporta le tre scelte al punto di partenza", () => {
+  it("«Ripristina» riporta tutte le scelte a quelle del sito", () => {
     lab();
     fireEvent.click(screen.getByText("Nebulosa / Viola"));
-    fireEvent.click(screen.getByText("Video della stanza"));
+    fireEvent.click(screen.getByText("Screenshot della stanza"));
+    fireEvent.click(screen.getByText("Pillola"));
     fireEvent.click(screen.getByText("Ripristina il design di partenza"));
 
-    expect(localStorage.getItem("sams.site.palette")).toBe("ambra");
-    expect(localStorage.getItem("sams.site.hero")).toBe("immagine");
+    expect(localStorage.getItem("sams.site.palette")).toBe("abisso");
+    expect(localStorage.getItem("sams.site.hero")).toBe("video");
     expect(localStorage.getItem("sams.site.navbar")).toBe("completa");
+    expect(localStorage.getItem("sams.site.button")).toBe("arrotondato");
   });
 
   it("mostra il compromesso di ogni hero, non solo il lato buono", () => {
     lab();
-    expect(screen.getByText(/megabyte, batteria/)).toBeTruthy(); // video
+    expect(screen.getByText(/consuma batteria/)).toBeTruthy(); // video
     expect(screen.getByText(/non fa vedere il prodotto/)).toBeTruthy(); // bagliori
   });
 });
@@ -129,13 +131,23 @@ describe("DesignProvider — robustezza", () => {
   it("un id manomesso in localStorage non lascia il sito senza palette", () => {
     localStorage.setItem("sams.site.palette", "palette-che-non-esiste");
     lab();
-    expect(screen.getByText("Ambra / Tramonto").closest("button")?.getAttribute("aria-pressed")).toBe("true");
-    expect(document.getElementById("sams-site-palette")?.textContent).toContain("--c-accent: 245 158 11;");
+    expect(screen.getByText("Abisso / Ciano").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.getElementById("sams-site-palette")?.textContent).toContain("--c-accent: 6 182 212;");
+  });
+
+  it("vale per ogni chiave, non solo per la palette", () => {
+    localStorage.setItem("sams.site.button", "forma-inventata");
+    localStorage.setItem("sams.site.logo", "");
+    lab();
+    expect(screen.getByText("Arrotondato").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Orbitale").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("riprende la scelta persistita al montaggio", () => {
-    localStorage.setItem("sams.site.palette", "abisso");
+    localStorage.setItem("sams.site.palette", "nebulosa");
+    localStorage.setItem("sams.site.logo", "monogramma");
     lab();
-    expect(screen.getByText("Abisso / Ciano").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Nebulosa / Viola").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Monogramma").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 });

@@ -42,7 +42,7 @@ export const PALETTES: Palette[] = [
   {
     id: "ambra",
     name: "Ambra / Tramonto",
-    blurb: "Caldo e accogliente, come la luce delle lampade nella stanza. La palette attuale del sito.",
+    blurb: "Caldo e accogliente, come la luce delle lampade nella stanza. È stata la prima palette del sito.",
     dark: {
       "ink-950": "20 15 10",
       "ink-900": "26 20 14",
@@ -182,7 +182,7 @@ export const PALETTES: Palette[] = [
   {
     id: "abisso",
     name: "Abisso / Ciano",
-    blurb: "Teal freddo e ciano elettrico: minimale e tecnico, il contrasto più netto sul chiaro.",
+    blurb: "Teal freddo e ciano elettrico: minimale e tecnico, il contrasto più netto sul chiaro. La palette del sito.",
     dark: {
       "ink-950": "8 14 18",
       "ink-900": "11 19 24",
@@ -219,8 +219,8 @@ export const PALETTES: Palette[] = [
   },
 ];
 
-/** La palette usata se non è stata fatta nessuna scelta (il look attuale del sito). */
-export const DEFAULT_PALETTE_ID = "ambra";
+/** La palette del sito: scelta dal design lab il 2026-07-15 fra le cinque. */
+export const DEFAULT_PALETTE_ID = "abisso";
 
 /** Cerca una palette per id; ricade sul default per un id sconosciuto (o assente). */
 export function paletteById(id: string | null | undefined): Palette {

@@ -7,6 +7,18 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-15 (c) — Il sito prende la sua faccia: Abisso e la stanza in movimento 🌊
+
+- **Changed** — Scelte dal design lab le varianti del sito: palette **Abisso / Ciano**, sfondo della
+  hero col **video della stanza**, navbar completa. Le altre restano provabili su `/design`.
+- **Changed** — **Video della hero rifatto**: 15 secondi a 30 fps (erano 6 a ~4 fps, a scatti),
+  inquadra solo il diorama senza i pannelli, e la camera fa una lenta carrellata che **torna al punto
+  di partenza**, così il loop non ha stacchi. 603 kB.
+- **Added** — Il design lab ora copre **tutti** i componenti condivisi: logo (orbitale, monogramma,
+  punto), forma dei bottoni (arrotondato, pillola, squadrato), footer (completo, compatto), testate di
+  sezione (etichetta, nudo, linea), larghezza del contenuto (1024/1152/1280px) e toggle del tema (solo
+  icona o con etichetta). Le anteprime usano i componenti veri, non immagini.
+
 ### 2026-07-15 (b) — Design lab: prova le varianti del sito 🎨
 
 - **Added** — Nuova pagina **/design** (dal footer, "Design lab") per provare le scelte di design

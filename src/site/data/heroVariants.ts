@@ -21,14 +21,16 @@ export const HERO_VARIANTS: HeroVariant[] = [
   {
     id: "immagine",
     name: "Screenshot della stanza",
-    blurb: "Uno scatto reale della stanza 3D, sfumato nel colore della pagina. La variante attuale.",
+    blurb: "Uno scatto reale della stanza 3D, sfumato nel colore della pagina.",
     tradeoff: "~100 kB, si vede subito. Mostra la stanza ferma: non si capisce che è viva.",
   },
   {
     id: "video",
     name: "Video della stanza",
-    blurb: "La stanza che si muove davvero, in loop muto: gli agenti camminano dietro al titolo.",
-    tradeoff: "Il più convincente e il più caro: megabyte, batteria, e su rete lenta parte per ultimo (parte dallo screenshot come poster).",
+    blurb:
+      "La stanza che si muove davvero, in loop muto: gli agenti camminano dietro al titolo mentre la camera fa una lenta carrellata. La variante del sito.",
+    tradeoff:
+      "603 kB per 15s a 30 fps: la più convincente e la più cara. Su rete lenta parte per ultima (intanto si vede lo screenshot, che fa da poster) e su mobile consuma batteria.",
   },
   {
     id: "bagliori",
@@ -50,7 +52,8 @@ export const HERO_VARIANTS: HeroVariant[] = [
   },
 ];
 
-export const DEFAULT_HERO_ID: HeroKind = "immagine";
+/** Lo sfondo del sito: scelto dal design lab il 2026-07-15. */
+export const DEFAULT_HERO_ID: HeroKind = "video";
 
 /** Cerca una variante per id; ricade sul default per un id sconosciuto. */
 export function heroById(id: string | null | undefined): HeroVariant {

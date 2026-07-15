@@ -38,8 +38,8 @@ function NavItem({ label, to, external, onClick }: { label: string; to: string; 
  */
 export function Navbar() {
   const { user } = useAuth();
-  const { navbarId } = useDesign();
-  const variant = navbarById(navbarId);
+  const { choice } = useDesign();
+  const variant = navbarById(choice("navbar"));
   const [open, setOpen] = useState(false);
 
   const authControl = user ? (
