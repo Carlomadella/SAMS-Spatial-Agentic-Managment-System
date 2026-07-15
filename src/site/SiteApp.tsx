@@ -6,11 +6,13 @@
 import { useLocation } from "./router";
 import { SiteLayout } from "./SiteLayout";
 import { AuthProvider, ProtectedRoute } from "./auth/AuthContext";
+import { DesignProvider } from "./design/DesignContext";
 import { useSiteChrome } from "./useSiteChrome";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Reset } from "./pages/Reset";
 import { Verify } from "./pages/Verify";
+import { Design } from "./pages/Design";
 import { Docs } from "./pages/Docs";
 import { Changelog } from "./pages/Changelog";
 import { Profile } from "./pages/Profile";
@@ -19,6 +21,7 @@ import { NotFound } from "./pages/NotFound";
 function Page({ path }: { path: string }) {
   if (path === "/") return <Home />;
   if (path === "/login") return <Login />;
+  if (path === "/design") return <Design />;
   // Reset e verifica sono **pubbliche** di proposito: ci si arriva da un link monouso
   // proprio quando non si ha (o non si può avere) una sessione.
   if (path === "/reset") return <Reset />;
@@ -39,9 +42,13 @@ export function SiteApp() {
   const { path } = useLocation();
   return (
     <AuthProvider>
-      <SiteLayout>
-        <Page path={path} />
-      </SiteLayout>
+      {/* Il design (palette/navbar/hero) avvolge il layout: le varianti si scelgono in
+          /design ma si vedono nella navbar e nella home, quindi lo stato sta sopra a entrambe. */}
+      <DesignProvider>
+        <SiteLayout>
+          <Page path={path} />
+        </SiteLayout>
+      </DesignProvider>
     </AuthProvider>
   );
 }

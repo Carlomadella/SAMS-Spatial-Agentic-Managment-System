@@ -3,9 +3,10 @@ import { Container } from "../components/Container";
 import { CTAButton } from "../components/CTAButton";
 import { SectionHeading } from "../components/SectionHeading";
 import { Logo } from "../components/Logo";
+import { HeroBackground } from "../components/HeroBackground";
+import { useDesign } from "../design/DesignContext";
 import { Link } from "../router";
 import { TAGLINE } from "../data/site";
-import roomHero from "../assets/room-hero.jpg";
 
 const FEATURES = [
   { icon: Boxes, title: "Stanza 3D interattiva", desc: "Seleziona gli agenti, mandali a camminare, orbita la telecamera. Un diorama vivo, non una dashboard statica." },
@@ -17,44 +18,15 @@ const FEATURES = [
 ];
 
 export function Home() {
+  const { heroId } = useDesign();
+
   return (
     <>
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section id="top" className="relative overflow-hidden">
-        {/* sfondo: screenshot reale della stanza 3D, sfumato per leggibilità, + bagliori brand */}
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          {/* la stanza vera, ancorata in alto e schiarita così i robot restano riconoscibili */}
-          <img
-            src={roomHero}
-            alt=""
-            className="absolute inset-x-0 top-0 h-[120%] w-full object-cover object-top opacity-[0.38]"
-          />
-          {/* scrim verticale: fonde l'immagine nel colore della pagina (regge tema scuro/chiaro/ambra) */}
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                "linear-gradient(to bottom, rgb(var(--c-ink-950) / 0.55) 0%, rgb(var(--c-ink-950) / 0.72) 45%, rgb(var(--c-ink-950)) 100%)",
-            }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                "radial-gradient(900px 460px at 50% -10%, rgb(var(--c-accent) / 0.20), transparent 60%), radial-gradient(700px 400px at 85% 20%, rgb(var(--c-accent-2) / 0.12), transparent 60%)",
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-[0.16]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(148,163,184,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.12) 1px, transparent 1px)",
-              backgroundSize: "44px 44px",
-              maskImage: "radial-gradient(circle at 50% 30%, black, transparent 75%)",
-              WebkitMaskImage: "radial-gradient(circle at 50% 30%, black, transparent 75%)",
-            }}
-          />
-        </div>
+        {/* Lo sfondo è la variante scelta (Roadmap 5): stanza (screenshot/video), bagliori,
+            griglia o piatta. Si prova da /design e si vede subito qui. */}
+        <HeroBackground kind={heroId} />
 
         <Container className="relative flex flex-col items-center py-24 text-center sm:py-32">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-ink-800/50 px-3 py-1 text-xs font-medium text-slate-300">

@@ -23,6 +23,7 @@ const COLUMNS: Col[] = [
     links: [
       { label: "Documentazione", to: "/docs" },
       { label: "Changelog", to: "/changelog" },
+      { label: "Design lab", to: "/design" },
       { label: "GitHub", to: GITHUB_URL, external: true },
     ],
   },

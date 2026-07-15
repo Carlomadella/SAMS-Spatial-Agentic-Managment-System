@@ -66,7 +66,7 @@ export function ChangePassword() {
             <button
               type="submit"
               disabled={busy}
-              className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium !text-white transition-colors hover:bg-brand/90 disabled:opacity-60"
+              className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-[#fff] transition-colors hover:bg-brand/90 disabled:opacity-60"
             >
               {busy ? "Salvo…" : "Salva"}
             </button>

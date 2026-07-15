@@ -5,10 +5,15 @@ type Variant = "primary" | "ghost" | "soft";
 type Size = "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
-  // pieno brand: la CTA principale. `!text-white` così resta bianco anche in tema chiaro
-  // (il testo bianco è corretto su fondo blu; la rimappa globale del light non deve toccarlo).
+  // Pieno brand: la CTA principale. Il colore del testo è `--c-on-accent`, **derivato** dal
+  // contrasto con l'accento della palette (vedi `onAccent` in data/palettes.ts): con cinque
+  // accenti diversi × due temi nessun colore fisso funziona — bianco su ambra dà 2.15:1.
+  //
+  // Non `text-white` né la sua variante important: `index.css` rimappa `.theme-light
+  // .text-white` a quasi-nero, e Tailwind genera la versione important anche di quella
+  // rimappa, che vince per specificità. Un token è immune a entrambe le insidie.
   primary:
-    "bg-brand !text-white shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgba(245,158,11,0.55)] hover:bg-brand/90",
+    "bg-brand text-[rgb(var(--c-on-accent))] shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgba(245,158,11,0.55)] hover:bg-brand/90",
   // bordo sottile su fondo trasparente: azione secondaria
   ghost: "border border-line bg-ink-800/40 text-slate-200 hover:border-brand/50 hover:bg-ink-700/60 hover:text-white",
   // riempimento tenue brand: terza gerarchia

@@ -151,7 +151,7 @@ export function Login() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-[#fff] transition-all hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "Attendere…" : isForgot ? "Mandami il link" : isSignup ? "Registrati" : "Accedi"}
             <ArrowRight size={16} />

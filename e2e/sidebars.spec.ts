@@ -12,7 +12,8 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem("sams.tour", "1");
     localStorage.removeItem("sams.hint");
   });
-  await page.goto("/");
+  await page.goto("/app");
+  // La workspace vive su /app: la "/" è il sito di benvenuto (Roadmap 5).
   // Attende che la title bar sia montata prima di toccare i pannelli.
   await expect(page.locator("span.font-bold").filter({ hasText: /^SAMS$/ })).toBeVisible();
 });

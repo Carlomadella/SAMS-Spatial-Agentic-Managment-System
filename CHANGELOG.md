@@ -7,6 +7,25 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-15 (b) — Design lab: prova le varianti del sito 🎨
+
+- **Added** — Nuova pagina **/design** (dal footer, "Design lab") per provare le scelte di design
+  aperte **sul sito vero**, non su finti screenshot: la navbar in cima cambia mentre scegli e la
+  home usa la hero selezionata. Le scelte restano salvate sul dispositivo; "Ripristina" torna al
+  punto di partenza.
+- **Added** — **Cinque palette**: Ambra/Tramonto (l'attuale), SAMS/Workspace (gli stessi blu della
+  stanza), Foresta/Terminale, Nebulosa/Viola, Abisso/Ciano. Ognuna vale sia in chiaro sia in scuro
+  e si combina col toggle del tema.
+- **Added** — **Quattro varianti di navbar** (dalla completa con 5 link e 2 CTA alla minima con 3
+  link e solo Accedi) e **cinque hero**: screenshot della stanza, **video** della stanza in loop,
+  bagliori, griglia tecnica, piatta. Ogni hero dichiara il suo compromesso, peso incluso.
+- **Fixed** — **Il testo dei bottoni primari era illeggibile**: bianco su ambra dava un contrasto
+  di 2.15:1 (il minimo consigliato è 4.5:1). Ora il colore del testo è scelto automaticamente in
+  base all'accento della palette, e tutte le combinazioni palette × tema superano lo standard AA.
+  In tema chiaro il testo diventava addirittura nero su accento scuro, per un conflitto di regole CSS.
+- **Fixed** — La griglia della hero spariva in tema chiaro (usava un grigio pensato per lo sfondo
+  scuro): ora segue i colori della palette.
+
 ### 2026-07-15 — Password dimenticata? Ora c'è una via di rientro 🔑
 
 - **Added** — **Reset della password** per chi è chiuso fuori: "Password dimenticata?" nella pagina

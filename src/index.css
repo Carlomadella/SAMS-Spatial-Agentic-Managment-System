@@ -97,6 +97,10 @@
     --c-text-strong: 255 250 244;
     --c-accent: 245 158 11; /* ambra */
     --c-accent-2: 251 113 133; /* corallo (accento secondario) */
+    /* Testo sopra all'accento (bottoni primari). Quasi-nero perché il bianco su ambra
+       brillante dà 2.15:1 — illeggibile. Le palette di Roadmap 5 lo ricalcolano da sé
+       (vedi `onAccent` in site/data/palettes.ts); questo è il valore prima che si applichino. */
+    --c-on-accent: 11 14 20;
   }
   .theme-light body.site-scroll {
     --c-ink-950: 250 246 240;
@@ -112,6 +116,7 @@
     --c-text-strong: 26 20 14;
     --c-accent: 194 120 8; /* ambra più profonda per il contrasto su chiaro */
     --c-accent-2: 225 90 110;
+    --c-on-accent: 11 14 20; /* anche qui il nero contrasta più del bianco (5.50 vs 3.51) */
   }
 
   /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */

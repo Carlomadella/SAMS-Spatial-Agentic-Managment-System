@@ -18,6 +18,9 @@ export function useSiteChrome() {
     document.documentElement.classList.toggle("theme-light", light);
   }, []);
 
+  // La palette (Roadmap 5) la applica il `DesignProvider`, che avvolge tutto il sito:
+  // vale quindi su ogni pagina, non solo dove si sceglie.
+
   // Riabilita lo scroll del documento solo mentre il sito è montato: l'app in
   // `body { overflow: hidden }` è a schermo intero, il sito invece scorre. La classe
   // viene rimossa allo smontaggio (es. entrando nella workspace /app).

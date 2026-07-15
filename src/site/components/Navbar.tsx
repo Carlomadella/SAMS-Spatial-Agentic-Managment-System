@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Menu, User, X } from "lucide-react";
 import { Link, useLocation } from "../router";
 import { useAuth } from "../auth/AuthContext";
-import { NAV_LINKS } from "../data/site";
+import { useDesign } from "../design/DesignContext";
+import { navbarById } from "../data/navbarVariants";
 import { Container } from "./Container";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
@@ -28,12 +29,17 @@ function NavItem({ label, to, external, onClick }: { label: string; to: string; 
 }
 
 /**
- * Header del sito: logo a sinistra, i link centrali (Funzionalità, Docs, GitHub, Prezzi,
- * Contatti), e a destra ThemeToggle + una CTA "Apri la stanza" + Accedi/Profilo (mostra
- * il profilo se l'utente mock è loggato). Sticky in cima; su mobile collassa in un menu.
+ * Header del sito: logo a sinistra, i link centrali e a destra le azioni (tema, "Apri la
+ * stanza", Accedi/Profilo). Sticky in cima; su mobile collassa in un menu.
+ *
+ * **Quanti** link e **quante** azioni li decide la variante scelta (Roadmap 5): la navbar
+ * è una sola e si configura da `navbarVariants.ts`, invece di esistere in quattro copie
+ * che divergerebbero al primo ritocco. Accedi/Profilo non è opzionale: è il modo di entrare.
  */
 export function Navbar() {
   const { user } = useAuth();
+  const { navbarId } = useDesign();
+  const variant = navbarById(navbarId);
   const [open, setOpen] = useState(false);
 
   const authControl = user ? (
@@ -53,23 +59,25 @@ export function Navbar() {
 
         {/* link centrali (desktop) */}
         <nav className="hidden items-center gap-7 md:flex">
-          {NAV_LINKS.map((l) => (
+          {variant.links.map((l) => (
             <NavItem key={l.label} {...l} />
           ))}
         </nav>
 
         {/* azioni a destra (desktop) */}
         <div className="hidden items-center gap-2.5 md:flex">
-          <ThemeToggle />
-          <CTAButton to="/app" variant="primary">
-            Apri la stanza
-          </CTAButton>
+          {variant.theme && <ThemeToggle />}
+          {variant.roomCta && (
+            <CTAButton to="/app" variant="primary">
+              Apri la stanza
+            </CTAButton>
+          )}
           {authControl}
         </div>
 
         {/* toggle menu mobile */}
         <div className="flex items-center gap-2 md:hidden">
-          <ThemeToggle />
+          {variant.theme && <ThemeToggle />}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -86,15 +94,17 @@ export function Navbar() {
       {open && (
         <div className="border-t border-line/70 bg-ink-950/95 md:hidden">
           <Container className="flex flex-col gap-1 py-3">
-            {NAV_LINKS.map((l) => (
+            {variant.links.map((l) => (
               <div key={l.label} className="py-1.5">
                 <NavItem {...l} onClick={() => setOpen(false)} />
               </div>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t border-line/60 pt-3">
-              <CTAButton to="/app" variant="primary">
-                Apri la stanza
-              </CTAButton>
+              {variant.roomCta && (
+                <CTAButton to="/app" variant="primary">
+                  Apri la stanza
+                </CTAButton>
+              )}
               {authControl}
             </div>
           </Container>

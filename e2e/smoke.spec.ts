@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem("sams.welcomed", "1");
     localStorage.removeItem("sams.hint");
   });
-  await page.goto("/");
+  await page.goto("/app");
 });
 
 test("page loads with SAMS title bar", async ({ page }) => {
@@ -19,7 +19,7 @@ test("onboarding wizard appears on first visit", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.removeItem("sams.welcomed");
   });
-  await page.goto("/");
+  await page.goto("/app");
   await expect(page.locator("text=Benvenuto in SAMS")).toBeVisible({ timeout: 10_000 });
 });
 

@@ -33,6 +33,48 @@ Per il design creami un'opzione che richiama ai colori usati nella cartella sams
 
 Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel browser (cartella site/): SiteLayout (Navbar + <Outlet/> + Footer), Navbar, Footer, Button/CTAButton, ThemeToggle, Logo, Container, SectionHeading, AuthContext/ProtectedRoute.
 
+---
+
+## 🗒️ Stato (aggiornato 2026-07-15)
+
+**Fatto**
+- [x] **Hitbox degli agenti** (in cima a questo file) — commit `4184f18`.
+- [x] **Sito**: header/navbar (logo, link, CTA, Accedi/Profilo), main coi due bottoni +
+      "Scopri di più", footer (logo+tagline, 4 colonne, GitHub, email, © anno), **login**
+      (con auth **reale**, non più mock — portata in R4), **documentazione** a sezioni
+      (`docsSections.ts`, a mano come deciso), changelog sotto la hero.
+- [x] **Le varianti da confrontare** — non una galleria di mockup ma un **design lab**
+      (`/design`) che applica le scelte al sito vero: la navbar in cima cambia mentre scegli.
+      Le anteprime della hero usano lo **stesso componente** della home, non un'imitazione.
+  - **5 palette** (`data/palettes.ts`): Ambra (attuale), **SAMS** (i blu della workspace,
+    come chiesto), Foresta, Nebulosa, Abisso — ognuna in chiaro **e** scuro, ortogonali al
+    ThemeToggle. Sorgente unica in TS che **genera** il CSS (`paletteCss`), così gli swatch
+    possono mostrare i colori di una palette *non attiva*.
+  - **4 navbar** (`data/navbarVariants.ts`): completa (5 link + 2 CTA + Accedi) e tre che
+    tolgono **un pezzo diverso ciascuna** (GitHub / toggle tema / CTA stanza), così il
+    confronto isola una variabile per volta. Sono dati, non quattro copie del markup.
+  - **5 hero** (`data/heroVariants.ts`): screenshot, **video** della stanza (registrato dal
+    canvas WebGL, 313 kB, con lo screenshot come poster), bagliori, griglia, piatta — ognuna
+    col suo compromesso dichiarato.
+- [x] **Contrasto** — trovato e chiuso un difetto vero mentre si provavano le palette: il
+      testo dei bottoni primari era **bianco su ambra a 2.15:1**, e in tema chiaro diventava
+      nero su accento scuro (Tailwind genera la variante important anche della rimappa
+      `.theme-light .text-white`, che vince per specificità). Ora `--c-on-accent` è **derivato**
+      dal contrasto (`onAccent`) e **tutte** le 10 combinazioni palette × tema superano 4.5:1
+      (AA); l'accento di Abisso/chiaro è stato scurito perché era l'unico in cui né bianco né
+      nero ci arrivavano.
+
+**Resta aperto**
+- [ ] **Varianti degli altri componenti condivisi** — la roadmap chiede diversi design anche
+      per SiteLayout, Footer, Button/CTAButton, ThemeToggle, Logo, Container, SectionHeading.
+      Fatti: Navbar e Hero (le due scelte con più impatto), più le palette che li attraversano
+      tutti. Gli altri sono ancora a una sola versione: da fare col meccanismo già in piedi
+      (dati + `DesignContext`), senza inventare nulla di nuovo.
+- [ ] **Scelta finale** — il lab serve a decidere: quando la combinazione è scelta, i default
+      in `DEFAULT_*_ID` diventano quella e le varianti scartate si possono togliere.
+
+---
+
 Punti da decidere (aperti)
 Dove vive il sito: route nell'app React attuale (consigliato) o sito separato?
 Router interno leggero (consigliato) senza aggiungere dipendenze

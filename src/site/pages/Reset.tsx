@@ -53,7 +53,7 @@ export function Reset() {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-[#fff] transition-all hover:bg-brand/90"
           >
             Vai all'accesso
             <ArrowRight size={16} />
@@ -75,7 +75,7 @@ export function Reset() {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-[#fff] transition-all hover:bg-brand/90"
           >
             Accedi
             <ArrowRight size={16} />
@@ -126,7 +126,7 @@ export function Reset() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium !text-white transition-all hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-[#fff] transition-all hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "Attendere…" : "Imposta la password"}
             <ArrowRight size={16} />

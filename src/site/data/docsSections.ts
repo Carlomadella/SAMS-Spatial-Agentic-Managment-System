@@ -192,4 +192,29 @@ export const DOCS_SECTIONS: DocSection[] = [
       { term: "Configurazione", desc: "Si imposta il provider e la chiave nel file .env del server (o nelle variabili d'ambiente del deploy). Basta almeno una chiave valida." },
     ],
   },
+  {
+    id: "account",
+    title: "Account e password",
+    intro:
+      "L'accesso al sito crea account veri sul runtime: email e password, con la sessione che dura 30 giorni. Il primo account registrato diventa proprietario del workspace e da lì assegna i ruoli agli altri.",
+    items: [
+      { term: "Ruoli", desc: "Osservatore (guarda), Editor (assegna task e avvia lavoro) e Proprietario (tutto, impostazioni comprese). Il proprietario cambia i ruoli dalla pagina Profilo; l'ultimo proprietario non può declassarsi." },
+      { term: "Cambiare password", desc: "Dal Profilo, con la password attuale. Gli altri dispositivi vengono sloggati." },
+      { term: "Password dimenticata", desc: "Dalla pagina di accesso: se è configurato un canale email ricevi un link per reimpostarla; il link è monouso e scade dopo un'ora. Chi lo usa viene sloggato da tutti i dispositivi." },
+      { term: "Senza un server di posta", desc: "SAMS funziona lo stesso: il proprietario genera il link di reset dalla pagina Profilo (l'icona della chiave accanto a un utente) e lo consegna alla persona." },
+      { term: "Verifica dell'email", desc: "Solo se il canale email è configurato: chi si registra deve confermare l'indirizzo prima di entrare. Il proprietario e gli account già esistenti sono verificati d'ufficio." },
+    ],
+  },
+  {
+    id: "design-lab",
+    title: "Design lab",
+    intro:
+      "La pagina /design (in fondo, sotto «Docs») serve a provare le varianti di aspetto del sito applicandole per davvero: la barra in cima cambia mentre scegli e la home usa la hero selezionata. Le scelte restano su questo dispositivo e non toccano gli altri visitatori.",
+    items: [
+      { term: "Palette", desc: "Cinque combinazioni di colore: Ambra (di partenza), SAMS (gli stessi blu della stanza), Foresta, Nebulosa e Abisso. Ognuna funziona sia in tema chiaro sia in scuro, quindi si combina col toggle del tema." },
+      { term: "Navbar", desc: "Quattro varianti che tolgono un elemento diverso ciascuna (il link a GitHub, il toggle del tema, la CTA «Apri la stanza»), per capire cosa cambia davvero togliendo una cosa per volta." },
+      { term: "Hero", desc: "Cinque sfondi: lo screenshot della stanza, il video della stanza in loop, i bagliori, la griglia tecnica e la versione piatta. Ognuno dichiara il suo compromesso, peso compreso." },
+      { term: "Ripristina", desc: "Rimette le tre scelte com'erano all'inizio (Ambra, navbar completa, screenshot)." },
+    ],
+  },
 ];
