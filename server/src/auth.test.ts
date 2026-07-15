@@ -71,7 +71,15 @@ describe("sanitizeName", () => {
 describe("publicUser", () => {
   it("non espone mai l'hash", () => {
     const pub = publicUser({ email: "a@b.co", name: "A", role: "owner" });
-    expect(pub).toEqual({ email: "a@b.co", name: "A", role: "owner" });
+    expect(pub).toEqual({ email: "a@b.co", name: "A", role: "owner", emailVerified: false });
     expect("passHash" in pub).toBe(false);
+  });
+
+  it("riporta lo stato di verifica dell'email", () => {
+    expect(publicUser({ email: "a@b.co", name: "A", role: "owner", emailVerified: true }).emailVerified).toBe(true);
+  });
+
+  it("un emailVerified assente vale «non verificato» (mai un undefined che passa per vero)", () => {
+    expect(publicUser({ email: "a@b.co", name: "A", role: "viewer" }).emailVerified).toBe(false);
   });
 });

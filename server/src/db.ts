@@ -4,6 +4,7 @@ import type { Routine, RoutineInput } from "./routines";
 import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
 import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
 import type { User } from "./auth";
+import type { TokenRecord } from "./tokens";
 import type { Role } from "./roles";
 
 /**
@@ -110,12 +111,13 @@ export function openDb(location: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat_messages (ts DESC);
 
     CREATE TABLE IF NOT EXISTS users (
-      id         TEXT    PRIMARY KEY,
-      email      TEXT    NOT NULL UNIQUE,
-      name       TEXT    NOT NULL,
-      pass_hash  TEXT    NOT NULL,
-      role       TEXT    NOT NULL,
-      created_at INTEGER NOT NULL
+      id             TEXT    PRIMARY KEY,
+      email          TEXT    NOT NULL UNIQUE,
+      name           TEXT    NOT NULL,
+      pass_hash      TEXT    NOT NULL,
+      role           TEXT    NOT NULL,
+      created_at     INTEGER NOT NULL,
+      email_verified INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -125,10 +127,49 @@ export function openDb(location: string): DatabaseSync {
       expires_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions (user_id);
+
+    -- Token monouso per reset password e verifica email (gestione password,
+    -- doc di decisione 2026-07-15). La chiave è l'**hash** del token: il valore in
+    -- chiaro vive solo nel link consegnato alla persona (vedi tokens.ts).
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash TEXT    PRIMARY KEY,
+      user_id    TEXT    NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
+
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      token_hash TEXT    PRIMARY KEY,
+      user_id    TEXT    NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications (user_id);
   `);
   ensureWorldAgentColumns(db);
+  ensureUserColumns(db);
   migrateWorldAgents(db);
   return db;
+}
+
+/**
+ * Aggiunge `users.email_verified` in modo idempotente. **Retro-compatibilità**: su un DB
+ * preesistente gli account vengono marcati **verificati** nella stessa transazione in cui
+ * la colonna nasce. È deliberato — chi ieri entrava non deve trovarsi chiuso fuori oggi
+ * perché abbiamo aggiunto la verifica; il gate vale da qui in avanti, per i nuovi account.
+ * Su un DB nuovo la tabella è vuota → l'UPDATE non tocca nulla.
+ */
+function ensureUserColumns(db: DatabaseSync): void {
+  const cols = new Set(
+    (db.prepare(`PRAGMA table_info(users)`).all() as { name: string }[]).map((c) => c.name),
+  );
+  if (!cols.has("email_verified")) {
+    db.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`);
+    db.exec(`UPDATE users SET email_verified = 1`);
+  }
 }
 
 /**
@@ -508,6 +549,7 @@ function rowToUser(row: Record<string, unknown> | undefined): User | null {
     passHash: String(row.pass_hash),
     role: String(row.role) as Role,
     createdAt: Number(row.created_at),
+    emailVerified: Number(row.email_verified ?? 0) === 1,
   };
 }
 
@@ -519,8 +561,8 @@ export function countUsers(db: DatabaseSync): number {
 /** Crea un utente. Lancia se l'email esiste già (vincolo UNIQUE). */
 export function createUser(db: DatabaseSync, u: User): void {
   db.prepare(
-    `INSERT INTO users (id, email, name, pass_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(u.id, u.email, u.name, u.passHash, u.role, u.createdAt);
+    `INSERT INTO users (id, email, name, pass_hash, role, created_at, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(u.id, u.email, u.name, u.passHash, u.role, u.createdAt, u.emailVerified ? 1 : 0);
 }
 
 export function getUserByEmail(db: DatabaseSync, email: string): User | null {
@@ -532,10 +574,20 @@ export function getUserById(db: DatabaseSync, id: string): User | null {
 }
 
 /** Tutti gli utenti (senza hash), più vecchi prima. Per la gestione ruoli dell'owner. */
-export function listUsers(db: DatabaseSync): Array<{ email: string; name: string; role: Role; createdAt: number }> {
+export function listUsers(
+  db: DatabaseSync,
+): Array<{ email: string; name: string; role: Role; createdAt: number; emailVerified: boolean }> {
   return (
-    db.prepare(`SELECT email, name, role, created_at FROM users ORDER BY created_at ASC`).all() as Record<string, unknown>[]
-  ).map((r) => ({ email: String(r.email), name: String(r.name), role: String(r.role) as Role, createdAt: Number(r.created_at) }));
+    db
+      .prepare(`SELECT email, name, role, created_at, email_verified FROM users ORDER BY created_at ASC`)
+      .all() as Record<string, unknown>[]
+  ).map((r) => ({
+    email: String(r.email),
+    name: String(r.name),
+    role: String(r.role) as Role,
+    createdAt: Number(r.created_at),
+    emailVerified: Number(r.email_verified ?? 0) === 1,
+  }));
 }
 
 /** Quanti owner esistono (per non lasciare il workspace senza owner). */
@@ -587,6 +639,74 @@ export function deleteUserSessionsExcept(db: DatabaseSync, userId: string, keepT
 /** Rimuove le sessioni scadute (GC). Ritorna quante ne ha tolte. */
 export function pruneAuthSessions(db: DatabaseSync, now = Date.now()): number {
   return Number(db.prepare(`DELETE FROM auth_sessions WHERE expires_at <= ?`).run(now).changes);
+}
+
+/** Invalida **tutte** le sessioni di un utente. Dopo un reset password nessun
+ *  dispositivo entrato con la vecchia password deve restare dentro. */
+export function deleteAllUserSessions(db: DatabaseSync, userId: string): number {
+  return Number(db.prepare(`DELETE FROM auth_sessions WHERE user_id = ?`).run(userId).changes);
+}
+
+/** Marca l'indirizzo di un utente come confermato. */
+export function setEmailVerified(db: DatabaseSync, userId: string, verified: boolean): void {
+  db.prepare(`UPDATE users SET email_verified = ? WHERE id = ?`).run(verified ? 1 : 0, userId);
+}
+
+// --- token monouso: reset password + verifica email -------------------------
+// Le due tabelle hanno forma identica, quindi le funzioni sono parametrizzate sul
+// nome della tabella invece di essere duplicate. `Table` è un'unione chiusa (non una
+// stringa qualsiasi) così il nome non può mai arrivare dall'esterno: interpolarlo in
+// SQL è sicuro solo perché il compilatore garantisce che sia uno di questi due.
+
+type TokenTable = "password_resets" | "email_verifications";
+
+function rowToToken(row: Record<string, unknown> | undefined): TokenRecord | null {
+  if (!row) return null;
+  return {
+    tokenHash: String(row.token_hash),
+    userId: String(row.user_id),
+    createdAt: Number(row.created_at),
+    expiresAt: Number(row.expires_at),
+    usedAt: row.used_at === null || row.used_at === undefined ? null : Number(row.used_at),
+  };
+}
+
+/**
+ * Registra un token monouso. Prima cancella gli **altri token non usati** dello stesso
+ * utente sulla stessa tabella: chiedere un nuovo link invalida il precedente, così non
+ * restano in giro più link validi in parallelo (se qualcuno chiede il reset due volte,
+ * vale solo l'ultimo).
+ */
+export function createToken(db: DatabaseSync, table: TokenTable, rec: TokenRecord): void {
+  db.prepare(`DELETE FROM ${table} WHERE user_id = ? AND used_at IS NULL`).run(rec.userId);
+  db.prepare(
+    `INSERT INTO ${table} (token_hash, user_id, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, ?)`,
+  ).run(rec.tokenHash, rec.userId, rec.createdAt, rec.expiresAt, rec.usedAt);
+}
+
+/** Legge un token dal suo hash (la spendibilità la giudica `isTokenUsable`). */
+export function getToken(db: DatabaseSync, table: TokenTable, tokenHash: string): TokenRecord | null {
+  return rowToToken(
+    db.prepare(`SELECT * FROM ${table} WHERE token_hash = ?`).get(tokenHash) as Record<string, unknown> | undefined,
+  );
+}
+
+/**
+ * Marca un token come speso. Ritorna `true` solo se è stata questa chiamata a spenderlo
+ * (`used_at IS NULL` nella WHERE): il DB è l'arbitro, quindi due richieste in corsa con
+ * lo stesso token non possono riuscire entrambe.
+ */
+export function consumeToken(db: DatabaseSync, table: TokenTable, tokenHash: string, now = Date.now()): boolean {
+  return (
+    Number(
+      db.prepare(`UPDATE ${table} SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`).run(now, tokenHash).changes,
+    ) > 0
+  );
+}
+
+/** GC dei token scaduti o già spesi (le due tabelle non crescono all'infinito). */
+export function pruneTokens(db: DatabaseSync, table: TokenTable, now = Date.now()): number {
+  return Number(db.prepare(`DELETE FROM ${table} WHERE expires_at <= ? OR used_at IS NOT NULL`).run(now).changes);
 }
 
 // --- lazy singleton (file-backed) ------------------------------------------

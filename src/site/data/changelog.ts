@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: "2026-07-15",
+    title: "Password dimenticata? Ora si rientra",
+    summary:
+      "Link di reset monouso via email, verifica dell'indirizzo, e — se non hai un server di posta — il link lo emette il proprietario.",
+    tag: "Added",
+  },
+  {
     date: "2026-07-13",
     title: "Hitbox degli agenti riviste",
     summary: "Chi cammina si attraversa liberamente; da fermi non si sovrappongono più — niente più 'cerchio'.",

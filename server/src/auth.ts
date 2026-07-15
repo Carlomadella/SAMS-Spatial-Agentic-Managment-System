@@ -20,6 +20,8 @@ export interface User {
   passHash: string;
   role: Role;
   createdAt: number;
+  /** L'indirizzo è stato confermato via link? Vedi il gate in `server.ts`. */
+  emailVerified: boolean;
 }
 
 /** Vista pubblica dell'utente (mai include l'hash della password). */
@@ -27,6 +29,7 @@ export interface PublicUser {
   email: string;
   name: string;
   role: Role;
+  emailVerified: boolean;
 }
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 giorni
@@ -89,6 +92,6 @@ export function sanitizeName(raw: unknown, email = ""): string {
 }
 
 /** Proietta un `User` nella sua vista pubblica (senza hash). */
-export function publicUser(u: Pick<User, "email" | "name" | "role">): PublicUser {
-  return { email: u.email, name: u.name, role: u.role };
+export function publicUser(u: Pick<User, "email" | "name" | "role"> & { emailVerified?: boolean }): PublicUser {
+  return { email: u.email, name: u.name, role: u.role, emailVerified: u.emailVerified === true };
 }

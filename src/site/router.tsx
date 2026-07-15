@@ -18,6 +18,8 @@ import {
 
 interface RouterValue {
   path: string;
+  /** Query string corrente, "?" incluso ("" se assente). */
+  search: string;
   navigate: (to: string, opts?: { replace?: boolean }) => void;
 }
 
@@ -36,12 +38,22 @@ function currentPath(): string {
   return normalizePath(window.location.pathname);
 }
 
+function currentSearch(): string {
+  return window.location.search || "";
+}
+
 export function RouterProvider({ children }: { children: ReactNode }) {
   const [path, setPath] = useState(currentPath);
+  // La query string è parte della posizione: i link monouso (`/reset?token=…`) ci
+  // passano il token, quindi deve riallinearsi come il path — non basta leggerla una volta.
+  const [search, setSearch] = useState(currentSearch);
 
   useEffect(() => {
     // Back/forward del browser → riallinea lo stato al percorso corrente.
-    const onPop = () => setPath(currentPath());
+    const onPop = () => {
+      setPath(currentPath());
+      setSearch(currentSearch());
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -50,6 +62,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     if (opts?.replace) window.history.replaceState(null, "", to);
     else window.history.pushState(null, "", to);
     setPath(currentPath());
+    setSearch(currentSearch());
     // Ancora (#id): dopo il render della pagina di destinazione scrolla all'elemento;
     // altrimenti riparti dall'alto. rAF così l'elemento esiste già nel DOM.
     const hashIdx = to.indexOf("#");
@@ -65,7 +78,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <RouterContext.Provider value={{ path, navigate }}>{children}</RouterContext.Provider>;
+  return <RouterContext.Provider value={{ path, search, navigate }}>{children}</RouterContext.Provider>;
 }
 
 function useRouter(): RouterValue {
@@ -74,9 +87,10 @@ function useRouter(): RouterValue {
   return ctx;
 }
 
-/** Percorso corrente (già normalizzato). */
-export function useLocation(): { path: string } {
-  return { path: useRouter().path };
+/** Percorso corrente (già normalizzato) e query string ("?token=…", "" se assente). */
+export function useLocation(): { path: string; search: string } {
+  const { path, search } = useRouter();
+  return { path, search };
 }
 
 /** Naviga via History API senza ricaricare la pagina. */

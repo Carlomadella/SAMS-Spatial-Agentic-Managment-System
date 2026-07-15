@@ -201,8 +201,22 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
       (solo owner) + `listUsers`/`countOwners`/`setUserRole` in `db.ts`; l'**ultimo owner non può
       declassarsi** (409). UI: `UsersAdmin` nella Profile (solo owner) con selettore ruolo per utente
       (self disabilitato). Così i ruoli sono davvero usabili in team (senza, dopo il primo restano tutti
-      viewer). Verificato end-to-end (curl: list/promote/400/404/409/403) + db test + 3 RTL. _Resta:_
-      **gestione password** (reset/verifica email → serve un canale email) ed eventuale cookie httpOnly.
+      viewer). Verificato end-to-end (curl: list/promote/400/404/409/403) + db test + 3 RTL.
+      _Fatto (gestione password — chiude il residuo):_ **canale email a driver** che si configura da sé
+      (`mailer.ts` puro: `resolveMailerConfig` → `smtp` con SMTP_HOST · `resend` con RESEND_API_KEY ·
+      `console` altrimenti) + **token monouso** (`tokens.ts` puro: 256 bit, **sha256 a riposo**, monouso
+      via `used_at`, reset 1h / verifica 24h) su due tabelle `password_resets`/`email_verifications`.
+      Endpoint: `POST /api/auth/{forgot,reset,verify,verify/resend}` + `POST /api/auth/users/reset`
+      (owner-only). Client: pagine pubbliche `/reset` e `/verifica`, "Password dimenticata?" nel Login,
+      `VerifyBanner` nel profilo, 🔑 nella UsersAdmin. **Il gate della verifica segue il canale**: i non
+      verificati sono bloccati al login *solo* con smtp/resend configurato (senza, nessuno potrebbe
+      verificarsi — stessa forma di "nessun token configurato → tutto owner"); primo utente e account
+      preesistenti nascono verificati (ALTER + UPDATE una-tantum), quindi nessuno resta chiuso fuori.
+      **Doc di decisione su Drive** (SMTP vs Resend vs owner-issued vs JWT). Verificato end-to-end con un
+      **server SMTP finto** che cattura le email: registrazione → link → verifica → login; forgot → link →
+      reset → vecchia password morta + sessioni invalidate; token monouso; 403 viewer su users/reset;
+      hash-a-riposo controllato sul DB. +69 test (server 270→339, client 519→544). _Resta:_ eventuale
+      cookie httpOnly e gli inviti via email (naturale ora che il canale esiste).
       _Portato qui da ROADMAP5 ("mock prima, auth reale in roadmap4")._
 - [x] ✅ **PWA installabile + offline** — manifest, service worker (senza toccare
       `/api` né l'SSE), icone generate da `favicon.svg`. Primo tassello della
@@ -323,6 +337,41 @@ altri — prima come architettura, poi come prodotto rifinito e installabile.
 ---
 
 ## 🗒️ Log dei brainstorming (Roadmap 4)
+
+### 2026-07-15 — gestione password: reset + verifica email (chiude il residuo dell'auth)
+Su "completa la gestione password e fai tutti i test possibili", chiuso l'ultimo residuo *concreto*
+di R4 (l'altro, B1/B4, resta gated sul §7). Punto di partenza onesto: il **cambio da loggati c'era
+già**; mancava la via di rientro per chi è **chiuso fuori** (senza sessione non puoi cambiare la
+password → serviva un intervento a mano sul DB) e la verifica dell'indirizzo.
+- **La scelta (doc su Drive)**: il nodo era il **canale**. Non SMTP *oppure* owner-issued, ma
+  un'astrazione a **driver che si sceglie da sé** — SMTP_HOST → `smtp`, RESEND_API_KEY → `resend`,
+  niente → `console` + link emesso dall'owner. Motivo: SAMS è software che **altri ospitano**, e non
+  possiamo pretendere un SMTP da chi lo sta solo provando. Scartate: solo-owner (non verifica nulla e
+  non scala), solo-SMTP (attrito per chi prova), Resend (dominio verificato + terzo nel mezzo), JWT
+  come token di reset (non revocabile né monouso senza stato).
+  Doc: https://docs.google.com/document/d/1XBHJoI_XlixgyNgksacGA-N30UGKYKftcJk2sTqYgVk
+- **La conseguenza interessante**: il **gate segue il canale**. I non verificati sono bloccati al
+  login *solo* se un canale reale è configurato — senza, nessuno potrebbe verificarsi e bloccare
+  chiuderebbe fuori tutti. È la stessa forma della regola dei ruoli ("nessun token → tutto owner").
+  Idem la migrazione: gli account **preesistenti nascono verificati** (ALTER + UPDATE una-tantum),
+  perché chi ieri entrava non deve trovarsi chiuso fuori oggi.
+- **Server**: `mailer.ts` + `tokens.ts` (puri) · tabelle `password_resets`/`email_verifications`
+  (chiave = **sha256** del token; il valore in chiaro vive solo nel link) · `users.email_verified` ·
+  `forgot` (**sempre 204** → niente enumeration) / `reset` / `verify` / `verify/resend` /
+  `users/reset` (owner-only). Il reset **invalida tutte le sessioni** e vale come verifica.
+- **Verifica end-to-end — con un server SMTP finto** (`fake-smtp.mjs`, ~40 righe) che cattura le
+  email davvero spedite, così il flusso è provato *intero* e non a pezzi: registrazione → email →
+  link → verifica → login; forgot → link → reset → **vecchia password morta + sessione pre-reset
+  invalidata**; token monouso (2ª volta → 400); password corta **non brucia** il link; viewer su
+  `users/reset` → 403; e sul DB: il token in chiaro **non c'è**, solo `sha256(token)`. Provato anche
+  il ramo **senza** canale (driver `console`): registrazione e login identici a prima, link nei log,
+  reset owner-issued → rientro. _Nota su una falsa pista: il primo giro dava 200 dove attendevo 403 —
+  non era un buco di autorizzazione ma il **rate-limiter** (12/5min) che faceva fallire i login del
+  test, lasciandomi mandare un header vuoto (= dev-open owner). Con un token valido: 403 corretto._
+- **Suite**: server 270 → **339**, client 519 → **544**; typecheck/lint/build verdi. (Un "errore" in
+  un run era uno spawn-timeout del worker pool, non una regressione: 61/61 file verdi.)
+- **Prossimo**: inviti via email (ora che il canale c'è), eventuale cookie httpOnly. E B1/B4 resta
+  il solo vero progetto aperto, gated sulle domande di prodotto del §7.
 
 ### 2026-07-14 (b) — gestione utenti per l'owner: i ruoli diventano usabili in team
 Continuando, chiuso il gap che rendeva i ruoli **inerti**: dopo il primo utente (owner) tutti gli altri

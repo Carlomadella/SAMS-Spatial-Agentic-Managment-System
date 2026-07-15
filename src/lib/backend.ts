@@ -241,6 +241,8 @@ export interface ManagedUser {
   name: string;
   role: ViewerRole;
   createdAt: number;
+  /** L'indirizzo è stato confermato via link? (gestione password, 2026-07-15) */
+  emailVerified?: boolean;
 }
 
 /** Elenca gli utenti (solo owner). Vuoto se non autorizzato o irraggiungibile. */
@@ -268,6 +270,99 @@ export async function changePasswordRemote(oldPassword: string, newPassword: str
       return { ok: false, error: body.error ?? "Cambio password non riuscito" };
     }
     return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+// --- Gestione password: reset + verifica email (doc di decisione 2026-07-15) ---
+
+/**
+ * "Password dimenticata": chiede al server un link di reset. Risponde `ok` **sempre**,
+ * anche per un'email inesistente — il server non rivela chi ha un account, e la UI non
+ * deve tradire la differenza mostrando un errore.
+ */
+export async function forgotPasswordRemote(email: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/forgot`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Richiesta non riuscita" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/** Reimposta la password spendendo il token del link (nessuna sessione richiesta). */
+export async function resetPasswordRemote(token: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/reset`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ token, password }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Reset non riuscito" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/** Conferma l'indirizzo email col token del link di verifica. */
+export async function verifyEmailRemote(token: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/verify`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Verifica non riuscita" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/** Richiede un nuovo link di verifica per il proprio indirizzo (serve una sessione). */
+export async function resendVerificationRemote(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/verify/resend`, { method: "POST", headers: authHeaders(false) });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Invio non riuscito" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/**
+ * L'owner emette un link di reset per un altro account e se lo fa restituire, per
+ * consegnarlo a mano. È la via di rientro quando SAMS gira senza canale email.
+ */
+export async function issueUserResetLink(email: string): Promise<{ ok: boolean; link?: string; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/users/reset`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { link?: string; error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? "Emissione del link non riuscita" };
+    return { ok: true, link: body.link };
   } catch {
     return { ok: false, error: "Runtime non raggiungibile" };
   }

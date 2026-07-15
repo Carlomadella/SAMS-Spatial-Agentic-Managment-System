@@ -3,6 +3,7 @@ import { Container } from "../components/Container";
 import { CTAButton } from "../components/CTAButton";
 import { UsersAdmin } from "../components/UsersAdmin";
 import { ChangePassword } from "../components/ChangePassword";
+import { VerifyBanner } from "../components/VerifyBanner";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
 
@@ -52,6 +53,10 @@ export function Profile() {
           </div>
         </div>
         <p className="mt-4 text-center text-xs text-slate-500">Sessione sul runtime SAMS — esci per chiuderla su questo dispositivo.</p>
+
+        {/* `=== false` e non `!user.emailVerified`: il campo è opzionale, e un server che
+            non lo manda (o un client più vecchio) non deve far comparire l'avviso. */}
+        {user.emailVerified === false && <VerifyBanner />}
 
         <div className="text-center">
           <ChangePassword />

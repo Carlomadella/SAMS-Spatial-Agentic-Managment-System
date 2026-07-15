@@ -19,8 +19,10 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, countOwners, countUsers, createAuthSession, createUser, db, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getUserByEmail, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, recentTasks, saveWorldAgents, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeToken, countOwners, countUsers, createAuthSession, createToken, createUser, db, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
+import { createMailer, mailerCanDeliver, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
+import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
 import { sanitizeChatInput, type ChatMessage } from "./chat";
@@ -215,7 +217,8 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
   if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
   const database = db();
   if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
-  const role: Role = countUsers(database) === 0 ? "owner" : "viewer";
+  const first = countUsers(database) === 0;
+  const role: Role = first ? "owner" : "viewer";
   const user: User = {
     id: randomUUID(),
     email,
@@ -223,11 +226,22 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
     passHash: hashPassword(body.password as string),
     role,
     createdAt: Date.now(),
+    // Il primo utente è chi ospita SAMS: non ha nessuno che possa verificarlo, e mandarlo
+    // a caccia di un link per entrare in casa propria sarebbe assurdo. Nasce verificato.
+    emailVerified: first || !VERIFICATION_ENFORCED,
   };
   createUser(database, user);
+  log.info("Nuovo account registrato", { email, role, verificato: user.emailVerified });
+
+  // Con un canale email reale l'account nasce **non verificato**: niente sessione, prima
+  // conferma l'indirizzo. Senza canale, si entra subito come prima (retro-compatibile).
+  if (!user.emailVerified) {
+    void deliver(user, "verify", issueLink(user, "verify"));
+    res.status(201).json({ user: publicUser(user), verificationRequired: true });
+    return;
+  }
   const token = newSessionToken();
   createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
-  log.info("Nuovo account registrato", { email, role });
   res.status(201).json({ token, user: publicUser(user) });
 });
 
@@ -241,6 +255,13 @@ app.post("/api/auth/login", (req: Request, res: Response) => {
   // Verifica sempre un hash (quello dell'utente o il civetta) per non trapelare via timing.
   const ok = verifyPassword(password, user ? user.passHash : DUMMY_PASS_HASH);
   if (!user || !ok) { res.status(401).json({ error: "Email o password non corretti" }); return; }
+  // Gate della verifica: solo con un canale email configurato (vedi VERIFICATION_ENFORCED).
+  // Le credenziali sono già state validate, quindi dire "non verificato" non rivela nulla
+  // a chi non conosce la password.
+  if (VERIFICATION_ENFORCED && !user.emailVerified) {
+    res.status(403).json({ error: "Conferma il tuo indirizzo email per entrare", reason: "email_not_verified" });
+    return;
+  }
   const token = newSessionToken();
   createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
   res.json({ token, user: publicUser(user) });
@@ -282,6 +303,155 @@ app.post("/api/auth/password", (req: Request, res: Response) => {
   deleteUserSessionsExcept(database, user.id, token);
   log.info("Password cambiata", { email: user.email });
   res.status(204).end();
+});
+
+// --- Gestione password: reset + verifica email -----------------------------
+// Doc di decisione 2026-07-15. Il canale email è un'astrazione a driver (`mailer.ts`)
+// che si configura da sé: SMTP se c'è SMTP_HOST, Resend se c'è RESEND_API_KEY, altrimenti
+// `console` (il link nei log + il fallback owner-issued qui sotto). Da questo dipende
+// tutto il resto di questa sezione.
+const MAILER_CONFIG = resolveMailerConfig();
+const mailer = createMailer(MAILER_CONFIG);
+/**
+ * Il gate sui non verificati si accende **solo** con un canale che recapita davvero.
+ * Senza, nessuno potrebbe verificarsi e bloccare chiuderebbe fuori tutti — stessa forma
+ * della regola dei ruoli ("nessun token configurato → tutto owner").
+ */
+const VERIFICATION_ENFORCED = mailerCanDeliver(MAILER_CONFIG);
+
+log.info("Canale email", { driver: MAILER_CONFIG.driver, verificaImposta: VERIFICATION_ENFORCED });
+
+/** Emette un token monouso e ne restituisce il link (senza spedirlo). */
+function issueLink(user: User, kind: "reset" | "verify"): string {
+  const token = newToken();
+  const table = kind === "reset" ? "password_resets" : "email_verifications";
+  const ttl = kind === "reset" ? RESET_TTL_MS : VERIFY_TTL_MS;
+  const now = Date.now();
+  createToken(db(), table, {
+    tokenHash: hashToken(token),
+    userId: user.id,
+    createdAt: now,
+    expiresAt: tokenExpiry(ttl, now),
+    usedAt: null,
+  });
+  pruneTokens(db(), table, now); // GC opportunistico: le tabelle non crescono all'infinito
+  const base = MAILER_CONFIG.baseUrl;
+  return kind === "reset" ? resetLink(base, token) : verifyLink(base, token);
+}
+
+/**
+ * Spedisce (o logga) un link. **Non lancia mai**: un SMTP che non risponde non deve far
+ * fallire una registrazione o trasformare un "forgot" in un 500 che rivela quali email
+ * esistono. L'errore finisce nei log, dove chi ospita lo può vedere.
+ */
+async function deliver(user: User, kind: "reset" | "verify", link: string): Promise<void> {
+  const msg = kind === "reset" ? renderResetEmail(user.name, link) : renderVerifyEmail(user.name, link);
+  try {
+    await mailer.send({ ...msg, to: user.email });
+  } catch (err) {
+    log.error("Invio email fallito", { kind, to: user.email, err: String(err) });
+  }
+}
+
+/**
+ * "Password dimenticata". Risponde **sempre 204**, esista o no l'account: se rispondesse
+ * 404 per le email sconosciute, chiunque potrebbe usarlo per scoprire chi ha un account.
+ */
+app.post("/api/auth/forgot", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const email = normalizeEmail((req.body ?? {}).email);
+  const user = isValidEmail(email) ? getUserByEmail(db(), email) : null;
+  if (user) {
+    const link = issueLink(user, "reset");
+    void deliver(user, "reset", link); // non attendiamo: la risposta non deve dipendere dall'SMTP
+    log.info("Reset password richiesto", { email });
+  }
+  res.status(204).end();
+});
+
+/** Reimposta la password spendendo un token monouso. */
+app.post("/api/auth/reset", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const body = (req.body ?? {}) as { token?: unknown; password?: unknown };
+  const token = typeof body.token === "string" ? body.token : "";
+  const database = db();
+  const rec = getToken(database, "password_resets", hashToken(token));
+  if (!isTokenUsable(rec)) {
+    const why = tokenRejection(rec);
+    const error = why === "expired" ? "Il link è scaduto: richiedine uno nuovo"
+      : why === "used" ? "Il link è già stato usato: richiedine uno nuovo"
+      : "Link di reset non valido";
+    res.status(400).json({ error, reason: why });
+    return;
+  }
+  const pw = validatePassword(body.password);
+  if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
+  const user = getUserById(database, rec!.userId);
+  if (!user) { res.status(400).json({ error: "Link di reset non valido" }); return; }
+  // Spendi il token **prima** di cambiare la password: se due richieste corrono con lo
+  // stesso link, il DB ne lascia passare una sola (UPDATE … WHERE used_at IS NULL).
+  if (!consumeToken(database, "password_resets", rec!.tokenHash)) {
+    res.status(400).json({ error: "Il link è già stato usato: richiedine uno nuovo", reason: "used" });
+    return;
+  }
+  updateUserPassword(database, user.id, hashPassword(body.password as string));
+  // Chi era entrato con la vecchia password esce: un reset è anche un modo di cacciare
+  // qualcuno che non dovrebbe più essere dentro.
+  deleteAllUserSessions(database, user.id);
+  // Chi dimostra di controllare la casella ha, di fatto, verificato l'indirizzo.
+  if (!user.emailVerified) setEmailVerified(database, user.id, true);
+  log.info("Password reimpostata", { email: user.email });
+  res.status(204).end();
+});
+
+/** Conferma un indirizzo email spendendo il token del link di verifica. */
+app.post("/api/auth/verify", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const token = typeof (req.body ?? {}).token === "string" ? (req.body as { token: string }).token : "";
+  const database = db();
+  const rec = getToken(database, "email_verifications", hashToken(token));
+  if (!isTokenUsable(rec)) {
+    const why = tokenRejection(rec);
+    const error = why === "expired" ? "Il link di verifica è scaduto: chiedine uno nuovo"
+      : why === "used" ? "Questo indirizzo è già stato confermato"
+      : "Link di verifica non valido";
+    res.status(400).json({ error, reason: why });
+    return;
+  }
+  const user = getUserById(database, rec!.userId);
+  if (!user) { res.status(400).json({ error: "Link di verifica non valido" }); return; }
+  if (!consumeToken(database, "email_verifications", rec!.tokenHash)) {
+    res.status(400).json({ error: "Questo indirizzo è già stato confermato", reason: "used" });
+    return;
+  }
+  setEmailVerified(database, user.id, true);
+  log.info("Email verificata", { email: user.email });
+  res.json({ user: publicUser({ ...user, emailVerified: true }) });
+});
+
+/** Rimanda il link di verifica al proprio indirizzo (serve una sessione). */
+app.post("/api/auth/verify/resend", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const user = getSessionUser(db(), bearerToken(req.headers.authorization));
+  if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  if (user.emailVerified) { res.status(409).json({ error: "Indirizzo già confermato" }); return; }
+  void deliver(user, "verify", issueLink(user, "verify"));
+  res.status(204).end();
+});
+
+/**
+ * Fallback owner-issued: l'owner genera un link di reset e lo consegna a mano. È la via
+ * di rientro quando SAMS gira **senza canale email** (driver `console`) — senza, un utente
+ * chiuso fuori richiederebbe un intervento a mano sul DB. Owner-only, ovviamente: emette
+ * un link che cambia la password di un altro account.
+ */
+app.post("/api/auth/users/reset", requireRole("owner"), (req: Request, res: Response) => {
+  const email = normalizeEmail((req.body ?? {}).email);
+  const user = getUserByEmail(db(), email);
+  if (!user) { res.status(404).json({ error: "Utente non trovato" }); return; }
+  const link = issueLink(user, "reset");
+  log.info("Link di reset emesso dall'owner", { email, by: actorLabel(roleOf(req), (req.body ?? {}).actor) });
+  res.json({ link, expiresInMin: Math.round(RESET_TTL_MS / 60_000) });
 });
 
 app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Response) => {

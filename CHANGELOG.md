@@ -7,6 +7,21 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+### 2026-07-15 — Password dimenticata? Ora c'è una via di rientro 🔑
+
+- **Added** — **Reset della password** per chi è chiuso fuori: "Password dimenticata?" nella pagina
+  di accesso manda un link monouso (valido un'ora) per sceglierne una nuova. Il reset slogga tutti i
+  dispositivi dell'account. Nuove pagine `/reset` e `/verifica`.
+- **Added** — **Canale email** configurabile, che SAMS sceglie da sé: `SMTP_HOST…` per un server
+  SMTP, `RESEND_API_KEY` per l'API Resend. Se non configuri nulla SAMS funziona come prima, e il
+  link di reset lo emette il **proprietario** dalla pagina Profilo (🔑 accanto a ogni utente), che
+  lo consegna a mano — comodo per chi ospita SAMS senza un server di posta.
+- **Added** — **Verifica dell'indirizzo email**: con un canale email configurato, chi si registra
+  deve confermare l'indirizzo prima di poter entrare. Dal profilo si può farsi rimandare il link.
+- **Nota** — La verifica si attiva **solo** se hai configurato un canale email: senza, nessuno
+  potrebbe confermare il proprio indirizzo. Il primo account (il tuo) e quelli che esistevano già
+  sono verificati d'ufficio, quindi nessuno resta chiuso fuori dopo l'aggiornamento.
+
 ### 2026-07-14 — Gestione utenti: l'owner assegna i ruoli 🧑‍🤝‍🧑
 - **Added** — Un **owner** può ora vedere gli account registrati e cambiarne il ruolo
   (osservatore/editor/proprietario) dalla pagina Profilo. Così i ruoli sono utilizzabili in un team:

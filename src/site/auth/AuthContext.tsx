@@ -14,11 +14,19 @@ export interface SiteUser {
   name: string;
   email: string;
   role: SiteRole;
+  /** L'indirizzo è confermato? Falso solo dove il canale email è configurato. */
+  emailVerified?: boolean;
 }
 
 export interface AuthResult {
   ok: boolean;
   error?: string;
+  /**
+   * L'operazione è andata a buon fine ma **non** c'è una sessione: l'account esiste e
+   * aspetta che l'indirizzo venga confermato. Vale sia per una registrazione con canale
+   * email attivo, sia per un login rifiutato perché l'email non è ancora verificata.
+   */
+  needsVerification?: boolean;
 }
 
 interface AuthValue {
@@ -28,6 +36,8 @@ interface AuthValue {
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (email: string, password: string, name?: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
+  /** Rilegge l'utente dal server (es. dopo aver confermato l'indirizzo). */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -50,13 +60,17 @@ function writeToken(token: string): void {
   }
 }
 
-/** Estrae il messaggio d'errore dal corpo JSON di una risposta non-ok. */
-async function errorMessage(res: Response, fallback: string): Promise<string> {
+/**
+ * Estrae messaggio ed eventuale causa dal corpo JSON di una risposta non-ok. Il body si
+ * legge **una volta sola** (uno stream si consuma): perciò questa restituisce entrambi
+ * i campi invece di costringere il chiamante a rileggerlo.
+ */
+async function errorBody(res: Response, fallback: string): Promise<{ error: string; reason?: string }> {
   try {
-    const body = (await res.json()) as { error?: string };
-    return body.error || fallback;
+    const body = (await res.json()) as { error?: string; reason?: string };
+    return { error: body.error || fallback, reason: body.reason };
   } catch {
-    return fallback;
+    return { error: fallback };
   }
 }
 
@@ -105,14 +119,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         return { ok: false, error: "Runtime non raggiungibile — avvia il server con npm start." };
       }
-      if (!res.ok) return { ok: false, error: await errorMessage(res, "Accesso non riuscito") };
-      const body = (await res.json()) as { token: string; user: SiteUser };
+      if (!res.ok) {
+        // 403 + reason: il login è stato rifiutato perché l'indirizzo non è confermato.
+        // Non è un errore di credenziali: la UI lo racconta in modo diverso.
+        const { error, reason } = await errorBody(res, "Accesso non riuscito");
+        return { ok: false, error, needsVerification: reason === "email_not_verified" };
+      }
+      const body = (await res.json()) as { token?: string; user: SiteUser; verificationRequired?: boolean };
+      // Registrazione con canale email attivo: l'account c'è ma la sessione no, finché
+      // l'indirizzo non è confermato. Nessun token da scrivere, nessun utente da settare.
+      if (!body.token) return { ok: true, needsVerification: body.verificationRequired === true };
       writeToken(body.token);
       setUser(body.user);
       return { ok: true };
     },
     [],
   );
+
+  /** Rilegge l'utente corrente (es. dopo la conferma dell'indirizzo). */
+  const refresh = useCallback(async () => {
+    const token = readToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const body = (await res.json()) as { user: SiteUser };
+      setUser(body.user);
+    } catch {
+      /* irraggiungibile → si tiene l'utente che abbiamo */
+    }
+  }, []);
 
   const login = useCallback(
     (email: string, password: string) => authenticate("login", { email, password }),
@@ -137,7 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);
+  const value = useMemo(
+    () => ({ user, loading, login, register, logout, refresh }),
+    [user, loading, login, register, logout, refresh],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

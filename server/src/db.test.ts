@@ -18,6 +18,12 @@ import {
   setUserRole,
   updateUserPassword,
   deleteUserSessionsExcept,
+  consumeToken,
+  createToken,
+  deleteAllUserSessions,
+  getToken,
+  pruneTokens,
+  setEmailVerified,
   getMemory,
   insertChatMessage,
   insertRoutine,
@@ -380,6 +386,7 @@ describe("auth: utenti + sessioni", () => {
     passHash: over.passHash ?? "salt:hash",
     role: over.role ?? "owner",
     createdAt: over.createdAt ?? 1000,
+    emailVerified: over.emailVerified ?? false,
   });
 
   it("countUsers cresce quando si crea un utente", () => {
@@ -422,7 +429,7 @@ describe("auth: utenti + sessioni", () => {
 describe("auth: gestione utenti (owner)", () => {
   const freshDb = () => openDb(":memory:");
   const mk = (email: string, role: import("./roles").Role): import("./auth").User => ({
-    id: email, email, name: email.split("@")[0], passHash: "s:h", role, createdAt: 1000,
+    id: email, email, name: email.split("@")[0], passHash: "s:h", role, createdAt: 1000, emailVerified: true,
   });
 
   it("listUsers elenca senza hash, più vecchi prima; countOwners conta gli owner", () => {
@@ -447,7 +454,7 @@ describe("auth: gestione utenti (owner)", () => {
 describe("auth: cambio password + sessioni", () => {
   const freshDb = () => openDb(":memory:");
   const mk = (id: string): import("./auth").User => ({
-    id, email: `${id}@x.co`, name: id, passHash: "old:hash", role: "owner", createdAt: 1,
+    id, email: `${id}@x.co`, name: id, passHash: "old:hash", role: "owner", createdAt: 1, emailVerified: true,
   });
 
   it("updateUserPassword aggiorna l'hash", () => {
@@ -467,5 +474,215 @@ describe("auth: cambio password + sessioni", () => {
     expect(getSessionUser(d, "cur")?.id).toBe("u1");
     expect(getSessionUser(d, "other1")).toBeNull();
     expect(getSessionUser(d, "other2")).toBeNull();
+  });
+});
+
+// --- gestione password: token monouso + verifica email ---------------------
+// (Roadmap 4, frontiera #3 — doc di decisione 2026-07-15)
+
+describe("auth: token monouso (reset password + verifica email)", () => {
+  const freshDb = () => openDb(":memory:");
+  const mkUser2 = (id: string, verified = false): import("./auth").User => ({
+    id, email: `${id}@x.co`, name: id, passHash: "s:h", role: "viewer", createdAt: 1, emailVerified: verified,
+  });
+  const mkTok = (over: Partial<import("./tokens").TokenRecord> = {}): import("./tokens").TokenRecord => ({
+    tokenHash: over.tokenHash ?? "hash1",
+    userId: over.userId ?? "u1",
+    createdAt: over.createdAt ?? 1_000,
+    expiresAt: over.expiresAt ?? 61_000,
+    usedAt: over.usedAt ?? null,
+  });
+
+  it("createToken + getToken fanno il giro completo", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createToken(d, "password_resets", mkTok());
+    const got = getToken(d, "password_resets", "hash1");
+    expect(got).toEqual(mkTok());
+  });
+
+  it("getToken restituisce null per un hash sconosciuto", () => {
+    expect(getToken(freshDb(), "password_resets", "mai-visto")).toBeNull();
+  });
+
+  it("le due tabelle sono indipendenti: un token di reset non vale come verifica", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createToken(d, "password_resets", mkTok());
+    expect(getToken(d, "email_verifications", "hash1")).toBeNull();
+  });
+
+  it("consumeToken marca l'uso e riesce una sola volta (monouso, arbitrato dal DB)", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createToken(d, "password_resets", mkTok());
+    expect(consumeToken(d, "password_resets", "hash1", 5_000)).toBe(true);
+    expect(getToken(d, "password_resets", "hash1")?.usedAt).toBe(5_000);
+    expect(consumeToken(d, "password_resets", "hash1", 6_000)).toBe(false);
+    expect(getToken(d, "password_resets", "hash1")?.usedAt).toBe(5_000); // non sovrascritto
+  });
+
+  it("consumeToken su hash inesistente è false, non lancia", () => {
+    expect(consumeToken(freshDb(), "password_resets", "nope")).toBe(false);
+  });
+
+  it("un nuovo token invalida quello vecchio non usato dello stesso utente", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createToken(d, "password_resets", mkTok({ tokenHash: "vecchio" }));
+    createToken(d, "password_resets", mkTok({ tokenHash: "nuovo" }));
+    expect(getToken(d, "password_resets", "vecchio")).toBeNull();
+    expect(getToken(d, "password_resets", "nuovo")).not.toBeNull();
+  });
+
+  it("un nuovo token non tocca quelli di un altro utente", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createUser(d, mkUser2("u2"));
+    createToken(d, "password_resets", mkTok({ tokenHash: "h-u1", userId: "u1" }));
+    createToken(d, "password_resets", mkTok({ tokenHash: "h-u2", userId: "u2" }));
+    expect(getToken(d, "password_resets", "h-u1")).not.toBeNull();
+    expect(getToken(d, "password_resets", "h-u2")).not.toBeNull();
+  });
+
+  it("un nuovo token conserva lo storico di quelli già spesi", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createToken(d, "password_resets", mkTok({ tokenHash: "speso" }));
+    consumeToken(d, "password_resets", "speso", 2_000);
+    createToken(d, "password_resets", mkTok({ tokenHash: "fresco" }));
+    expect(getToken(d, "password_resets", "speso")?.usedAt).toBe(2_000);
+  });
+
+  it("pruneTokens rimuove scaduti e spesi, tiene i vivi", () => {
+    const d = freshDb();
+    createUser(d, mkUser2("u1"));
+    createUser(d, mkUser2("u2"));
+    createUser(d, mkUser2("u3"));
+    createToken(d, "password_resets", mkTok({ tokenHash: "scaduto", userId: "u1", expiresAt: 10_000 }));
+    createToken(d, "password_resets", mkTok({ tokenHash: "speso", userId: "u2", expiresAt: 99_000 }));
+    consumeToken(d, "password_resets", "speso", 1);
+    createToken(d, "password_resets", mkTok({ tokenHash: "vivo", userId: "u3", expiresAt: 99_000 }));
+
+    expect(pruneTokens(d, "password_resets", 50_000)).toBe(2);
+    expect(getToken(d, "password_resets", "scaduto")).toBeNull();
+    expect(getToken(d, "password_resets", "speso")).toBeNull();
+    expect(getToken(d, "password_resets", "vivo")).not.toBeNull();
+  });
+});
+
+describe("auth: verifica email", () => {
+  const freshDb = () => openDb(":memory:");
+  const mkUser3 = (id: string, verified: boolean): import("./auth").User => ({
+    id, email: `${id}@x.co`, name: id, passHash: "s:h", role: "viewer", createdAt: 1, emailVerified: verified,
+  });
+
+  it("createUser persiste emailVerified e getUserByEmail lo rilegge", () => {
+    const d = freshDb();
+    createUser(d, mkUser3("u1", true));
+    createUser(d, mkUser3("u2", false));
+    expect(getUserByEmail(d, "u1@x.co")?.emailVerified).toBe(true);
+    expect(getUserByEmail(d, "u2@x.co")?.emailVerified).toBe(false);
+  });
+
+  it("setEmailVerified marca (e smarca) l'indirizzo", () => {
+    const d = freshDb();
+    createUser(d, mkUser3("u1", false));
+    setEmailVerified(d, "u1", true);
+    expect(getUserById(d, "u1")?.emailVerified).toBe(true);
+    setEmailVerified(d, "u1", false);
+    expect(getUserById(d, "u1")?.emailVerified).toBe(false);
+  });
+
+  it("listUsers riporta lo stato di verifica (serve alla UsersAdmin)", () => {
+    const d = freshDb();
+    createUser(d, mkUser3("u1", true));
+    createUser(d, mkUser3("u2", false));
+    expect(listUsers(d).map((u) => u.emailVerified)).toEqual([true, false]);
+  });
+});
+
+describe("auth: deleteAllUserSessions (dopo un reset)", () => {
+  const freshDb = () => openDb(":memory:");
+  const mkU = (id: string): import("./auth").User => ({
+    id, email: `${id}@x.co`, name: id, passHash: "s:h", role: "owner", createdAt: 1, emailVerified: true,
+  });
+
+  it("caccia fuori ogni dispositivo dell'utente", () => {
+    const d = freshDb();
+    createUser(d, mkU("u1"));
+    createAuthSession(d, "t1", "u1", 9999999999999);
+    createAuthSession(d, "t2", "u1", 9999999999999);
+    expect(deleteAllUserSessions(d, "u1")).toBe(2);
+    expect(getSessionUser(d, "t1")).toBeNull();
+    expect(getSessionUser(d, "t2")).toBeNull();
+  });
+
+  it("non tocca le sessioni degli altri utenti", () => {
+    const d = freshDb();
+    createUser(d, mkU("u1"));
+    createUser(d, mkU("u2"));
+    createAuthSession(d, "t1", "u1", 9999999999999);
+    createAuthSession(d, "t2", "u2", 9999999999999);
+    deleteAllUserSessions(d, "u1");
+    expect(getSessionUser(d, "t2")?.id).toBe("u2");
+  });
+});
+
+describe("auth: migrazione di email_verified su un DB preesistente", () => {
+  it("gli account che c'erano già restano verificati (nessuno resta chiuso fuori)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy-users.db");
+
+    // Simula lo schema di ieri: users SENZA email_verified, con due account dentro.
+    const legacy = openDb(file);
+    legacy.exec(`DROP TABLE users`);
+    legacy.exec(`CREATE TABLE users (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+      pass_hash TEXT NOT NULL, role TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+    legacy.prepare(`INSERT INTO users (id, email, name, pass_hash, role, created_at)
+      VALUES ('u1', 'vecchio@x.co', 'Vecchio', 's:h', 'owner', 1)`).run();
+    legacy.prepare(`INSERT INTO users (id, email, name, pass_hash, role, created_at)
+      VALUES ('u2', 'altro@x.co', 'Altro', 's:h', 'viewer', 2)`).run();
+    legacy.close();
+
+    // Riapertura → ensureUserColumns aggiunge la colonna e li marca verificati.
+    const db = openDb(file);
+    expect(getUserByEmail(db, "vecchio@x.co")?.emailVerified).toBe(true);
+    expect(getUserByEmail(db, "altro@x.co")?.emailVerified).toBe(true);
+    db.close();
+  });
+
+  it("è idempotente: una seconda riapertura non ri-verifica chi è stato smarcato", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy-users-2.db");
+
+    const legacy = openDb(file);
+    legacy.exec(`DROP TABLE users`);
+    legacy.exec(`CREATE TABLE users (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+      pass_hash TEXT NOT NULL, role TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+    legacy.prepare(`INSERT INTO users (id, email, name, pass_hash, role, created_at)
+      VALUES ('u1', 'v@x.co', 'V', 's:h', 'owner', 1)`).run();
+    legacy.close();
+
+    const first = openDb(file); // migrazione: u1 → verificato
+    setEmailVerified(first, "u1", false); // poi qualcosa lo smarca
+    first.close();
+
+    const second = openDb(file); // riapertura: la colonna c'è già → nessun UPDATE di massa
+    expect(getUserById(second, "u1")?.emailVerified).toBe(false);
+    second.close();
+  });
+
+  it("su un DB nuovo la migrazione non verifica nessuno d'ufficio", () => {
+    const d = openDb(":memory:");
+    createUser(d, {
+      id: "n1", email: "nuovo@x.co", name: "Nuovo", passHash: "s:h",
+      role: "viewer", createdAt: 1, emailVerified: false,
+    });
+    expect(getUserByEmail(d, "nuovo@x.co")?.emailVerified).toBe(false);
   });
 });

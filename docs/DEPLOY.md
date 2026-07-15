@@ -58,10 +58,32 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_TOKEN` | no | — | **owner** Bearer token: full access, incl. settings/secrets |
 | `SAMS_EDITOR_TOKEN` | no | — | **editor** Bearer token: starts work (assign/approve/sim/chat) but not settings |
 | `SAMS_READONLY_TOKEN` | no | — | **viewer** token: gates the public read-only dashboard (`?public&token=…`) |
+| `SAMS_PUBLIC_URL` | for emails | `http://localhost:5173` | public origin used to build password-reset / verification links |
+| `SAMS_MAIL_FROM` | no | `SAMS <noreply@sams.local>` | sender of the account emails |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | no | — | SMTP channel (port defaults to `587`; `465` implies TLS, or force it with `SMTP_SECURE=true`) |
+| `RESEND_API_KEY` | no | — | alternative email channel via the Resend API (ignored if `SMTP_HOST` is set) |
 | `NOTION_TOKEN` / `NOTION_PAGE_ID` | no | — | let agents write to a Notion page |
 | `SAMS_MCP_SERVERS` | no | — | JSON allow-list of MCP servers (`mcp_call`) |
 | `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | in-memory | MySQL for durable Commit Garden |
 | `PORT` | no | `3000` | injected by most managed hosts |
+
+### Password management & the email channel
+
+SAMS picks an email channel from the environment, and **what it can do follows from what
+you configure** — there is nothing else to switch on:
+
+| You configure | Channel | What changes |
+| --- | --- | --- |
+| nothing | logs only | Accounts work exactly as before: sign-up gets you straight in, no verification. A forgotten password is recovered from the **owner**, who issues a one-time reset link from the profile page (Users admin → 🔑) and hands it over. The link is also printed in the server logs. |
+| `SMTP_HOST…` or `RESEND_API_KEY` | real email | New sign-ups must **confirm their address** before they can log in, and "Forgot password?" mails the link on its own. The owner-issued link keeps working as a backstop. |
+
+The verification gate only switches on with a real channel on purpose: without one nobody
+could ever confirm an address, so enforcing it would lock everyone out. The first account
+(the owner — you) is always created verified, and accounts that already existed before you
+added the channel stay verified, so nobody gets locked out by the upgrade.
+
+Reset links are single-use, expire after an hour, are stored **hashed** (a database dump
+hands out no valid links), and using one logs out every other device on that account.
 
 > ⚠️ **Exposed to the internet?** Always set `GITHUB_WEBHOOK_SECRET` (so incoming
 > webhooks are HMAC-verified) and consider `SAMS_TOKEN` to gate task assignment.
