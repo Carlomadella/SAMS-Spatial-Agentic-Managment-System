@@ -6,6 +6,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    // scrypt è volutamente lento: due hash + due verifiche in un test, con tutti i worker
+    // in parallelo, superano i 5 s di default. Alzato per non avere fallimenti a caso.
+    testTimeout: 20_000,
     server: {
       deps: {
         external: [/node:sqlite/],

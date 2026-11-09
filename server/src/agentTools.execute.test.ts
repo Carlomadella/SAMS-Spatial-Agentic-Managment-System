@@ -3,6 +3,12 @@ import type { Settings } from "./config";
 import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, type ToolContext } from "./agentTools";
 import type { WireEvent } from "./types";
 
+// web_fetch risolve il DNS per la guardia anti-SSRF: nei test l'host finto "x" risolve
+// a un indirizzo pubblico, e "inside" a uno privato.
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async (host: string) => [{ address: host === "inside" ? "10.0.0.7" : "93.184.216.34", family: 4 }]),
+}));
+
 function mkCtx(over: Partial<ToolContext> = {}): { ctx: ToolContext; events: WireEvent[] } {
   const events: WireEvent[] = [];
   const ctx: ToolContext = {
@@ -153,6 +159,34 @@ describe("executeTool — web_fetch", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("nope", { status: 404 }))));
     const { ctx } = mkCtx();
     expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/HTTP 404/);
+  });
+
+  it("refuses an internal address without fetching it", async () => {
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "http://localhost:8787/api/status" }, ctx)).toMatch(/interno/);
+    expect(await executeTool("web_fetch", { url: "https://inside/secret" }, ctx)).toMatch(/interno/);
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("re-checks every redirect hop (a public URL can't bounce to localhost)", async () => {
+    const f = vi.fn(() =>
+      Promise.resolve(new Response(null, { status: 302, headers: { location: "http://127.0.0.1:8787/api/status" } })),
+    );
+    vi.stubGlobal("fetch", f);
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/interno/);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a body over the cap even without content-length (chunked)", async () => {
+    const big = "y".repeat(2_100_000);
+    vi.stubGlobal("fetch", vi.fn(() =>
+      Promise.resolve(new Response(new Blob([big]).stream(), { status: 200, headers: { "content-type": "text/plain" } })),
+    ));
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/troppo grande/);
   });
 
   it("refuses an over-large response by content-length", async () => {

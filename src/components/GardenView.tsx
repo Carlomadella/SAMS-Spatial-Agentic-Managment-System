@@ -5,6 +5,7 @@ import { getGarden, gardenProfileUrl, leaderboard, STAGE_LABEL, type GardenState
 import { buildGardenOgCard, buildWorkspaceOgCard, downloadOgCard } from "../lib/ogImage";
 import { buildTeamGarden } from "../lib/teamGarden";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
+import { storageGet, storageSet } from "../lib/safeStorage";
 
 const STAGE_EMOJI: Record<string, string> = {
   seed: "🌰", sprout: "🌱", sapling: "🌿", bush: "🪴", tree: "🌳", blooming: "🌸",
@@ -37,7 +38,7 @@ export function GardenView() {
   const open = useStore((s) => s.gardenOpen);
   const setOpen = useStore((s) => s.setGardenOpen);
 
-  const [user, setUser] = useState(() => localStorage.getItem("cg.user") ?? "");
+  const [user, setUser] = useState(() => storageGet("cg.user") ?? "");
   const [garden, setGarden] = useState<GardenState | null>(null);
   const [board, setBoard] = useState<GardenState[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +67,7 @@ export function GardenView() {
       const g = await getGarden(u);
       setGarden(g);
       setOffline(false);
-      localStorage.setItem("cg.user", u);
+      storageSet("cg.user", u); // non lancia: uno storage bloccato non è un errore del giardino
       void refreshBoard();
     } catch (e) {
       if (isNetworkError(e)) setOffline(true);

@@ -35,6 +35,7 @@ import {
   updateDatabaseRow,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
+import { blockedUrlReason } from "./netGuard";
 import { db, listMemory, logTask, setMemory } from "./db";
 import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
@@ -409,21 +410,61 @@ export interface ToolContext {
   stagedFiles: PendingFile[];
 }
 
-/** Fetch a URL's readable text, with size/ok guards. Returns a tool-result string. */
+const WEB_FETCH_MAX_REDIRECTS = 4;
+
+/**
+ * Legge il corpo fermandosi a `max` byte. `content-length` da solo non basta: una
+ * risposta chunked non lo dichiara e verrebbe caricata tutta in memoria.
+ */
+async function readCapped(resp: Response, max: number): Promise<string | null> {
+  if (!resp.body) return "";
+  const reader = resp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+/**
+ * Fetch a URL's readable text, with SSRF/size/ok guards. Returns a tool-result string.
+ * Redirects are followed by hand so every hop goes through `blockedUrlReason` again —
+ * otherwise a public URL could simply redirect to http://localhost.
+ */
 async function fetchUrlText(url: string): Promise<string> {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     return "ERRORE: URL non valida — deve iniziare con https://";
   }
-  const httpResp = await fetch(url, {
-    signal: AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS),
-    headers: { "User-Agent": "SAMS-Agent/1.0" },
-  });
-  if (!httpResp.ok) return `ERRORE: HTTP ${httpResp.status} su ${url.slice(0, 70)}`;
-  const declared = Number(httpResp.headers.get("content-length") ?? "0");
-  if (declared > WEB_FETCH_MAX_BYTES) {
-    return `ERRORE: risposta troppo grande (${Math.round(declared / 1000)} kB, max ${WEB_FETCH_MAX_BYTES / 1000} kB)`;
+  const signal = AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS);
+  let current = url;
+  let httpResp: Response | null = null;
+  for (let hop = 0; hop <= WEB_FETCH_MAX_REDIRECTS; hop++) {
+    const blocked = await blockedUrlReason(current);
+    if (blocked) return `ERRORE: ${blocked}`;
+    const r = await fetch(current, { signal, redirect: "manual", headers: { "User-Agent": "SAMS-Agent/1.0" } });
+    const location = r.headers.get("location");
+    if (r.status >= 300 && r.status < 400 && location) {
+      current = new URL(location, current).toString();
+      continue;
+    }
+    httpResp = r;
+    break;
   }
-  const raw = await httpResp.text();
+  if (!httpResp) return `ERRORE: troppi redirect (max ${WEB_FETCH_MAX_REDIRECTS})`;
+  if (!httpResp.ok) return `ERRORE: HTTP ${httpResp.status} su ${current.slice(0, 70)}`;
+  const tooBig = `ERRORE: risposta troppo grande (max ${WEB_FETCH_MAX_BYTES / 1000} kB)`;
+  const declared = Number(httpResp.headers.get("content-length") ?? "0");
+  if (declared > WEB_FETCH_MAX_BYTES) return tooBig;
+  const raw = await readCapped(httpResp, WEB_FETCH_MAX_BYTES);
+  if (raw === null) return tooBig;
   const ct = httpResp.headers.get("content-type") ?? "";
 
   if (!ct.includes("html")) return truncate(raw, WEB_FETCH_LIMIT);

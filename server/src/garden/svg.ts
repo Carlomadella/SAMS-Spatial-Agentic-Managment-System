@@ -51,9 +51,15 @@ export function plantSvg(stage: Stage, size = 240): string {
   return `<svg viewBox="0 0 240 240" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${parts.join("")}</svg>`;
 }
 
-export function profileHtml(state: GardenState, origin: string): string {
-  const title = `${state.user}'s Commit Garden — ${STAGE_LABEL[state.stage]}`;
-  const desc = `${state.user} ha innaffiato il giardino ${state.waterings} volte (streak ${state.streak} giorni). Pianta: ${STAGE_LABEL[state.stage]}.`;
+/** Escape per testo e attributi HTML: `origin` viene dall'header Host e `user` dallo store. */
+const esc = (v: string): string =>
+  v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+export function profileHtml(state: GardenState, rawOrigin: string): string {
+  const origin = esc(rawOrigin);
+  const user = esc(state.user);
+  const title = `${user}'s Commit Garden — ${STAGE_LABEL[state.stage]}`;
+  const desc = `${user} ha innaffiato il giardino ${state.waterings} volte (streak ${state.streak} giorni). Pianta: ${STAGE_LABEL[state.stage]}.`;
   return `<!doctype html>
 <html lang="it">
 <head>
@@ -76,7 +82,7 @@ export function profileHtml(state: GardenState, origin: string): string {
 <body>
   <main class="card">
     ${plantSvg(state.stage, 260)}
-    <h1>${state.user}</h1>
+    <h1>${user}</h1>
     <div class="stage">${STAGE_LABEL[state.stage]}</div>
     <div class="stats">
       <div class="stat"><b>${state.waterings}</b><span>innaffiature</span></div>

@@ -30,6 +30,17 @@ export function identityKey(token: string, ip: string | undefined | null): strin
  */
 export function createRateLimiter(max: number, windowMs: number): RateLimiter {
   const hits = new Map<string, number[]>();
+  // Una chiave si ripulisce solo quando *lei* ritorna: con chiavi scelte dal client
+  // (id di cursori/selezioni) quelle abbandonate resterebbero per sempre. Ogni tanto
+  // si spazzano tutte le finestre scadute, così la mappa resta limitata.
+  const SWEEP_EVERY = 500;
+  let sinceSweep = 0;
+  const sweep = (now: number): void => {
+    const cutoff = now - windowMs;
+    for (const [k, ts] of hits) {
+      if (ts.length === 0 || ts[ts.length - 1] <= cutoff) hits.delete(k);
+    }
+  };
 
   const recent = (key: string, now: number): number[] => {
     const cutoff = now - windowMs;
@@ -41,6 +52,10 @@ export function createRateLimiter(max: number, windowMs: number): RateLimiter {
 
   return {
     hit(key, now = Date.now()) {
+      if (++sinceSweep >= SWEEP_EVERY) {
+        sinceSweep = 0;
+        sweep(now);
+      }
       const kept = recent(key, now);
       if (kept.length >= max) return false;
       hits.set(key, [...kept, now]);

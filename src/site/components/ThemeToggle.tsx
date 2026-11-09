@@ -9,9 +9,18 @@ import { useDesign } from "../design/DesignContext";
  * serve uno stato condiviso — la classe è globale e l'intero sito la riflette.
  *
  * Se mostrarsi come sola icona o con l'etichetta è una variante di design (vedi /design);
- * `variant` esplicito serve alle anteprime del lab.
+ * `variant` esplicito serve alle anteprime del lab; `preview` lo rende inerte (uno <span>
+ * che non scrive il tema), perché nel lab sta dentro il <button> di selezione.
  */
-export function ThemeToggle({ className = "", variant }: { className?: string; variant?: string }) {
+export function ThemeToggle({
+  className = "",
+  variant,
+  preview = false,
+}: {
+  className?: string;
+  variant?: string;
+  preview?: boolean;
+}) {
   const { choice } = useDesign();
   const withLabel = (variant ?? choice("themeToggle")) === "etichetta";
   const [light, setLight] = useState(() => {
@@ -23,13 +32,32 @@ export function ThemeToggle({ className = "", variant }: { className?: string; v
   });
 
   useEffect(() => {
+    if (preview) return;
     document.documentElement.classList.toggle("theme-light", light);
     try {
       localStorage.setItem("sams.theme", light ? "light" : "dark");
     } catch {
       /* ignore */
     }
-  }, [light]);
+  }, [light, preview]);
+
+  const cls = `flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-ink-800/40 text-slate-300 transition-colors hover:border-brand/50 hover:text-white ${
+    withLabel ? "px-3" : "w-9"
+  } ${className}`;
+  const content = (
+    <>
+      {light ? <Moon size={16} /> : <Sun size={16} />}
+      {withLabel && <span className="text-xs font-medium">{light ? "Scuro" : "Chiaro"}</span>}
+    </>
+  );
+
+  if (preview) {
+    return (
+      <span aria-hidden="true" className={cls}>
+        {content}
+      </span>
+    );
+  }
 
   return (
     <button
@@ -37,12 +65,9 @@ export function ThemeToggle({ className = "", variant }: { className?: string; v
       onClick={() => setLight((v) => !v)}
       aria-label={light ? "Passa al tema scuro" : "Passa al tema chiaro"}
       title={light ? "Tema scuro" : "Tema chiaro"}
-      className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-ink-800/40 text-slate-300 transition-colors hover:border-brand/50 hover:text-white ${
-        withLabel ? "px-3" : "w-9"
-      } ${className}`}
+      className={cls}
     >
-      {light ? <Moon size={16} /> : <Sun size={16} />}
-      {withLabel && <span className="text-xs font-medium">{light ? "Scuro" : "Chiaro"}</span>}
+      {content}
     </button>
   );
 }

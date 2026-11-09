@@ -41,6 +41,7 @@ import { advanceGoal as advanceGoalList, type Goal } from "../lib/goals";
 import { earnCoins as earnCoinsMap, type Wallets } from "../lib/economy";
 import { enqueueOrdered } from "../lib/orchestration";
 import type { ChainRule } from "../lib/chains";
+import { storageGet } from "../lib/safeStorage";
 import {
   addContributor,
   advanceRun,
@@ -402,10 +403,7 @@ export const useStore = create<State>()(
   openedFilePath: null,
   repoBranch: "",
   tourOpen: false,
-  theme:
-    typeof localStorage !== "undefined" && localStorage.getItem("sams.theme") === "light"
-      ? "light"
-      : "dark",
+  theme: storageGet("sams.theme") === "light" ? "light" : "dark",
   roomTheme: DEFAULT_ROOM_THEME,
   officeLayout: DEFAULT_OFFICE_ARRANGEMENT,
   furniturePlacements: {},

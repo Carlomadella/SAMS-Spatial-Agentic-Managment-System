@@ -394,26 +394,38 @@ export function saveWorldAgents(db: DatabaseSync, incoming: WorldAgentSnapshot[]
     `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
   );
 
+  // Tutto in una transazione: upsert, tombstone e bump di versione o tutti o nessuno.
+  // Senza, un errore a metà lascerebbe righe nuove sotto la versione vecchia — e il CAS
+  // ottimistico di POST /api/world si fida proprio della versione.
   let changed = false;
-  for (const a of incoming) {
-    const prev = existing.get(a.id);
-    if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
-    const rev = prev ? Number(prev.rev) + 1 : 1;
-    upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "", a.xp ?? 0, a.assignedBy ?? "", rev, now);
-    changed = true;
-  }
-  for (const [id, r] of existing) {
-    if (!incomingIds.has(id) && r.deleted_at == null) {
-      tombstone.run(now, now, id);
+  let version: number;
+  let updatedAt: number;
+  db.exec("BEGIN");
+  try {
+    for (const a of incoming) {
+      const prev = existing.get(a.id);
+      if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
+      const rev = prev ? Number(prev.rev) + 1 : 1;
+      upsert.run(a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "", a.xp ?? 0, a.assignedBy ?? "", rev, now);
       changed = true;
     }
+    for (const [id, r] of existing) {
+      if (!incomingIds.has(id) && r.deleted_at == null) {
+        tombstone.run(now, now, id);
+        changed = true;
+      }
+    }
+
+    // GC dei tombstone scaduti: indipendente dal `changed` (rimuove solo voci già
+    // morte che i client hanno da tempo processato → non deve forzare un broadcast).
+    pruneWorldTombstones(db, TOMBSTONE_TTL_MS, now);
+
+    ({ version, updatedAt } = changed ? bumpWorldVersion(db) : loadWorldVersion(db));
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
   }
-
-  // GC dei tombstone scaduti: indipendente dal `changed` (rimuove solo voci già
-  // morte che i client hanno da tempo processato → non deve forzare un broadcast).
-  pruneWorldTombstones(db, TOMBSTONE_TTL_MS, now);
-
-  const { version, updatedAt } = changed ? bumpWorldVersion(db) : loadWorldVersion(db);
   return { agents: loadWorldAgents(db), version, updatedAt, changed };
 }
 

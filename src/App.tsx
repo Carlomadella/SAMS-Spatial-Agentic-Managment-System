@@ -38,6 +38,7 @@ import { canAssign } from "./lib/roleUi";
 import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
+import { storageGet, storageRemove, storageSet } from "./lib/safeStorage";
 import type { Vec2 } from "./types";
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
@@ -54,14 +55,14 @@ function SceneLoading() {
 }
 
 function StageHint() {
-  const [open, setOpen] = useState(() => localStorage.getItem("sams.hint") !== "off");
+  const [open, setOpen] = useState(() => storageGet("sams.hint") !== "off");
 
   if (!open) {
     return (
       <button
         onClick={() => {
           setOpen(true);
-          localStorage.removeItem("sams.hint");
+          storageRemove("sams.hint");
         }}
         title="Mostra suggerimenti"
         className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
@@ -76,7 +77,7 @@ function StageHint() {
       <button
         onClick={() => {
           setOpen(false);
-          localStorage.setItem("sams.hint", "off");
+          storageSet("sams.hint", "off");
         }}
         title="Nascondi"
         className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700"
@@ -743,7 +744,7 @@ function AudioBridge() {
 /** Floating speaker toggle to mute/unmute the synthesised ambience. */
 function SoundToggle() {
   const [muted, setMuted] = useState(() => {
-    const s = localStorage.getItem("sams.muted");
+    const s = storageGet("sams.muted");
     return s == null ? audio.isMuted() : s !== "0";
   });
   useEffect(() => {

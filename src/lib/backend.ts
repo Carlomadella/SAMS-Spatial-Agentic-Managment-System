@@ -129,7 +129,7 @@ export interface TaskHistoryRow {
 export async function fetchFile(path: string, ref?: string): Promise<{ content: string; exists: boolean }> {
   try {
     const q = new URLSearchParams({ path, ...(ref ? { ref } : {}) });
-    const res = await fetch(`${BASE}/api/file?${q.toString()}`);
+    const res = await fetch(`${BASE}/api/file?${q.toString()}`, { headers: authHeaders(false) });
     if (!res.ok) return { content: "", exists: false };
     return (await res.json()) as { content: string; exists: boolean };
   } catch {
@@ -516,7 +516,7 @@ export async function stopSimMode(): Promise<void> {
 /** Fetch open issues available for the Live Sim (with claim info). */
 export async function fetchSimIssues(): Promise<SimIssueRemote[]> {
   try {
-    const res = await fetch(`${BASE}/api/sim/issues`);
+    const res = await fetch(`${BASE}/api/sim/issues`, { headers: authHeaders(false) });
     if (!res.ok) return [];
     return (await res.json()) as SimIssueRemote[];
   } catch {
@@ -551,6 +551,7 @@ export async function releaseSimIssue(issueNumber: number, agentId?: string): Pr
 export async function releaseSimByAgent(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/sim/release-by-agent/${encodeURIComponent(agentId)}`, {
     method: "POST",
+    headers: authHeaders(false),
   }).catch(() => {});
 }
 
@@ -729,7 +730,7 @@ export async function deleteRoutine(id: string): Promise<void> {
 export interface MemoryEntry { key: string; value: string; updatedAt: number }
 
 export async function fetchMemory(agentId: string): Promise<MemoryEntry[]> {
-  const res = await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`);
+  const res = await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { headers: authHeaders(false) });
   if (!res.ok) return [];
   return (await res.json()) as MemoryEntry[];
 }
@@ -872,7 +873,7 @@ export interface RepoTreeResponse {
 /** L'albero dei file del repo di lavoro per la sidebar. `null` se irraggiungibile. */
 export async function fetchRepoTree(): Promise<RepoTreeResponse | null> {
   try {
-    const res = await fetch(`${BASE}/api/repo/tree`);
+    const res = await fetch(`${BASE}/api/repo/tree`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as RepoTreeResponse;
   } catch {

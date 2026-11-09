@@ -27,7 +27,7 @@ import { Link } from "../router";
  * risponde alla domanda "questo colore regge sulle mie pagine?".
  *
  * La scelta è persistita, quindi resta anche navigando; "Ripristina" torna al punto di
- * partenza (Ambra + navbar completa + screenshot).
+ * partenza (Abisso + navbar completa + video della stanza).
  */
 
 /** Cornice di una scelta: bordo acceso e spunta quando è quella attiva. */
@@ -199,16 +199,12 @@ export function Design() {
           <Option key={v.id} active={choice("button") === v.id} onClick={() => set("button", v.id)} title={v.name} blurb={v.blurb}>
             <div className="flex h-14 items-center justify-center gap-2 rounded-lg border border-line/60 bg-ink-950/60">
               {/* i bottoni veri, nella forma della variante */}
-              <span className="pointer-events-none">
-                <CTAButton to="/design" variant="primary" shape={v.id}>
-                  Entra
-                </CTAButton>
-              </span>
-              <span className="pointer-events-none">
-                <CTAButton to="/design" variant="ghost" shape={v.id}>
-                  Docs
-                </CTAButton>
-              </span>
+              <CTAButton to="/design" variant="primary" shape={v.id} preview>
+                Entra
+              </CTAButton>
+              <CTAButton to="/design" variant="ghost" shape={v.id} preview>
+                Docs
+              </CTAButton>
             </div>
           </Option>
         ))}
@@ -284,10 +280,8 @@ export function Design() {
         {THEME_TOGGLE_VARIANTS.map((v) => (
           <Option key={v.id} active={choice("themeToggle") === v.id} onClick={() => set("themeToggle", v.id)} title={v.name} blurb={v.blurb}>
             <div className="flex h-14 items-center justify-center rounded-lg border border-line/60 bg-ink-950/60">
-              {/* il toggle vero: cliccarlo qui cambierebbe il tema, quindi è solo da guardare */}
-              <span className="pointer-events-none">
-                <ThemeToggle variant={v.id} />
-              </span>
+              {/* il toggle vero in versione inerte: cliccarlo qui cambierebbe il tema */}
+              <ThemeToggle variant={v.id} preview />
             </div>
           </Option>
         ))}

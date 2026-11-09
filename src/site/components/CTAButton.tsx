@@ -41,6 +41,12 @@ interface BaseProps {
   icon?: ReactNode;
   /** Forza la forma: serve al design lab per mostrare le anteprime *non* scelte. */
   shape?: string;
+  /**
+   * Anteprima inerte (design lab): stesso aspetto, ma reso come <span> non interattivo.
+   * Le anteprime stanno dentro il <button> di selezione, e un link o un bottone annidato
+   * in un bottone è HTML non valido (e ruba il click / il focus da tastiera).
+   */
+  preview?: boolean;
 }
 
 /**
@@ -52,7 +58,7 @@ export function CTAButton(
   props: BaseProps &
     ({ to: string; href?: never; onClick?: never } | { href: string; to?: never; onClick?: never } | { onClick: () => void; to?: never; href?: never }),
 ) {
-  const { children, variant = "primary", size = "md", className = "", icon, shape } = props;
+  const { children, variant = "primary", size = "md", className = "", icon, shape, preview } = props;
   const { choice } = useDesign();
   const radius = SHAPE[shape ?? choice("button")] ?? SHAPE.arrotondato;
   const cls = `inline-flex items-center justify-center gap-2 ${radius} font-medium transition-all duration-150 active:scale-[0.98] ${VARIANT[variant]} ${SIZE[size]} ${className}`;
@@ -64,6 +70,13 @@ export function CTAButton(
     </>
   );
 
+  if (preview) {
+    return (
+      <span aria-hidden="true" className={cls}>
+        {inner}
+      </span>
+    );
+  }
   if ("to" in props && props.to) {
     return (
       <Link to={props.to} className={cls}>

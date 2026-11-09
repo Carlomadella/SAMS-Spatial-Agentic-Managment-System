@@ -80,10 +80,12 @@ function requireRole(min: Role): (req: Request, res: Response, next: NextFunctio
   };
 }
 
-// Explicit, permissive CORS for the local UI (covers SSE + preflight).
+// Explicit, permissive CORS for the local UI (covers SSE + preflight). DELETE is
+// listed because routines and agent memory are deleted with it: without it a UI on
+// another origin (VITE_SAMS_BACKEND_URL) would see those calls fail at preflight.
 app.use((req: Request, res: Response, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
@@ -528,8 +530,12 @@ app.get("/api/public", async (req: Request, res: Response) => {
   );
 });
 
-/** Current content of a repo file (the "before" side of a staged diff). */
-app.get("/api/file", async (req: Request, res: Response) => {
+/**
+ * Current content of a repo file (the "before" side of a staged diff). Gated "viewer":
+ * it reads the repo with the server's GitHub token, so with roles enforced an anonymous
+ * caller must not be able to read a private repo through it.
+ */
+app.get("/api/file", requireRole("viewer"), async (req: Request, res: Response) => {
   const filePath = String(req.query.path ?? "");
   const ref = String(req.query.ref ?? getSettings().baseBranch);
   if (!filePath) {
@@ -549,7 +555,7 @@ app.get("/api/file", async (req: Request, res: Response) => {
 
 /** L'albero dei file del repo di lavoro, per la sidebar "Esplora risorse". Senza
  *  token GitHub risponde `connected:false` (la UI mostra un invito a collegarlo). */
-app.get("/api/repo/tree", async (_req: Request, res: Response) => {
+app.get("/api/repo/tree", requireRole("viewer"), async (_req: Request, res: Response) => {
   const s = getSettings();
   if (!s.githubToken) {
     res.json({ repo: s.githubRepo, branch: s.baseBranch, entries: [], truncated: false, connected: false });
@@ -714,8 +720,8 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
   });
 });
 
-/** Agent memory — read all memories for an agent. */
-app.get("/api/memory/:agentId", (req: Request, res: Response) => {
+/** Agent memory — read all memories for an agent (may hold repo context → "viewer"). */
+app.get("/api/memory/:agentId", requireRole("viewer"), (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   res.json(listMemory(db(), agentId));
 });
@@ -798,7 +804,7 @@ app.post("/api/sim/stop", requireRole("editor"), (_req: Request, res: Response) 
   res.json(simStatus());
 });
 
-app.get("/api/sim/issues", async (_req: Request, res: Response) => {
+app.get("/api/sim/issues", requireRole("viewer"), async (_req: Request, res: Response) => {
   if (!isReady()) {
     res.status(503).json({ error: "Runtime non pronto" });
     return;
@@ -812,7 +818,9 @@ app.get("/api/sim/issues", async (_req: Request, res: Response) => {
   }
 });
 
-app.post("/api/sim/claim/:issueNumber", (req: Request, res: Response) => {
+// Claim/release touch GitHub labels and precede an assignment (which needs "editor"):
+// same gate, so a viewer can't claim an issue it could never work on.
+app.post("/api/sim/claim/:issueNumber", requireRole("editor"), (req: Request, res: Response) => {
   const issueNumber = Number(req.params.issueNumber);
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     res.status(400).json({ error: "issueNumber non valido" });
@@ -836,7 +844,7 @@ app.post("/api/sim/claim/:issueNumber", (req: Request, res: Response) => {
   res.json({ ok: true, issueNumber, agentId });
 });
 
-app.post("/api/sim/release/:issueNumber", (req: Request, res: Response) => {
+app.post("/api/sim/release/:issueNumber", requireRole("editor"), (req: Request, res: Response) => {
   const issueNumber = Number(req.params.issueNumber);
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     res.status(400).json({ error: "issueNumber non valido" });
@@ -852,7 +860,7 @@ app.post("/api/sim/release/:issueNumber", (req: Request, res: Response) => {
 // Release whatever issue an agent currently holds — robust to the client having
 // lost track of the issue number (e.g. the issue was closed on GitHub and dropped
 // out of the polled list). This is the primary completion-driven release path.
-app.post("/api/sim/release-by-agent/:agentId", (req: Request, res: Response) => {
+app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), (req: Request, res: Response) => {
   const agentId = (req.params.agentId as string)?.trim();
   if (!agentId) {
     res.status(400).json({ error: "agentId richiesto" });
