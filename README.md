@@ -277,7 +277,9 @@ The story so far, chapter by chapter (each with its own file):
 - [`ROADMAP2.md`](./ROADMAP2.md) — **chapter 2**: depth, trust & scale (SQLite persistence, diff preview + CI gate, Live Simulation, self-improving meta-agent, needs/energy, sounds, narration, skill tree, template marketplace).
 - [`ROADMAP3.md`](./ROADMAP3.md) — **chapter 3**: a reactive, shareable world — ✅ reactive (webhooks, MCP tools, chain reactions, routines), ✅ shareable (replay, OG image, team gardens, public dashboard, world diary), ✅ simulative depth (relationships, goals, token economy, proactive meta-agent).
 - [`ROADMAP4.md`](./ROADMAP4.md) — **chapter 4**: from a personal demo to a **shared product** — ✅ realtime presence with identity (cursors, selections, shared chat), ✅ **real accounts** + **roles/permissions** (owner/editor/viewer), ✅ an **authoritative server world** (versioned, CAS-reconciled over SSE, driver lease).
-- [`ROADMAP5.md`](./ROADMAP5.md) — **chapter 5** (in progress): the welcome site, polish (hitboxes, free furniture drag) and per-user task attribution.
+- [`ROADMAP5.md`](./ROADMAP5.md) — **chapter 5** (in progress): the welcome site, polish (hitboxes, free furniture drag) and per-user task attribution — plus the **road to 1.0**.
+
+> 🏁 **Target release date for SAMS 1.0: 31 December 2026.** Milestones (scope decisions → feature freeze → release candidate → release) are tracked in [`ROADMAP5.md`](./ROADMAP5.md).
 
 A per-session log of recent changes lives in [`CHANGELOG.md`](./CHANGELOG.md).
 

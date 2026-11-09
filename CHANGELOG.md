@@ -7,6 +7,26 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 
 ## [Non rilasciato]
 
+> 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
+> [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
+
+### 2026-11-09 — Revisione completa del codice verso la 1.0 🔍
+
+- **Security** — Il tool `web_fetch` degli agenti non può più aprire indirizzi interni (localhost, rete
+  privata, metadata del cloud), nemmeno passando da un redirect, e smette di leggere risposte oltre i 2 MB
+  anche quando non ne dichiarano la dimensione.
+- **Security** — Con i ruoli attivi, leggere file e albero del repo, le issue della Live Sim e la memoria
+  degli agenti richiede almeno un accesso da *viewer*; reclamare/rilasciare issue richiede *editor*.
+- **Fixed** — Con il runtime su un altro dominio, eliminare routine e memoria degli agenti non viene più
+  bloccato dal browser.
+- **Fixed** — Il salvataggio del mondo condiviso è atomico: un errore a metà non lascia uno stato misto.
+- **Fixed** — La workspace non va più in crash se il browser blocca il salvataggio locale (navigazione
+  privata, cookie disattivati).
+- **Fixed** — Nel design lab le anteprime di bottoni e toggle del tema non sono più elementi cliccabili
+  dentro altri bottoni.
+- **Fixed** — Corretti l'uso di memoria del limitatore di richieste e l'escape della pagina pubblica del
+  Commit Garden.
+
 ### 2026-07-15 (c) — Il sito prende la sua faccia: Abisso e la stanza in movimento 🌊
 
 - **Changed** — Scelte dal design lab le varianti del sito: palette **Abisso / Ciano**, sfondo della
