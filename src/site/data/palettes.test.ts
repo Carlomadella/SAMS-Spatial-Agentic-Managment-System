@@ -18,8 +18,8 @@ const TOKEN_KEYS: (keyof PaletteTokens)[] = [
 ];
 
 describe("PALETTES", () => {
-  it("sono cinque, come chiede la roadmap (SAMS + 4 alternative)", () => {
-    expect(PALETTES).toHaveLength(5);
+  it("sono sei: SAMS + 4 alternative del lab + Rossonero (scelta per la 1.0)", () => {
+    expect(PALETTES).toHaveLength(6);
   });
 
   it("c'è la palette che richiama i colori della workspace", () => {
@@ -103,8 +103,8 @@ describe("paletteById", () => {
     expect(paletteById(undefined).id).toBe(DEFAULT_PALETTE_ID);
   });
 
-  it("il default è la palette scelta dal lab (Abisso)", () => {
-    expect(DEFAULT_PALETTE_ID).toBe("abisso");
+  it("il default è Rossonero, i colori scelti per la 1.0", () => {
+    expect(DEFAULT_PALETTE_ID).toBe("rossonero");
   });
 });
 

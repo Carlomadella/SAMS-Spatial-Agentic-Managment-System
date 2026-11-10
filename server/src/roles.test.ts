@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bearerToken, resolveRole, roleAtLeast, type RoleTokens } from "./roles";
+import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, type RoleTokens } from "./roles";
 
 const tokens = (o: Partial<RoleTokens>): RoleTokens => ({ owner: "", editor: "", viewer: "", ...o });
 
@@ -56,5 +56,32 @@ describe("roleAtLeast", () => {
     expect(roleAtLeast("editor", "owner")).toBe(false);
     expect(roleAtLeast("viewer", "editor")).toBe(false);
     expect(roleAtLeast("viewer", "viewer")).toBe(true);
+  });
+});
+
+describe("isAnonymousWhenEnforced", () => {
+  const all = tokens({ owner: "o", editor: "e", viewer: "v" });
+
+  it("in dev aperto (nessun token configurato) non respinge nessuno", () => {
+    expect(isAnonymousWhenEnforced(tokens({}), "", false)).toBe(false);
+    expect(isAnonymousWhenEnforced(tokens({}), "qualsiasi", false)).toBe(false);
+  });
+
+  it("con i ruoli attivi respinge chi non manda un token o ne manda uno sconosciuto", () => {
+    // il caso del buco: resolveRole qui dà "viewer", ma non è un viewer vero
+    expect(resolveRole(all, "")).toBe("viewer");
+    expect(isAnonymousWhenEnforced(all, "", false)).toBe(true);
+    expect(isAnonymousWhenEnforced(all, "inventato", false)).toBe(true);
+  });
+
+  it("accetta ogni token statico che combacia e ogni sessione utente valida", () => {
+    for (const t of ["o", "e", "v"]) expect(isAnonymousWhenEnforced(all, t, false)).toBe(false);
+    expect(isAnonymousWhenEnforced(all, "token-di-sessione", true)).toBe(false);
+  });
+
+  it("vale anche se è configurato un solo tier (un tier vuoto non combacia con un token vuoto)", () => {
+    const onlyOwner = tokens({ owner: "o" });
+    expect(isAnonymousWhenEnforced(onlyOwner, "", false)).toBe(true);
+    expect(isAnonymousWhenEnforced(onlyOwner, "o", false)).toBe(false);
   });
 });

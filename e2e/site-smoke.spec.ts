@@ -91,10 +91,10 @@ test("changelog vive su /changelog (fuori dalla home)", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Novità di SAMS" })).toBeVisible();
 });
 
-test("palette del sito è Abisso, non il blu dell'app", async ({ page }) => {
+test("palette del sito è Rossonero, non il blu dell'app", async ({ page }) => {
   await page.goto("/");
   const accent = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-accent").trim());
-  expect(accent).toBe("6 182 212"); // ciano di Abisso — la palette scelta dal lab
+  expect(accent).toBe("227 6 19"); // il rosso di Rossonero — i colori del Milan, scelti per la 1.0
   expect(accent).not.toBe("79 140 255"); // il blu della workspace resta all'app
 });
 

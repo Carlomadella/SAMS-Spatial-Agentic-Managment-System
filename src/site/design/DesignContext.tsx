@@ -11,7 +11,7 @@
 // costringere a toccare il contesto, il lab e i test. Ognuna è persistita e ortogonale alle
 // altre (e al tema chiaro/scuro, che resta del ThemeToggle): le combinazioni si provano tutte.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_HERO_ID, heroById } from "../data/heroVariants";
 import { DEFAULT_NAVBAR_ID, navbarById } from "../data/navbarVariants";
 import { DEFAULT_PALETTE_ID, paletteById } from "../data/palettes";
@@ -21,6 +21,20 @@ import { applyPalette } from "./applyPalette";
 type Choices = Record<DesignKey, string>;
 
 const STORAGE_PREFIX = "sams.site.";
+
+/**
+ * Versione del design del sito. **Va aumentata ogni volta che cambiano i default** (palette,
+ * hero, navbar…): le scelte salvate con una versione diversa vengono scartate.
+ *
+ * Senza, un nuovo default non arriverebbe mai a nessuno: il provider salva in localStorage
+ * *tutte* le scelte — default compresi — alla prima visita, quindi chi era passato dal sito
+ * con Abisso come default se lo sarebbe tenuto per sempre (è successo col passaggio a
+ * Rossonero, 2026-11-09).
+ *
+ * 1 = Abisso (lab, 2026-07-15) · 2 = Rossonero (decisione D2 della 1.0, 2026-11-09).
+ */
+export const DESIGN_VERSION = "2";
+const VERSION_KEY = STORAGE_PREFIX + "version";
 
 /** I default: la combinazione scelta per il sito. */
 function defaults(): Choices {
@@ -52,6 +66,13 @@ function normalize(key: DesignKey, id: string | null): string {
 function readChoices(): Choices {
   const base = defaults();
   const out = { ...base };
+  let stale = true;
+  try {
+    stale = localStorage.getItem(VERSION_KEY) !== DESIGN_VERSION;
+  } catch {
+    /* localStorage non disponibile → restano i default */
+  }
+  if (stale) return out; // scelte di un design precedente: valgono i nuovi default
   for (const key of Object.keys(base) as DesignKey[]) {
     let raw: string | null = null;
     try {
@@ -79,13 +100,15 @@ export function DesignProvider({ children }: { children: ReactNode }) {
   const [choices, setChoices] = useState<Choices>(readChoices);
 
   // La palette è l'unica che tocca il documento: inietta le sue regole (vedi applyPalette).
-  useEffect(() => {
+  // Prima del disegno (layout effect), come useSiteChrome: niente lampo coi colori di default.
+  useLayoutEffect(() => {
     applyPalette(choices.palette);
   }, [choices.palette]);
 
   useEffect(() => {
     try {
       for (const [key, id] of Object.entries(choices)) localStorage.setItem(STORAGE_PREFIX + key, id);
+      localStorage.setItem(VERSION_KEY, DESIGN_VERSION);
     } catch {
       /* localStorage non disponibile → le scelte valgono per questa sessione */
     }

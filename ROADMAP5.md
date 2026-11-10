@@ -45,24 +45,64 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
 
 | Entro | Tappa | Cosa vuol dire "fatto" |
 | ----- | ----- | ---------------------- |
-| **22/11/2026** | 🧭 **Decisioni di perimetro** | Risposte alle domande qui sotto (D1–D4), scritte in questo file. Senza, le tappe dopo non sono pianificabili. |
-| **06/12/2026** | 🧊 **Feature freeze** | Solo ciò che le decisioni hanno messo *dentro* la 1.0 è completo; da qui in poi solo bug, sicurezza, docs. |
+| **22/11/2026** | 🧭 **Decisioni di perimetro** ✅ | Prese il 2026-11-09, in anticipo (D1–D4 qui sotto). |
+| **06/12/2026** | 🧊 **Feature freeze** | D3-B (inviti) e D4-C (niente letture anonime) completi; da qui in poi solo bug, sicurezza, docs. |
 | **20/12/2026** | 🧪 **Release candidate** | e2e Playwright verdi, deploy di prova su Render da `render.yaml` partendo da zero, `docs/DEPLOY.md` riletta passo-passo, bundle e Lighthouse controllati. |
 | **31/12/2026** | 🏁 **Rilascio 1.0.0** | `version` → `1.0.0` (root + server), sezione `[1.0.0]` nel CHANGELOG, tag git, deploy. |
 
-### Decisioni aperte (da prendere con l'utente — non scelte da Claude)
+### Decisioni di perimetro — prese il 2026-11-09 ✅
 
-- [ ] **D1 — B1/B4, il game loop autorevole sul server** (ROADMAP4, frontiera #1): dentro o fuori
-      dalla 1.0? È l'unico progetto grosso rimasto ed è gated sulle 5 domande di prodotto del §7 del
-      doc di decisione. _Proposta:_ **fuori** (1.x) — in 7 settimane non ci sta insieme al resto, e il
-      mondo condiviso funziona già col driver lease (B3).
-- [ ] **D2 — Varianti del design lab**: potarle (sito più leggero, meno codice) o tenere `/design`
-      come pagina pubblica? Le scelte sono già fatte (Abisso + video + navbar completa).
-- [ ] **D3 — Inviti via email e cookie httpOnly** (residui dell'auth in ROADMAP4): dentro o fuori?
-- [ ] **D4 — Letture senza autenticazione**: con i ruoli attivi, `GET /api/chat`, `/api/history`,
-      `/api/routines`, `/api/world` e lo stream `/api/events` restano leggibili da chiunque raggiunga
-      il runtime. Va bene per un'istanza "di squadra" su rete fidata; per un'istanza pubblica no.
-      Chiuderle tocca anche l'SSE (EventSource non manda header → servirebbe un token in query).
+- [x] **D1 → A: il game loop autorevole resta fuori dalla 1.0.** Il mondo condiviso della 1.0 è quello
+      col driver lease (B3). La versione **completa** (opzione C: simulatore sul server, niente driver) è
+      il cuore della **prossima versione** dopo la 1.0. _Deciso dall'utente._
+- [x] **D2 → B: il design lab resta ma non è più linkato.** Fuori dal footer, raggiungibile solo da
+      `/design`. Il sito ha **un'identità sola**: i colori principali sono quelli del **Milan** — nuova
+      palette **Rossonero** (neri neutri + rosso `227 6 19`, in chiaro rosso più profondo e nero come
+      secondo colore), ora predefinita e anche nel CSS statico (niente lampo di colori vecchi al
+      caricamento). _Deciso dall'utente; fatto il 2026-11-09._
+- [x] **D3 → B: inviti via email sì, cookie httpOnly no (rimandato).** _Lasciata a Claude dall'utente._
+      Motivo: oggi chi entra in un team si registra, nasce *viewer* e aspetta che l'owner lo promuova a
+      mano; con gli inviti l'owner scrive un'email, sceglie il ruolo e la persona entra già col ruolo
+      giusto. È il pezzo che rende la 1.0 usabile da un team, e poggia sul canale email che esiste già.
+      Il cookie httpOnly è più sicurezza contro un XSS che oggi non risulta, ma cambia come si autenticano
+      **tutte** le richieste del client: troppo rischio a ridosso del freeze → 1.x.
+- [x] **D4 → C: niente letture anonime con i ruoli attivi, stream compreso.** Le GET di chat,
+      cronologia, routine e mondo passano a *viewer*; lo stream `/api/events` richiede un **token di
+      breve durata in query** (EventSource non manda header), emesso da un endpoint autenticato e
+      monouso, così non resta valido nei log di un proxy. La dashboard pubblica (`/api/public`) resta
+      com'è: è pubblica per scelta, col suo token di sola lettura. Senza token configurati (dev) nulla
+      cambia. _Deciso dall'utente._
+
+### Lavoro che ne segue — da chiudere entro il feature freeze (06/12/2026)
+
+- [ ] **D4-C** — guardie *viewer* sulle GET + token monouso per l'SSE (server + `connectBackend`) + test.
+- [ ] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
+      (owner), registrazione da link d'invito che assegna il ruolo, UI nella `UsersAdmin`, email + test.
+- [x] ~~D2-B~~ — fatto (palette Rossonero, link al lab rimosso).
+
+### Non legato alle decisioni, fatto il 2026-11-09
+
+- [x] **Sottofondo lo-fi** al posto del vecchio ronzio della stanza: loop originale **sintetizzato dal
+      browser** (nessun file audio, nessun diritto di terzi) — accordi di settima su IV–iii–ii–I, basso,
+      batteria boom-bap con swing, qualche click di vinile, sotto un filtro passa-basso. Di notte la batteria
+      tace e il suono si scurisce. Partitura pura in `src/lib/lofi.ts` (6 test), motore in `audio.ts` con
+      sequencer a lookahead (il ritmo resta preciso anche con la scena 3D che occupa il thread).
+
+### Correzioni del 2026-11-10
+
+- [x] **Rossonero per tutti** — la palette salvata nel browser (Abisso) vinceva sul nuovo default:
+      aggiunta una *versione del design* (`DESIGN_VERSION` in `DesignContext.tsx`) che scarta le scelte
+      vecchie quando cambiano i default. **Va aumentata a ogni cambio di default.**
+- [x] **Niente lampo al caricamento** — tema, classe `site-scroll` e palette ora in `useLayoutEffect`:
+      prima la pagina veniva dipinta coi colori della workspace e il CTA sfumava dal blu al rosso
+      (a metà, testo a 2,6:1 — il test e2e di contrasto falliva circa 1 volta su 8; ora 30/30).
+- [x] **Ronzio del lo-fi** — basso più corto, niente fruscio continuo, accordi abbreviati; il sequencer
+      vecchio si ferma al ricaricamento a caldo. Misurato nel browser: nessuna nota sotto gli 80 Hz.
+- [x] **Guardie di ruolo** — un anonimo risultava *viewer* e passava `requireRole("viewer")`: ora 401
+      con i ruoli attivi (`isAnonymousWhenEnforced` in `roles.ts`, con test).
+- [ ] **Token GitHub** in `server/.env` rifiutato da GitHub ("Bad credentials"): da rigenerare (utente).
+- [ ] **Domanda aperta**: la stanza 3D (`/app`) tiene i suoi colori blu; il rossonero vale solo per il
+      sito. Rossonero anche nella stanza? _Da decidere con l'utente._
 
 ### Già fatto verso la 1.0 — revisione completa del codice (2026-11-09)
 

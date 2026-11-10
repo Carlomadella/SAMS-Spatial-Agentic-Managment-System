@@ -27,7 +27,9 @@ import { Link } from "../router";
  * risponde alla domanda "questo colore regge sulle mie pagine?".
  *
  * La scelta è persistita, quindi resta anche navigando; "Ripristina" torna al punto di
- * partenza (Abisso + navbar completa + video della stanza).
+ * partenza (Rossonero + navbar completa + video della stanza).
+ *
+ * Dalla 1.0 la pagina non è linkata dal footer (decisione D2): si raggiunge solo da /design.
  */
 
 /** Cornice di una scelta: bordo acceso e spunta quando è quella attiva. */
@@ -97,7 +99,7 @@ export function Design() {
       <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Palette</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Cinque opzioni: «SAMS» richiama i colori della stanza, le altre portano il sito altrove. Ognuna
+          Sei opzioni: «Rossonero» è quella in uso, «SAMS» richiama i colori della stanza, le altre portano il sito altrove. Ognuna
           funziona sia in chiaro sia in scuro — provale con il toggle del tema.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -188,7 +190,7 @@ export function Design() {
           <Option key={v.id} active={choice("logo") === v.id} onClick={() => set("logo", v.id)} title={v.name} blurb={v.blurb}>
             <div className="flex h-14 items-center justify-center rounded-lg border border-line/60 bg-ink-950/60">
               {/* `variant` forzato: senza, ogni anteprima mostrerebbe il logo già scelto */}
-              <Logo variant={v.id} />
+              <Logo variant={v.id} asLink={false} />
             </div>
           </Option>
         ))}

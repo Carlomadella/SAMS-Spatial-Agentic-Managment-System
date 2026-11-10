@@ -1,4 +1,4 @@
-// Le palette del sito (Roadmap 5) — cinque opzioni da confrontare davvero, non da
+// Le palette del sito (Roadmap 5) — sei opzioni (la sesta, Rossonero, è quella in uso) da confrontare davvero, non da
 // immaginare: "SAMS" richiama i colori della workspace, le altre quattro portano il sito
 // altrove. Si provano dal design lab (/design) e la scelta è persistita.
 //
@@ -182,7 +182,7 @@ export const PALETTES: Palette[] = [
   {
     id: "abisso",
     name: "Abisso / Ciano",
-    blurb: "Teal freddo e ciano elettrico: minimale e tecnico, il contrasto più netto sul chiaro. La palette del sito.",
+    blurb: "Teal freddo e ciano elettrico: minimale e tecnico, il contrasto più netto sul chiaro. È stata la palette del sito fino alla 1.0.",
     dark: {
       "ink-950": "8 14 18",
       "ink-900": "11 19 24",
@@ -217,10 +217,51 @@ export const PALETTES: Palette[] = [
       "accent-2": "13 148 136",
     },
   },
+  {
+    id: "rossonero",
+    name: "Rossonero",
+    blurb: "Rosso e nero, i colori del Milan: neri quasi puri e un rosso pieno sulle azioni. La palette del sito.",
+    dark: {
+      // neri neutri, appena caldi: il rosso deve essere l'unico colore in scena
+      "ink-950": "10 10 11",
+      "ink-900": "15 15 16",
+      "ink-850": "21 20 21",
+      "ink-800": "28 26 27",
+      "ink-700": "39 36 37",
+      "ink-600": "54 49 50",
+      "ink-500": "74 68 69",
+      line: "44 40 41",
+      mut: "160 152 153",
+      text: "240 236 236",
+      "text-strong": "255 255 255",
+      // rosso pieno: col bianco sopra fa 4.9:1 (AA) senza scurirlo
+      accent: "227 6 19",
+      "accent-2": "239 68 68",
+    },
+    light: {
+      "ink-950": "248 247 247",
+      "ink-900": "255 255 255",
+      "ink-850": "241 239 239",
+      "ink-800": "233 230 230",
+      "ink-700": "222 218 218",
+      "ink-600": "205 199 199",
+      "ink-500": "182 175 175",
+      line: "226 221 221",
+      mut: "100 92 93",
+      text: "24 20 21",
+      "text-strong": "10 10 11",
+      // sul bianco il rosso si scurisce un poco, e il secondo colore diventa il nero
+      accent: "190 10 25",
+      "accent-2": "30 27 28",
+    },
+  },
 ];
 
-/** La palette del sito: scelta dal design lab il 2026-07-15 fra le cinque. */
-export const DEFAULT_PALETTE_ID = "abisso";
+/**
+ * La palette del sito. Scelta dall'utente il 2026-11-09 (decisione D2 della roadmap 1.0):
+ * i colori principali sono quelli del Milan. Prima era Abisso (dal lab, 2026-07-15).
+ */
+export const DEFAULT_PALETTE_ID = "rossonero";
 
 /** Cerca una palette per id; ricade sul default per un id sconosciuto (o assente). */
 export function paletteById(id: string | null | undefined): Palette {

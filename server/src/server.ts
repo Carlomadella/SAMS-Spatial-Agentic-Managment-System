@@ -33,7 +33,7 @@ import { sanitizeSelection } from "./selections";
 import { claimDriver, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
-import { bearerToken, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
+import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -69,6 +69,14 @@ function roleOf(req: Request): Role {
 function requireRole(min: Role): (req: Request, res: Response, next: NextFunction) => void {
   return (req, res, next) => {
     const provided = bearerToken(req.headers.authorization);
+    // Con i ruoli attivi, un anonimo risulta "viewer" (vedi resolveRole) ma non deve
+    // superare nemmeno la guardia più bassa: serve una credenziale riconosciuta.
+    const hasSession = provided ? getSessionUser(db(), provided) !== null : false;
+    if (isAnonymousWhenEnforced(roleTokens(), provided, hasSession)) {
+      log.warn("Richiesta anonima respinta", { path: req.path, ip: req.ip, need: min });
+      res.status(401).json({ error: "Token mancante o non valido" });
+      return;
+    }
     const role = roleOf(req);
     if (roleAtLeast(role, min)) { next(); return; }
     log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip, role, need: min });

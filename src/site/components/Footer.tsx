@@ -24,7 +24,8 @@ const COLUMNS: Col[] = [
     links: [
       { label: "Documentazione", to: "/docs" },
       { label: "Changelog", to: "/changelog" },
-      { label: "Design lab", to: "/design" },
+      // Il design lab non è più linkato (decisione D2 della roadmap 1.0): resta su /design
+      // per chi conosce l'indirizzo, ma il visitatore vede un sito solo.
       { label: "GitHub", to: GITHUB_URL, external: true },
     ],
   },

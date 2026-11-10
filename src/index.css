@@ -79,44 +79,42 @@
     min-height: 100%;
   }
 
-  /* Palette dedicata del sito — "Ambra / Tramonto", distinta dal blu dell'app. Ridefinisce
-     i token colore SOLO sotto le pagine del sito (body.site-scroll), quindi la workspace su
-     /app resta invariata. Variante scura (default) e chiara (con .theme-light). L'accento
-     secondario --c-accent-2 (corallo) è usato dal logo e dai bagliori della hero. */
+  /* Palette del sito prima che parta il JS — "Rossonero" (rosso e nero, i colori del Milan),
+     la stessa di DEFAULT_PALETTE_ID in site/data/palettes.ts, che poi la reinietta. Ridefinisce
+     i token SOLO sotto le pagine del sito (body.site-scroll): la workspace su /app non cambia.
+     Se cambi la palette di default, aggiorna anche questi valori, o il sito "lampeggia" coi
+     colori vecchi al caricamento. --c-on-accent qui è scritto a mano; lì è derivato (onAccent). */
   body.site-scroll {
-    --c-ink-950: 20 15 10;
-    --c-ink-900: 26 20 14;
-    --c-ink-850: 33 26 18;
-    --c-ink-800: 41 32 22;
-    --c-ink-700: 54 43 30;
-    --c-ink-600: 71 57 40;
-    --c-ink-500: 92 75 54;
-    --c-line: 58 46 32;
-    --c-mut: 168 156 140;
-    --c-text: 245 236 224;
-    --c-text-strong: 255 250 244;
-    --c-accent: 245 158 11; /* ambra */
-    --c-accent-2: 251 113 133; /* corallo (accento secondario) */
-    /* Testo sopra all'accento (bottoni primari). Quasi-nero perché il bianco su ambra
-       brillante dà 2.15:1 — illeggibile. Le palette di Roadmap 5 lo ricalcolano da sé
-       (vedi `onAccent` in site/data/palettes.ts); questo è il valore prima che si applichino. */
-    --c-on-accent: 11 14 20;
+    --c-ink-950: 10 10 11;
+    --c-ink-900: 15 15 16;
+    --c-ink-850: 21 20 21;
+    --c-ink-800: 28 26 27;
+    --c-ink-700: 39 36 37;
+    --c-ink-600: 54 49 50;
+    --c-ink-500: 74 68 69;
+    --c-line: 44 40 41;
+    --c-mut: 160 152 153;
+    --c-text: 240 236 236;
+    --c-text-strong: 255 255 255;
+    --c-accent: 227 6 19; /* rosso */
+    --c-accent-2: 239 68 68;
+    --c-on-accent: 255 255 255; /* bianco sul rosso: 4.9:1 */
   }
   .theme-light body.site-scroll {
-    --c-ink-950: 250 246 240;
-    --c-ink-900: 255 253 249;
-    --c-ink-850: 244 238 230;
-    --c-ink-800: 236 229 219;
-    --c-ink-700: 226 217 205;
-    --c-ink-600: 210 199 184;
-    --c-ink-500: 188 175 158;
-    --c-line: 224 214 200;
-    --c-mut: 122 108 90;
-    --c-text: 41 32 22;
-    --c-text-strong: 26 20 14;
-    --c-accent: 194 120 8; /* ambra più profonda per il contrasto su chiaro */
-    --c-accent-2: 225 90 110;
-    --c-on-accent: 11 14 20; /* anche qui il nero contrasta più del bianco (5.50 vs 3.51) */
+    --c-ink-950: 248 247 247;
+    --c-ink-900: 255 255 255;
+    --c-ink-850: 241 239 239;
+    --c-ink-800: 233 230 230;
+    --c-ink-700: 222 218 218;
+    --c-ink-600: 205 199 199;
+    --c-ink-500: 182 175 175;
+    --c-line: 226 221 221;
+    --c-mut: 100 92 93;
+    --c-text: 24 20 21;
+    --c-text-strong: 10 10 11;
+    --c-accent: 190 10 25; /* rosso più profondo sul chiaro */
+    --c-accent-2: 30 27 28; /* il nero */
+    --c-on-accent: 255 255 255;
   }
 
   /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */

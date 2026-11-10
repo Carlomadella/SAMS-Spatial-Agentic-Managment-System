@@ -9,7 +9,7 @@ vi.mock("../router", () => ({
 }));
 
 import { Design } from "./Design";
-import { DesignProvider } from "../design/DesignContext";
+import { DESIGN_VERSION, DesignProvider } from "../design/DesignContext";
 import { Navbar } from "../components/Navbar";
 import { PALETTES } from "../data/palettes";
 
@@ -29,7 +29,7 @@ describe("<Design /> — il design lab", () => {
     document.getElementById("sams-site-palette")?.remove();
   });
 
-  it("mostra tutte e cinque le palette", () => {
+  it("mostra tutte le palette", () => {
     lab();
     for (const p of PALETTES) expect(screen.getByText(p.name)).toBeTruthy();
   });
@@ -41,9 +41,9 @@ describe("<Design /> — il design lab", () => {
     expect(screen.getByText("Hero")).toBeTruthy();
   });
 
-  it("parte con la palette del sito selezionata (Abisso)", () => {
+  it("parte con la palette del sito selezionata (Rossonero)", () => {
     lab();
-    expect(screen.getByText("Abisso / Ciano").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Rossonero").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("scegliere una palette la applica al sito (CSS iniettato) e la persiste", () => {
@@ -89,7 +89,7 @@ describe("<Design /> — il design lab", () => {
     fireEvent.click(screen.getByText("Pillola"));
     fireEvent.click(screen.getByText("Ripristina il design di partenza"));
 
-    expect(localStorage.getItem("sams.site.palette")).toBe("abisso");
+    expect(localStorage.getItem("sams.site.palette")).toBe("rossonero");
     expect(localStorage.getItem("sams.site.hero")).toBe("video");
     expect(localStorage.getItem("sams.site.navbar")).toBe("completa");
     expect(localStorage.getItem("sams.site.button")).toBe("arrotondato");
@@ -129,13 +129,15 @@ describe("DesignProvider — robustezza", () => {
   beforeEach(() => localStorage.clear());
 
   it("un id manomesso in localStorage non lascia il sito senza palette", () => {
+    localStorage.setItem("sams.site.version", DESIGN_VERSION); // scelte della versione corrente
     localStorage.setItem("sams.site.palette", "palette-che-non-esiste");
     lab();
-    expect(screen.getByText("Abisso / Ciano").closest("button")?.getAttribute("aria-pressed")).toBe("true");
-    expect(document.getElementById("sams-site-palette")?.textContent).toContain("--c-accent: 6 182 212;");
+    expect(screen.getByText("Rossonero").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.getElementById("sams-site-palette")?.textContent).toContain("--c-accent: 227 6 19;");
   });
 
   it("vale per ogni chiave, non solo per la palette", () => {
+    localStorage.setItem("sams.site.version", DESIGN_VERSION); // scelte della versione corrente
     localStorage.setItem("sams.site.button", "forma-inventata");
     localStorage.setItem("sams.site.logo", "");
     lab();
@@ -143,7 +145,18 @@ describe("DesignProvider — robustezza", () => {
     expect(screen.getByText("Orbitale").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("un nuovo default arriva anche a chi aveva le scelte salvate da una versione precedente", () => {
+    // Il caso reale: visitatore di luglio, Abisso salvato come default, nessuna versione.
+    localStorage.setItem("sams.site.palette", "abisso");
+    localStorage.setItem("sams.site.hero", "video");
+    lab();
+    expect(document.getElementById("sams-site-palette")?.textContent).toContain("--c-accent: 227 6 19;");
+    expect(localStorage.getItem("sams.site.palette")).toBe("rossonero");
+    expect(localStorage.getItem("sams.site.version")).toBe(DESIGN_VERSION);
+  });
+
   it("riprende la scelta persistita al montaggio", () => {
+    localStorage.setItem("sams.site.version", DESIGN_VERSION); // scelte della versione corrente
     localStorage.setItem("sams.site.palette", "nebulosa");
     localStorage.setItem("sams.site.logo", "monogramma");
     lab();

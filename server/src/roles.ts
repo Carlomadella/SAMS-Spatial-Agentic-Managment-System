@@ -60,3 +60,21 @@ export function resolveRole(tokens: RoleTokens, provided: string): Role {
 export function roleAtLeast(role: Role, min: Role): boolean {
   return RANK[role] >= RANK[min];
 }
+
+/**
+ * La richiesta va respinta perché **anonima** in un workspace con i ruoli attivi?
+ *
+ * Serve perché `resolveRole` dà "viewer" anche a chi non manda nessun token (o ne manda
+ * uno sbagliato): comodo per mostrare la UI in sola lettura, ma così `requireRole("viewer")`
+ * lasciava passare chiunque — e le rotte che leggono il repo col token GitHub del server
+ * erano aperte a tutti. Con i token configurati, il ruolo minimo richiede una credenziale
+ * **riconosciuta**: un token statico che combacia o una sessione utente valida.
+ *
+ * Senza token configurati (dev aperto) non si respinge nessuno, come prima.
+ */
+export function isAnonymousWhenEnforced(tokens: RoleTokens, provided: string, hasValidSession: boolean): boolean {
+  const anyConfigured = Boolean(tokens.owner || tokens.editor || tokens.viewer);
+  if (!anyConfigured || hasValidSession) return false;
+  if (!provided) return true;
+  return provided !== tokens.owner && provided !== tokens.editor && provided !== tokens.viewer;
+}

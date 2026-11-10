@@ -10,6 +10,28 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-10 — Correzioni: colori, suono, accessi 🔧
+
+- **Fixed** — I colori rossoneri arrivano a tutti: chi aveva già visitato il sito si teneva la palette
+  vecchia (Abisso) salvata nel browser. Ora, quando cambia il design predefinito, le scelte vecchie
+  vengono scartate.
+- **Fixed** — Al caricamento il sito non lampeggia più coi colori della stanza (bottone blu che sfuma in
+  rosso): tema e palette sono applicati prima del primo disegno. A metà di quella sfumatura il testo del
+  bottone principale diventava poco leggibile.
+- **Fixed** — Il sottofondo lo-fi non ronza più: basso più corto, niente fruscio continuo, accordi più
+  brevi. Ricaricando il codice il suono vecchio non resta acceso.
+- **Fixed** — Il link "Scopri di più" della home non è più annidato dentro un altro link.
+- **Security** — Con i ruoli attivi, le rotte protette da *viewer* rispondono 401 a chi non ha un token o
+  una sessione valida (prima un anonimo passava come *viewer*).
+
+### 2026-11-09 (b) — Rossonero e un sottofondo lo-fi 🎧
+
+- **Changed** — Il sito si veste **rossonero**: neri profondi e un rosso pieno sui bottoni, nei due temi.
+- **Changed** — Il ronzio della stanza è diventato un **sottofondo lo-fi**: accordi morbidi, batteria
+  leggera e qualche click da vinile. Di notte la batteria tace. Si attiva col pulsante dei suoni, come prima.
+- **Changed** — Il design lab non è più nel footer: le scelte sono fatte. Resta raggiungibile da `/design`.
+- **Fixed** — Il bagliore sotto i bottoni principali segue il colore del sito (era sempre arancione).
+
 ### 2026-11-09 — Revisione completa del codice verso la 1.0 🔍
 
 - **Security** — Il tool `web_fetch` degli agenti non può più aprire indirizzi interni (localhost, rete

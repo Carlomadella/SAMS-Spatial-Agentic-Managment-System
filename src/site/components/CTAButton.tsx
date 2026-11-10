@@ -20,8 +20,9 @@ const VARIANT: Record<Variant, string> = {
   // Non `text-white` né la sua variante important: `index.css` rimappa `.theme-light
   // .text-white` a quasi-nero, e Tailwind genera la versione important anche di quella
   // rimappa, che vince per specificità. Un token è immune a entrambe le insidie.
+  // Anche il bagliore segue l'accento (era ambra fissa: sotto un bottone rosso restava arancione).
   primary:
-    "bg-brand text-[rgb(var(--c-on-accent))] shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgba(245,158,11,0.55)] hover:bg-brand/90",
+    "bg-brand text-[rgb(var(--c-on-accent))] shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_28px_-12px_rgb(var(--c-accent)/0.55)] hover:bg-brand/90",
   // bordo sottile su fondo trasparente: azione secondaria
   ghost: "border border-line bg-ink-800/40 text-slate-200 hover:border-brand/50 hover:bg-ink-700/60 hover:text-white",
   // riempimento tenue brand: terza gerarchia

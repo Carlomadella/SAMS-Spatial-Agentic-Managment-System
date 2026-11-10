@@ -59,7 +59,7 @@ export function Home() {
             href="#funzionalita"
             className="mx-auto flex max-w-md flex-col items-center gap-2 rounded-2xl border border-line/70 bg-ink-900/40 px-6 py-5 text-center transition-colors hover:border-brand/40"
           >
-            <Logo withWordmark={false} />
+            <Logo withWordmark={false} asLink={false} />
             <h4 className="mt-1 text-sm font-semibold text-slate-200">Scopri di più</h4>
             <p className="text-xs leading-relaxed text-slate-400">{TAGLINE} Un cruscotto operativo e un mondo simulato, insieme.</p>
             <ChevronDown size={18} className="mt-1 animate-bounce text-brand" />

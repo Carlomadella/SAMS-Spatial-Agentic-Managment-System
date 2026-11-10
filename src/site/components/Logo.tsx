@@ -14,10 +14,17 @@ export function Logo({
   className = "",
   withWordmark = true,
   variant,
+  asLink = true,
 }: {
   className?: string;
   withWordmark?: boolean;
   variant?: string;
+  /**
+   * `false` = solo il disegno, senza link. Serve quando il logo sta già dentro un link o un
+   * bottone (il cue "Scopri di più", le anteprime del lab): un link dentro un link è HTML
+   * non valido e il browser lo spezza in due.
+   */
+  asLink?: boolean;
 }) {
   const { choice } = useDesign();
   const kind = variant ?? choice("logo");
@@ -51,12 +58,18 @@ export function Logo({
       <OrbitalMark accent={accent} accent2={accent2} />
     );
 
-  return (
-    <Link to="/" aria-label="SAMS — home" className={`flex items-center gap-2.5 ${className}`}>
+  const content = (
+    <>
       {mark}
       {withWordmark && (
         <span className="text-[17px] font-semibold tracking-tight text-slate-50">SAMS</span>
       )}
+    </>
+  );
+  if (!asLink) return <span className={`flex items-center gap-2.5 ${className}`}>{content}</span>;
+  return (
+    <Link to="/" aria-label="SAMS — home" className={`flex items-center gap-2.5 ${className}`}>
+      {content}
     </Link>
   );
 }
