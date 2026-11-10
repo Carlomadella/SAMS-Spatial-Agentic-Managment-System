@@ -201,7 +201,8 @@ export async function fetchMetrics(): Promise<RuntimeMetrics | null> {
 /** Read the runtime status (which keys are set, whether agents are provisioned). */
 export async function fetchStatus(): Promise<RuntimeStatus | null> {
   try {
-    const res = await fetch(`${BASE}/api/status`);
+    // Col token: l'owner riceve anche `envManaged` (i campi bloccati dall'ambiente).
+    const res = await fetch(`${BASE}/api/status`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as RuntimeStatus;
   } catch {

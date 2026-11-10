@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { envLockedChanges, envManagedKeys, resolveSettings } from "./config";
+import { envLockedChanges, envManagedForUi, envManagedKeys, publicStatus, resolveSettings } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -70,5 +70,26 @@ describe("campi gestiti dall'ambiente — la UI non può cambiarli", () => {
   it("i campi non gestiti dall'ambiente restano liberi", () => {
     const current = resolveSettings({}, null);
     expect(envLockedChanges({ model: "x", githubRepo: "c/d" }, current, [])).toEqual([]);
+  });
+});
+
+describe("envManagedForUi — cosa vede l'owner nelle impostazioni", () => {
+  it("elenca solo i campi modificabili dalla UI, mai quelli di sola sicurezza", () => {
+    const keys = envManagedForUi({
+      GITHUB_TOKEN: "g",
+      SAMS_MODEL: "m",
+      SAMS_TOKEN: "owner",
+      SAMS_EDITOR_TOKEN: "editor",
+      SAMS_READONLY_TOKEN: "ro",
+      GITHUB_WEBHOOK_SECRET: "s",
+      SAMS_MCP_SERVERS: "[]",
+    });
+    expect(keys.sort()).toEqual(["githubToken", "model"]);
+  });
+});
+
+describe("publicStatus — risposta pubblica", () => {
+  it("non dice quali variabili d'ambiente sono impostate", () => {
+    expect(publicStatus()).not.toHaveProperty("envManaged");
   });
 });

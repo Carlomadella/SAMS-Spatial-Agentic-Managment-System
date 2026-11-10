@@ -122,7 +122,10 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       sarebbe tornato valido al riavvio. Ora i campi impostati dall'ambiente sono in **sola lettura** nella UI
       (marcati "dal server") e `POST /api/settings` risponde **409** se si prova a cambiarli; idem
       `/api/provision` se agente/ambiente vengono dall'ambiente. Rimandare lo stesso valore resta un no-op.
-      `/api/status` espone solo i *nomi* dei campi (`envManaged`), mai i valori. 7 test nuovi; provato dal vivo.
+      L'elenco dei campi bloccati (`envManaged`, solo nomi) arriva **solo all'owner** e solo per i campi che la UI
+      può modificare (mai token dei ruoli, secret dei webhook, MCP). Una seconda revisione aveva notato che anche i
+      soli nomi, se pubblici, dicevano a un estraneo cosa mancava (es. il secret dei webhook). 10 test nuovi; provato
+      dal vivo.
 - [ ] **Su Render i dati si perdono a ogni deploy.** `render.yaml` non monta nessun disco: il SQLite
       `.sams-data.db` (account, sessioni, chat, mondo, routine, cronologia) e `.sams-runtime.json` spariscono a ogni
       deploy o riavvio. Serve un `disk:` montato sulla cartella di lavoro del server (o spostare i file su un

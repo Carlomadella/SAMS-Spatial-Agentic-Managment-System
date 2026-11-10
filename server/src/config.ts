@@ -288,7 +288,34 @@ export function publicStatus() {
     hasToken: s.runtimeToken.length > 0,
     hasEditorToken: s.editorToken.length > 0,
     hasReadonlyToken: s.readonlyToken.length > 0,
-    /** Campi impostati da variabili d'ambiente: la UI li mostra bloccati. Solo i nomi, mai i valori. */
-    envManaged: envManagedKeys(),
   };
+}
+
+/** Campi che la finestra delle impostazioni sa modificare (incl. il provisioning). */
+const UI_EDITABLE_KEYS: ReadonlyArray<keyof Settings> = [
+  "provider",
+  "geminiApiKey",
+  "anthropicApiKey",
+  "groqApiKey",
+  "openrouterApiKey",
+  "openaiApiKey",
+  "githubToken",
+  "githubRepo",
+  "baseBranch",
+  "model",
+  "openPRs",
+  "requireApproval",
+  "notionToken",
+  "notionPageId",
+  "agentId",
+  "environmentId",
+];
+
+/**
+ * Quali campi *modificabili dalla UI* sono bloccati dall'ambiente. Solo per l'owner:
+ * anche i soli nomi dicono a un estraneo cosa è configurato (o cosa manca). Non
+ * include mai i campi di sola sicurezza (token dei ruoli, secret dei webhook, MCP).
+ */
+export function envManagedForUi(env: NodeJS.ProcessEnv = process.env): Array<keyof Settings> {
+  return envManagedKeys(env).filter((k) => UI_EDITABLE_KEYS.includes(k));
 }

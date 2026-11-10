@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { envLockedChanges, envManagedKeys, getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
+import { envLockedChanges, envManagedForUi, envManagedKeys, getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -189,9 +189,19 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
-app.get("/api/status", (_req: Request, res: Response) => {
-  res.json(publicStatus());
+app.get("/api/status", (req: Request, res: Response) => {
+  res.json(ownerStatus(req));
 });
+
+/**
+ * Lo stato pubblico più, **solo per l'owner**, i campi bloccati dall'ambiente
+ * (`envManaged`, solo nomi). Gli altri non lo ricevono: anche i nomi dicono cosa è
+ * configurato o cosa manca (es. il secret dei webhook).
+ */
+function ownerStatus(req: Request) {
+  const st = publicStatus();
+  return roleOf(req) === "owner" ? { ...st, envManaged: envManagedForUi() } : st;
+}
 
 /**
  * Ruolo del chiamante (Roadmap 4, frontiera #2), così la UI può nascondere/
@@ -608,13 +618,13 @@ app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) =>
     return;
   }
   updateSettings(patch);
-  res.json(publicStatus());
+  res.json(ownerStatus(req));
 });
 
 /** Create (or re-create) the managed Agent + Environment (Claude provider only). */
-app.post("/api/provision", requireRole("owner"), async (_req: Request, res: Response) => {
+app.post("/api/provision", requireRole("owner"), async (req: Request, res: Response) => {
   if (getSettings().provider !== "claude") {
-    res.json({ ...publicStatus(), note: "Gemini non richiede provisioning" });
+    res.json({ ...ownerStatus(req), note: "Gemini non richiede provisioning" });
     return;
   }
   // Stessa regola delle impostazioni: se gli id vengono dall'ambiente, quelli nuovi
@@ -629,7 +639,7 @@ app.post("/api/provision", requireRole("owner"), async (_req: Request, res: Resp
   }
   try {
     const ids = await provision();
-    res.json({ ...publicStatus(), ...ids });
+    res.json({ ...ownerStatus(req), ...ids });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
