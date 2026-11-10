@@ -78,6 +78,11 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
 - [ ] **D4-C** — guardie *viewer* sulle GET + token monouso per l'SSE (server + `connectBackend`) + test.
 - [ ] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
       (owner), registrazione da link d'invito che assegna il ruolo, UI nella `UsersAdmin`, email + test.
+- [ ] **Sicurezza (dopo D4-C e D3-B)** — dalla revisione automatica del 2026-11-10:
+      1. **Link di reset nei log** (`mailer.ts`, driver `console`): senza canale email `/api/auth/forgot`
+         non deve emettere link (solo log della richiesta); il reset passa dal link generato dall'owner.
+      2. **DNS rebinding nella guardia SSRF** (`netGuard.ts`): validare l'IP a cui ci si connette davvero
+         (agent undici con `connect.lookup` che applica `isPrivateAddress`).
 - [x] ~~D2-B~~ — fatto (palette Rossonero, link al lab rimosso).
 
 ### Non legato alle decisioni, fatto il 2026-11-09
