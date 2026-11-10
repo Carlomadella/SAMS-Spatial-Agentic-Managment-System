@@ -9,7 +9,7 @@
 //              le impostazioni/segreti.
 //  - owner   → tutto, incluse config e provisioning.
 //
-// `enforced` dice se i token sono configurati sul server. Se non lo sono, il
+// `enforced` dice se i ruoli sono attivi sul server (token statici o almeno un account). Se non lo sono, il
 // runtime è "dev aperto" e chiunque è owner: la UI non mostra nessun badge di
 // ruolo (comportamento storico, retro-compatibile).
 

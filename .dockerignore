@@ -8,3 +8,4 @@ server/.sams-runtime.json
 .git
 .github
 coverage
+server/.sams-data.db*

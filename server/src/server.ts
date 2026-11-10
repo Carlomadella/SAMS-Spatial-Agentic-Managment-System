@@ -33,7 +33,7 @@ import { sanitizeSelection } from "./selections";
 import { claimDriver, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
-import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, type Role, type RoleTokens } from "./roles";
+import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import type { AssignBody, WireEvent } from "./types";
 
@@ -46,9 +46,23 @@ function roleTokens(): RoleTokens {
 }
 
 /**
+ * Esiste almeno un account registrato? Da lì in poi i ruoli valgono anche senza token
+ * statici (decisione 1A). Se il DB non risponde si sceglie la via **chiusa**: meglio un
+ * 401 di troppo che un anonimo owner.
+ */
+function accountsExist(): boolean {
+  try {
+    return countUsers(db()) > 0;
+  } catch (err) {
+    log.warn("Conteggio account non riuscito: ruoli considerati attivi", { err: String(err) });
+    return true;
+  }
+}
+
+/**
  * Ruolo risolto per la richiesta corrente. Un **token di sessione utente valido** (auth
  * reale) vince e porta il ruolo dell'account; altrimenti si ricade sui token statici da
- * env (owner se nessuno è configurato → dev aperto). Così una persona loggata sul sito
+ * env (owner solo in dev aperto: nessun token e nessun account). Così una persona loggata sul sito
  * governa anche la workspace col proprio ruolo, senza doppioni di configurazione.
  */
 function roleOf(req: Request): Role {
@@ -57,7 +71,7 @@ function roleOf(req: Request): Role {
     const user = getSessionUser(db(), provided);
     if (user) return user.role;
   }
-  return resolveRole(roleTokens(), provided);
+  return resolveRole(roleTokens(), provided, accountsExist());
 }
 
 /**
@@ -72,7 +86,7 @@ function requireRole(min: Role): (req: Request, res: Response, next: NextFunctio
     // Con i ruoli attivi, un anonimo risulta "viewer" (vedi resolveRole) ma non deve
     // superare nemmeno la guardia più bassa: serve una credenziale riconosciuta.
     const hasSession = provided ? getSessionUser(db(), provided) !== null : false;
-    if (isAnonymousWhenEnforced(roleTokens(), provided, hasSession)) {
+    if (isAnonymousWhenEnforced(roleTokens(), provided, hasSession, accountsExist())) {
       log.warn("Richiesta anonima respinta", { path: req.path, ip: req.ip, need: min });
       res.status(401).json({ error: "Token mancante o non valido" });
       return;
@@ -206,13 +220,12 @@ function ownerStatus(req: Request) {
 /**
  * Ruolo del chiamante (Roadmap 4, frontiera #2), così la UI può nascondere/
  * disabilitare le azioni che il ruolo non può compiere. `enforced` dice se i
- * token sono configurati (altrimenti è dev aperto e tutti sono "owner").
+ * ruoli sono attivi (token statici o almeno un account; altrimenti dev aperto, tutti "owner").
  */
 app.get("/api/whoami", (req: Request, res: Response) => {
-  const s = getSettings();
   const provided = bearerToken(req.headers.authorization);
   const user = provided ? getSessionUser(db(), provided) : null;
-  const enforced = Boolean(s.runtimeToken || s.editorToken || s.readonlyToken) || Boolean(user);
+  const enforced = rolesEnforced(roleTokens(), accountsExist()) || Boolean(user);
   // `name`/`email` valorizzati solo con una sessione utente reale: così la workspace
   // può presentarsi con l'identità dell'account (presence/cursori/chat) invece di "Ospite".
   res.json({ role: roleOf(req), enforced, name: user?.name ?? "", email: user?.email ?? "" });

@@ -10,11 +10,14 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # GitHub (required for code tasks)
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITHUB_REPO=${GITHUB_REPO:-}
-      - BASE_BRANCH=${BASE_BRANCH:-main}
+      - GITHUB_BASE_BRANCH=${GITHUB_BASE_BRANCH:-main}
       # Runtime behaviour
+      # Database + saved settings live here (the volume below), not next to the code.
+      - SAMS_DATA_DIR=/data
       - SAMS_PROVIDER=${SAMS_PROVIDER:-gemini}
       - SAMS_OPEN_PRS=${SAMS_OPEN_PRS:-true}
       - SAMS_REQUIRE_APPROVAL=${SAMS_REQUIRE_APPROVAL:-false}
@@ -22,8 +25,11 @@ services:
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_PAGE_ID=${NOTION_PAGE_ID:-}
     volumes:
-      # Persist .sams-runtime.json (settings + provisioning state) across restarts
-      - sams-data:/app/server
+      # Persist the database (.sams-data.db) and the saved settings (.sams-runtime.json).
+      # Same volume as before, now mounted on /data: it used to sit on /app/server and
+      # shadowed the server code, so a rebuild kept running the old code. Files already
+      # in the volume show up in /data, where SAMS_DATA_DIR looks for them.
+      - sams-data:/data
     restart: unless-stopped
 
 volumes:

@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import path from "node:path";
 import "dotenv/config";
+import { dataFile } from "./dataDir";
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter" | "openai";
 
@@ -44,7 +44,7 @@ export interface Settings {
   port: number;
 }
 
-const STORE_FILE = path.join(process.cwd(), ".sams-runtime.json");
+const STORE_FILE = dataFile(".sams-runtime.json");
 
 /** Variabile d'ambiente → campo delle impostazioni (stringhe). */
 const ENV_KEYS: ReadonlyArray<[string, keyof Settings]> = [

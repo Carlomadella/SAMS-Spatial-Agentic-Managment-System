@@ -106,12 +106,17 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       `nvidia/nemotron-3.5-super-vl:free`, `google/gemma-4-31b-it:free`. Provato dal vivo: l'agente legge il
       README col tool e risponde. ⚠️ Il `server/.env` locale ha ancora `SAMS_MODEL` sul vecchio Llama: va
       cambiato a mano (ora l'ambiente vince sul file, vedi sotto).
-- [ ] **Senza `SAMS_TOKEN` un anonimo è owner, anche con gli account attivi.** `resolveRole` dà *owner* a chi
+- [x] **Senza `SAMS_TOKEN` un anonimo è owner, anche con gli account attivi.** `resolveRole` dà *owner* a chi
       non manda token se non è configurato nessun token statico. Risultato: un visitatore anonimo può
       cambiare le impostazioni, chiamare `provision` e avviare la Live Sim, mentre un utente *viewer* loggato
       riceve 403. In `render.yaml` `SAMS_TOKEN` è facoltativo (`sync: false`), quindi un deploy lasciato com'è
       è aperto a tutti. Deciso il comportamento, va scritto in DEPLOY.md: o i ruoli si attivano quando esiste un
       account, oppure il runtime non parte in produzione senza token.
+      **Fatto il 2026-11-10 (decisione 1A):** i ruoli si attivano appena esiste un account, anche senza token
+      statici (`rolesEnforced` in `roles.ts`, il server conta gli account; se il DB non risponde sceglie la via
+      chiusa). Senza account e senza token resta il dev aperto. 4 test nuovi. Provato dal vivo: prima della
+      registrazione anonimo owner; dopo, anonimo e token inventato 401 su settings/provision/sim, owner 200,
+      viewer 403. Scritto in DEPLOY.md ("Roles and access"): su un deploy nuovo l'owner va registrato subito.
 - [x] **`SAMS_TOKEN` (e ogni altra variabile d'ambiente) ignorato se esiste `.sams-runtime.json`.** In
       `config.ts` `load()` fa `{ ...env, ...file }`: il file salvato vince sull'ambiente, anche quando
       contiene `runtimeToken: ""`. Cambiare un token o una chiave su Render non ha effetto finché il file c'è.
@@ -126,14 +131,23 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       può modificare (mai token dei ruoli, secret dei webhook, MCP). Una seconda revisione aveva notato che anche i
       soli nomi, se pubblici, dicevano a un estraneo cosa mancava (es. il secret dei webhook). 10 test nuovi; provato
       dal vivo.
-- [ ] **Su Render i dati si perdono a ogni deploy.** `render.yaml` non monta nessun disco: il SQLite
+- [x] **Su Render i dati si perdono a ogni deploy.** `render.yaml` non monta nessun disco: il SQLite
       `.sams-data.db` (account, sessioni, chat, mondo, routine, cronologia) e `.sams-runtime.json` spariscono a ogni
       deploy o riavvio. Serve un `disk:` montato sulla cartella di lavoro del server (o spostare i file su un
       percorso configurabile).
-- [ ] **`render.yaml` non è allineato al prodotto.** Manca `OPENROUTER_API_KEY` (il provider attivo) e
+      **Fatto il 2026-11-10 (decisione 2A, provvisoria — da rivedere prima della RC):** nuova variabile
+      `SAMS_DATA_DIR` (`dataDir.ts`, 4 test) per database e impostazioni; `render.yaml` monta un disco da 1 GB su
+      `/var/data`. Provato dal vivo: i due file nascono nella cartella indicata e l'account sopravvive al riavvio.
+      Sistemato anche `docker-compose.yml`: il volume stava su `/app/server` e copriva il codice (dopo un rebuild
+      girava il codice vecchio); ora lo stesso volume è su `/data`, così i dati già presenti restano visibili.
+      Lì c'era anche `BASE_BRANCH` al posto di `GITHUB_BASE_BRANCH`. `.dockerignore` esclude il DB locale.
+- [x] **`render.yaml` non è allineato al prodotto.** Manca `OPENROUTER_API_KEY` (il provider attivo) e
       `SAMS_PROVIDER` è fisso su `gemini`. Mancano anche `SAMS_MODEL`, `SAMS_EDITOR_TOKEN`, `SAMS_PUBLIC_URL` e
       `SMTP_*`/`RESEND_API_KEY`. Senza `SAMS_PUBLIC_URL` i link di reset e di verifica puntano a
       `http://localhost:5173`. Verificato dalla UI: il link dell'owner esce con `localhost:5173`.
+      **Fatto il 2026-11-10:** `SAMS_PROVIDER=openrouter`, aggiunte `OPENROUTER_API_KEY`, `SAMS_MODEL`,
+      `SAMS_PUBLIC_URL`, `SAMS_EDITOR_TOKEN`, `SAMS_MAIL_FROM`, `RESEND_API_KEY` e `SMTP_*` (tutte da compilare nel
+      pannello di Render). DEPLOY.md elenca cosa riempire dopo il primo deploy. Il build Docker resta da provare.
 - [x] **Lo stream degli eventi non si riconnette e la UI dice "Connesso".** Se il runtime si riavvia (o un
       proxy risponde 5xx), l'`EventSource` si chiude per sempre: il server conta **0 viste**, la barra di stato
       continua a dire "SAMS: Connesso" e i risultati dei task non arrivano più finché non si ricarica la pagina.

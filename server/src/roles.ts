@@ -12,8 +12,10 @@
 //                                        routine, chat) ma non tocca le impostazioni.
 //   - **viewer** (SAMS_READONLY_TOKEN) → solo lettura + dashboard pubblica.
 //
-// Retro-compatibilità: se NESSUN token è configurato il runtime è in modalità
-// dev aperta e ogni richiesta è "owner" (come si comportava prima).
+// Modalità dev aperta: se NESSUN token è configurato **e** non esiste nessun account,
+// ogni richiesta è "owner" (come si comportava prima). Appena qualcuno si registra
+// i ruoli valgono anche senza token statici (decisione 1A del collaudo 2026-11-10):
+// prima un deploy senza SAMS_TOKEN lasciava un anonimo owner accanto agli account.
 
 export type Role = "owner" | "editor" | "viewer";
 
@@ -38,16 +40,23 @@ export function bearerToken(header: string | undefined | null): string {
 }
 
 /**
+ * I ruoli sono attivi? Sì se è configurato almeno un token statico oppure se esiste
+ * almeno un account registrato. Senza nessuno dei due è dev aperto.
+ */
+export function rolesEnforced(tokens: RoleTokens, accountsExist: boolean): boolean {
+  return Boolean(tokens.owner || tokens.editor || tokens.viewer) || accountsExist;
+}
+
+/**
  * Risolve il ruolo di una richiesta dai token configurati e da quello fornito.
- * - Nessun token configurato → "owner" (dev aperto, retro-compatibile).
+ * - Ruoli non attivi (nessun token, nessun account) → "owner" (dev aperto).
  * - Match del token fornito, in ordine di precedenza owner → editor → viewer.
  * - Token configurato ma nessun match → "viewer" (può solo le route di lettura,
  *   già aperte; l'osservatore pubblico degenere).
  * Un tier con token vuoto non fa mai match (nemmeno con un provided vuoto).
  */
-export function resolveRole(tokens: RoleTokens, provided: string): Role {
-  const anyConfigured = Boolean(tokens.owner || tokens.editor || tokens.viewer);
-  if (!anyConfigured) return "owner";
+export function resolveRole(tokens: RoleTokens, provided: string, accountsExist = false): Role {
+  if (!rolesEnforced(tokens, accountsExist)) return "owner";
   if (provided) {
     if (tokens.owner && provided === tokens.owner) return "owner";
     if (tokens.editor && provided === tokens.editor) return "editor";
@@ -70,11 +79,16 @@ export function roleAtLeast(role: Role, min: Role): boolean {
  * erano aperte a tutti. Con i token configurati, il ruolo minimo richiede una credenziale
  * **riconosciuta**: un token statico che combacia o una sessione utente valida.
  *
- * Senza token configurati (dev aperto) non si respinge nessuno, come prima.
+ * Con i ruoli non attivi (nessun token, nessun account) non si respinge nessuno.
  */
-export function isAnonymousWhenEnforced(tokens: RoleTokens, provided: string, hasValidSession: boolean): boolean {
-  const anyConfigured = Boolean(tokens.owner || tokens.editor || tokens.viewer);
-  if (!anyConfigured || hasValidSession) return false;
+export function isAnonymousWhenEnforced(
+  tokens: RoleTokens,
+  provided: string,
+  hasValidSession: boolean,
+  accountsExist = false,
+): boolean {
+  if (!rolesEnforced(tokens, accountsExist) || hasValidSession) return false;
   if (!provided) return true;
-  return provided !== tokens.owner && provided !== tokens.editor && provided !== tokens.viewer;
+  // Un tier vuoto non deve combaciare con nulla (provided qui non è mai vuoto).
+  return ![tokens.owner, tokens.editor, tokens.viewer].some((t) => t && provided === t);
 }

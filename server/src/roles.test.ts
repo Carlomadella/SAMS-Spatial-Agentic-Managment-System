@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, type RoleTokens } from "./roles";
+import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type RoleTokens } from "./roles";
 
 const tokens = (o: Partial<RoleTokens>): RoleTokens => ({ owner: "", editor: "", viewer: "", ...o });
 
@@ -83,5 +83,33 @@ describe("isAnonymousWhenEnforced", () => {
     const onlyOwner = tokens({ owner: "o" });
     expect(isAnonymousWhenEnforced(onlyOwner, "", false)).toBe(true);
     expect(isAnonymousWhenEnforced(onlyOwner, "o", false)).toBe(false);
+  });
+});
+
+// Decisione 1A (collaudo 2026-11-10): appena esiste un account i ruoli valgono anche
+// senza nessun token statico. Prima un anonimo era owner in un deploy senza SAMS_TOKEN.
+describe("ruoli attivi quando esiste un account (1A)", () => {
+  const none = tokens({});
+
+  it("rolesEnforced: token statici o account bastano, senza nessuno dei due è dev aperto", () => {
+    expect(rolesEnforced(none, false)).toBe(false);
+    expect(rolesEnforced(none, true)).toBe(true);
+    expect(rolesEnforced(tokens({ viewer: "v" }), false)).toBe(true);
+  });
+
+  it("senza token ma con account, l'anonimo non è più owner", () => {
+    expect(resolveRole(none, "", true)).toBe("viewer");
+    expect(resolveRole(none, "qualsiasi", true)).toBe("viewer");
+    expect(isAnonymousWhenEnforced(none, "", false, true)).toBe(true);
+    expect(isAnonymousWhenEnforced(none, "inventato", false, true)).toBe(true);
+  });
+
+  it("senza token ma con account, una sessione valida passa", () => {
+    expect(isAnonymousWhenEnforced(none, "sessione", true, true)).toBe(false);
+  });
+
+  it("senza account e senza token resta tutto aperto (dev)", () => {
+    expect(resolveRole(none, "", false)).toBe("owner");
+    expect(isAnonymousWhenEnforced(none, "", false, false)).toBe(false);
   });
 });

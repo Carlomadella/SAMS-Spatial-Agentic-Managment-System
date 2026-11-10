@@ -1,4 +1,3 @@
-import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Routine, RoutineInput } from "./routines";
 import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
@@ -6,6 +5,7 @@ import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
 import type { User } from "./auth";
 import type { TokenRecord } from "./tokens";
 import type { Role } from "./roles";
+import { dataFile } from "./dataDir";
 
 /**
  * Durable storage for the runtime, backed by SQLite (Node's built-in
@@ -15,7 +15,6 @@ import type { Role } from "./roles";
  * in-memory database.
  */
 
-const DB_FILE = path.join(process.cwd(), ".sams-data.db");
 
 export interface TaskLogEntry {
   agentId: string;
@@ -726,7 +725,9 @@ let _db: DatabaseSync | null = null;
 
 /** The shared file-backed database, opened on first use. */
 export function db(): DatabaseSync {
-  if (!_db) _db = openDb(DB_FILE);
+  // Percorso calcolato qui e non al caricamento del modulo: così SAMS_DATA_DIR del .env
+  // è già letto qualunque sia l'ordine degli import.
+  if (!_db) _db = openDb(dataFile(".sams-data.db"));
   return _db;
 }
 

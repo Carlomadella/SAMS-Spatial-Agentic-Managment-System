@@ -3,6 +3,11 @@
 # The one container serves both the API and the Vite build (see Dockerfile); the
 # server binds to Render's injected $PORT. Secrets are left unset (sync:false) —
 # fill them in the Render dashboard after the first deploy.
+#
+# Data: the SQLite database (accounts, sessions, chat, world, routines, history) and
+# the saved settings live on a persistent disk mounted at /var/data (SAMS_DATA_DIR).
+# Without it everything would be lost on every deploy or restart. A service with a
+# disk runs as a single instance and needs a paid plan (starter is enough).
 services:
   - type: web
     name: sams
@@ -11,12 +16,28 @@ services:
     plan: starter
     healthCheckPath: /api/health
     autoDeploy: true
+    disk:
+      name: sams-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      # AI provider — set at least one key. Default engine is Gemini (free tier).
+      - key: SAMS_DATA_DIR
+        value: /var/data
+      # Public address of the deploy (e.g. https://sams.onrender.com): reset and
+      # verification links are built from it. Without it they point to localhost.
+      - key: SAMS_PUBLIC_URL
+        sync: false
+      # AI provider — set the key of the chosen one. Default engine is OpenRouter.
       - key: SAMS_PROVIDER
-        value: gemini
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # Optional: model id (defaults to the provider's own default). Setting it here
+      # makes the field read-only in the UI.
+      - key: SAMS_MODEL
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
@@ -34,12 +55,32 @@ services:
         value: "true"
       - key: SAMS_REQUIRE_APPROVAL
         value: "false"
-      # Security — set these when the runtime is reachable from the internet.
+      # Security. Roles are enforced as soon as the first account is registered
+      # (the first one becomes owner), even without these static tokens: register
+      # right after the first deploy. The tokens are for scripts and integrations.
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
       - key: SAMS_TOKEN
         sync: false
+      - key: SAMS_EDITOR_TOKEN
+        sync: false
       - key: SAMS_READONLY_TOKEN
+        sync: false
+      # Email (reset and verification links). Set ONE channel: Resend or SMTP.
+      # With neither, links are only written to the server log.
+      - key: SAMS_MAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
         sync: false
       # Notion (optional)
       - key: NOTION_TOKEN
