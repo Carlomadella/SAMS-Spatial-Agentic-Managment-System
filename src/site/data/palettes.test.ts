@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   contrastRatio,
   DEFAULT_PALETTE_ID,
@@ -24,7 +26,7 @@ describe("PALETTES", () => {
 
   it("c'è la palette che richiama i colori della workspace", () => {
     const sams = paletteById("sams");
-    expect(sams.dark.accent).toBe("79 140 255"); // lo stesso blu di --c-accent in index.css
+    expect(sams.dark.accent).toBe("79 140 255"); // il blu storico della workspace (prima della 1.0)
   });
 
   it("gli id sono unici (altrimenti la scelta sarebbe ambigua)", () => {
@@ -105,6 +107,16 @@ describe("paletteById", () => {
 
   it("il default è Rossonero, i colori scelti per la 1.0", () => {
     expect(DEFAULT_PALETTE_ID).toBe("rossonero");
+  });
+
+  it("il rossonero vale per tutto il progetto: i token base di index.css (workspace) sono quelli della palette", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8"); // ?raw sul CSS è vuoto in vitest
+    const block = (sel: string) => css.slice(css.indexOf(sel + " {"), css.indexOf("}", css.indexOf(sel + " {")));
+    const p = paletteById("rossonero");
+    for (const [sel, tokens] of [[":root", p.dark], [".theme-light", p.light]] as const) {
+      const rule = block(sel);
+      for (const k of TOKEN_KEYS) expect(rule, `${sel} --c-${k}`).toContain(`--c-${k}: ${tokens[k]};`);
+    }
   });
 });
 

@@ -49,12 +49,12 @@ export default {
         brand: {
           // driven by the shared --c-accent token (index.css) so it flips with the theme
           DEFAULT: "rgb(var(--c-accent) / <alpha-value>)",
-          soft: "#9bc1ff",
+          soft: "rgb(var(--c-accent-soft) / <alpha-value>)",
         },
       },
       boxShadow: {
         panel: "0 10px 40px -12px rgba(0,0,0,0.6)",
-        glow: "0 0 0 1px rgba(79,140,255,0.4), 0 0 24px -4px rgba(79,140,255,0.5)",
+        glow: "0 0 0 1px rgb(var(--c-accent) / 0.4), 0 0 24px -4px rgb(var(--c-accent) / 0.5)",
       },
       keyframes: {
         "fade-in": {

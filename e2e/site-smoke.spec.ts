@@ -95,7 +95,7 @@ test("palette del sito è Rossonero, non il blu dell'app", async ({ page }) => {
   await page.goto("/");
   const accent = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-accent").trim());
   expect(accent).toBe("227 6 19"); // il rosso di Rossonero — i colori del Milan, scelti per la 1.0
-  expect(accent).not.toBe("79 140 255"); // il blu della workspace resta all'app
+  expect(accent).not.toBe("79 140 255"); // il vecchio blu della workspace non torna
 });
 
 test("il testo sul bottone primario contrasta con l'accento, in entrambi i temi", async ({ page }) => {

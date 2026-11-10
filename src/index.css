@@ -7,37 +7,47 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --c-ink-950: 10 12 18;
-    --c-ink-900: 13 16 23;
-    --c-ink-850: 17 21 31;
-    --c-ink-800: 21 26 38;
-    --c-ink-700: 27 34 48;
-    --c-ink-600: 35 44 61;
-    --c-ink-500: 46 57 80;
-    --c-line: 34 43 61;
-    --c-mut: 138 147 166;
-    --c-text: 226 232 240;
+    /* Rossonero (i colori del Milan, decisione D2 della 1.0): vale per TUTTO il progetto,
+       workspace compresa — gli stessi valori della palette "rossonero" di site/data/palettes.ts.
+       Neri neutri appena caldi: il rosso deve essere l'unico colore in scena. */
+    --c-ink-950: 10 10 11;
+    --c-ink-900: 15 15 16;
+    --c-ink-850: 21 20 21;
+    --c-ink-800: 28 26 27;
+    --c-ink-700: 39 36 37;
+    --c-ink-600: 54 49 50;
+    --c-ink-500: 74 68 69;
+    --c-line: 44 40 41;
+    --c-mut: 160 152 153;
+    --c-text: 240 236 236;
     --c-text-strong: 255 255 255;
-    /* accent unico dell'app (blu brand): centralizzato qui così focus/anelli lo
-       leggono da un'unica sorgente invece di ripetere l'hex #4f8cff. */
-    --c-accent: 79 140 255;
+    /* accento unico (rosso): focus, anelli, bottoni e bagliori lo leggono da qui */
+    --c-accent: 227 6 19;
+    --c-accent-2: 239 68 68;
+    /* rosso chiaro per testo/icone "brand" sul nero (era l'azzurro #9bc1ff) */
+    --c-accent-soft: 255 128 128;
+    --c-on-accent: 255 255 255; /* bianco sul rosso: 4.9:1 */
   }
 
   .theme-light {
     color-scheme: light;
-    --c-ink-950: 240 243 248;
+    --c-ink-950: 248 247 247;
     --c-ink-900: 255 255 255;
-    --c-ink-850: 238 241 246;
-    --c-ink-800: 230 234 241;
-    --c-ink-700: 219 225 235;
-    --c-ink-600: 203 211 224;
-    --c-ink-500: 180 190 208;
-    --c-line: 214 221 231;
-    --c-mut: 90 100 119;
-    --c-text: 27 34 48;
-    --c-text-strong: 11 14 20;
-    /* accento leggermente più profondo per il contrasto su sfondo chiaro */
-    --c-accent: 47 108 233;
+    --c-ink-850: 241 239 239;
+    --c-ink-800: 233 230 230;
+    --c-ink-700: 222 218 218;
+    --c-ink-600: 205 199 199;
+    --c-ink-500: 182 175 175;
+    --c-line: 226 221 221;
+    --c-mut: 100 92 93;
+    --c-text: 24 20 21;
+    --c-text-strong: 10 10 11;
+    /* sul bianco il rosso si scurisce un poco, e il secondo colore diventa il nero */
+    --c-accent: 190 10 25;
+    --c-accent-2: 30 27 28;
+    /* sul chiaro il "brand soft" deve essere scuro per leggersi (l'azzurro pallido non si leggeva) */
+    --c-accent-soft: 160 12 28;
+    --c-on-accent: 255 255 255;
   }
 
   /* In light mode, re-map the hard-coded light text colors to dark ones.
@@ -62,8 +72,8 @@
     overflow: hidden;
     /* subtle depth: a soft brand-tinted glow at the top, fading into the ink base */
     background-image:
-      radial-gradient(1200px 520px at 78% -8%, rgba(79, 140, 255, 0.1), transparent 60%),
-      radial-gradient(900px 480px at 0% 0%, rgba(120, 90, 255, 0.06), transparent 55%);
+      radial-gradient(1200px 520px at 78% -8%, rgb(var(--c-accent) / 0.1), transparent 60%),
+      radial-gradient(900px 480px at 0% 0%, rgb(var(--c-accent) / 0.05), transparent 55%);
     background-attachment: fixed;
   }
 
@@ -167,11 +177,12 @@
   }
 
   .btn-primary {
-    @apply bg-brand text-white hover:bg-brand/90 hover:text-white;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 6px 16px -8px rgba(79, 140, 255, 0.7);
+    @apply bg-brand hover:bg-brand/90;
+    color: rgb(var(--c-on-accent));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 6px 16px -8px rgb(var(--c-accent) / 0.7);
   }
   .btn-primary:hover {
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 8px 22px -8px rgba(79, 140, 255, 0.85);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 8px 22px -8px rgb(var(--c-accent) / 0.85);
   }
 
   .chip {

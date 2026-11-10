@@ -101,8 +101,11 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
 - [x] **Guardie di ruolo** — un anonimo risultava *viewer* e passava `requireRole("viewer")`: ora 401
       con i ruoli attivi (`isAnonymousWhenEnforced` in `roles.ts`, con test).
 - [ ] **Token GitHub** in `server/.env` rifiutato da GitHub ("Bad credentials"): da rigenerare (utente).
-- [ ] **Domanda aperta**: la stanza 3D (`/app`) tiene i suoi colori blu; il rossonero vale solo per il
-      sito. Rossonero anche nella stanza? _Da decidere con l'utente._
+- [x] **Rossonero per tutto il progetto** (_deciso dall'utente il 2026-11-10: "deve diventare iconico"_):
+      i token base di `index.css` (workspace, scuro e chiaro) sono ora quelli della palette Rossonero;
+      sfumature, bagliori e `brand-soft` seguono l'accento. Un test impedisce che CSS e palette divergano.
+- [ ] **Stanza 3D rossonera** — più strade possibili (accenti / identità forte / "casa del club"):
+      doc di decisione sul Drive "SAMS — Stanza 3D rossonera: decisione". _In attesa della scelta._
 
 ### Già fatto verso la 1.0 — revisione completa del codice (2026-11-09)
 

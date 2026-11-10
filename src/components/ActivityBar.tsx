@@ -41,7 +41,7 @@ export function ActivityBar() {
             )}
           >
             {active && (
-              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_8px_rgba(79,140,255,0.7)]" />
+              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_8px_rgb(var(--c-accent)/0.7)]" />
             )}
             <Icon size={20} />
           </button>

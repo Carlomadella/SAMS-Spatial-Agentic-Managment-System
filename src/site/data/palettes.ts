@@ -77,7 +77,7 @@ export const PALETTES: Palette[] = [
   {
     id: "sams",
     name: "SAMS / Workspace",
-    blurb: "Gli stessi blu della stanza: il sito e l'app diventano un pezzo unico, senza stacco all'ingresso.",
+    blurb: "I blu storici della stanza, com'era prima della 1.0 (ora tutto il progetto è rossonero).",
     dark: {
       "ink-950": "10 12 18",
       "ink-900": "13 16 23",

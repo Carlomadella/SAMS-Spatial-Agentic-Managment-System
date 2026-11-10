@@ -21,6 +21,9 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Fixed** — Il sottofondo lo-fi non ronza più: basso più corto, niente fruscio continuo, accordi più
   brevi. Ricaricando il codice il suono vecchio non resta acceso.
 - **Fixed** — Il link "Scopri di più" della home non è più annidato dentro un altro link.
+- **Changed** — Il rossonero vale per **tutto il progetto**: anche la workspace (pannelli, bottoni, barra di
+  stato, evidenziazioni) passa dal blu al rosso e nero, in tema scuro e chiaro. In tema chiaro le scritte
+  "brand" ora sono rosso scuro e si leggono (l'azzurro pallido sul bianco si leggeva a fatica).
 - **Security** — Con i ruoli attivi, le rotte protette da *viewer* rispondono 401 a chi non ha un token o
   una sessione valida (prima un anonimo passava come *viewer*).
 

@@ -62,7 +62,7 @@ export function TitleBar() {
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-gradient-to-b from-ink-850 to-ink-900 px-3 shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
       {/* brand */}
       <div className="flex items-center gap-2.5 pl-0.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-600 shadow-glow ring-1 ring-white/10">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-[#7a0710] shadow-glow ring-1 ring-white/10">
           <Bot size={16} className="text-white" />
         </div>
         <div className="flex items-baseline gap-2">
