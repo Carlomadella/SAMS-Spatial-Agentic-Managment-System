@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertCircle, Check, FileText, Github, KeyRound, Loader2, Rocket, Sparkles, X } from "lucide-react";
+import { AlertCircle, Check, FileText, Github, KeyRound, Loader2, Lock, Rocket, Sparkles, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 import {
   fetchStatus,
@@ -140,6 +140,12 @@ export function SettingsModal() {
     }
   }
 
+  // Campi impostati da variabili d'ambiente sul server: l'ambiente vince al riavvio,
+  // quindi qui sono in sola lettura (il server rifiuterebbe comunque il cambio con 409).
+  const envLocked = new Set(status?.envManaged ?? []);
+  const lockedHint = "Impostato da una variabile d'ambiente sul server: si cambia lì, non da qui.";
+  const lockedPlaceholder = "•••••••• (impostato dal server)";
+
   const keyChip =
     provider === "gemini"
       ? { ok: !!status?.hasGeminiKey, label: "Chiave Gemini" }
@@ -182,10 +188,12 @@ export function SettingsModal() {
         </div>
 
         <div className="space-y-3 px-4 py-4">
-          <Field label="Motore (modello AI)">
+          <Field label="Motore (modello AI)" locked={envLocked.has("provider")}>
             <select
               value={provider}
               onChange={(e) => changeProvider(e.target.value as Provider)}
+              disabled={envLocked.has("provider")}
+              title={envLocked.has("provider") ? lockedHint : undefined}
               className="settings-input"
             >
               <option value="gemini" className="bg-ink-800">Gemini — Google (piano gratuito)</option>
@@ -197,73 +205,79 @@ export function SettingsModal() {
           </Field>
 
           {provider === "gemini" ? (
-            <Field label="Gemini API key" icon={Sparkles}>
+            <Field label="Gemini API key" icon={Sparkles} locked={envLocked.has("geminiApiKey")}>
               <input
                 type="password"
                 value={geminiApiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder={status?.hasGeminiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "AIza…  (aistudio.google.com)"}
+                disabled={envLocked.has("geminiApiKey")}
+                placeholder={envLocked.has("geminiApiKey") ? lockedPlaceholder : status?.hasGeminiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "AIza…  (aistudio.google.com)"}
                 className="settings-input"
               />
             </Field>
           ) : provider === "groq" ? (
-            <Field label="Groq API key" icon={KeyRound}>
+            <Field label="Groq API key" icon={KeyRound} locked={envLocked.has("groqApiKey")}>
               <input
                 type="password"
                 value={groqApiKey}
                 onChange={(e) => setGroqKey(e.target.value)}
-                placeholder={status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
+                disabled={envLocked.has("groqApiKey")}
+                placeholder={envLocked.has("groqApiKey") ? lockedPlaceholder : status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
                 className="settings-input"
               />
             </Field>
           ) : provider === "openrouter" ? (
-            <Field label="OpenRouter API key" icon={KeyRound}>
+            <Field label="OpenRouter API key" icon={KeyRound} locked={envLocked.has("openrouterApiKey")}>
               <input
                 type="password"
                 value={openrouterApiKey}
                 onChange={(e) => setOpenrouterKey(e.target.value)}
-                placeholder={status?.hasOpenrouterKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-or-…  (openrouter.ai/keys)"}
+                disabled={envLocked.has("openrouterApiKey")}
+                placeholder={envLocked.has("openrouterApiKey") ? lockedPlaceholder : status?.hasOpenrouterKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-or-…  (openrouter.ai/keys)"}
                 className="settings-input"
               />
             </Field>
           ) : provider === "openai" ? (
-            <Field label="OpenAI API key" icon={KeyRound}>
+            <Field label="OpenAI API key" icon={KeyRound} locked={envLocked.has("openaiApiKey")}>
               <input
                 type="password"
                 value={openaiApiKey}
                 onChange={(e) => setOpenaiKey(e.target.value)}
-                placeholder={status?.hasOpenaiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-…  (platform.openai.com/api-keys)"}
+                disabled={envLocked.has("openaiApiKey")}
+                placeholder={envLocked.has("openaiApiKey") ? lockedPlaceholder : status?.hasOpenaiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-…  (platform.openai.com/api-keys)"}
                 className="settings-input"
               />
             </Field>
           ) : (
-            <Field label="Anthropic API key" icon={KeyRound}>
+            <Field label="Anthropic API key" icon={KeyRound} locked={envLocked.has("anthropicApiKey")}>
               <input
                 type="password"
                 value={anthropicApiKey}
                 onChange={(e) => setAnthropicKey(e.target.value)}
-                placeholder={status?.hasAnthropicKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-ant-…"}
+                disabled={envLocked.has("anthropicApiKey")}
+                placeholder={envLocked.has("anthropicApiKey") ? lockedPlaceholder : status?.hasAnthropicKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-ant-…"}
                 className="settings-input"
               />
             </Field>
           )}
 
-          <Field label="GitHub token (fine-grained, Contents R/W)" icon={Github}>
+          <Field label="GitHub token (fine-grained, Contents R/W)" icon={Github} locked={envLocked.has("githubToken")}>
             <input
               type="password"
               value={githubToken}
               onChange={(e) => setGithubToken(e.target.value)}
-              placeholder={status?.hasGithubToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "github_pat_…"}
+              disabled={envLocked.has("githubToken")}
+              placeholder={envLocked.has("githubToken") ? lockedPlaceholder : status?.hasGithubToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "github_pat_…"}
               className="settings-input"
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Repository (owner/repo)">
-              <input value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" className="settings-input" />
+            <Field label="Repository (owner/repo)" locked={envLocked.has("githubRepo")}>
+              <input disabled={envLocked.has("githubRepo")} value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" className="settings-input" />
             </Field>
-            <Field label="Branch base">
-              <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="settings-input" />
+            <Field label="Branch base" locked={envLocked.has("baseBranch")}>
+              <input disabled={envLocked.has("baseBranch")} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="settings-input" />
             </Field>
           </div>
           {repo.trim() !== "" && !isValidRepo(repo) && (
@@ -272,8 +286,8 @@ export function SettingsModal() {
             </p>
           )}
 
-          <Field label="Modello">
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="settings-input">
+          <Field label="Modello" locked={envLocked.has("model")}>
+            <select disabled={envLocked.has("model")} value={model} onChange={(e) => setModel(e.target.value)} className="settings-input">
               {MODELS[provider].map((m) => (
                 <option key={m} value={m} className="bg-ink-800">{m}</option>
               ))}
@@ -285,11 +299,11 @@ export function SettingsModal() {
             <div className="space-y-2.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[12px] text-slate-300">Apri PR automaticamente dopo il commit</span>
-                <Toggle checked={openPRs} onChange={setOpenPRs} />
+                <Toggle checked={openPRs} onChange={setOpenPRs} disabled={envLocked.has("openPRs")} title={envLocked.has("openPRs") ? lockedHint : undefined} />
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[12px] text-slate-300">Richiedi approvazione prima del commit</span>
-                <Toggle checked={requireApproval} onChange={setRequireApproval} />
+                <Toggle checked={requireApproval} onChange={setRequireApproval} disabled={envLocked.has("requireApproval")} title={envLocked.has("requireApproval") ? lockedHint : undefined} />
               </div>
             </div>
           </div>
@@ -297,17 +311,19 @@ export function SettingsModal() {
           <div className="border-t border-line pt-3">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-mut">Notion (opzionale)</div>
             <div className="space-y-3">
-              <Field label="Notion integration token" icon={KeyRound}>
+              <Field label="Notion integration token" icon={KeyRound} locked={envLocked.has("notionToken")}>
                 <input
                   type="password"
                   value={notionToken}
                   onChange={(e) => setNotionToken(e.target.value)}
-                  placeholder={status?.hasNotionToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "ntn_… / secret_…"}
+                  disabled={envLocked.has("notionToken")}
+                  placeholder={envLocked.has("notionToken") ? lockedPlaceholder : status?.hasNotionToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "ntn_… / secret_…"}
                   className="settings-input"
                 />
               </Field>
-              <Field label="Pagina Notion (URL o ID) per il log dei task" icon={FileText}>
+              <Field label="Pagina Notion (URL o ID) per il log dei task" icon={FileText} locked={envLocked.has("notionPageId")}>
                 <input
+                  disabled={envLocked.has("notionPageId")}
                   value={notionPageId}
                   onChange={(e) => setNotionPageId(e.target.value)}
                   placeholder="https://notion.so/…  oppure  ID"
@@ -343,8 +359,14 @@ export function SettingsModal() {
           {provider === "claude" ? (
             <button
               onClick={onProvision}
-              disabled={busy !== "" || !status?.hasAnthropicKey}
-              title={!status?.hasAnthropicKey ? "Salva prima la API key Anthropic" : "Crea l'agente + ambiente"}
+              disabled={busy !== "" || !status?.hasAnthropicKey || envLocked.has("agentId") || envLocked.has("environmentId")}
+              title={
+                envLocked.has("agentId") || envLocked.has("environmentId")
+                  ? lockedHint
+                  : !status?.hasAnthropicKey
+                    ? "Salva prima la API key Anthropic"
+                    : "Crea l'agente + ambiente"
+              }
               className="btn btn-primary"
             >
               {busy === "provision" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
@@ -370,10 +392,13 @@ export function SettingsModal() {
 function Field({
   label,
   icon: Icon,
+  locked = false,
   children,
 }: {
   label: string;
   icon?: typeof KeyRound;
+  /** Campo impostato da una variabile d'ambiente sul server: in sola lettura. */
+  locked?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -381,19 +406,41 @@ function Field({
       <span className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-mut">
         {Icon && <Icon size={12} />}
         {label}
+        {locked && (
+          <span
+            className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal"
+            title="Impostato da una variabile d'ambiente sul server: si cambia lì, non da qui."
+          >
+            <Lock size={10} /> dal server
+          </span>
+        )}
       </span>
       {children}
     </label>
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  checked,
+  onChange,
+  disabled = false,
+  title,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  title?: string;
+}) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      title={title}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         checked ? "bg-brand" : "bg-ink-700",
       )}
     >

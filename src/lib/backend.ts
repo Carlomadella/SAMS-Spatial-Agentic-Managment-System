@@ -82,6 +82,8 @@ export interface RuntimeStatus {
   hasNotionToken: boolean;
   notionPageId: string;
   notionReady: boolean;
+  /** Campi impostati da variabili d'ambiente sul server (solo i nomi): non si cambiano dalla UI. */
+  envManaged?: string[];
 }
 
 export interface SettingsInput {
@@ -401,7 +403,19 @@ export async function saveSettings(input: SettingsInput): Promise<RuntimeStatus>
     headers: authHeaders(),
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // Il server spiega l'errore in `error` (es. 409: campo gestito dall'ambiente):
+    // mostrare quello, non il JSON grezzo.
+    const text = await res.text().catch(() => "");
+    let msg = text || `HTTP ${res.status}`;
+    try {
+      const data = JSON.parse(text) as { error?: string };
+      if (data.error) msg = data.error;
+    } catch {
+      /* non JSON: si mostra il testo così com'è */
+    }
+    throw new Error(msg);
+  }
   return (await res.json()) as RuntimeStatus;
 }
 

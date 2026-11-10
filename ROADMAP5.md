@@ -117,8 +117,12 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       contiene `runtimeToken: ""`. Cambiare un token o una chiave su Render non ha effetto finché il file c'è.
       **Fatto il 2026-11-10:** precedenza **ambiente > file > default** (`resolveSettings`, 6 test); una variabile
       vuota non cancella il valore del file. Provato dal vivo: `SAMS_TOKEN` nell'ambiente con `runtimeToken: ""`
-      nel file → ruoli attivi, anonimo 401. Documentato in DEPLOY.md (un valore cambiato dalla UI per una chiave
-      che l'ambiente imposta dura fino al riavvio).
+      nel file → ruoli attivi, anonimo 401. Documentato in DEPLOY.md.
+      **Seguito (revisione di sicurezza, stesso giorno):** con l'ambiente che vince, un token "ruotato" dalla UI
+      sarebbe tornato valido al riavvio. Ora i campi impostati dall'ambiente sono in **sola lettura** nella UI
+      (marcati "dal server") e `POST /api/settings` risponde **409** se si prova a cambiarli; idem
+      `/api/provision` se agente/ambiente vengono dall'ambiente. Rimandare lo stesso valore resta un no-op.
+      `/api/status` espone solo i *nomi* dei campi (`envManaged`), mai i valori. 7 test nuovi; provato dal vivo.
 - [ ] **Su Render i dati si perdono a ogni deploy.** `render.yaml` non monta nessun disco: il SQLite
       `.sams-data.db` (account, sessioni, chat, mondo, routine, cronologia) e `.sams-runtime.json` spariscono a ogni
       deploy o riavvio. Serve un `disk:` montato sulla cartella di lavoro del server (o spostare i file su un
@@ -178,6 +182,8 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       ospitata né per un viewer, che non può aprire le impostazioni.
 - [ ] Gli agenti di partenza mostrano il modello "Claude Opus" qualunque sia il provider configurato.
 - [ ] `/login` mostra il form anche a chi ha già fatto l'accesso.
+- [ ] Le etichette degli agenti della scena 3D (nome + stelle) restano sopra le finestre modali, per esempio sopra le
+      impostazioni: vanno messe sotto l'overlay.
 - [ ] La palette comandi (Ctrl+K) offre a un viewer azioni che non può fare: crea agente, impostazioni,
       reimposta area, pausa caffè per tutti. Anche il bottone "+ Agente" in alto resta visibile.
 - [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.

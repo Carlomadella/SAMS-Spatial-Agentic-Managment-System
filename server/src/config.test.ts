@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSettings } from "./config";
+import { envLockedChanges, envManagedKeys, resolveSettings } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -45,5 +45,30 @@ describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("la porta viene solo dall'ambiente, mai dal file", () => {
     expect(resolveSettings({ PORT: "3000" }, { port: 1234 } as never).port).toBe(3000);
     expect(resolveSettings({}, { port: 1234 } as never).port).toBe(8787);
+  });
+});
+
+describe("campi gestiti dall'ambiente — la UI non può cambiarli", () => {
+  it("sono solo quelli con una variabile impostata e non vuota", () => {
+    const keys = envManagedKeys({ SAMS_TOKEN: "t", GITHUB_TOKEN: "", SAMS_OPEN_PRS: "false", PORT: "3000" });
+    expect(keys.sort()).toEqual(["openPRs", "runtimeToken"]);
+  });
+
+  it("un cambio dalla UI su un campo gestito dall'ambiente viene segnalato", () => {
+    // Il caso della revisione di sicurezza: l'owner "ruota" dalla UI un token rubato
+    // impostato anche su Render; al riavvio tornerebbe valido quello vecchio.
+    const current = resolveSettings({ GITHUB_TOKEN: "ghp_env" }, null);
+    expect(envLockedChanges({ githubToken: "ghp_nuovo" }, current, ["githubToken"])).toEqual(["githubToken"]);
+  });
+
+  it("rimandare lo stesso valore non è un cambio (la UI rimanda sempre provider, repo…)", () => {
+    const current = resolveSettings({ SAMS_PROVIDER: "openrouter", GITHUB_REPO: "a/b" }, null);
+    const locked = envManagedKeys({ SAMS_PROVIDER: "openrouter", GITHUB_REPO: "a/b" });
+    expect(envLockedChanges({ provider: "openrouter", githubRepo: "a/b", model: "x" }, current, locked)).toEqual([]);
+  });
+
+  it("i campi non gestiti dall'ambiente restano liberi", () => {
+    const current = resolveSettings({}, null);
+    expect(envLockedChanges({ model: "x", githubRepo: "c/d" }, current, [])).toEqual([]);
   });
 });

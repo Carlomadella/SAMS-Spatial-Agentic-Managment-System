@@ -125,6 +125,29 @@ export function resolveSettings(env: NodeJS.ProcessEnv, stored: Partial<Settings
   return { ...defaults(env), ...fromFile, ...envOverrides(env) };
 }
 
+/**
+ * Campi **gestiti dall'ambiente**: quelli con una variabile impostata (non vuota).
+ * Dato che l'ambiente vince sul file, un cambio dalla UI su questi campi durerebbe
+ * solo fino al riavvio — e per un token revocato dalla UI vorrebbe dire che quello
+ * vecchio torna valido in silenzio. Per questo la UI non può cambiarli.
+ */
+export function envManagedKeys(env: NodeJS.ProcessEnv = process.env): Array<keyof Settings> {
+  return Object.keys(envOverrides(env)) as Array<keyof Settings>;
+}
+
+/**
+ * Campi della patch che la UI vorrebbe cambiare ma che sono gestiti dall'ambiente.
+ * Un valore uguale a quello attuale non è un cambio (la UI rimanda sempre provider,
+ * repo, modello…): passa, e la patch resta un no-op per quel campo.
+ */
+export function envLockedChanges(
+  patch: Partial<Settings>,
+  current: Settings,
+  locked: ReadonlyArray<keyof Settings>,
+): Array<keyof Settings> {
+  return locked.filter((k) => k in patch && patch[k] !== undefined && patch[k] !== current[k]);
+}
+
 function parsePort(raw: string | undefined): number {
   const p = Number(raw);
   return Number.isFinite(p) && p > 0 && p < 65536 ? p : 8787;
@@ -265,5 +288,7 @@ export function publicStatus() {
     hasToken: s.runtimeToken.length > 0,
     hasEditorToken: s.editorToken.length > 0,
     hasReadonlyToken: s.readonlyToken.length > 0,
+    /** Campi impostati da variabili d'ambiente: la UI li mostra bloccati. Solo i nomi, mai i valori. */
+    envManaged: envManagedKeys(),
   };
 }

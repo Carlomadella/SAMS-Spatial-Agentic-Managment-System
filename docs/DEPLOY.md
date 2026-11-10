@@ -93,6 +93,7 @@ hands out no valid links), and using one logs out every other device on that acc
 >
 > **Precedence: environment > saved file > defaults.** A variable that is set (and
 > non-empty) in the environment always wins over `.sams-runtime.json`, so rotating
-> `SAMS_TOKEN` or an API key on the host takes effect on the next restart. A value
-> changed in-app for a key that the environment also sets lasts only until the next
-> restart; to change it for good, change the environment variable.
+> `SAMS_TOKEN` or an API key on the host takes effect on the next restart. Fields set
+> by the environment are **read-only in the app** (marked "dal server" in ⚙): the
+> runtime rejects in-app changes to them with `409`, so a token you think you rotated
+> from the UI can never silently come back on the next restart. Change those on the host.

@@ -18,6 +18,9 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   `nvidia/nemotron-3-ultra-550b-a55b:free`).
 - **Fixed** — Le **variabili d'ambiente vincono** su `.sams-runtime.json`: cambiare `SAMS_TOKEN` o una chiave sul
   server ora ha effetto al riavvio, anche se le impostazioni erano state salvate dalla UI.
+- **Security** — I campi impostati da variabili d'ambiente sono **in sola lettura** nelle impostazioni (marcati
+  "dal server") e il runtime rifiuta di cambiarli (409). Prima, un token "ruotato" dalla UI sarebbe tornato valido
+  al riavvio senza avvisare.
 - **Fixed** — **Lo stream degli eventi si riconnette da solo** dopo un riavvio del runtime o un errore del proxy, e la
   barra di stato dice "Riconnessione…" invece di restare "Connesso" a vuoto.
 - **Docs** — In `ROADMAP5.md` l'elenco completo di cosa non funziona ancora, dal collaudo del 2026-11-10.

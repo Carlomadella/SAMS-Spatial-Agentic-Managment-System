@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
+import { envLockedChanges, envManagedKeys, getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -595,6 +595,18 @@ app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) =>
   if (typeof body.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
   if (typeof body.notionToken === "string" && body.notionToken.trim()) patch.notionToken = body.notionToken.trim();
   if (typeof body.notionPageId === "string") patch.notionPageId = body.notionPageId.trim();
+  // I campi impostati da variabili d'ambiente non si cambiano dalla UI: l'ambiente
+  // vince al riavvio, quindi il cambio non durerebbe (e un token "ruotato" qui
+  // tornerebbe valido in silenzio). Si risponde 409 e non si salva niente.
+  const locked = envLockedChanges(patch, getSettings(), envManagedKeys());
+  if (locked.length > 0) {
+    log.warn("Impostazioni gestite dall'ambiente: cambio rifiutato", { fields: locked });
+    res.status(409).json({
+      error: `Questi campi sono impostati da variabili d'ambiente sul server e non si cambiano da qui: ${locked.join(", ")}. Cambiali sul server e riavvia.`,
+      envManaged: locked,
+    });
+    return;
+  }
   updateSettings(patch);
   res.json(publicStatus());
 });
@@ -603,6 +615,16 @@ app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) =>
 app.post("/api/provision", requireRole("owner"), async (_req: Request, res: Response) => {
   if (getSettings().provider !== "claude") {
     res.json({ ...publicStatus(), note: "Gemini non richiede provisioning" });
+    return;
+  }
+  // Stessa regola delle impostazioni: se gli id vengono dall'ambiente, quelli nuovi
+  // verrebbero scartati al riavvio (e si creerebbero risorse a pagamento per niente).
+  const lockedIds = envManagedKeys().filter((k) => k === "agentId" || k === "environmentId");
+  if (lockedIds.length > 0) {
+    res.status(409).json({
+      error: `Agente e ambiente sono impostati da variabili d'ambiente sul server (${lockedIds.join(", ")}): per rifarli cambiali lì.`,
+      envManaged: lockedIds,
+    });
     return;
   }
   try {
