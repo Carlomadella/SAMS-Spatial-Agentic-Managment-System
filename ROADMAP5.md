@@ -75,7 +75,16 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
 
 ### Lavoro che ne segue — da chiudere entro il feature freeze (06/12/2026)
 
-- [ ] **D4-C** — guardie *viewer* sulle GET + token monouso per l'SSE (server + `connectBackend`) + test.
+- [x] **D4-C** — guardie *viewer* sulle GET + token monouso per l'SSE (server + `connectBackend`) + test.
+      **Fatto il 2026-11-10:** *viewer* su `GET` di chat, mondo, cronologia, routine, metriche, stato della sim e
+      driver; `POST /api/events/ticket` emette un biglietto monouso da 30 s (`streamTickets.ts`, 6 test) e con i
+      ruoli attivi `/api/events` senza biglietto valido risponde 401. Il client chiede un biglietto a ogni
+      apertura dello stream; se è negato la barra di stato dice "SAMS: Accesso richiesto" con il link "Accedi" e
+      riprova da sola (4 test nuovi su `connectBackend`). Restano pubblici health, status, whoami, le rotte di
+      login e la dashboard `?public`. Provato dal vivo con curl e nel browser: anonimo → "Accesso richiesto";
+      dopo il login la stanza si collega da sola in pochi secondi, senza ricaricare.
+      ⚠️ Visto durante le prove: l'e2e `sidebars.spec.ts` "Panoramica sistema e Gate di sicurezza" è **instabile**
+      (fallisce 2 volte su 5 anche sul commit precedente: il bottone "Apri pull request" non diventa cliccabile).
 - [ ] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
       (owner), registrazione da link d'invito che assegna il ruolo, UI nella `UsersAdmin`, email + test.
 - [ ] **Sicurezza (dopo D4-C e D3-B)** — dalla revisione automatica del 2026-11-10:

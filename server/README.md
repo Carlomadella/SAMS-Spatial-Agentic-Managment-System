@@ -74,7 +74,8 @@ npm run dev         # runtime on :8787
 | `GET`  | `/api/status`   | which keys are set, provisioned?, repo, model       |
 | `POST` | `/api/settings` | save keys/repo/model (entered in the app)           |
 | `POST` | `/api/provision`| create (or re-create) the Agent + Environment       |
-| `GET`  | `/api/events`   | SSE stream of `WireEvent`s (status/progress/log)    |
+| `POST` | `/api/events/ticket` | one-time ticket (30 s) to open the stream; needs at least *viewer* |
+| `GET`  | `/api/events`   | SSE stream of `WireEvent`s (status/progress/log); with roles enforced it needs `?t=<ticket>` |
 | `POST` | `/api/assign`   | `{ agentId, agentName, title, branch? }` → run task |
 
 ## Env vars

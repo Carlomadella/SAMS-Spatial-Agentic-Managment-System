@@ -40,6 +40,24 @@ class FakeEventSource {
 
 const last = () => FakeEventSource.instances[FakeEventSource.instances.length - 1];
 
+/** Lascia girare le promesse in coda (la richiesta del biglietto è asincrona). */
+const flush = () => vi.advanceTimersByTimeAsync(0);
+
+type TicketReply = "ok" | 401 | "network";
+let ticketReply: TicketReply = "ok";
+let ticketCalls: Array<{ url: string; init?: RequestInit }> = [];
+
+function fakeFetch(url: string, init?: RequestInit): Promise<Response> {
+  if (url.endsWith("/api/events/ticket")) {
+    ticketCalls.push({ url, init });
+    if (ticketReply === "network") return Promise.reject(new Error("offline"));
+    if (ticketReply === 401) return Promise.resolve(new Response(JSON.stringify({ error: "no" }), { status: 401 }));
+    return Promise.resolve(new Response(JSON.stringify({ ticket: `t${ticketCalls.length}` }), { status: 200 }));
+  }
+  // Le idratazioni dell'onopen falliscono in silenzio: qui conta solo lo stream.
+  return Promise.reject(new Error("offline"));
+}
+
 describe("connectBackend — lo stream si ripara da solo", () => {
   let stop: () => void = () => {};
 
@@ -47,8 +65,10 @@ describe("connectBackend — lo stream si ripara da solo", () => {
     vi.useFakeTimers();
     FakeEventSource.instances = [];
     vi.stubGlobal("EventSource", FakeEventSource);
-    // Le idratazioni dell'onopen falliscono in silenzio: qui conta solo lo stream.
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("offline"))));
+    ticketReply = "ok";
+    ticketCalls = [];
+    vi.stubGlobal("fetch", vi.fn(fakeFetch));
+    useStore.getState().setStreamAuthRequired(false);
   });
 
   afterEach(() => {
@@ -57,70 +77,127 @@ describe("connectBackend — lo stream si ripara da solo", () => {
     vi.unstubAllGlobals();
   });
 
-  it("all'apertura la UI è online", () => {
+  it("all'apertura la UI è online", async () => {
     stop = connectBackend();
+    await flush();
     last().open();
     expect(useStore.getState().backendOnline).toBe(true);
   });
 
-  it("se il browser chiude lo stream per sempre (errore HTTP), riapre con attesa crescente", () => {
+  it("se il browser chiude lo stream per sempre (errore HTTP), riapre con attesa crescente", async () => {
     stop = connectBackend();
+    await flush();
     last().open();
     last().fail(true);
     expect(useStore.getState().backendOnline).toBe(false);
     expect(FakeEventSource.instances).toHaveLength(1);
 
-    vi.advanceTimersByTime(1000); // primo tentativo dopo 1 s
+    await vi.advanceTimersByTimeAsync(1000); // primo tentativo dopo 1 s
     expect(FakeEventSource.instances).toHaveLength(2);
 
     last().fail(true);
-    vi.advanceTimersByTime(1999); // il secondo aspetta 2 s
+    await vi.advanceTimersByTimeAsync(1999); // il secondo aspetta 2 s
     expect(FakeEventSource.instances).toHaveLength(2);
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(FakeEventSource.instances).toHaveLength(3);
 
     last().open();
     expect(useStore.getState().backendOnline).toBe(true);
   });
 
-  it("un errore temporaneo (il browser ritenta da solo) non apre un secondo stream", () => {
+  it("un errore temporaneo (il browser ritenta da solo) non apre un secondo stream", async () => {
     stop = connectBackend();
+    await flush();
     last().open();
     last().fail(false);
     expect(useStore.getState().backendOnline).toBe(false);
-    vi.advanceTimersByTime(5000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(FakeEventSource.instances).toHaveLength(1);
   });
 
-  it("uno stream aperto ma muto oltre la soglia viene chiuso e riaperto", () => {
+  it("uno stream aperto ma muto oltre la soglia viene chiuso e riaperto", async () => {
     stop = connectBackend();
+    await flush();
     const first = last();
     first.open();
-    vi.advanceTimersByTime(STREAM_STALE_MS + STREAM_WATCHDOG_MS);
+    await vi.advanceTimersByTimeAsync(STREAM_STALE_MS + STREAM_WATCHDOG_MS);
     expect(first.closed).toBe(true);
     expect(useStore.getState().backendOnline).toBe(false);
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(FakeEventSource.instances).toHaveLength(2);
   });
 
-  it("i ping del server tengono vivo lo stream", () => {
+  it("i ping del server tengono vivo lo stream", async () => {
     stop = connectBackend();
+    await flush();
     const first = last();
     first.open();
     for (let t = 0; t < STREAM_STALE_MS * 3; t += 25_000) {
-      vi.advanceTimersByTime(25_000);
+      await vi.advanceTimersByTimeAsync(25_000);
       first.ping();
     }
     expect(first.closed).toBe(false);
     expect(FakeEventSource.instances).toHaveLength(1);
   });
 
-  it("dopo lo stop non si riconnette più", () => {
+  it("dopo lo stop non si riconnette più", async () => {
     stop = connectBackend();
+    await flush();
     last().open();
     last().fail(true);
     stop();
-    vi.advanceTimersByTime(60_000);
+    await vi.advanceTimersByTimeAsync(60_000);
     expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it("chiede un biglietto col token di sessione e lo mette nell'URL dello stream (D4-C)", async () => {
+    localStorage.setItem("sams.site.token", "sessione-123");
+    try {
+      stop = connectBackend();
+      await flush();
+      expect(ticketCalls).toHaveLength(1);
+      expect(ticketCalls[0].init?.method).toBe("POST");
+      expect((ticketCalls[0].init?.headers as Record<string, string>).Authorization).toBe("Bearer sessione-123");
+      expect(new URL(last().url, "http://x").searchParams.get("t")).toBe("t1");
+      // il token di sessione non finisce mai nell'URL
+      expect(last().url).not.toContain("sessione-123");
+    } finally {
+      localStorage.removeItem("sams.site.token");
+    }
+  });
+
+  it("ogni riapertura usa un biglietto nuovo", async () => {
+    stop = connectBackend();
+    await flush();
+    last().open();
+    last().fail(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeEventSource.instances).toHaveLength(2);
+    expect(new URL(last().url, "http://x").searchParams.get("t")).toBe("t2");
+  });
+
+  it("se il runtime nega il biglietto (401) non apre lo stream e segnala che serve l'accesso", async () => {
+    ticketReply = 401;
+    stop = connectBackend();
+    await flush();
+    expect(FakeEventSource.instances).toHaveLength(0);
+    expect(useStore.getState().streamAuthRequired).toBe(true);
+    expect(useStore.getState().backendOnline).toBe(false);
+
+    // dopo il login (biglietto concesso) si collega da solo al tentativo successivo
+    ticketReply = "ok";
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeEventSource.instances).toHaveLength(1);
+    last().open();
+    expect(useStore.getState().streamAuthRequired).toBe(false);
+    expect(useStore.getState().backendOnline).toBe(true);
+  });
+
+  it("se il runtime non risponde alla richiesta del biglietto, prova lo stream senza", async () => {
+    ticketReply = "network";
+    stop = connectBackend();
+    await flush();
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(new URL(last().url, "http://x").searchParams.has("t")).toBe(false);
   });
 });

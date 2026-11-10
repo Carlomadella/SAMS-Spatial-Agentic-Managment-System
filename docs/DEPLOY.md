@@ -83,8 +83,16 @@ Roles (viewer < editor < owner) are **enforced as soon as either is true**:
 - a static token (`SAMS_TOKEN`, `SAMS_EDITOR_TOKEN`, `SAMS_READONLY_TOKEN`) is set.
 
 When they are enforced, protected calls need a recognised credential: an account session
-or a matching static token. An anonymous visitor gets `401` and sees the workspace read-only;
-a viewer can only look; an editor starts work; the owner also manages settings and users.
+or a matching static token. An anonymous visitor gets `401` on everything except the health
+check, the public status, the login/sign-up routes and the public dashboard (`?public`, which
+has its own `SAMS_READONLY_TOKEN`): chat, world, history, routines, metrics and the live event
+stream are for accounts only, and the workspace shows "Accesso richiesto" with a sign-in link.
+A viewer can only look; an editor starts work; the owner also manages settings and users.
+
+The live stream (`/api/events`) is an `EventSource`, which cannot send an `Authorization`
+header. So the app first asks `POST /api/events/ticket` (authenticated) for a **one-time
+ticket**, valid for 30 seconds, and opens the stream with `?t=<ticket>`. The session token
+never appears in a URL, and a stream URL that ends up in a proxy log is already useless.
 With **no accounts and no tokens** the runtime is in open dev mode and everyone is owner —
 fine on your laptop, never on the internet. So on a fresh deploy, register the owner account
 first: until then, whoever opens the URL first gets to do it.

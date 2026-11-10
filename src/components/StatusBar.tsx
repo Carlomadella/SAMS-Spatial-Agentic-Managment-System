@@ -3,6 +3,7 @@ import { useStore } from "../store/useStore";
 import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
 import { roleMeta } from "../lib/roleUi";
+import { Link } from "../site/router";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -12,6 +13,7 @@ export function StatusBar() {
   const environment = useStore((s) => s.environment);
   const agents = useStore((s) => s.agents);
   const backendOnline = useStore((s) => s.backendOnline);
+  const streamAuthRequired = useStore((s) => s.streamAuthRequired);
   const observers = useStore((s) => s.observers);
   const people = useStore((s) => s.people);
   const worldDriver = useStore((s) => s.worldDriver);
@@ -89,11 +91,22 @@ export function StatusBar() {
         {/* Prima era scritto fisso "Connesso": restava anche con lo stream morto. */}
         <span
           className="flex items-center gap-1"
-          title={backendOnline ? "Aggiornamenti in tempo reale attivi" : "Stream eventi interrotto — riconnessione in corso"}
+          title={
+            backendOnline
+              ? "Aggiornamenti in tempo reale attivi"
+              : streamAuthRequired
+                ? "Il workspace è riservato agli account: accedi per vederlo"
+                : "Stream eventi interrotto — riconnessione in corso"
+          }
         >
           {backendOnline ? <Check size={12} /> : <CircleAlert size={12} />}
-          {backendOnline ? "SAMS: Connesso" : "SAMS: Riconnessione…"}
+          {backendOnline ? "SAMS: Connesso" : streamAuthRequired ? "SAMS: Accesso richiesto" : "SAMS: Riconnessione…"}
         </span>
+        {!backendOnline && streamAuthRequired && (
+          <Link to="/login" className="underline underline-offset-2 hover:text-white">
+            Accedi
+          </Link>
+        )}
       </div>
     </footer>
   );

@@ -35,6 +35,7 @@ import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
+import { StreamTickets } from "./streamTickets";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -506,7 +507,7 @@ app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Respo
 });
 
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
-app.get("/api/metrics", (_req: Request, res: Response) => {
+app.get("/api/metrics", requireRole("viewer"), (_req: Request, res: Response) => {
   let lifetime = { total: 0, completed: 0, tokens: 0 };
   try {
     lifetime = taskStats(db());
@@ -517,7 +518,7 @@ app.get("/api/metrics", (_req: Request, res: Response) => {
 });
 
 /** Recent finished tasks from the durable log (newest first). */
-app.get("/api/history", (_req: Request, res: Response) => {
+app.get("/api/history", requireRole("viewer"), (_req: Request, res: Response) => {
   res.json(recentTasks(db(), 20));
 });
 
@@ -658,7 +659,25 @@ app.post("/api/provision", requireRole("owner"), async (req: Request, res: Respo
   }
 });
 
+/**
+ * Biglietto monouso per aprire lo stream eventi (D4-C). Un EventSource non manda
+ * header, quindi il client autenticato chiede qui un biglietto e lo passa come `?t=`.
+ */
+const streamTickets = new StreamTickets();
+app.post("/api/events/ticket", requireRole("viewer"), (_req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ticket: streamTickets.issue() });
+});
+
 app.get("/api/events", (req: Request, res: Response) => {
+  // Con i ruoli attivi lo stream vuole un biglietto valido (D4-C); in dev aperto no.
+  // Il biglietto si consuma comunque, se c'è: non deve restare valido in un log.
+  const ticketOk = streamTickets.consume(req.query.t);
+  if (!ticketOk && rolesEnforced(roleTokens(), accountsExist())) {
+    log.warn("Stream eventi senza biglietto valido respinto", { ip: req.ip });
+    res.status(401).json({ error: "Biglietto dello stream mancante o scaduto" });
+    return;
+  }
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
@@ -840,7 +859,7 @@ app.post("/api/reject/:agentId", requireRole("editor"), (req: Request, res: Resp
 
 // --- Live Simulation mode ------------------------------------------------
 
-app.get("/api/sim/status", (_req: Request, res: Response) => {
+app.get("/api/sim/status", requireRole("viewer"), (_req: Request, res: Response) => {
   res.json(simStatus());
 });
 
@@ -935,7 +954,7 @@ app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), (req: Requ
 // toward an authoritative server state, without yet reconciling back to the
 // client. Survives runtime restarts.
 
-app.get("/api/world", (_req: Request, res: Response) => {
+app.get("/api/world", requireRole("viewer"), (_req: Request, res: Response) => {
   try {
     res.json(loadWorldSnapshot(db()));
   } catch (err) {
@@ -984,7 +1003,7 @@ app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
 // log. Messages live in SQLite and are broadcast over SSE to every connected
 // view, so people watching the same office can talk live.
 
-app.get("/api/chat", (_req: Request, res: Response) => {
+app.get("/api/chat", requireRole("viewer"), (_req: Request, res: Response) => {
   try {
     res.json(listChatMessages(db()));
   } catch (err) {
@@ -1107,7 +1126,7 @@ app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) 
 // canali di presenza.
 const driverLimiter = createRateLimiter(10, 5000); // heartbeat ~0.5/s, ampio margine
 
-app.get("/api/driver", (_req: Request, res: Response) => {
+app.get("/api/driver", requireRole("viewer"), (_req: Request, res: Response) => {
   res.json(currentDriver(Date.now()));
 });
 
@@ -1164,7 +1183,7 @@ app.post("/api/worldsim", requireRole("viewer"), (req: Request, res: Response) =
 // SQLite; a scheduler tick fires a `wake` (source: "routine") that the UI turns
 // into an assignment to a free agent — reusing the same path as webhook wakes.
 
-app.get("/api/routines", (_req: Request, res: Response) => {
+app.get("/api/routines", requireRole("viewer"), (_req: Request, res: Response) => {
   try {
     res.json(listRoutines(db()).map((r) => ({ ...r, schedule: describeSchedule(r) })));
   } catch (err) {

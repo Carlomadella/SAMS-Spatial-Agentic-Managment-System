@@ -179,7 +179,7 @@ export async function fetchPublicSnapshot(token?: string): Promise<PublicSnapsho
 /** Recent finished tasks from the runtime's durable log (empty if unreachable). */
 export async function fetchHistory(): Promise<TaskHistoryRow[]> {
   try {
-    const res = await fetch(`${BASE}/api/history`);
+    const res = await fetch(`${BASE}/api/history`, { headers: authHeaders(false) });
     if (!res.ok) return [];
     return (await res.json()) as TaskHistoryRow[];
   } catch {
@@ -190,7 +190,7 @@ export async function fetchHistory(): Promise<TaskHistoryRow[]> {
 /** Read the runtime's in-memory metrics (null if the runtime is unreachable). */
 export async function fetchMetrics(): Promise<RuntimeMetrics | null> {
   try {
-    const res = await fetch(`${BASE}/api/metrics`);
+    const res = await fetch(`${BASE}/api/metrics`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as RuntimeMetrics;
   } catch {
@@ -507,7 +507,7 @@ export interface SimStatusRemote {
  *  after a reload or reconnect). Returns null if unreachable. */
 export async function fetchSimStatus(): Promise<SimStatusRemote | null> {
   try {
-    const res = await fetch(`${BASE}/api/sim/status`);
+    const res = await fetch(`${BASE}/api/sim/status`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as SimStatusRemote;
   } catch {
@@ -601,7 +601,7 @@ export interface WorldSnapshotRemote {
 /** Read the server's durable authoritative world snapshot (null if unreachable). */
 export async function fetchWorld(): Promise<WorldSnapshotRemote | null> {
   try {
-    const res = await fetch(`${BASE}/api/world`);
+    const res = await fetch(`${BASE}/api/world`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as WorldSnapshotRemote;
   } catch {
@@ -657,7 +657,7 @@ export interface ChatMessageRemote {
 /** Read the recent workspace chat (oldest-first); empty if unreachable. */
 export async function fetchChat(): Promise<ChatMessageRemote[]> {
   try {
-    const res = await fetch(`${BASE}/api/chat`);
+    const res = await fetch(`${BASE}/api/chat`, { headers: authHeaders(false) });
     if (!res.ok) return [];
     return (await res.json()) as ChatMessageRemote[];
   } catch {
@@ -709,7 +709,7 @@ export interface RoutineDraft {
 /** List the runtime's scheduled routines (empty if unreachable). */
 export async function fetchRoutines(): Promise<RoutineRemote[]> {
   try {
-    const res = await fetch(`${BASE}/api/routines`);
+    const res = await fetch(`${BASE}/api/routines`, { headers: authHeaders(false) });
     if (!res.ok) return [];
     return (await res.json()) as RoutineRemote[];
   } catch {
@@ -870,7 +870,7 @@ export function sendWorldSim(
 /** Read the current driver holder at connect (so a fresh view knows immediately). */
 export async function fetchDriver(): Promise<{ holderId: string; name: string } | null> {
   try {
-    const res = await fetch(`${BASE}/api/driver`);
+    const res = await fetch(`${BASE}/api/driver`, { headers: authHeaders(false) });
     if (!res.ok) return null;
     return (await res.json()) as { holderId: string; name: string };
   } catch {
@@ -900,6 +900,25 @@ export async function fetchRepoTree(): Promise<RepoTreeResponse | null> {
 let source: EventSource | null = null;
 
 /**
+ * Chiede al runtime un biglietto monouso per aprire lo stream (D4-C): un EventSource
+ * non può mandare il token di sessione negli header, e metterlo nell'URL lo lascerebbe
+ * valido nei log. Ritorna il biglietto, `"denied"` se il runtime lo nega (401/403:
+ * ruoli attivi e nessun accesso valido) oppure `null` se il runtime non risponde o è
+ * una versione senza biglietti: in quel caso si prova lo stream senza.
+ */
+async function fetchStreamTicket(): Promise<string | "denied" | null> {
+  try {
+    const res = await fetch(`${BASE}/api/events/ticket`, { method: "POST", headers: authHeaders(false) });
+    if (res.status === 401 || res.status === 403) return "denied";
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ticket?: unknown };
+    return typeof data.ticket === "string" && data.ticket ? data.ticket : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Subscribe to the runtime's event stream; returns an unsubscribe function.
  *
  * Lo stream si ripara da solo: se il browser lo chiude per sempre (risposta HTTP
@@ -925,7 +944,7 @@ export function connectBackend(): () => void {
     retryTimer = setTimeout(() => {
       retryTimer = null;
       attempt++;
-      open();
+      void open();
     }, reconnectDelay(attempt));
   };
 
@@ -933,12 +952,22 @@ export function connectBackend(): () => void {
     if (!stopped && source && isStale(lastSeen, Date.now())) scheduleReconnect();
   }, STREAM_WATCHDOG_MS);
 
-  const open = () => {
+  const open = async () => {
     if (stopped) return;
+    const ticket = await fetchStreamTicket();
+    if (stopped) return;
+    if (ticket === "denied") {
+      // Ruoli attivi e nessun accesso: niente stream. Si riprova con attesa crescente,
+      // così dopo il login la stanza si collega da sola.
+      useStore.getState().setStreamAuthRequired(true);
+      scheduleReconnect();
+      return;
+    }
     lastSeen = Date.now();
     // La vista si presenta al connect: id stabile + nome, come query param (unico
     // canale disponibile per un EventSource, che è sempre una GET).
     const q = new URLSearchParams({ v: getViewerId(), n: viewerName() });
+    if (ticket) q.set("t", ticket);
     const es = new EventSource(`${BASE}/api/events?${q.toString()}`);
     source = es;
     es.addEventListener("ping", touch);
@@ -961,6 +990,7 @@ export function connectBackend(): () => void {
   const onOpen = () => {
     touch();
     attempt = 0;
+    useStore.getState().setStreamAuthRequired(false);
     useStore.getState().setBackendOnline(true);
     void refreshRuntimeStatus();
     // Reconcile sim state with the server: it's the source of truth, so a reload
@@ -991,7 +1021,7 @@ export function connectBackend(): () => void {
     void fetchDriver().then((d) => useStore.getState().setWorldDriver(d && d.holderId ? d : null));
   };
 
-  open();
+  void open();
 
   return () => {
     stopped = true;

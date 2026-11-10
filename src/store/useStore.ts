@@ -98,6 +98,8 @@ interface State {
 
   /** whether the optional managed-agents runtime is connected */
   backendOnline: boolean;
+  /** il runtime ha negato il biglietto dello stream (401): con i ruoli attivi serve l'accesso (D4-C) */
+  streamAuthRequired: boolean;
   /** how many views (SSE clients) are watching the world right now; 1 = just you */
   observers: number;
   /** last-seen authoritative world version from the server (CAS base, monotonic). */
@@ -270,6 +272,7 @@ interface State {
 
   // --- actions: runtime (managed agents) ---
   setBackendOnline: (online: boolean) => void;
+  setStreamAuthRequired: (required: boolean) => void;
   setRuntimeReady: (ready: boolean) => void;
   setSimMode: (on: boolean) => void;
   setSimLabel: (label: string) => void;
@@ -415,6 +418,7 @@ export const useStore = create<State>()(
   rightWidth: 296,
   bottomHeight: 248,
   backendOnline: false,
+  streamAuthRequired: false,
   observers: 1,
   serverWorldVersion: 0,
   people: [],
@@ -829,6 +833,7 @@ export const useStore = create<State>()(
   setBottomHeight: (h) => set({ bottomHeight: clamp(h, 140, 560) }),
 
   setBackendOnline: (online) => set(online ? { backendOnline: true } : { backendOnline: false, observers: 1, people: [], cursors: {}, remoteSelections: {}, worldDriver: null, remoteSim: {} }),
+  setStreamAuthRequired: (required) => set({ streamAuthRequired: required }),
   setWorldDriver: (d) => set({ worldDriver: d }),
   applyCursor: (c) => set((s) => ({ cursors: { ...s.cursors, [c.id]: { ...c, ts: Date.now() } } })),
   pruneCursors: () => {
