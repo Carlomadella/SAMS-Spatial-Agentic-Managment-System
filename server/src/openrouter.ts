@@ -25,13 +25,26 @@ const OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions";
 // I modelli free ruotano nel catalogo di OpenRouter: se questo sparisce, basta
 // cambiarlo dalle Impostazioni (o via SAMS_MODEL). Va bene qualunque id ":free"
 // che supporti i tool.
-const DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
 const MAX_RETRIES = 5;
 const MAX_BACKOFF_MS = 30000;
 
 // Header opzionali consigliati da OpenRouter per attribuzione/ranking (non richiesti).
 const OR_REFERER = "https://github.com/Carlomadella/SAMS-Spatial-Agentic-Managment-System";
-const OR_TITLE = "SAMS — Spatial Agentic Management System";
+// Solo ASCII: i valori degli header HTTP devono essere ByteString. Con un "—" qui
+// fetch rifiutava ogni richiesta prima di spedirla (TypeError), e OpenRouter non
+// ha mai funzionato dal 2026-07-06 al 2026-11-10.
+const OR_TITLE = "SAMS - Spatial Agentic Management System";
+
+/** Header di ogni chiamata a OpenRouter (esportati per il test: devono passare `new Headers`). */
+export function openrouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": OR_REFERER,
+    "X-Title": OR_TITLE,
+  };
+}
 
 export function openrouterModel(): string {
   const s = getSettings();
@@ -89,12 +102,7 @@ async function openrouterChat(
       const res = await fetch(OPENROUTER_API, {
         method: "POST",
         signal: AbortSignal.timeout(60000),
-        headers: {
-          Authorization: `Bearer ${s.openrouterApiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": OR_REFERER,
-          "X-Title": OR_TITLE,
-        },
+        headers: openrouterHeaders(s.openrouterApiKey),
         body: JSON.stringify({
           model: openrouterModel(),
           messages: allMessages,

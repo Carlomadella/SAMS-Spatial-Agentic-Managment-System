@@ -18,10 +18,13 @@ const MODELS: Record<Provider, string[]> = {
   groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
   // Modelli ":free" con supporto ai tool. Il catalogo gratuito di OpenRouter ruota:
   // se uno sparisce, cambialo qui o metti un altro id ":free" tool-capable.
+  // Verificati il 2026-11-10 con una vera chiamata a tool (i tre di prima — Llama 3.3,
+  // Qwen 2.5, DeepSeek V3 — non sono più gratuiti: OpenRouter risponde 404).
   openrouter: [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct:free",
-    "deepseek/deepseek-chat-v3-0324:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "cohere/north-mini-code:free",
+    "nvidia/nemotron-3.5-super-vl:free",
+    "google/gemma-4-31b-it:free",
   ],
   // Modelli OpenAI (ChatGPT) con tool calling — a consumo (serve una chiave sk-…).
   openai: ["gpt-4o-mini", "gpt-4o", "o4-mini"],

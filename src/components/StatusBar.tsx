@@ -86,8 +86,13 @@ export function StatusBar() {
         <span className="hidden sm:inline">UTF-8</span>
         <span className="hidden sm:inline">LF</span>
         <span className="hidden sm:inline">YAML</span>
-        <span className="flex items-center gap-1">
-          <Check size={12} /> SAMS: Connesso
+        {/* Prima era scritto fisso "Connesso": restava anche con lo stream morto. */}
+        <span
+          className="flex items-center gap-1"
+          title={backendOnline ? "Aggiornamenti in tempo reale attivi" : "Stream eventi interrotto — riconnessione in corso"}
+        >
+          {backendOnline ? <Check size={12} /> : <CircleAlert size={12} />}
+          {backendOnline ? "SAMS: Connesso" : "SAMS: Riconnessione…"}
         </span>
       </div>
     </footer>

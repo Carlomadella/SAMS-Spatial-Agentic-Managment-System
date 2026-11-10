@@ -651,7 +651,10 @@ app.get("/api/events", (req: Request, res: Response) => {
       return;
     }
     try {
-      res.write(": ping\n\n");
+      // Evento con nome (non un commento ":"): il client lo vede e lo usa come
+      // segno di vita. Senza, un proxy che tiene aperta la connessione dopo la
+      // morte del runtime lascerebbe la UI "connessa" a uno stream muto.
+      res.write("event: ping\ndata: {}\n\n");
     } catch {
       cleanup();
     }

@@ -1,6 +1,7 @@
 import type { AgentStatus, LogLevel, PendingFile } from "../types";
 import { useStore } from "../store/useStore";
 import { normalizeRole, type ViewerRole } from "./roleUi";
+import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
@@ -883,13 +884,68 @@ export async function fetchRepoTree(): Promise<RepoTreeResponse | null> {
 
 let source: EventSource | null = null;
 
-/** Subscribe to the runtime's event stream; returns an unsubscribe function. */
+/**
+ * Subscribe to the runtime's event stream; returns an unsubscribe function.
+ *
+ * Lo stream si ripara da solo: se il browser lo chiude per sempre (risposta HTTP
+ * d'errore, es. un proxy 502 durante un deploy) o se resta muto oltre
+ * `STREAM_STALE_MS` (il server manda un `ping` ogni 25 s), lo si chiude e si
+ * riapre con attesa crescente (1 s → 30 s). Nel frattempo la UI è offline.
+ */
 export function connectBackend(): () => void {
-  // La vista si presenta al connect: id stabile + nome, come query param (unico
-  // canale disponibile per un EventSource, che è sempre una GET).
-  const q = new URLSearchParams({ v: getViewerId(), n: viewerName() });
-  source = new EventSource(`${BASE}/api/events?${q.toString()}`);
-  source.onopen = () => {
+  let stopped = false;
+  let attempt = 0;
+  let lastSeen = Date.now();
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const touch = () => {
+    lastSeen = Date.now();
+  };
+
+  const scheduleReconnect = () => {
+    if (stopped || retryTimer) return;
+    source?.close();
+    source = null;
+    useStore.getState().setBackendOnline(false);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      attempt++;
+      open();
+    }, reconnectDelay(attempt));
+  };
+
+  const watchdog = setInterval(() => {
+    if (!stopped && source && isStale(lastSeen, Date.now())) scheduleReconnect();
+  }, STREAM_WATCHDOG_MS);
+
+  const open = () => {
+    if (stopped) return;
+    lastSeen = Date.now();
+    // La vista si presenta al connect: id stabile + nome, come query param (unico
+    // canale disponibile per un EventSource, che è sempre una GET).
+    const q = new URLSearchParams({ v: getViewerId(), n: viewerName() });
+    const es = new EventSource(`${BASE}/api/events?${q.toString()}`);
+    source = es;
+    es.addEventListener("ping", touch);
+    es.onopen = () => onOpen();
+    es.onerror = () => {
+      useStore.getState().setBackendOnline(false);
+      // CONNECTING: il browser ritenta da solo. CLOSED: non lo farà mai più.
+      if (es.readyState === EventSource.CLOSED) scheduleReconnect();
+    };
+    es.onmessage = (ev) => {
+      touch();
+      try {
+        useStore.getState().applyRemote(JSON.parse(ev.data) as RemoteUpdate);
+      } catch {
+        /* ignore malformed payloads */
+      }
+    };
+  };
+
+  const onOpen = () => {
+    touch();
+    attempt = 0;
     useStore.getState().setBackendOnline(true);
     void refreshRuntimeStatus();
     // Reconcile sim state with the server: it's the source of truth, so a reload
@@ -919,15 +975,14 @@ export function connectBackend(): () => void {
     // Learn who currently drives the shared world (opzione B3).
     void fetchDriver().then((d) => useStore.getState().setWorldDriver(d && d.holderId ? d : null));
   };
-  source.onerror = () => useStore.getState().setBackendOnline(false);
-  source.onmessage = (ev) => {
-    try {
-      useStore.getState().applyRemote(JSON.parse(ev.data) as RemoteUpdate);
-    } catch {
-      /* ignore keep-alive comments and malformed payloads */
-    }
-  };
+
+  open();
+
   return () => {
+    stopped = true;
+    clearInterval(watchdog);
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = null;
     source?.close();
     source = null;
     useStore.getState().setBackendOnline(false);

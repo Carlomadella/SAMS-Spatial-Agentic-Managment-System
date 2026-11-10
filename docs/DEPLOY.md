@@ -48,7 +48,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | --- | --- | --- | --- |
 | `SAMS_PROVIDER` | no | `gemini` | `gemini` (free) · `groq` (free) · `openrouter` (free) · `claude` (paid) |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` | ≥1 | — | key for the chosen provider |
-| `SAMS_MODEL` | no | `gemini-2.5-flash` | model id for the provider (OpenRouter: a `:free` tool-capable id, e.g. `meta-llama/llama-3.3-70b-instruct:free`) |
+| `SAMS_MODEL` | no | `gemini-2.5-flash` | model id for the provider (OpenRouter: a `:free` tool-capable id, e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`) |
 | `GITHUB_TOKEN` | for code tasks | — | fine-grained, **Contents: read & write** |
 | `GITHUB_REPO` | for code tasks | — | `owner/repo` (overridable per-agent in the UI) |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
@@ -90,3 +90,9 @@ hands out no valid links), and using one logs out every other device on that acc
 > Runtime settings can also be entered in-app (⚙) and persist to
 > `server/.sams-runtime.json` — mount a volume to keep them across restarts (the
 > Compose file already does).
+>
+> **Precedence: environment > saved file > defaults.** A variable that is set (and
+> non-empty) in the environment always wins over `.sams-runtime.json`, so rotating
+> `SAMS_TOKEN` or an API key on the host takes effect on the next restart. A value
+> changed in-app for a key that the environment also sets lasts only until the next
+> restart; to change it for good, change the environment variable.

@@ -22,7 +22,7 @@ SAMS UI ──POST /api/assign──▶  runtime  ──▶  Claude Managed Agen
   Self-hosted loop over Groq's OpenAI-compatible API. No provisioning.
 - **OpenRouter (`:free` models, free)** — free key at <https://openrouter.ai/keys>.
   Self-hosted loop over OpenRouter's OpenAI-compatible API; set `SAMS_MODEL` to a
-  `:free` tool-capable id (e.g. `meta-llama/llama-3.3-70b-instruct:free`). The free
+  `:free` tool-capable id (e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`). The free
   catalog rotates and free models have low daily rate limits. No provisioning.
 - **Claude (Anthropic, paid)** — Managed Agents (sandbox); needs API credits and
   a one-time *Provisiona agenti*.

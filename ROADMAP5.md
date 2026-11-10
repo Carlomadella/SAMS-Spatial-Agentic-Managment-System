@@ -85,6 +85,115 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
          (agent undici con `connect.lookup` che applica `isPrivateAddress`).
 - [x] ~~D2-B~~ — fatto (palette Rossonero, link al lab rimosso).
 
+### 🧪 Collaudo pre-rilascio del 2026-11-10 — cosa NON funziona
+
+Provato tutto: typecheck, lint e build verdi; test unitari verdi (client **569**, server **354**); e2e
+Playwright **19/19** verdi. Poi l'app è stata usata davvero nel browser con un runtime su un database
+isolato (account owner + viewer, ruoli attivi e non, un task vero con Gemini e uno con OpenRouter).
+I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi prima della RC (20/12).
+
+**🔴 Bloccanti — la 1.0 non può uscire così**
+
+- [x] **OpenRouter non funziona affatto (dal 2026-07-06).** L'header `X-Title` in `server/src/openrouter.ts`
+      contiene un trattino lungo (`SAMS — Spatial…`): `fetch` lo rifiuta prima di spedire la richiesta
+      (*Cannot convert argument to a ByteString… value of 8212*). Ogni task finisce in errore e l'agente resta
+      **bloccato**. È il provider attivo. I test passano perché `fetch` è finto. Correzione: header solo ASCII
+      + un test che costruisca davvero gli header con `new Headers(...)`.
+      **Fatto il 2026-11-10:** header solo ASCII (`openrouterHeaders`, testato con `new Headers`). Dietro c'era
+      un secondo guasto: i tre modelli `:free` proposti (Llama 3.3, Qwen 2.5, DeepSeek V3) **non sono più
+      gratuiti** (OpenRouter risponde 404). Sostituiti con modelli verificati con una vera chiamata a tool:
+      `nvidia/nemotron-3-ultra-550b-a55b:free` (predefinito), `cohere/north-mini-code:free`,
+      `nvidia/nemotron-3.5-super-vl:free`, `google/gemma-4-31b-it:free`. Provato dal vivo: l'agente legge il
+      README col tool e risponde. ⚠️ Il `server/.env` locale ha ancora `SAMS_MODEL` sul vecchio Llama: va
+      cambiato a mano (ora l'ambiente vince sul file, vedi sotto).
+- [ ] **Senza `SAMS_TOKEN` un anonimo è owner, anche con gli account attivi.** `resolveRole` dà *owner* a chi
+      non manda token se non è configurato nessun token statico. Risultato: un visitatore anonimo può
+      cambiare le impostazioni, chiamare `provision` e avviare la Live Sim, mentre un utente *viewer* loggato
+      riceve 403. In `render.yaml` `SAMS_TOKEN` è facoltativo (`sync: false`), quindi un deploy lasciato com'è
+      è aperto a tutti. Deciso il comportamento, va scritto in DEPLOY.md: o i ruoli si attivano quando esiste un
+      account, oppure il runtime non parte in produzione senza token.
+- [x] **`SAMS_TOKEN` (e ogni altra variabile d'ambiente) ignorato se esiste `.sams-runtime.json`.** In
+      `config.ts` `load()` fa `{ ...env, ...file }`: il file salvato vince sull'ambiente, anche quando
+      contiene `runtimeToken: ""`. Cambiare un token o una chiave su Render non ha effetto finché il file c'è.
+      **Fatto il 2026-11-10:** precedenza **ambiente > file > default** (`resolveSettings`, 6 test); una variabile
+      vuota non cancella il valore del file. Provato dal vivo: `SAMS_TOKEN` nell'ambiente con `runtimeToken: ""`
+      nel file → ruoli attivi, anonimo 401. Documentato in DEPLOY.md (un valore cambiato dalla UI per una chiave
+      che l'ambiente imposta dura fino al riavvio).
+- [ ] **Su Render i dati si perdono a ogni deploy.** `render.yaml` non monta nessun disco: il SQLite
+      `.sams-data.db` (account, sessioni, chat, mondo, routine, cronologia) e `.sams-runtime.json` spariscono a ogni
+      deploy o riavvio. Serve un `disk:` montato sulla cartella di lavoro del server (o spostare i file su un
+      percorso configurabile).
+- [ ] **`render.yaml` non è allineato al prodotto.** Manca `OPENROUTER_API_KEY` (il provider attivo) e
+      `SAMS_PROVIDER` è fisso su `gemini`. Mancano anche `SAMS_MODEL`, `SAMS_EDITOR_TOKEN`, `SAMS_PUBLIC_URL` e
+      `SMTP_*`/`RESEND_API_KEY`. Senza `SAMS_PUBLIC_URL` i link di reset e di verifica puntano a
+      `http://localhost:5173`. Verificato dalla UI: il link dell'owner esce con `localhost:5173`.
+- [x] **Lo stream degli eventi non si riconnette e la UI dice "Connesso".** Se il runtime si riavvia (o un
+      proxy risponde 5xx), l'`EventSource` si chiude per sempre: il server conta **0 viste**, la barra di stato
+      continua a dire "SAMS: Connesso" e i risultati dei task non arrivano più finché non si ricarica la pagina.
+      Su Render capita a ogni deploy. Serve una riconnessione manuale con backoff in `connectBackend` e lo stato
+      offline quando lo stream è chiuso.
+      **Fatto il 2026-11-10:** il server manda un `ping` con nome ogni 25 s (prima un commento, invisibile al
+      client); `connectBackend` riapre lo stream con attesa crescente (1 s → 30 s) quando il browser lo chiude, e
+      un watchdog lo riapre se resta muto oltre 60 s (il caso del proxy che tiene aperta una connessione morta).
+      La barra di stato dice "SAMS: Riconnessione…" invece di "Connesso" fisso. 11 test nuovi. Provato dal vivo:
+      runtime spento → "Riconnessione…" in ~36 s; riacceso → di nuovo connesso in ~5 s, senza ricaricare.
+
+**🟠 Importanti — funzionano male**
+
+- [ ] **Ti vedi due volte nella barra presenze.** Da loggato e da solo compare "Ospite (tu), Owner":
+      `PresenceRoster` passa `chatName` (vuoto) invece del nome effettivo (`chatName || accountName`). Così il
+      riquadro "nel workspace" compare anche quando non c'è nessun altro.
+- [ ] **I viewer restano "Ospite" per tutti.** `POST /api/presence` richiede *editor*: il viewer riceve 403 a ogni
+      apertura (errore in console) e non può presentarsi col suo nome. Cursore e selezione sono già *viewer*.
+- [ ] **Un viewer può diventare il driver del mondo.** `POST /api/driver` è *viewer*, ma un viewer non può
+      salvare il mondo (`/api/world` è *editor*). Se un viewer apre per primo, guida lui la simulazione condivisa.
+      Verificato: lease preso da "Viewer". Il lease va riservato a chi può scrivere.
+- [ ] **Eventi finti all'avvio.** Log eventi e Output mostrano "Test superati: 24/24", "In attesa di revisione:
+      Pull Request #128", "Distribuito in ambiente di staging" (`src/data/seed.ts`). Il Diario del mondo li racconta
+      come lavoro vero ("green-agent ha completato 1 task") e il Replay li conta come azioni. Contraddice
+      "niente task fittizie": con un runtime vero si vede una cronologia inventata.
+- [ ] **Un task di sola lettura riuscito non risulta completato.** Viene registrato con stato `idle`
+      (`agentTools.ts`, `didSomething ? "review" : "idle"`): in Cronologia appare "Inattivo" e i filtri non lo
+      trovano. La dashboard pubblica e le metriche segnano **0 completati**. Verificato con Gemini.
+- [ ] **Retry di OpenRouter fuorvianti.** Qualunque eccezione, anche un errore di programmazione, viene
+      ritentata 4 volte con il messaggio "OpenRouter occupato" (~30 s persi) prima di mostrare l'errore vero.
+      Vanno ritentati solo 429/5xx e gli errori di rete.
+- [ ] **Stanza su mobile (390 px).** L'header deborda (l'icona del giardino è tagliata, la ricerca va su 3 righe),
+      l'Inspector si sovrappone al pannello inferiore e la barra di stato e il riquadro dei suggerimenti escono dallo
+      schermo. Il sito pubblico invece è a posto.
+- [ ] **Il changelog del sito è fermo al 15/07** (`src/site/data/changelog.ts`) e la prima voce dice ancora
+      "Palette Abisso/Ciano". Va allineato a `CHANGELOG.md` (Rossonero, lo-fi, ruoli, OpenRouter…).
+- [ ] **Webhook GitHub aperto senza secret.** Senza `GITHUB_WEBHOOK_SECRET` le richieste non firmate sono
+      accettate (verificato: 200), anche con `NODE_ENV=production`. In produzione andrebbero rifiutate.
+- [ ] **Privacy e Termini non esistono.** Nel footer puntano a `/#site-footer`. Con registrazione ed email
+      servono due pagine vere. Va anche controllato che `contatti@sams.app` sia nostro: il dominio `sams.app` è
+      registrato e risolve.
+- [ ] **Commit Garden non persistente.** `DB_HOST` è vuoto, quindi lo store è in memoria e i giardini si
+      azzerano a ogni riavvio. Per la 1.0 serve MySQL configurato, oppure va spostato sul SQLite che esiste già.
+
+**🟡 Minori**
+
+- [ ] Tour e onboarding non si chiudono con **Esc**, anche se sono `aria-modal`.
+- [ ] L'onboarding dice "Gemini è gratuito" e "`npm start`… porta 8787": non va bene per chi usa la versione
+      ospitata né per un viewer, che non può aprire le impostazioni.
+- [ ] Gli agenti di partenza mostrano il modello "Claude Opus" qualunque sia il provider configurato.
+- [ ] `/login` mostra il form anche a chi ha già fatto l'accesso.
+- [ ] La palette comandi (Ctrl+K) offre a un viewer azioni che non può fare: crea agente, impostazioni,
+      reimposta area, pausa caffè per tutti. Anche il bottone "+ Agente" in alto resta visibile.
+- [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.
+- [ ] `/api/health` e `/api/status` sono pubblici ed espongono repo e URL della pagina Notion.
+- [ ] L'SDK di Gemini scrive righe non JSON nei log ("there are non-text parts functionCall…").
+- [ ] **Non verificato:** il build dell'immagine Docker, perché qui Docker non è installato. Va provato nel
+      deploy di prova della RC.
+
+**✅ Verificato funzionante** — sito pubblico (home, docs con le 16 sezioni e le ancore giuste, changelog,
+404, tema chiaro/scuro). Account: registrazione (il primo account diventa owner), login, password errata,
+gestione utenti e ruoli, link di reset dell'owner (monouso, rifiutato se riusato). Stanza: login → stanza,
+6 agenti, i 10 tab del pannello inferiore, le 5 viste della barra sinistra, terminale (`help`, `agents`, comandi
+sconosciuti), impostazioni runtime, palette comandi (50 comandi), Commit Garden, dashboard pubblica (`?public`).
+Un task vero con **Gemini**: legge il repo coi tool e chiude in ~1 minuto (10,6k token). Il token GitHub ora
+**legge** `Carlomadella/gioco-rap` (albero e file).
+
 ### Non legato alle decisioni, fatto il 2026-11-09
 
 - [x] **Sottofondo lo-fi** al posto del vecchio ronzio della stanza: loop originale **sintetizzato dal
@@ -108,6 +217,8 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
 - [~] **Token GitHub** in `server/.env` — rigenerato dall'utente il 2026-11-10: valido (scade il 10/12/2026),
       ma **non vede il repo privato** `GITHUB_REPO` (404): va concesso l'accesso a quel repo nel token
       fine-grained (Repository access + permessi Contents/Issues/Pull requests). _Utente._
+      **Aggiornamento del collaudo (2026-11-10):** ora la *lettura* funziona (albero e README di `gioco-rap`).
+      Scrittura, PR e issue non sono state provate, apposta: avrebbero toccato il repo vero.
 - [x] **Rossonero per tutto il progetto** (_deciso dall'utente il 2026-11-10: "deve diventare iconico"_):
       i token base di `index.css` (workspace, scuro e chiaro) sono ora quelli della palette Rossonero;
       sfumature, bagliori e `brand-soft` seguono l'accento. Un test impedisce che CSS e palette divergano.

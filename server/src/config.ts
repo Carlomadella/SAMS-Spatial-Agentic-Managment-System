@@ -46,31 +46,83 @@ export interface Settings {
 
 const STORE_FILE = path.join(process.cwd(), ".sams-runtime.json");
 
-function fromEnv(): Settings {
+/** Variabile d'ambiente → campo delle impostazioni (stringhe). */
+const ENV_KEYS: ReadonlyArray<[string, keyof Settings]> = [
+  ["SAMS_PROVIDER", "provider"],
+  ["GEMINI_API_KEY", "geminiApiKey"],
+  ["ANTHROPIC_API_KEY", "anthropicApiKey"],
+  ["GROQ_API_KEY", "groqApiKey"],
+  ["OPENROUTER_API_KEY", "openrouterApiKey"],
+  ["OPENAI_API_KEY", "openaiApiKey"],
+  ["GITHUB_TOKEN", "githubToken"],
+  ["GITHUB_REPO", "githubRepo"],
+  ["GITHUB_BASE_BRANCH", "baseBranch"],
+  ["GITHUB_WEBHOOK_SECRET", "githubWebhookSecret"],
+  ["SAMS_MCP_SERVERS", "mcpServers"],
+  ["SAMS_AGENT_ID", "agentId"],
+  ["SAMS_ENVIRONMENT_ID", "environmentId"],
+  ["SAMS_MODEL", "model"],
+  ["NOTION_TOKEN", "notionToken"],
+  ["NOTION_PAGE_ID", "notionPageId"],
+  ["SAMS_TOKEN", "runtimeToken"],
+  ["SAMS_EDITOR_TOKEN", "editorToken"],
+  ["SAMS_READONLY_TOKEN", "readonlyToken"],
+];
+
+/** Valori di partenza quando né l'ambiente né il file dicono nulla. */
+function defaults(env: NodeJS.ProcessEnv): Settings {
   return {
-    provider: (process.env.SAMS_PROVIDER as Provider) || "gemini",
-    geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
-    groqApiKey: process.env.GROQ_API_KEY ?? "",
-    openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
-    openaiApiKey: process.env.OPENAI_API_KEY ?? "",
-    githubToken: process.env.GITHUB_TOKEN ?? "",
-    githubRepo: process.env.GITHUB_REPO ?? "Carlomadella/Tutto-sulla-programmazione",
-    baseBranch: process.env.GITHUB_BASE_BRANCH ?? "main",
-    githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET ?? "",
-    mcpServers: process.env.SAMS_MCP_SERVERS ?? "",
-    agentId: process.env.SAMS_AGENT_ID ?? "",
-    environmentId: process.env.SAMS_ENVIRONMENT_ID ?? "",
-    model: process.env.SAMS_MODEL ?? "gemini-2.5-flash",
-    openPRs: (process.env.SAMS_OPEN_PRS ?? "true") !== "false",
-    requireApproval: (process.env.SAMS_REQUIRE_APPROVAL ?? "false") !== "false",
-    notionToken: process.env.NOTION_TOKEN ?? "",
-    notionPageId: process.env.NOTION_PAGE_ID ?? "",
-    runtimeToken: process.env.SAMS_TOKEN ?? "",
-    editorToken: process.env.SAMS_EDITOR_TOKEN ?? "",
-    readonlyToken: process.env.SAMS_READONLY_TOKEN ?? "",
-    port: parsePort(process.env.PORT),
+    provider: "gemini",
+    geminiApiKey: "",
+    anthropicApiKey: "",
+    groqApiKey: "",
+    openrouterApiKey: "",
+    openaiApiKey: "",
+    githubToken: "",
+    githubRepo: "Carlomadella/Tutto-sulla-programmazione",
+    baseBranch: "main",
+    githubWebhookSecret: "",
+    mcpServers: "",
+    agentId: "",
+    environmentId: "",
+    model: "gemini-2.5-flash",
+    openPRs: true,
+    requireApproval: false,
+    notionToken: "",
+    notionPageId: "",
+    runtimeToken: "",
+    editorToken: "",
+    readonlyToken: "",
+    port: parsePort(env.PORT),
   };
+}
+
+/** Solo le variabili d'ambiente davvero impostate (non vuote). */
+function envOverrides(env: NodeJS.ProcessEnv): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const [name, key] of ENV_KEYS) {
+    const v = env[name];
+    if (v !== undefined && v !== "") out[key] = v;
+  }
+  if (env.SAMS_OPEN_PRS !== undefined && env.SAMS_OPEN_PRS !== "") out.openPRs = env.SAMS_OPEN_PRS !== "false";
+  if (env.SAMS_REQUIRE_APPROVAL !== undefined && env.SAMS_REQUIRE_APPROVAL !== "") {
+    out.requireApproval = env.SAMS_REQUIRE_APPROVAL !== "false";
+  }
+  return out as Partial<Settings>;
+}
+
+/**
+ * Precedenza: **ambiente > file salvato > default**. Una variabile impostata
+ * (su Render, in Docker, nel .env) vince sempre su `.sams-runtime.json`: prima
+ * vinceva il file, così cambiare `SAMS_TOKEN` o una chiave sul server non aveva
+ * effetto finché il file esisteva — anche se conteneva `runtimeToken: ""`.
+ * Il file riempie solo ciò che l'ambiente non dice (le scelte fatte dalla UI).
+ * `port` viene solo dall'ambiente.
+ */
+export function resolveSettings(env: NodeJS.ProcessEnv, stored: Partial<Settings> | null): Settings {
+  const { port: _ignored, ...fromFile } = stored ?? {};
+  void _ignored;
+  return { ...defaults(env), ...fromFile, ...envOverrides(env) };
 }
 
 function parsePort(raw: string | undefined): number {
@@ -79,18 +131,17 @@ function parsePort(raw: string | undefined): number {
 }
 
 function load(): Settings {
-  const base = fromEnv();
   let raw: string;
   try {
     raw = fs.readFileSync(STORE_FILE, "utf8");
   } catch {
-    return base; // no store file yet — first run, use env defaults
+    return resolveSettings(process.env, null); // no store file yet — first run
   }
   try {
-    return { ...base, ...(JSON.parse(raw) as Partial<Settings>) };
+    return resolveSettings(process.env, JSON.parse(raw) as Partial<Settings>);
   } catch (err) {
     console.warn(`⚠️  ${STORE_FILE} è corrotto (${(err as Error).message}); uso i valori di default.`);
-    return base;
+    return resolveSettings(process.env, null);
   }
 }
 

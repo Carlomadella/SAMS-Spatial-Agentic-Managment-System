@@ -10,6 +10,18 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-10 — Collaudo pre-rilascio: tre bloccanti chiusi 🧪
+
+- **Fixed** — **OpenRouter funziona di nuovo** (in realtà per la prima volta): un trattino lungo nell'header
+  `X-Title` faceva rifiutare a `fetch` ogni richiesta. In più i tre modelli gratuiti proposti non erano più
+  gratuiti: ora l'elenco ha modelli `:free` verificati con i tool (predefinito
+  `nvidia/nemotron-3-ultra-550b-a55b:free`).
+- **Fixed** — Le **variabili d'ambiente vincono** su `.sams-runtime.json`: cambiare `SAMS_TOKEN` o una chiave sul
+  server ora ha effetto al riavvio, anche se le impostazioni erano state salvate dalla UI.
+- **Fixed** — **Lo stream degli eventi si riconnette da solo** dopo un riavvio del runtime o un errore del proxy, e la
+  barra di stato dice "Riconnessione…" invece di restare "Connesso" a vuoto.
+- **Docs** — In `ROADMAP5.md` l'elenco completo di cosa non funziona ancora, dal collaudo del 2026-11-10.
+
 ### 2026-11-10 — Correzioni: colori, suono, accessi 🔧
 
 - **Fixed** — I colori rossoneri arrivano a tutti: chi aveva già visitato il sito si teneva la palette
