@@ -98,11 +98,19 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
       ricorda la credenziale e il server la ricontrolla a ogni heartbeat, quindi logout o sessione revocata
       chiudono anche lo stream già aperto (provato: chiuso dopo 25 s); la rotta del biglietto ha un limite per
       identità e un tetto per credenziale, e a registro pieno risponde 503 invece di scartare biglietti altrui.
-- [ ] **Sicurezza (dopo D4-C e D3-B)** — dalla revisione automatica del 2026-11-10:
+- [x] **Sicurezza (dopo D4-C e D3-B)** — dalla revisione automatica del 2026-11-10:
       1. **Link di reset nei log** (`mailer.ts`, driver `console`): senza canale email `/api/auth/forgot`
          non deve emettere link (solo log della richiesta); il reset passa dal link generato dall'owner.
       2. **DNS rebinding nella guardia SSRF** (`netGuard.ts`): validare l'IP a cui ci si connette davvero
          (agent undici con `connect.lookup` che applica `isPrivateAddress`).
+      **Fatti il 2026-11-10.** (1) Senza canale email "password dimenticata" non emette nessun link e registra solo
+      la richiesta; il driver `console` non scrive mai il corpo delle email nei log (solo destinatario e oggetto),
+      quindi nessun link di reset o d'invito ci può finire. La pagina di accesso indica di chiedere il link al
+      proprietario. (2) `web_fetch` passa da `guardedFetch`: `node:http`/`https` con una `lookup` propria che
+      controlla gli IP **alla connessione**, cioè quelli usati davvero; niente redirect automatici e niente
+      connessioni riusate. Niente `undici`, zero dipendenze nuove. 10 test nuovi, di cui 9 con un vero server
+      locale che simula il rebinding (il server non viene mai contattato). Provato dal vivo: `example.com` in
+      HTTP e HTTPS risponde, `localhost` e `169.254.169.254` sono rifiutati.
 - [x] ~~D2-B~~ — fatto (palette Rossonero, link al lab rimosso).
 
 ### 🧪 Collaudo pre-rilascio del 2026-11-10 — cosa NON funziona
@@ -304,8 +312,8 @@ Corretti:
 - [x] **Test instabili** — 1–8 test fallivano a caso per timeout (il primo test di un file, sotto carico
       parallelo); `testTimeout` alzato a 20 s in entrambe le suite.
 
-**Residui noti (non bloccanti, da valutare per la RC):** finestra di DNS rebinding nella guardia SSRF
-(richiederebbe un agent HTTP con lookup vincolato); confronto dei token statici non a tempo costante
+**Residui noti (non bloccanti, da valutare per la RC):** ~~finestra di DNS rebinding nella guardia SSRF~~
+(chiusa il 2026-11-10 con `guardedFetch`); confronto dei token statici non a tempo costante
 (`roles.ts`); chunk `textures` da 841 kB e `index` da 518 kB nel build; la suite **e2e Playwright non è
 stata eseguita** in questa revisione.
 

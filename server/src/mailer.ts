@@ -185,19 +185,17 @@ export function renderVerifyEmail(name: string, link: string): MailMessage {
 }
 
 /**
- * Driver `console`: nessun invio, il messaggio finisce nei log strutturati. Il link è
- * loggato in chiaro **di proposito** — è il fallback documentato per chi ospita SAMS
- * senza SMTP, ed è l'unico modo di recuperare il token senza un canale.
+ * Driver `console`: nessun invio. Nei log restano **solo** destinatario e oggetto, mai il
+ * corpo: un link di reset o d'invito nei log sarebbe spendibile da chiunque li legga (un
+ * servizio di raccolta log, il pannello dell'hosting). Fino al 2026-11-10 il corpo ci
+ * finiva di proposito; ora senza canale i link li genera l'owner dal Profilo e li
+ * consegna a mano, quindi i log non servono più come canale.
  */
 function consoleMailer(): Mailer {
   return {
     driver: "console",
     async send(msg) {
-      log.info("Email non spedita (nessun canale configurato) — link nei log", {
-        to: msg.to,
-        subject: msg.subject,
-        body: msg.text,
-      });
+      log.info("Email non spedita: nessun canale configurato", { to: msg.to, subject: msg.subject });
     },
   };
 }

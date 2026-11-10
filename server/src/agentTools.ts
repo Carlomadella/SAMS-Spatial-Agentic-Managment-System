@@ -35,7 +35,7 @@ import {
   updateDatabaseRow,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
-import { blockedUrlReason } from "./netGuard";
+import { blockedUrlReason, guardedFetch } from "./netGuard";
 import { db, listMemory, logTask, setMemory } from "./db";
 import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
@@ -437,7 +437,8 @@ async function readCapped(resp: Response, max: number): Promise<string | null> {
 /**
  * Fetch a URL's readable text, with SSRF/size/ok guards. Returns a tool-result string.
  * Redirects are followed by hand so every hop goes through `blockedUrlReason` again —
- * otherwise a public URL could simply redirect to http://localhost.
+ * otherwise a public URL could simply redirect to http://localhost. The request itself
+ * goes through `guardedFetch`, which re-checks the IPs at connect time (DNS rebinding).
  */
 async function fetchUrlText(url: string): Promise<string> {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -449,7 +450,8 @@ async function fetchUrlText(url: string): Promise<string> {
   for (let hop = 0; hop <= WEB_FETCH_MAX_REDIRECTS; hop++) {
     const blocked = await blockedUrlReason(current);
     if (blocked) return `ERRORE: ${blocked}`;
-    const r = await fetch(current, { signal, redirect: "manual", headers: { "User-Agent": "SAMS-Agent/1.0" } });
+    // guardedFetch ricontrolla gli IP alla connessione (DNS rebinding) e non segue i redirect.
+    const r = await guardedFetch(current, { signal, headers: { "User-Agent": "SAMS-Agent/1.0" } });
     const location = r.headers.get("location");
     if (r.status >= 300 && r.status < 400 && location) {
       current = new URL(location, current).toString();

@@ -118,7 +118,7 @@ you configure** — there is nothing else to switch on:
 
 | You configure | Channel | What changes |
 | --- | --- | --- |
-| nothing | logs only | Accounts work exactly as before: sign-up gets you straight in, no verification. A forgotten password is recovered from the **owner**, who issues a one-time reset link from the profile page (Users admin → 🔑) and hands it over. The link is also printed in the server logs. |
+| nothing | logs only | Accounts work exactly as before: sign-up gets you straight in, no verification. A forgotten password is recovered from the **owner**, who issues a one-time reset link from the profile page (Users admin → 🔑) and hands it over. "Forgot password?" issues no link without a channel, and no email body (so no reset or invite link) is ever written to the logs: anyone who can read the logs could otherwise take over an account. |
 | `SMTP_HOST…` or `RESEND_API_KEY` | real email | New sign-ups must **confirm their address** before they can log in, and "Forgot password?" mails the link on its own. The owner-issued link keeps working as a backstop. |
 
 The verification gate only switches on with a real channel on purpose: without one nobody

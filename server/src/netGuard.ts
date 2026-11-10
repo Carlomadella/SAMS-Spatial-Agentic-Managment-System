@@ -7,13 +7,18 @@
 // contenuto nella chat. Si accettano solo host che risolvono a indirizzi pubblici, e
 // lo stesso controllo si ripete su ogni redirect (vedi `fetchUrlText`).
 //
-// Limite noto: tra la risoluzione qui e la connessione di `fetch` c'è una finestra
-// (DNS rebinding). Chiuderla richiede un dispatcher undici con `connect.lookup` che
-// ricontrolli l'IP, cioè una dipendenza esplicita da `undici`: è nei residui della RC
-// (ROADMAP5). Per un tool in sola lettura con timeout corto oggi è un rischio residuo.
+// DNS rebinding (chiuso il 2026-11-10): `blockedUrlReason` risolve il nome una volta, ma
+// la connessione lo risolveva di nuovo per conto suo, e un DNS ostile può rispondere
+// "pubblico" al primo giro e 127.0.0.1 al secondo. Per questo la richiesta vera passa da
+// `guardedFetch`, che usa `node:http`/`https` con una `lookup` propria: gli IP si
+// controllano **nel momento in cui ci si connette**, e quelli sono gli IP usati davvero.
+// Niente dipendenze nuove (undici non serve).
 
+import http from "node:http";
+import https from "node:https";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { Readable } from "node:stream";
 
 /** true se l'IPv4 (forma puntata) è privato, loopback, link-local o comunque non instradabile. */
 function isPrivateV4(ip: string): boolean {
@@ -89,7 +94,7 @@ export function isPrivateAddress(ip: string): boolean {
   );
 }
 
-type Resolver = (host: string) => Promise<Array<{ address: string }>>;
+type Resolver = (host: string) => Promise<Array<{ address: string; family?: number }>>;
 const defaultResolver: Resolver = (host) => lookup(host, { all: true, verbatim: true });
 
 /**
@@ -118,4 +123,96 @@ export async function blockedUrlReason(raw: string, resolve: Resolver = defaultR
   }
   if (addrs.length === 0) return `host non risolvibile: ${host.slice(0, 60)}`;
   return addrs.some((a) => isPrivateAddress(a.address)) ? "indirizzo interno non consentito" : null;
+}
+
+const BLOCKED = "indirizzo interno non consentito";
+
+/** Firma della `lookup` che `net`/`http` chiamano al momento della connessione. */
+type LookupCallback = (err: Error | null, address?: string | Array<{ address: string; family: number }>, family?: number) => void;
+
+/**
+ * `lookup` per `http.request`: risolve il nome e rifiuta se anche un solo indirizzo è
+ * interno. Gira **alla connessione**, quindi gli IP controllati sono quelli usati davvero.
+ */
+export function makeGuardedLookup(resolve: Resolver = defaultResolver, isBlocked: (ip: string) => boolean = isPrivateAddress) {
+  return (hostname: string, options: { all?: boolean } | number | undefined, callback: LookupCallback): void => {
+    resolve(hostname)
+      .then((addrs) => {
+        if (addrs.length === 0) throw new Error(`host non risolvibile: ${hostname.slice(0, 60)}`);
+        if (addrs.some((a) => isBlocked(a.address))) throw new Error(BLOCKED);
+        const list = addrs.map((a) => ({ address: a.address, family: a.family ?? isIP(a.address) }));
+        if (typeof options === "object" && options?.all) callback(null, list);
+        else callback(null, list[0].address, list[0].family);
+      })
+      .catch((err: unknown) => callback(err instanceof Error ? err : new Error(String(err))));
+  };
+}
+
+export interface GuardedFetchInit {
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
+}
+
+/** Dipendenze iniettabili (solo per i test). */
+export interface GuardedFetchDeps {
+  resolve?: Resolver;
+  isBlocked?: (ip: string) => boolean;
+}
+
+/**
+ * GET di un URL http(s) con il controllo degli IP alla connessione. Restituisce un
+ * `Response` standard e **non segue i redirect**: chi chiama li ricontrolla uno per uno.
+ * Un IP interno scritto direttamente nell'URL è rifiutato subito (per gli IP letterali
+ * `net` non chiama la lookup).
+ */
+export function guardedFetch(raw: string, init: GuardedFetchInit = {}, deps: GuardedFetchDeps = {}): Promise<Response> {
+  const isBlocked = deps.isBlocked ?? isPrivateAddress;
+  return new Promise<Response>((resolvePromise, reject) => {
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      reject(new Error("URL non valida"));
+      return;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      reject(new Error("URL non valida — deve iniziare con https://"));
+      return;
+    }
+    const host = url.hostname.replace(/^\[|\]$/g, "");
+    if (isIP(host) && isBlocked(host)) {
+      reject(new Error(BLOCKED));
+      return;
+    }
+    const mod = url.protocol === "https:" ? https : http;
+    const req = mod.request(
+      url,
+      {
+        method: "GET",
+        headers: init.headers,
+        signal: init.signal,
+        agent: false, // niente connessioni riusate: ogni richiesta ripassa dalla lookup
+        lookup: makeGuardedLookup(deps.resolve ?? defaultResolver, isBlocked) as unknown as http.RequestOptions["lookup"],
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        if (status < 200 || status > 599) {
+          res.resume();
+          reject(new Error(`risposta HTTP non valida (${status})`));
+          return;
+        }
+        const headers = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (Array.isArray(v)) for (const x of v) headers.append(k, x);
+          else if (v !== undefined) headers.set(k, String(v));
+        }
+        const noBody = status === 204 || status === 205 || status === 304;
+        if (noBody) res.resume();
+        const body = noBody ? null : (Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>);
+        resolvePromise(new Response(body, { status, statusText: res.statusMessage, headers }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }

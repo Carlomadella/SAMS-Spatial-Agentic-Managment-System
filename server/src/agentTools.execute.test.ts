@@ -9,6 +9,14 @@ vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(async (host: string) => [{ address: host === "inside" ? "10.0.0.7" : "93.184.216.34", family: 4 }]),
 }));
 
+// La richiesta vera passa da `guardedFetch` (node:http con controllo degli IP alla
+// connessione, testato in netGuard.connect.test.ts). Qui la si rimanda al `fetch` globale,
+// così questi test continuano a simulare le risposte con `vi.stubGlobal("fetch", …)`.
+vi.mock("./netGuard", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("./netGuard")>();
+  return { ...orig, guardedFetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init) };
+});
+
 function mkCtx(over: Partial<ToolContext> = {}): { ctx: ToolContext; events: WireEvent[] } {
   const events: WireEvent[] = [];
   const ctx: ToolContext = {

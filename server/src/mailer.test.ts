@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { log } from "./log";
 import {
   createMailer,
   inviteLink,
@@ -139,6 +140,23 @@ describe("createMailer", () => {
   it("console non lancia e non spedisce nulla", async () => {
     const m = createMailer({ driver: "console", from: "f", baseUrl: "b" });
     await expect(m.send({ to: "a@b.it", subject: "s", text: "t" })).resolves.toBeUndefined();
+  });
+
+  // Residuo di sicurezza del 2026-11-10: chi legge i log non deve trovarci link spendibili.
+  it("console non scrive mai il corpo (e quindi nessun link) nei log", async () => {
+    const lines: string[] = [];
+    const spies = (["debug", "info", "warn", "error"] as const).map((lvl) =>
+      vi.spyOn(log, lvl).mockImplementation((msg: string, meta?: Record<string, unknown>) => {
+        lines.push(msg + " " + JSON.stringify(meta ?? {}));
+      }),
+    );
+    const m = createMailer({ driver: "console", from: "f", baseUrl: "b" });
+    await m.send({ to: "a@b.it", subject: "Reimposta la tua password SAMS", text: "Apri http://x/reset?token=SEGRETO" });
+    for (const s of spies) s.mockRestore();
+    const all = lines.join(" | ");
+    expect(all).not.toContain("SEGRETO");
+    expect(all).not.toContain("reset?token");
+    expect(all).toContain("a@b.it"); // resta traccia di cosa non è partito e per chi
   });
 
   it("resend fa una POST autenticata all'API con il messaggio", async () => {

@@ -51,7 +51,7 @@ export function Login() {
       setBusy(false);
       if (res.ok) {
         setNotice(
-          "Se esiste un account con questa email, riceverai un link per reimpostare la password. Controlla anche lo spam.",
+          "Se esiste un account con questa email, riceverai un link per reimpostare la password. Controlla anche lo spam. Se non arriva niente, chiedi al proprietario del workspace un link di reset: può generarlo dal suo Profilo.",
         );
       } else {
         setError(res.error ?? "Richiesta non riuscita.");

@@ -418,10 +418,15 @@ app.post("/api/auth/forgot", (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const email = normalizeEmail((req.body ?? {}).email);
   const user = isValidEmail(email) ? getUserByEmail(db(), email) : null;
-  if (user) {
+  if (user && VERIFICATION_ENFORCED) {
     const link = issueLink(user, "reset");
     void deliver(user, "reset", link); // non attendiamo: la risposta non deve dipendere dall'SMTP
     log.info("Reset password richiesto", { email });
+  } else if (user) {
+    // Senza un canale che recapita, un link emesso qui non arriverebbe a nessuno, e
+    // chiunque potrebbe farne emettere uno per qualsiasi account. Niente token: si rientra
+    // col link che l'owner genera dal Profilo e consegna a mano.
+    log.info("Reset password richiesto senza canale email: nessun link emesso", { email });
   }
   res.status(204).end();
 });

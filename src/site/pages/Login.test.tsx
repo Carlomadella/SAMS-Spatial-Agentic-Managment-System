@@ -56,6 +56,8 @@ describe("<Login />", () => {
 
     await waitFor(() => expect(forgotPasswordRemote).toHaveBeenCalledWith("chissa@b.co"));
     expect(await screen.findByText(/Se esiste un account con questa email/)).toBeTruthy();
+    // Senza canale email non parte niente: la UI deve indicare la via di rientro (owner).
+    expect(screen.getByText(/chiedi al proprietario del workspace/)).toBeTruthy();
   });
 
   // "a@b" e non "non-una-email": il campo è `type="email"`, quindi su una stringa senza @
