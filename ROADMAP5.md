@@ -85,8 +85,19 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
       dopo il login la stanza si collega da sola in pochi secondi, senza ricaricare.
       ⚠️ Visto durante le prove: l'e2e `sidebars.spec.ts` "Panoramica sistema e Gate di sicurezza" è **instabile**
       (fallisce 2 volte su 5 anche sul commit precedente: il bottone "Apri pull request" non diventa cliccabile).
-- [ ] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
+- [x] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
       (owner), registrazione da link d'invito che assegna il ruolo, UI nella `UsersAdmin`, email + test.
+      **Fatto il 2026-11-10:** l'owner invita email + ruolo (*editor* o *viewer*, mai owner) dal Profilo; con un
+      canale email l'invito parte, senza il link si consegna a mano (e non finisce nei log). Il link `/invito`
+      vale una volta, solo per quell'indirizzo, 7 giorni; l'account nasce verificato e col ruolo dell'invito. Un
+      nuovo invito alla stessa email sostituisce il precedente; quelli in attesa si revocano. Rotte:
+      `POST/GET /api/auth/invites`, `DELETE /api/auth/invites/:id`, `POST /api/auth/invites/lookup` (token nel
+      corpo, non nell'URL). 27 test nuovi (logica, DB, email, biglietti, pagina `/invito`, `UsersAdmin`). Provato dal vivo
+      con l'API e nel browser: invito → link → registrazione → stanza da editor.
+      **Seguito di sicurezza su D4-C** (revisione automatica dello stesso giorno): il biglietto dello stream ora
+      ricorda la credenziale e il server la ricontrolla a ogni heartbeat, quindi logout o sessione revocata
+      chiudono anche lo stream già aperto (provato: chiuso dopo 25 s); la rotta del biglietto ha un limite per
+      identità e un tetto per credenziale, e a registro pieno risponde 503 invece di scartare biglietti altrui.
 - [ ] **Sicurezza (dopo D4-C e D3-B)** — dalla revisione automatica del 2026-11-10:
       1. **Link di reset nei log** (`mailer.ts`, driver `console`): senza canale email `/api/auth/forgot`
          non deve emettere link (solo log della richiesta); il reset passa dal link generato dall'owner.

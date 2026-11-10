@@ -261,6 +261,85 @@ export async function fetchUsers(): Promise<ManagedUser[]> {
   }
 }
 
+// --- Inviti (D3-B) -------------------------------------------------------------
+
+export type InviteRole = "editor" | "viewer";
+
+export interface PendingInvite {
+  id: string;
+  email: string;
+  role: InviteRole;
+  createdAt: number;
+  expiresAt: number;
+}
+
+async function errorOf(res: Response, fallback: string): Promise<string> {
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  return body.error ?? fallback;
+}
+
+/** L'owner invita un indirizzo. Torna il link (da consegnare a mano se `emailed` è false). */
+export async function createInviteRemote(
+  email: string,
+  role: InviteRole,
+): Promise<{ ok: boolean; invite?: PendingInvite; link?: string; emailed?: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/invites`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email, role }),
+    });
+    if (!res.ok) return { ok: false, error: await errorOf(res, "Invito non riuscito") };
+    const body = (await res.json()) as { invite: PendingInvite; link: string; emailed: boolean };
+    return { ok: true, ...body };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/** Inviti ancora in attesa (solo owner; vuoto per gli altri o se il runtime è giù). */
+export async function fetchInvites(): Promise<PendingInvite[]> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/invites`, { headers: authHeaders(false) });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { invites?: PendingInvite[] };
+    return body.invites ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function revokeInviteRemote(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/invites/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: authHeaders(false),
+    });
+    if (!res.ok) return { ok: false, error: await errorOf(res, "Revoca non riuscita") };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
+/** Per chi è l'invito del link (pagina /invito). Il token va nel corpo, non nell'URL. */
+export async function lookupInviteRemote(
+  token: string,
+): Promise<{ ok: boolean; email?: string; role?: InviteRole; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/invites/lookup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) return { ok: false, error: await errorOf(res, "Invito non valido") };
+    const body = (await res.json()) as { email: string; role: InviteRole };
+    return { ok: true, email: body.email, role: body.role };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
 /** Cambia la password del proprio account (verifica la vecchia). Slogga gli altri dispositivi. */
 export async function changePasswordRemote(oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
   try {

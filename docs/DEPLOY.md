@@ -99,6 +99,18 @@ first: until then, whoever opens the URL first gets to do it.
 
 The static tokens are optional once accounts exist; they are for scripts and integrations.
 
+**Inviting people.** Anyone can sign up, but a new account starts as viewer. To bring someone
+in with the right role, the owner invites them from the profile page (*Invita qualcuno*):
+email + role (editor or viewer; never owner, so a forwarded link can't hand out full control).
+With an email channel the invite is mailed; without one the owner gets the link to hand over.
+The link (`/invito?token=…`) is single-use, bound to that address and valid for 7 days; only
+its hash is stored, and the invitee's account is created already verified. A new invite to
+the same address replaces the pending one, and pending invites can be revoked.
+
+The live stream is tied to the credential that opened it: after a logout, an expired or
+revoked session or a changed static token, the server closes the stream within one
+heartbeat (25 s).
+
 ### Password management & the email channel
 
 SAMS picks an email channel from the environment, and **what it can do follows from what

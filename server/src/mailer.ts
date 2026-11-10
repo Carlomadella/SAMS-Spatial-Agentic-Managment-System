@@ -113,6 +113,35 @@ export function verifyLink(baseUrl: string, token: string): string {
   return `${normalizeBaseUrl(baseUrl)}/verifica?token=${encodeURIComponent(token)}`;
 }
 
+/** Link d'invito (D3-B). */
+export function inviteLink(baseUrl: string, token: string): string {
+  return `${normalizeBaseUrl(baseUrl)}/invito?token=${encodeURIComponent(token)}`;
+}
+
+const INVITE_ROLE_LABEL: Record<"editor" | "viewer", string> = { editor: "Editor", viewer: "Osservatore" };
+
+/** Corpo dell'email d'invito: chi invita, con quale ruolo, e il link. */
+export function renderInviteEmail(inviterName: string, role: "editor" | "viewer", link: string): MailMessage {
+  const who = inviterName ? `${inviterName} ti ha invitato` : "Sei stato invitato";
+  return {
+    to: "",
+    subject: "Sei invitato nel workspace SAMS",
+    text: [
+      "Ciao,",
+      "",
+      `${who} nel workspace SAMS con il ruolo ${INVITE_ROLE_LABEL[role]}.`,
+      "Apri questo link per creare il tuo account:",
+      "",
+      link,
+      "",
+      "Il link vale una volta sola, solo per questo indirizzo, e scade tra 7 giorni.",
+      "Se non ti aspettavi questo invito, ignora il messaggio.",
+      "",
+      "— SAMS",
+    ].join("\n"),
+  };
+}
+
 /** Corpo dell'email di reset. Puro → il test asserisce che il link ci sia davvero. */
 export function renderResetEmail(name: string, link: string): MailMessage {
   const who = name ? ` ${name}` : "";

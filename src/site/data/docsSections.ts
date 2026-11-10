@@ -199,6 +199,7 @@ export const DOCS_SECTIONS: DocSection[] = [
       "L'accesso al sito crea account veri sul runtime: email e password, con la sessione che dura 30 giorni. Il primo account registrato diventa proprietario del workspace e da lì assegna i ruoli agli altri.",
     items: [
       { term: "Ruoli", desc: "Osservatore (guarda), Editor (assegna task e avvia lavoro) e Proprietario (tutto, impostazioni comprese). Il proprietario cambia i ruoli dalla pagina Profilo; l'ultimo proprietario non può declassarsi." },
+      { term: "Invitare qualcuno", desc: "Dal Profilo, sezione Invita qualcuno: il proprietario scrive un'email e sceglie Editor o Osservatore. La persona riceve un link (per email, o consegnato a mano se non c'è un server di posta), sceglie nome e password ed entra già col ruolo giusto. Il link vale una volta, solo per quell'indirizzo, per 7 giorni; gli inviti in attesa si possono revocare." },
       { term: "Cambiare password", desc: "Dal Profilo, con la password attuale. Gli altri dispositivi vengono sloggati." },
       { term: "Password dimenticata", desc: "Dalla pagina di accesso: se è configurato un canale email ricevi un link per reimpostarla; il link è monouso e scade dopo un'ora. Chi lo usa viene sloggato da tutti i dispositivi." },
       { term: "Senza un server di posta", desc: "SAMS funziona lo stesso: il proprietario genera il link di reset dalla pagina Profilo (l'icona della chiave accanto a un utente) e lo consegna alla persona." },

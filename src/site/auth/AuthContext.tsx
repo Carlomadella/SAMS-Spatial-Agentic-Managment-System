@@ -34,7 +34,8 @@ interface AuthValue {
   /** true finché il primo `GET /me` (ripristino sessione) non è concluso. */
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
-  register: (email: string, password: string, name?: string) => Promise<AuthResult>;
+  /** `invite`: token del link d'invito (D3-B); il ruolo lo decide l'invito. */
+  register: (email: string, password: string, name?: string, invite?: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   /** Rilegge l'utente dal server (es. dopo aver confermato l'indirizzo). */
   refresh: () => Promise<void>;
@@ -156,8 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    (email: string, password: string, name?: string) =>
-      authenticate("register", { email, password, ...(name ? { name } : {}) }),
+    (email: string, password: string, name?: string, invite?: string) =>
+      authenticate("register", { email, password, ...(name ? { name } : {}), ...(invite ? { invite } : {}) }),
     [authenticate],
   );
 

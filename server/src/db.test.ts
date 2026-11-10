@@ -20,6 +20,12 @@ import {
   deleteUserSessionsExcept,
   consumeToken,
   createToken,
+  createInvite,
+  getInviteByHash,
+  consumeInvite,
+  listPendingInvites,
+  revokeInvite,
+  pruneInvites,
   deleteAllUserSessions,
   getToken,
   pruneTokens,
@@ -684,5 +690,70 @@ describe("auth: migrazione di email_verified su un DB preesistente", () => {
       role: "viewer", createdAt: 1, emailVerified: false,
     });
     expect(getUserByEmail(d, "nuovo@x.co")?.emailVerified).toBe(false);
+  });
+});
+
+describe("inviti (D3-B)", () => {
+  const fresh = () => openDb(":memory:");
+  const inv = (over: Partial<import("./invites").InviteRecord> = {}): import("./invites").InviteRecord => ({
+    id: over.id ?? "i1",
+    tokenHash: over.tokenHash ?? "h1",
+    email: over.email ?? "ada@example.test",
+    role: over.role ?? "editor",
+    invitedBy: over.invitedBy ?? "owner-id",
+    createdAt: over.createdAt ?? 1_000,
+    expiresAt: over.expiresAt ?? 100_000,
+    usedAt: over.usedAt ?? null,
+  });
+
+  it("createInvite + getInviteByHash fanno il giro completo", () => {
+    const d = fresh();
+    createInvite(d, inv());
+    expect(getInviteByHash(d, "h1")).toEqual(inv());
+    expect(getInviteByHash(d, "mai-visto")).toBeNull();
+  });
+
+  it("un nuovo invito alla stessa email sostituisce quello non usato", () => {
+    const d = fresh();
+    createInvite(d, inv());
+    createInvite(d, inv({ id: "i2", tokenHash: "h2", role: "viewer" }));
+    expect(getInviteByHash(d, "h1")).toBeNull();
+    expect(getInviteByHash(d, "h2")?.role).toBe("viewer");
+  });
+
+  it("consumeInvite riesce una volta sola", () => {
+    const d = fresh();
+    createInvite(d, inv());
+    expect(consumeInvite(d, "h1", 5_000)).toBe(true);
+    expect(consumeInvite(d, "h1", 6_000)).toBe(false);
+    expect(getInviteByHash(d, "h1")?.usedAt).toBe(5_000);
+  });
+
+  it("listPendingInvites mostra solo quelli non usati e non scaduti, senza hash", () => {
+    const d = fresh();
+    createInvite(d, inv());
+    createInvite(d, inv({ id: "i2", tokenHash: "h2", email: "b@example.test", usedAt: 2_000 }));
+    createInvite(d, inv({ id: "i3", tokenHash: "h3", email: "c@example.test", expiresAt: 3_000 }));
+    const list = listPendingInvites(d, 4_000);
+    expect(list).toEqual([{ id: "i1", email: "ada@example.test", role: "editor", createdAt: 1_000, expiresAt: 100_000 }]);
+  });
+
+  it("revokeInvite cancella solo un invito ancora in attesa", () => {
+    const d = fresh();
+    createInvite(d, inv());
+    createInvite(d, inv({ id: "i2", tokenHash: "h2", email: "b@example.test", usedAt: 2_000 }));
+    expect(revokeInvite(d, "i1")).toBe(true);
+    expect(revokeInvite(d, "i1")).toBe(false);
+    expect(revokeInvite(d, "i2")).toBe(false);
+    expect(getInviteByHash(d, "h2")).not.toBeNull();
+  });
+
+  it("pruneInvites toglie scaduti e usati", () => {
+    const d = fresh();
+    createInvite(d, inv({ expiresAt: 3_000 }));
+    createInvite(d, inv({ id: "i2", tokenHash: "h2", email: "b@example.test", usedAt: 2_000 }));
+    createInvite(d, inv({ id: "i3", tokenHash: "h3", email: "c@example.test" }));
+    expect(pruneInvites(d, 4_000)).toBe(2);
+    expect(getInviteByHash(d, "h3")).not.toBeNull();
   });
 });

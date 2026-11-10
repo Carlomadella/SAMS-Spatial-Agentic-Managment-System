@@ -4,8 +4,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const fetchUsers = vi.fn();
 const setUserRoleRemote = vi.fn();
 const issueUserResetLink = vi.fn();
+const fetchInvites = vi.fn();
+const createInviteRemote = vi.fn();
+const revokeInviteRemote = vi.fn();
 vi.mock("../../lib/backend", () => ({
   fetchUsers: () => fetchUsers(),
+  fetchInvites: () => fetchInvites(),
+  createInviteRemote: (email: string, role: string) => createInviteRemote(email, role),
+  revokeInviteRemote: (id: string) => revokeInviteRemote(id),
   setUserRoleRemote: (email: string, role: string) => setUserRoleRemote(email, role),
   issueUserResetLink: (email: string) => issueUserResetLink(email),
 }));
@@ -17,6 +23,10 @@ describe("<UsersAdmin />", () => {
     fetchUsers.mockReset();
     setUserRoleRemote.mockReset();
     issueUserResetLink.mockReset();
+    fetchInvites.mockReset();
+    fetchInvites.mockResolvedValue([]);
+    createInviteRemote.mockReset();
+    revokeInviteRemote.mockReset();
   });
 
   it("non mostra nulla se non ci sono utenti (es. non owner → lista vuota)", async () => {
@@ -49,7 +59,7 @@ describe("<UsersAdmin />", () => {
     setUserRoleRemote.mockResolvedValue({ ok: false, error: "Non puoi declassare l'ultimo owner" });
     render(<UsersAdmin selfEmail="me@x.co" />);
     await waitFor(() => expect(screen.getByText("Bea")).toBeTruthy());
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "viewer" } });
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "viewer" } });
     await waitFor(() => expect(screen.getByText(/ultimo owner/)).toBeTruthy());
   });
 
@@ -106,5 +116,70 @@ describe("<UsersAdmin />", () => {
     await screen.findByLabelText("Link di reset");
     fireEvent.click(screen.getByText("Chiudi"));
     await waitFor(() => expect(screen.queryByLabelText("Link di reset")).toBeNull());
+  });
+
+  // --- inviti (D3-B) ------------------------------------------------------------
+
+  const owner = [{ email: "me@x.co", name: "Me", role: "owner", createdAt: 1 }];
+
+  it("l'owner invita un'email con un ruolo e vede il link (canale email assente)", async () => {
+    fetchUsers.mockResolvedValue(owner);
+    createInviteRemote.mockResolvedValue({
+      ok: true,
+      emailed: false,
+      link: "http://x/invito?token=inv",
+      invite: { id: "i1", email: "ada@x.co", role: "editor", createdAt: 1, expiresAt: 2 },
+    });
+    render(<UsersAdmin selfEmail="me@x.co" />);
+    await waitFor(() => expect(screen.getByText("Me")).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText("Email da invitare"), { target: { value: "ada@x.co" } });
+    fireEvent.change(screen.getByLabelText("Ruolo dell'invito"), { target: { value: "editor" } });
+    fireEvent.click(screen.getByText("Invita"));
+    await waitFor(() => expect(createInviteRemote).toHaveBeenCalledWith("ada@x.co", "editor"));
+
+    const field = (await screen.findByLabelText("Link d'invito")) as HTMLInputElement;
+    expect(field.value).toBe("http://x/invito?token=inv");
+    expect(screen.getByText(/consegnalo tu/i)).toBeTruthy();
+    // l'invito compare tra quelli in attesa
+    expect(screen.getByLabelText("Revoca l'invito per ada@x.co")).toBeTruthy();
+  });
+
+  it("con il canale email dice che l'invito è partito", async () => {
+    fetchUsers.mockResolvedValue(owner);
+    createInviteRemote.mockResolvedValue({
+      ok: true,
+      emailed: true,
+      link: "http://x/invito?token=inv",
+      invite: { id: "i1", email: "ada@x.co", role: "viewer", createdAt: 1, expiresAt: 2 },
+    });
+    render(<UsersAdmin selfEmail="me@x.co" />);
+    await waitFor(() => expect(screen.getByText("Me")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Email da invitare"), { target: { value: "ada@x.co" } });
+    fireEvent.click(screen.getByText("Invita"));
+    await waitFor(() => expect(screen.getByText(/email inviata/i)).toBeTruthy());
+    expect(createInviteRemote).toHaveBeenCalledWith("ada@x.co", "viewer");
+  });
+
+  it("mostra l'errore del server e non aggiunge niente", async () => {
+    fetchUsers.mockResolvedValue(owner);
+    createInviteRemote.mockResolvedValue({ ok: false, error: "Esiste già un account con questa email" });
+    render(<UsersAdmin selfEmail="me@x.co" />);
+    await waitFor(() => expect(screen.getByText("Me")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Email da invitare"), { target: { value: "me@x.co" } });
+    fireEvent.click(screen.getByText("Invita"));
+    await waitFor(() => expect(screen.getByText(/Esiste già un account/)).toBeTruthy());
+    expect(screen.queryByLabelText("Link d'invito")).toBeNull();
+  });
+
+  it("elenca gli inviti in attesa e li revoca", async () => {
+    fetchUsers.mockResolvedValue(owner);
+    fetchInvites.mockResolvedValue([{ id: "i9", email: "zoe@x.co", role: "viewer", createdAt: 1, expiresAt: 2 }]);
+    revokeInviteRemote.mockResolvedValue({ ok: true });
+    render(<UsersAdmin selfEmail="me@x.co" />);
+    await waitFor(() => expect(screen.getByText("zoe@x.co")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Revoca l'invito per zoe@x.co"));
+    await waitFor(() => expect(revokeInviteRemote).toHaveBeenCalledWith("i9"));
+    await waitFor(() => expect(screen.queryByText("zoe@x.co")).toBeNull());
   });
 });

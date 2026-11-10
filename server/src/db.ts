@@ -4,6 +4,7 @@ import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./world
 import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
 import type { User } from "./auth";
 import type { TokenRecord } from "./tokens";
+import type { InvitableRole, InviteRecord, PendingInvite } from "./invites";
 import type { Role } from "./roles";
 import { dataFile } from "./dataDir";
 
@@ -147,6 +148,20 @@ export function openDb(location: string): DatabaseSync {
       used_at    INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications (user_id);
+
+    -- Inviti (D3-B): l'owner invita un'email con un ruolo. Come gli altri token, a
+    -- riposo c'è solo l'hash; l'id separato serve alla UI per revocare senza esporlo.
+    CREATE TABLE IF NOT EXISTS invites (
+      id         TEXT    PRIMARY KEY,
+      token_hash TEXT    NOT NULL UNIQUE,
+      email      TEXT    NOT NULL,
+      role       TEXT    NOT NULL,
+      invited_by TEXT    NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_invites_email ON invites (email);
   `);
   ensureWorldAgentColumns(db);
   ensureUserColumns(db);
@@ -718,6 +733,71 @@ export function consumeToken(db: DatabaseSync, table: TokenTable, tokenHash: str
 /** GC dei token scaduti o già spesi (le due tabelle non crescono all'infinito). */
 export function pruneTokens(db: DatabaseSync, table: TokenTable, now = Date.now()): number {
   return Number(db.prepare(`DELETE FROM ${table} WHERE expires_at <= ? OR used_at IS NOT NULL`).run(now).changes);
+}
+
+// --- inviti (D3-B) ------------------------------------------------------------
+
+function rowToInvite(row: Record<string, unknown> | undefined): InviteRecord | null {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    tokenHash: String(row.token_hash),
+    email: String(row.email),
+    role: String(row.role) as InvitableRole,
+    invitedBy: String(row.invited_by),
+    createdAt: Number(row.created_at),
+    expiresAt: Number(row.expires_at),
+    usedAt: row.used_at === null || row.used_at === undefined ? null : Number(row.used_at),
+  };
+}
+
+/** Registra un invito; uno nuovo alla stessa email sostituisce quelli non ancora usati. */
+export function createInvite(db: DatabaseSync, rec: InviteRecord): void {
+  db.prepare(`DELETE FROM invites WHERE email = ? AND used_at IS NULL`).run(rec.email);
+  db.prepare(
+    `INSERT INTO invites (id, token_hash, email, role, invited_by, created_at, expires_at, used_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(rec.id, rec.tokenHash, rec.email, rec.role, rec.invitedBy, rec.createdAt, rec.expiresAt, rec.usedAt);
+}
+
+export function getInviteByHash(db: DatabaseSync, tokenHash: string): InviteRecord | null {
+  return rowToInvite(
+    db.prepare(`SELECT * FROM invites WHERE token_hash = ?`).get(tokenHash) as Record<string, unknown> | undefined,
+  );
+}
+
+/** Spende l'invito: true solo per la chiamata che lo spende davvero (arbitro: il DB). */
+export function consumeInvite(db: DatabaseSync, tokenHash: string, now = Date.now()): boolean {
+  return (
+    Number(db.prepare(`UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`).run(now, tokenHash).changes) > 0
+  );
+}
+
+/** Inviti ancora spendibili, i più recenti prima (per la gestione utenti dell'owner). */
+export function listPendingInvites(db: DatabaseSync, now = Date.now()): PendingInvite[] {
+  const rows = db
+    .prepare(
+      `SELECT id, email, role, created_at, expires_at FROM invites
+       WHERE used_at IS NULL AND expires_at > ? ORDER BY created_at DESC`,
+    )
+    .all(now) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: String(r.id),
+    email: String(r.email),
+    role: String(r.role) as InvitableRole,
+    createdAt: Number(r.created_at),
+    expiresAt: Number(r.expires_at),
+  }));
+}
+
+/** Revoca un invito ancora in attesa. Un invito già usato resta come traccia. */
+export function revokeInvite(db: DatabaseSync, id: string): boolean {
+  return Number(db.prepare(`DELETE FROM invites WHERE id = ? AND used_at IS NULL`).run(id).changes) > 0;
+}
+
+/** GC degli inviti scaduti o spesi. */
+export function pruneInvites(db: DatabaseSync, now = Date.now()): number {
+  return Number(db.prepare(`DELETE FROM invites WHERE expires_at <= ? OR used_at IS NOT NULL`).run(now).changes);
 }
 
 // --- lazy singleton (file-backed) ------------------------------------------

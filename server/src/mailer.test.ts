@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createMailer,
+  inviteLink,
+  renderInviteEmail,
   mailerCanDeliver,
   memoryMailer,
   normalizeBaseUrl,
@@ -173,5 +175,26 @@ describe("memoryMailer", () => {
     expect(m.sent).toHaveLength(2);
     expect(m.sent[0].to).toBe("a@b.it");
     expect(m.sent[1].subject).toBe("s2");
+  });
+});
+
+describe("inviti via email (D3-B)", () => {
+  it("il link d'invito punta a /invito col token codificato", () => {
+    expect(inviteLink("https://sams.io/", "a b")).toBe("https://sams.io/invito?token=a%20b");
+  });
+
+  it("l'email dice chi invita, con che ruolo, e contiene il link", () => {
+    const m = renderInviteEmail("Carla", "editor", "https://sams.io/invito?token=x");
+    expect(m.subject).toContain("SAMS");
+    expect(m.text).toContain("Carla");
+    expect(m.text).toContain("Editor");
+    expect(m.text).toContain("https://sams.io/invito?token=x");
+    expect(m.text).toContain("7 giorni");
+  });
+
+  it("senza nome di chi invita resta comprensibile", () => {
+    const m = renderInviteEmail("", "viewer", "L");
+    expect(m.text).toContain("Osservatore");
+    expect(m.text).not.toContain("undefined");
   });
 });

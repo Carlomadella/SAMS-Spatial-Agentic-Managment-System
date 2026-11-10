@@ -19,9 +19,9 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeToken, countOwners, countUsers, createAuthSession, createToken, createUser, db, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
-import { createMailer, mailerCanDeliver, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
+import { createMailer, inviteLink, mailerCanDeliver, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
@@ -36,6 +36,7 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { INVITE_TTL_MS, inviteRejection, isInvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -244,7 +245,7 @@ const DUMMY_PASS_HASH = hashPassword("__sams_dummy_password__");
 
 app.post("/api/auth/register", (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
-  const body = (req.body ?? {}) as { email?: unknown; password?: unknown; name?: unknown };
+  const body = (req.body ?? {}) as { email?: unknown; password?: unknown; name?: unknown; invite?: unknown };
   const email = normalizeEmail(body.email);
   if (!isValidEmail(email)) { res.status(400).json({ error: "Email non valida" }); return; }
   const pw = validatePassword(body.password);
@@ -252,7 +253,29 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
   const database = db();
   if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
   const first = countUsers(database) === 0;
-  const role: Role = first ? "owner" : "viewer";
+  // Registrazione da invito (D3-B): il ruolo è quello scelto dall'owner e l'indirizzo è
+  // già dimostrato (il link è arrivato lì, o l'owner l'ha consegnato di persona).
+  const inviteToken = typeof body.invite === "string" ? body.invite : "";
+  let invitedRole: Role | null = null;
+  if (inviteToken) {
+    const rec = getInviteByHash(database, hashToken(inviteToken));
+    const why = inviteRejection(rec, email);
+    if (why) {
+      const error = why === "expired" ? "L'invito è scaduto: chiedine uno nuovo a chi ti ha invitato"
+        : why === "used" ? "L'invito è già stato usato"
+        : why === "email_mismatch" ? "L'invito vale solo per l'indirizzo a cui è stato mandato"
+        : "Invito non valido";
+      res.status(400).json({ error, reason: why });
+      return;
+    }
+    // Spendilo prima di creare l'account: due registrazioni in corsa non passano entrambe.
+    if (!consumeInvite(database, rec!.tokenHash)) {
+      res.status(400).json({ error: "L'invito è già stato usato", reason: "used" });
+      return;
+    }
+    invitedRole = rec!.role;
+  }
+  const role: Role = first ? "owner" : invitedRole ?? "viewer";
   const user: User = {
     id: randomUUID(),
     email,
@@ -262,7 +285,7 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
     createdAt: Date.now(),
     // Il primo utente è chi ospita SAMS: non ha nessuno che possa verificarlo, e mandarlo
     // a caccia di un link per entrare in casa propria sarebbe assurdo. Nasce verificato.
-    emailVerified: first || !VERIFICATION_ENFORCED,
+    emailVerified: first || invitedRole !== null || !VERIFICATION_ENFORCED,
   };
   createUser(database, user);
   log.info("Nuovo account registrato", { email, role, verificato: user.emailVerified });
@@ -506,6 +529,82 @@ app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Respo
   res.json({ user: { email: target.email, name: target.name, role } });
 });
 
+// --- Inviti (D3-B) ------------------------------------------------------------
+
+/**
+ * L'owner invita un indirizzo con un ruolo (editor o viewer, mai owner). Con un canale
+ * email reale l'invito parte da solo; il link torna comunque all'owner, che senza canale
+ * lo consegna a mano (come il reset). Un nuovo invito alla stessa email sostituisce il
+ * precedente non usato.
+ */
+app.post("/api/auth/invites", requireRole("owner"), (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) { res.status(400).json({ error: "Email non valida" }); return; }
+  if (!isInvitableRole(body.role)) { res.status(400).json({ error: "Si può invitare solo come editor o osservatore" }); return; }
+  const database = db();
+  if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
+  const inviter = getSessionUser(database, bearerToken(req.headers.authorization));
+  const token = newToken();
+  const now = Date.now();
+  const id = randomUUID();
+  createInvite(database, {
+    id,
+    tokenHash: hashToken(token),
+    email,
+    role: body.role,
+    invitedBy: inviter?.id ?? "",
+    createdAt: now,
+    expiresAt: tokenExpiry(INVITE_TTL_MS, now),
+    usedAt: null,
+  });
+  pruneInvites(database, now);
+  const link = inviteLink(MAILER_CONFIG.baseUrl, token);
+  // Senza canale reale non si "spedisce" nei log: il link lo consegna l'owner.
+  const emailed = mailerCanDeliver(MAILER_CONFIG);
+  if (emailed) {
+    const msg = renderInviteEmail(inviter?.name ?? "", body.role, link);
+    void mailer.send({ ...msg, to: email }).catch((err: unknown) => {
+      log.error("Invio email fallito", { kind: "invite", to: email, err: String(err) });
+    });
+  }
+  log.info("Invito creato", { email, role: body.role, emailed });
+  res.status(201).json({
+    invite: { id, email, role: body.role, createdAt: now, expiresAt: now + INVITE_TTL_MS },
+    link,
+    emailed,
+  });
+});
+
+app.get("/api/auth/invites", requireRole("owner"), (_req: Request, res: Response) => {
+  res.json({ invites: listPendingInvites(db()) });
+});
+
+app.delete("/api/auth/invites/:id", requireRole("owner"), (req: Request, res: Response) => {
+  if (!revokeInvite(db(), String(req.params.id))) { res.status(404).json({ error: "Invito non trovato" }); return; }
+  log.info("Invito revocato", { id: req.params.id });
+  res.status(204).end();
+});
+
+/**
+ * La pagina /invito legge per chi è l'invito (email e ruolo) prima di mostrare il form.
+ * POST e non GET: il token viaggia nel corpo, non in un URL che finisce nei log.
+ */
+app.post("/api/auth/invites/lookup", (req: Request, res: Response) => {
+  if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
+  const token = typeof (req.body ?? {}).token === "string" ? (req.body as { token: string }).token : "";
+  const rec = token ? getInviteByHash(db(), hashToken(token)) : null;
+  const why = rec ? inviteRejection(rec, rec.email) : "unknown";
+  if (why) {
+    const error = why === "expired" ? "L'invito è scaduto: chiedine uno nuovo a chi ti ha invitato"
+      : why === "used" ? "L'invito è già stato usato"
+      : "Invito non valido";
+    res.status(400).json({ error, reason: why });
+    return;
+  }
+  res.json({ email: rec!.email, role: rec!.role, expiresAt: rec!.expiresAt });
+});
+
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
 app.get("/api/metrics", requireRole("viewer"), (_req: Request, res: Response) => {
   let lifetime = { total: 0, completed: 0, tokens: 0 };
@@ -664,16 +763,45 @@ app.post("/api/provision", requireRole("owner"), async (req: Request, res: Respo
  * header, quindi il client autenticato chiede qui un biglietto e lo passa come `?t=`.
  */
 const streamTickets = new StreamTickets();
-app.post("/api/events/ticket", requireRole("viewer"), (_req: Request, res: Response) => {
+/** Il client ne chiede uno a ogni (ri)connessione: 30 al minuto per identità bastano e avanzano. */
+const ticketLimiter = createRateLimiter(30, 60_000);
+app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Response) => {
+  const provided = bearerToken(req.headers.authorization);
+  if (!ticketLimiter.hit(identityKey(provided, req.ip))) {
+    res.status(429).json({ error: "Troppe richieste, riprova tra poco" });
+    return;
+  }
+  // Il biglietto ricorda chi l'ha chiesto: lo stream la ricontrolla finché resta aperto.
+  const ticket = streamTickets.issue(provided);
+  if (!ticket) {
+    res.status(503).json({ error: "Troppi stream in apertura, riprova tra poco" });
+    return;
+  }
   res.setHeader("Cache-Control", "no-store");
-  res.json({ ticket: streamTickets.issue() });
+  res.json({ ticket });
 });
+
+/**
+ * Lo stream può restare aperto? In dev aperto sempre. Con i ruoli attivi serve che la
+ * credenziale del biglietto valga **ancora**: una sessione chiusa col logout, scaduta o
+ * revocata, o un token statico cambiato, chiudono lo stream al primo heartbeat.
+ * `credential === null` = stream aperto senza biglietto (in dev) e poi i ruoli si sono
+ * attivati, per esempio alla prima registrazione: anche quello va chiuso.
+ */
+function streamStillAllowed(credential: string | null): boolean {
+  const tokens = roleTokens();
+  const exist = accountsExist();
+  if (!rolesEnforced(tokens, exist)) return true;
+  if (credential === null) return false;
+  const hasSession = credential ? getSessionUser(db(), credential) !== null : false;
+  return !isAnonymousWhenEnforced(tokens, credential, hasSession, exist);
+}
 
 app.get("/api/events", (req: Request, res: Response) => {
   // Con i ruoli attivi lo stream vuole un biglietto valido (D4-C); in dev aperto no.
   // Il biglietto si consuma comunque, se c'è: non deve restare valido in un log.
-  const ticketOk = streamTickets.consume(req.query.t);
-  if (!ticketOk && rolesEnforced(roleTokens(), accountsExist())) {
+  const credential = streamTickets.consume(req.query.t);
+  if (!streamStillAllowed(credential)) {
     log.warn("Stream eventi senza biglietto valido respinto", { ip: req.ip });
     res.status(401).json({ error: "Biglietto dello stream mancante o scaduto" });
     return;
@@ -711,6 +839,14 @@ app.get("/api/events", (req: Request, res: Response) => {
   }
   const heartbeat = setInterval(() => {
     if (res.writableEnded || res.destroyed) {
+      cleanup();
+      return;
+    }
+    if (!streamStillAllowed(credential)) {
+      // Logout, sessione revocata o ruoli appena attivati: niente più eventi. Il client
+      // riprova, riceve 401 sul biglietto e mostra "Accesso richiesto".
+      log.info("Stream chiuso: credenziale non più valida", { name: observer.name });
+      res.end();
       cleanup();
       return;
     }
