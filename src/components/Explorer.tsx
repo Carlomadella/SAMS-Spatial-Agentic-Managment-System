@@ -37,10 +37,10 @@ function makeBranch(agentName: string, title: string): string {
 const STATUS_DOT: Record<string, string> = {
   idle: "bg-slate-500",
   working: "bg-brand animate-pulse-soft",
-  review: "bg-amber-400",
+  review: "bg-slate-400",
   blocked: "bg-rose-500",
   done: "bg-emerald-400",
-  awaiting_approval: "bg-violet-400 animate-pulse-soft",
+  awaiting_approval: "bg-rose-400 animate-pulse-soft",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -53,7 +53,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const BADGE_CLS: Record<string, string> = {
-  M: "text-amber-400",
+  M: "text-slate-400",
   U: "text-emerald-400",
   A: "text-emerald-400",
 };
@@ -109,7 +109,7 @@ function AgentRow({ agent, isSelected }: { agent: Agent; isSelected: boolean }) 
               : agent.status === "working" || agent.status === "awaiting_approval"
                 ? "bg-brand/15 text-brand-soft"
                 : agent.status === "review"
-                  ? "bg-amber-500/15 text-amber-300"
+                  ? "bg-slate-500/15 text-slate-300"
                   : agent.status === "blocked"
                     ? "bg-rose-500/15 text-rose-300"
                     : "bg-emerald-500/15 text-emerald-300",
@@ -284,7 +284,7 @@ function WorkflowRunner({
       </button>
 
       {!canRun && agent && (
-        <p className="mt-1.5 text-center text-[10px] text-amber-400">
+        <p className="mt-1.5 text-center text-[10px] text-slate-400">
           {agent.name} è occupato — scegli un agente idle
         </p>
       )}

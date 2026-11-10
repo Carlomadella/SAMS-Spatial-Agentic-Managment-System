@@ -4,8 +4,6 @@ import { CTAButton } from "../components/CTAButton";
 import { SectionHeading } from "../components/SectionHeading";
 import { Logo } from "../components/Logo";
 import { HeroBackground } from "../components/HeroBackground";
-import { useDesign } from "../design/DesignContext";
-import { heroById } from "../data/heroVariants";
 import { Link } from "../router";
 import { TAGLINE } from "../data/site";
 
@@ -19,16 +17,12 @@ const FEATURES = [
 ];
 
 export function Home() {
-  const { choice } = useDesign();
-  const heroId = heroById(choice("hero")).id;
-
   return (
     <>
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section id="top" className="relative overflow-hidden">
-        {/* Lo sfondo è la variante scelta (Roadmap 5): stanza (screenshot/video), bagliori,
-            griglia o piatta. Si prova da /design e si vede subito qui. */}
-        <HeroBackground kind={heroId} />
+        {/* lo sfondo è il video della stanza (con lo screenshot come poster) */}
+        <HeroBackground />
 
         <Container className="relative flex flex-col items-center py-24 text-center sm:py-32">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-ink-800/50 px-3 py-1 text-xs font-medium text-slate-300">

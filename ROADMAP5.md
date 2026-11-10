@@ -100,12 +100,20 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
       vecchio si ferma al ricaricamento a caldo. Misurato nel browser: nessuna nota sotto gli 80 Hz.
 - [x] **Guardie di ruolo** — un anonimo risultava *viewer* e passava `requireRole("viewer")`: ora 401
       con i ruoli attivi (`isAnonymousWhenEnforced` in `roles.ts`, con test).
-- [ ] **Token GitHub** in `server/.env` rifiutato da GitHub ("Bad credentials"): da rigenerare (utente).
+- [~] **Token GitHub** in `server/.env` — rigenerato dall'utente il 2026-11-10: valido (scade il 10/12/2026),
+      ma **non vede il repo privato** `GITHUB_REPO` (404): va concesso l'accesso a quel repo nel token
+      fine-grained (Repository access + permessi Contents/Issues/Pull requests). _Utente._
 - [x] **Rossonero per tutto il progetto** (_deciso dall'utente il 2026-11-10: "deve diventare iconico"_):
       i token base di `index.css` (workspace, scuro e chiaro) sono ora quelli della palette Rossonero;
       sfumature, bagliori e `brand-soft` seguono l'accento. Un test impedisce che CSS e palette divergano.
-- [ ] **Stanza 3D rossonera** — più strade possibili (accenti / identità forte / "casa del club"):
-      doc di decisione sul Drive "SAMS — Stanza 3D rossonera: decisione". _In attesa della scelta._
+- [x] **Stanza 3D rossonera** — _deciso dall'utente il 2026-11-10_: **la stanza resta com'è**; il resto
+      della schermata usa i colori dello **stemma** (rosso, nero, bianco). Fatto: fondo nero pieno e grigi
+      neutri (prima caldi, e il banner ambra faceva marrone); `slate` di Tailwind rimappato a grigio neutro
+      (virava al blu, nella barra di sinistra si vedeva) e `rose` al rosso dello stemma (virava al rosa);
+      `--c-accent-soft` da `255 128 128` (rosa) a `255 51 51`; ambra/azzurro/viola/fucsia tolti
+      dall'interfaccia. Restano a colori, di proposito, i colori-identità degli agenti e i verdi di "ok".
+- [x] **Design lab rimosso** (_deciso dall'utente il 2026-11-10_): via `/design`, `DesignContext`, le
+      varianti di palette/navbar/hero/componenti e i loro test; i componenti hanno solo la forma scelta.
 
 ### Già fatto verso la 1.0 — revisione completa del codice (2026-11-09)
 
@@ -190,8 +198,7 @@ stata eseguita** in questa revisione.
       camera fa una carrellata **andata e ritorno**, così il loop non stacca.
 
 **Resta aperto**
-- [ ] **Potare le varianti scartate** — quando le scelte sono definitive, il lab e i dati delle
-      opzioni non scelte si possono togliere (o tenere, se serve ancora sperimentare).
+- [x] **Potare le varianti scartate** — fatto il 2026-11-10: lab e varianti non scelte rimossi.
 
 ---
 

@@ -66,7 +66,7 @@ export function UsersAdmin({ selfEmail }: { selfEmail: string }) {
     <div className="mx-auto mt-6 max-w-md rounded-2xl border border-line/70 bg-ink-900/40 p-6">
       <h2 className="text-sm font-semibold text-slate-200">Gestione utenti</h2>
       <p className="mt-1 text-xs text-slate-500">Assegna i ruoli agli account del workspace.</p>
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
       <ul className="mt-4 flex flex-col gap-2">
         {users.map((u) => (
           <li
@@ -77,7 +77,7 @@ export function UsersAdmin({ selfEmail }: { selfEmail: string }) {
               <p className="truncate text-sm text-slate-200">{u.name}</p>
               <p className="truncate text-xs text-slate-500">
                 {u.email}
-                {u.emailVerified === false && <span className="ml-1.5 text-amber-400/90">· da confermare</span>}
+                {u.emailVerified === false && <span className="ml-1.5 text-slate-400/90">· da confermare</span>}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">

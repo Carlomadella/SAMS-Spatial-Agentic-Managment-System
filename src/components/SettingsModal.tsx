@@ -264,7 +264,7 @@ export function SettingsModal() {
             </Field>
           </div>
           {repo.trim() !== "" && !isValidRepo(repo) && (
-            <p className="-mt-1.5 text-[11px] text-amber-400">
+            <p className="-mt-1.5 text-[11px] text-slate-400">
               Formato non valido — usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.
             </p>
           )}

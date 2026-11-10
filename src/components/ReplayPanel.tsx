@@ -63,7 +63,7 @@ export function ReplayPanel() {
     );
   }
 
-  const accent = replay.color ? AGENT_HEX[replay.color] : "#8a8aa0";
+  const accent = replay.color ? AGENT_HEX[replay.color] : "#8f8f8f";
   const current = idx >= 0 ? replay.frames[idx] : null;
 
   function togglePlay() {
@@ -154,7 +154,7 @@ export function ReplayPanel() {
             >
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: seen ? accent : "#3a3a4a" }}
+                style={{ background: seen ? accent : "#3a3a3a" }}
               />
               <span className="w-8 shrink-0 font-mono text-[10px] tabular-nums text-mut">{formatOffset(f.tMs)}</span>
               <span className="select-none text-[12px]">{f.emoji}</span>

@@ -20,7 +20,7 @@ export function RuntimeBanner() {
       className={cn(
         "flex items-center gap-3 border-b px-4 py-2 text-[12.5px]",
         offline
-          ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+          ? "border-slate-500/30 bg-slate-500/10 text-slate-200"
           : "border-brand/30 bg-brand/10 text-brand-soft",
       )}
     >

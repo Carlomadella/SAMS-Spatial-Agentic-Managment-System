@@ -4,7 +4,7 @@ import { GITHUB_URL } from "../data/site";
 
 const TAG_STYLE: Record<string, string> = {
   Added: "bg-emerald-400/12 text-emerald-300 ring-emerald-400/25",
-  Changed: "bg-amber-400/12 text-amber-300 ring-amber-400/25",
+  Changed: "bg-slate-400/12 text-slate-300 ring-slate-400/25",
   Fixed: "bg-brand/12 text-brand ring-brand/25",
 };
 

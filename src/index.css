@@ -7,57 +7,58 @@
 @layer base {
   :root {
     color-scheme: dark;
-    /* Rossonero (i colori del Milan, decisione D2 della 1.0): vale per TUTTO il progetto,
-       workspace compresa — gli stessi valori della palette "rossonero" di site/data/palettes.ts.
-       Neri neutri appena caldi: il rosso deve essere l'unico colore in scena. */
-    --c-ink-950: 10 10 11;
-    --c-ink-900: 15 15 16;
-    --c-ink-850: 21 20 21;
-    --c-ink-800: 28 26 27;
-    --c-ink-700: 39 36 37;
-    --c-ink-600: 54 49 50;
-    --c-ink-500: 74 68 69;
-    --c-line: 44 40 41;
-    --c-mut: 160 152 153;
-    --c-text: 240 236 236;
+    /* Rossonero, i colori dello stemma del Milan (decisione D2 della 1.0): rosso, nero e
+       bianco, per TUTTO il progetto. Gli stessi valori di ROSSONERO in site/data/palettes.ts
+       (un test impedisce che divergano). Neri neutri: nessun grigio deve virare al blu o al
+       marrone, il rosso è l'unico colore in scena. */
+    --c-ink-950: 0 0 0;
+    --c-ink-900: 8 8 8;
+    --c-ink-850: 14 14 14;
+    --c-ink-800: 20 20 20;
+    --c-ink-700: 31 31 31;
+    --c-ink-600: 46 46 46;
+    --c-ink-500: 66 66 66;
+    --c-line: 38 38 38;
+    --c-mut: 163 163 163;
+    --c-text: 245 245 245;
     --c-text-strong: 255 255 255;
     /* accento unico (rosso): focus, anelli, bottoni e bagliori lo leggono da qui */
     --c-accent: 227 6 19;
-    --c-accent-2: 239 68 68;
-    /* rosso chiaro per testo/icone "brand" sul nero (era l'azzurro #9bc1ff) */
-    --c-accent-soft: 255 128 128;
+    /* il secondo colore dello stemma: bianco sul nero */
+    --c-accent-2: 255 255 255;
+    /* rosso per testo/icone piccole sul nero: pieno, non rosa (era 255 128 128) */
+    --c-accent-soft: 255 51 51;
     --c-on-accent: 255 255 255; /* bianco sul rosso: 4.9:1 */
   }
 
   .theme-light {
     color-scheme: light;
-    --c-ink-950: 248 247 247;
+    --c-ink-950: 245 245 245;
     --c-ink-900: 255 255 255;
-    --c-ink-850: 241 239 239;
-    --c-ink-800: 233 230 230;
-    --c-ink-700: 222 218 218;
-    --c-ink-600: 205 199 199;
-    --c-ink-500: 182 175 175;
-    --c-line: 226 221 221;
-    --c-mut: 100 92 93;
-    --c-text: 24 20 21;
-    --c-text-strong: 10 10 11;
+    --c-ink-850: 240 240 240;
+    --c-ink-800: 232 232 232;
+    --c-ink-700: 220 220 220;
+    --c-ink-600: 204 204 204;
+    --c-ink-500: 180 180 180;
+    --c-line: 224 224 224;
+    --c-mut: 96 96 96;
+    --c-text: 15 15 15;
+    --c-text-strong: 0 0 0;
     /* sul bianco il rosso si scurisce un poco, e il secondo colore diventa il nero */
     --c-accent: 190 10 25;
-    --c-accent-2: 30 27 28;
-    /* sul chiaro il "brand soft" deve essere scuro per leggersi (l'azzurro pallido non si leggeva) */
-    --c-accent-soft: 160 12 28;
+    --c-accent-2: 0 0 0;
+    --c-accent-soft: 170 8 20;
     --c-on-accent: 255 255 255;
   }
 
   /* In light mode, re-map the hard-coded light text colors to dark ones.
      (Safe because no component @apply's these utilities — see below.) */
-  .theme-light .text-white { color: #0b0e14; }
-  .theme-light .text-slate-50 { color: #0b0e14; }
-  .theme-light .text-slate-100 { color: #11151f; }
-  .theme-light .text-slate-200 { color: #1b2230; }
-  .theme-light .text-slate-300 { color: #2e3950; }
-  .theme-light .text-slate-400 { color: #5b667a; }
+  .theme-light .text-white { color: #0a0a0a; }
+  .theme-light .text-slate-50 { color: #0a0a0a; }
+  .theme-light .text-slate-100 { color: #141414; }
+  .theme-light .text-slate-200 { color: #1f1f1f; }
+  .theme-light .text-slate-300 { color: #333333; }
+  .theme-light .text-slate-400 { color: #5c5c5c; }
 
   html,
   body,
@@ -87,44 +88,6 @@
   body.site-scroll #root {
     height: auto;
     min-height: 100%;
-  }
-
-  /* Palette del sito prima che parta il JS — "Rossonero" (rosso e nero, i colori del Milan),
-     la stessa di DEFAULT_PALETTE_ID in site/data/palettes.ts, che poi la reinietta. Ridefinisce
-     i token SOLO sotto le pagine del sito (body.site-scroll): la workspace su /app non cambia.
-     Se cambi la palette di default, aggiorna anche questi valori, o il sito "lampeggia" coi
-     colori vecchi al caricamento. --c-on-accent qui è scritto a mano; lì è derivato (onAccent). */
-  body.site-scroll {
-    --c-ink-950: 10 10 11;
-    --c-ink-900: 15 15 16;
-    --c-ink-850: 21 20 21;
-    --c-ink-800: 28 26 27;
-    --c-ink-700: 39 36 37;
-    --c-ink-600: 54 49 50;
-    --c-ink-500: 74 68 69;
-    --c-line: 44 40 41;
-    --c-mut: 160 152 153;
-    --c-text: 240 236 236;
-    --c-text-strong: 255 255 255;
-    --c-accent: 227 6 19; /* rosso */
-    --c-accent-2: 239 68 68;
-    --c-on-accent: 255 255 255; /* bianco sul rosso: 4.9:1 */
-  }
-  .theme-light body.site-scroll {
-    --c-ink-950: 248 247 247;
-    --c-ink-900: 255 255 255;
-    --c-ink-850: 241 239 239;
-    --c-ink-800: 233 230 230;
-    --c-ink-700: 222 218 218;
-    --c-ink-600: 205 199 199;
-    --c-ink-500: 182 175 175;
-    --c-line: 226 221 221;
-    --c-mut: 100 92 93;
-    --c-text: 24 20 21;
-    --c-text-strong: 10 10 11;
-    --c-accent: 190 10 25; /* rosso più profondo sul chiaro */
-    --c-accent-2: 30 27 28; /* il nero */
-    --c-on-accent: 255 255 255;
   }
 
   /* Habbo-style pixel-art look: upscale the low-res 3D buffer with hard edges */
@@ -165,7 +128,7 @@
   .panel {
     @apply border border-line backdrop-blur-md;
     /* gentle top-down sheen so panels read as raised glass rather than flat fills */
-    background-image: linear-gradient(180deg, rgba(27, 34, 48, 0.55), rgba(13, 16, 23, 0.85));
+    background-image: linear-gradient(180deg, rgb(var(--c-ink-800) / 0.55), rgb(var(--c-ink-900) / 0.85));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 

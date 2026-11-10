@@ -64,7 +64,7 @@ export function ChainRules() {
                 type="checkbox"
                 checked={c.enabled}
                 onChange={() => toggleChain(c.id)}
-                className="mt-0.5 accent-sky-500"
+                className="mt-0.5 accent-slate-500"
                 aria-label={c.enabled ? "Disattiva regola" : "Attiva regola"}
               />
               <div className="min-w-0 flex-1">

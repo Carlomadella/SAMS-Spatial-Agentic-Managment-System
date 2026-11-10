@@ -145,7 +145,7 @@ export function LiveSimPanel() {
             type="checkbox"
             checked={metaProactive}
             onChange={(e) => setMetaProactive(e.target.checked)}
-            className="mt-0.5 accent-fuchsia-500"
+            className="mt-0.5 accent-rose-500"
           />
           <span className="text-[11px] leading-snug text-slate-300">
             Meta-agente proattivo
@@ -163,7 +163,7 @@ export function LiveSimPanel() {
 
       {/* Not ready warning */}
       {!canStart && (
-        <div className="shrink-0 border-b border-line px-3 py-2 text-[11px] text-amber-300">
+        <div className="shrink-0 border-b border-line px-3 py-2 text-[11px] text-slate-300">
           ⚠ Runtime non pronto — configura le chiavi nelle Impostazioni e avvia il provisioning
         </div>
       )}

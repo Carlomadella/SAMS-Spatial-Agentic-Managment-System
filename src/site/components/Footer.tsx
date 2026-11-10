@@ -1,7 +1,6 @@
 import { Github, Mail } from "lucide-react";
 import { Link } from "../router";
 import { CONTACT_EMAIL, GITHUB_URL, TAGLINE } from "../data/site";
-import { useDesign } from "../design/DesignContext";
 import { Container } from "./Container";
 import { Logo } from "./Logo";
 
@@ -24,8 +23,6 @@ const COLUMNS: Col[] = [
     links: [
       { label: "Documentazione", to: "/docs" },
       { label: "Changelog", to: "/changelog" },
-      // Il design lab non è più linkato (decisione D2 della roadmap 1.0): resta su /design
-      // per chi conosce l'indirizzo, ma il visitatore vede un sito solo.
       { label: "GitHub", to: GITHUB_URL, external: true },
     ],
   },
@@ -65,19 +62,8 @@ function FooterLink({ label, to, external }: { label: string; to: string; extern
  * Footer del sito (destinazione del link "Contatti"): logo + tagline a sinistra, quattro
  * colonne (Prodotto/Docs/Contatti/Legale), riga finale con social/GitHub, email di
  * contatto e © anno corrente. `id="site-footer"` è l'ancora a cui punta "Contatti".
- *
- * La variante **compatta** (Roadmap 5, scelta da /design) rinuncia alle colonne per una
- * riga sola: l'ancora `#site-footer` resta, così il link "Contatti" della navbar funziona
- * in entrambe.
  */
 export function Footer() {
-  const { choice } = useDesign();
-  if (choice("footer") === "compatto") return <CompactFooter />;
-  return <FullFooter />;
-}
-
-/** Il footer completo: quattro colonne + riga finale. */
-function FullFooter() {
   const year = new Date().getFullYear();
   return (
     <footer id="site-footer" className="border-t border-line/70 bg-ink-900/40">
@@ -121,52 +107,6 @@ function FullFooter() {
               {CONTACT_EMAIL}
             </a>
           </div>
-        </div>
-      </Container>
-    </footer>
-  );
-}
-
-/**
- * Il footer compatto: una riga sola. Tiene ciò che serve davvero a chi arriva in fondo —
- * logo, i link essenziali, GitHub, email, © — e lascia cadere le voci secondarie (che
- * restano raggiungibili dalla navbar e dalle pagine).
- */
-function CompactFooter() {
-  const year = new Date().getFullYear();
-  const essential = [
-    { label: "La stanza", to: "/app" },
-    { label: "Docs", to: "/docs" },
-    { label: "Changelog", to: "/changelog" },
-  ];
-  return (
-    <footer id="site-footer" className="border-t border-line/70 bg-ink-900/40">
-      <Container className="flex flex-col items-center gap-4 py-7 sm:flex-row sm:justify-between">
-        <div className="flex items-center gap-5">
-          <Logo />
-          <nav className="hidden items-center gap-4 sm:flex">
-            {essential.map((l) => (
-              <FooterLink key={l.label} {...l} />
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="text-sm text-slate-400 transition-colors hover:text-slate-100"
-          >
-            {CONTACT_EMAIL}
-          </a>
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="GitHub"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-ink-800/40 text-slate-300 transition-colors hover:border-brand/50 hover:text-white"
-          >
-            <Github size={16} />
-          </a>
-          <p className="text-xs text-slate-500">© {year} SAMS</p>
         </div>
       </Container>
     </footer>

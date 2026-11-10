@@ -76,7 +76,7 @@ export function Verify() {
         {state.kind === "error" && (
           <>
             <h1 className="mt-5 flex items-center justify-center gap-2 text-2xl font-semibold tracking-tight text-slate-50">
-              <MailX size={22} className="text-red-400" />
+              <MailX size={22} className="text-rose-400" />
               Non ha funzionato
             </h1>
             <p className="mt-1.5 text-sm text-slate-400">{state.message}</p>

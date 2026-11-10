@@ -29,7 +29,7 @@ export function TasksPanel() {
             <div className="flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: t.color ? AGENT_HEX[t.color] : "#8a93a6" }}
+                style={{ background: t.color ? AGENT_HEX[t.color] : "#8f8f8f" }}
               />
               <span className="text-[12px] font-medium text-slate-200">{t.agentName}</span>
               <span className={cn("chip bg-ink-800", meta.text)}>

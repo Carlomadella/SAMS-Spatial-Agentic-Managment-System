@@ -41,7 +41,7 @@ function ProblemsView() {
             {blocked ? (
               <AlertTriangle size={14} className="shrink-0 text-rose-400" />
             ) : (
-              <Clock size={14} className="shrink-0 text-amber-400" />
+              <Clock size={14} className="shrink-0 text-slate-400" />
             )}
             <span className="min-w-0 flex-1 truncate text-slate-300">
               <span className="font-medium text-slate-200">{a.name}</span>{" "}
@@ -51,7 +51,7 @@ function ProblemsView() {
             <span
               className={cn(
                 "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-                blocked ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-300",
+                blocked ? "bg-rose-500/15 text-rose-300" : "bg-slate-500/15 text-slate-300",
               )}
             >
               {blocked ? "bloccato" : "in revisione"}
@@ -117,7 +117,7 @@ export function BottomPanel() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-soft" />
               )}
               {t.id === "problems" && problemCount > 0 && (
-                <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-300">
+                <span className="rounded-full bg-slate-500/20 px-1.5 text-[10px] font-bold text-slate-300">
                   {problemCount}
                 </span>
               )}

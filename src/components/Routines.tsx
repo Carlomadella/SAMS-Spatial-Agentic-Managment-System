@@ -90,7 +90,7 @@ export function Routines() {
       </p>
 
       {!backendOnline && (
-        <p className="mt-2 text-[10px] text-amber-300">Runtime offline — le routine sono gestite dal server.</p>
+        <p className="mt-2 text-[10px] text-slate-300">Runtime offline — le routine sono gestite dal server.</p>
       )}
 
       {/* Elenco routine */}
@@ -109,7 +109,7 @@ export function Routines() {
                 checked={r.enabled}
                 onChange={() => void onToggle(r)}
                 disabled={!canManage}
-                className="mt-0.5 accent-amber-500 disabled:opacity-50"
+                className="mt-0.5 accent-slate-500 disabled:opacity-50"
                 aria-label={r.enabled ? "Disattiva routine" : "Attiva routine"}
               />
               <div className="min-w-0 flex-1">

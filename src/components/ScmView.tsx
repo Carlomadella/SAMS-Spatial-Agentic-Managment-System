@@ -22,23 +22,23 @@ import { GitGraph } from "./GitGraph";
 import { cn } from "../lib/utils";
 
 const BADGE_CLS: Record<string, string> = {
-  M: "text-amber-400",
+  M: "text-slate-400",
   U: "text-emerald-400",
   A: "text-emerald-400",
 };
 
 const ENV_CHIP: Record<string, string> = {
-  dev: "bg-sky-500/15 text-sky-300 border-sky-500/25",
-  staging: "bg-amber-500/15 text-amber-300 border-amber-500/25",
+  dev: "bg-slate-500/15 text-slate-300 border-slate-500/25",
+  staging: "bg-slate-500/15 text-slate-300 border-slate-500/25",
   prod: "bg-rose-500/15 text-rose-300 border-rose-500/25",
 };
 
 const STATUS_BAR: Record<string, string> = {
   working: "bg-brand animate-pulse-soft",
-  review: "bg-amber-400",
+  review: "bg-slate-400",
   blocked: "bg-rose-500",
   done: "bg-emerald-400",
-  awaiting_approval: "bg-violet-400 animate-pulse-soft",
+  awaiting_approval: "bg-rose-400 animate-pulse-soft",
   idle: "bg-slate-600",
 };
 
@@ -69,8 +69,8 @@ function SectionHeader({
 
 const GRADE_CLS: Record<QualityGrade, string> = {
   A: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-  B: "border-sky-500/40 bg-sky-500/15 text-sky-300",
-  C: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+  B: "border-slate-500/40 bg-slate-500/15 text-slate-300",
+  C: "border-slate-500/40 bg-slate-500/15 text-slate-300",
   D: "border-rose-500/40 bg-rose-500/15 text-rose-300",
 };
 
@@ -117,9 +117,9 @@ function PendingCard({ agent }: { agent: Agent }) {
   }
 
   return (
-    <div className="mx-1 mb-2 overflow-hidden rounded-lg border border-violet-500/25 bg-violet-500/5">
+    <div className="mx-1 mb-2 overflow-hidden rounded-lg border border-rose-500/25 bg-rose-500/5">
       {/* agent bar */}
-      <div className="flex items-center gap-2 border-b border-violet-500/15 px-2 py-1.5">
+      <div className="flex items-center gap-2 border-b border-rose-500/15 px-2 py-1.5">
         <span
           className="h-2 w-2 shrink-0 rounded-full ring-1 ring-black/20"
           style={{ background: AGENT_HEX[agent.color] }}
@@ -138,7 +138,7 @@ function PendingCard({ agent }: { agent: Agent }) {
 
       {/* action buttons */}
       {canReview ? (
-        <div className="flex gap-1.5 border-t border-violet-500/15 px-2 py-1.5">
+        <div className="flex gap-1.5 border-t border-rose-500/15 px-2 py-1.5">
           <button
             onClick={handleApprove}
             disabled={busy}
@@ -156,7 +156,7 @@ function PendingCard({ agent }: { agent: Agent }) {
           </button>
         </div>
       ) : (
-        <div className="border-t border-violet-500/15 px-2 py-1.5 text-[10px] text-mut">
+        <div className="border-t border-rose-500/15 px-2 py-1.5 text-[10px] text-mut">
           👁 Sola lettura — l'approvazione spetta a editor o owner.
         </div>
       )}
@@ -232,10 +232,10 @@ export function ScmView() {
         {/* ── Pending approvals ── */}
         {pendingAgents.length > 0 && (
           <div className="mt-2">
-            <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-violet-400">
+            <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-rose-400">
               <AlertCircle size={11} />
               In attesa di approvazione
-              <span className="rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[9px] text-violet-300">
+              <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] text-rose-300">
                 {pendingAgents.length}
               </span>
             </div>

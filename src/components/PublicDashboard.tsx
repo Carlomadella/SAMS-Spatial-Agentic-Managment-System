@@ -81,7 +81,7 @@ export function PublicDashboard() {
             {/* runtime */}
             <section className="rounded-2xl border border-line/60 bg-ink-900/60 p-5">
               <div className="mb-3 flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${snap.runtime.ready ? "bg-emerald-400" : "bg-amber-400"}`} />
+                <span className={`h-2 w-2 rounded-full ${snap.runtime.ready ? "bg-emerald-400" : "bg-slate-400"}`} />
                 <span className="text-[13px] font-semibold text-slate-100">
                   {snap.runtime.ready ? "Runtime attivo" : "Runtime in configurazione"}
                 </span>

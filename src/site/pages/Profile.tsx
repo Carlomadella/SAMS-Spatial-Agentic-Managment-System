@@ -45,7 +45,7 @@ export function Profile() {
                 void logout();
                 navigate("/");
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-ink-800/40 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-red-400/40 hover:text-red-300"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-ink-800/40 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-rose-400/40 hover:text-rose-300"
             >
               <LogOut size={15} />
               Esci

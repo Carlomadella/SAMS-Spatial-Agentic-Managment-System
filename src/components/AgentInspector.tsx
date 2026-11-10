@@ -174,7 +174,7 @@ export function AgentInspector() {
           className={cn(
             "chip cursor-pointer border",
             agent.meta
-              ? "border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-200"
+              ? "border-rose-400/50 bg-rose-500/15 text-rose-200"
               : "border-line bg-ink-700 text-slate-400 hover:text-slate-200",
           )}
         >
@@ -307,9 +307,9 @@ export function AgentInspector() {
       </details>
 
       {agent.meta && (
-        <div className="mt-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2.5 py-2">
-          <div className="text-[11px] font-semibold text-fuchsia-200">Meta-agente — repo: SAMS</div>
-          <p className="mt-0.5 text-[11px] text-fuchsia-200/70">
+        <div className="mt-2 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2.5 py-2">
+          <div className="text-[11px] font-semibold text-rose-200">Meta-agente — repo: SAMS</div>
+          <p className="mt-0.5 text-[11px] text-rose-200/70">
             Ogni task di questo agente lavora su <code className="rounded bg-ink-800/60 px-1">{SAMS_REPO}</code> e propone migliorie al progetto.
           </p>
           <select
@@ -321,7 +321,7 @@ export function AgentInspector() {
               setTitle(t);
               setBranch(b);
             }}
-            className="mt-1.5 w-full cursor-pointer rounded-md border border-fuchsia-400/30 bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-fuchsia-400/60"
+            className="mt-1.5 w-full cursor-pointer rounded-md border border-rose-400/30 bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-rose-400/60"
           >
             <option value="" className="bg-ink-800">Proponi una miglioria a SAMS…</option>
             {META_IDEAS.map((i) => (
@@ -387,12 +387,12 @@ export function AgentInspector() {
         return (
           <div className="mt-1.5 flex items-center gap-2" title={`${lv.xpForNext != null ? `${lv.xpIntoLevel}/${lv.xpForNext} XP al prossimo livello` : "Livello massimo"}`}>
             <span className="text-[10px] text-mut w-12 shrink-0">Livello</span>
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
               ⭐ Lv{lv.level}
             </span>
             <div className="relative flex-1 h-1.5 rounded-full bg-ink-700 overflow-hidden">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-amber-400 transition-all duration-700"
+                className="absolute inset-y-0 left-0 rounded-full bg-slate-400 transition-all duration-700"
                 style={{ width: `${Math.round(lv.progress * 100)}%` }}
               />
             </div>
@@ -404,7 +404,7 @@ export function AgentInspector() {
       {/* token economy — coins earned by completing work (more for a PR/result) */}
       <div className="mt-1.5 flex items-center gap-2" title="Gettoni guadagnati completando task (bonus se producono una PR/risultato)">
         <span className="text-[10px] text-mut w-12 shrink-0">Gettoni</span>
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
           🪙 {formatCoins(balanceOf(wallets, agent.id))}
         </span>
       </div>
@@ -422,7 +422,7 @@ export function AgentInspector() {
             <span className="text-[10px] text-mut w-12 shrink-0">Legame</span>
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: AGENT_HEX[friend.color] }} />
             <span className="min-w-0 flex-1 truncate text-[11px] text-slate-300">{friend.name}</span>
-            <span className="shrink-0 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-pink-300">
+            <span className="shrink-0 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300">
               💚 {affinityTier(bf.score)}
             </span>
           </div>
@@ -448,7 +448,7 @@ export function AgentInspector() {
                   </div>
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all duration-700"
+                      className="h-full rounded-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all duration-700"
                       style={{ width: `${Math.round(goalProgress(goal) * 100)}%` }}
                     />
                   </div>
@@ -588,8 +588,8 @@ export function AgentInspector() {
 
       {/* diff approval panel */}
       {agent.status === "awaiting_approval" && (agent.pendingFiles?.length ?? 0) > 0 && (
-        <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5">
-          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-violet-300">
+        <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
             <FileText size={12} />
             {agent.pendingFiles!.length} {agent.pendingFiles!.length === 1 ? "file pronto" : "file pronti"} per il commit
           </div>
@@ -706,11 +706,11 @@ export function AgentInspector() {
             {agent.taskQueue.map((qt, i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-md bg-ink-800 px-2 py-1">
                 {qt.urgent && (
-                  <span title="Task urgente — salta la coda" className="shrink-0 text-[11px] text-amber-300">⚡</span>
+                  <span title="Task urgente — salta la coda" className="shrink-0 text-[11px] text-slate-300">⚡</span>
                 )}
                 <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{qt.title}</span>
                 {qt.repo && (
-                  <span title={`Repo del task: ${qt.repo}`} className="shrink-0 truncate rounded bg-ink-700 px-1 font-mono text-[9px] text-sky-300">⑂ {qt.repo}</span>
+                  <span title={`Repo del task: ${qt.repo}`} className="shrink-0 truncate rounded bg-ink-700 px-1 font-mono text-[9px] text-slate-300">⑂ {qt.repo}</span>
                 )}
                 <button
                   onClick={() => removeFromQueue(agent.id, i)}
@@ -775,7 +775,7 @@ export function AgentInspector() {
             <p className="text-[11px] leading-snug text-rose-400">Formato repo non valido: usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.</p>
           )}
           {(hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)) && (
-            <p className="text-[11px] leading-snug text-amber-400">
+            <p className="text-[11px] leading-snug text-slate-400">
               Compila i segnaposto tra parentesi graffe (es. <code className="rounded bg-ink-700 px-1">{"{argomento}"}</code>,{" "}
               <code className="rounded bg-ink-700 px-1">{"{pagina}"}</code>) prima di assegnare il task.
             </p>
@@ -786,13 +786,13 @@ export function AgentInspector() {
                 type="checkbox"
                 checked={urgent}
                 onChange={(e) => setUrgent(e.target.checked)}
-                className="accent-amber-500"
+                className="accent-slate-500"
               />
               <span>⚡ Urgente — salta la coda</span>
             </label>
           )}
           {!canAssign(viewerRole) && (
-            <p className="text-[11px] leading-snug text-amber-400">
+            <p className="text-[11px] leading-snug text-slate-400">
               👁 Sei in <strong>sola lettura</strong>: puoi osservare il mondo ma non avviare lavoro.
             </p>
           )}

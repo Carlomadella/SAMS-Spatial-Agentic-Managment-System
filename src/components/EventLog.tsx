@@ -54,7 +54,7 @@ export function EventLog() {
             className="flex items-baseline gap-2 whitespace-pre-wrap rounded px-1 py-0.5 transition-colors hover:bg-white/[0.035]"
           >
             <span className="shrink-0 tabular-nums text-mut/80">{clock(e.ts)}</span>
-            <span className="shrink-0 font-semibold" style={{ color: e.color ? AGENT_HEX[e.color] : "#8a93a6" }}>
+            <span className="shrink-0 font-semibold" style={{ color: e.color ? AGENT_HEX[e.color] : "#8f8f8f" }}>
               {e.agentName.padEnd(14, " ")}
             </span>
             <span

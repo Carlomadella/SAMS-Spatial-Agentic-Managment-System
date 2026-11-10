@@ -121,7 +121,7 @@ export function Reset() {
             />
           </label>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-rose-400">{error}</p>}
 
           <button
             type="submit"

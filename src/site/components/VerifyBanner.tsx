@@ -25,8 +25,8 @@ export function VerifyBanner() {
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
-      <p className="flex items-start gap-2 text-xs text-amber-200">
+    <div className="mt-4 rounded-2xl border border-slate-400/30 bg-slate-400/5 p-4">
+      <p className="flex items-start gap-2 text-xs text-slate-200">
         <MailWarning size={15} className="mt-px shrink-0" />
         <span>Il tuo indirizzo email non è ancora confermato.</span>
       </p>
@@ -34,11 +34,11 @@ export function VerifyBanner() {
         type="button"
         onClick={() => void resend()}
         disabled={busy}
-        className="mt-2 rounded-lg border border-amber-400/40 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-400/10 disabled:opacity-60"
+        className="mt-2 rounded-lg border border-slate-400/40 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-400/10 disabled:opacity-60"
       >
         {busy ? "Invio…" : "Rimanda il link"}
       </button>
-      {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-400" : "text-rose-400"}`}>{msg.text}</p>}
     </div>
   );
 }

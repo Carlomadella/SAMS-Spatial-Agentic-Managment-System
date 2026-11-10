@@ -8,7 +8,7 @@ export const CONTACT_EMAIL = "contatti@sams.app";
 
 export const TAGLINE = "La stanza spaziale dei tuoi agenti AI.";
 
-/** Link centrali della navbar. Le ancore (#...) scrollano nella pagina corrente. */
+/** I cinque link centrali della navbar. Le ancore (#...) scrollano nella pagina corrente. */
 export interface NavLink {
   label: string;
   to: string;
@@ -16,7 +16,6 @@ export interface NavLink {
 }
 
 export const NAV_LINKS: NavLink[] = [
-  { label: "Home", to: "/" },
   { label: "Funzionalità", to: "/#funzionalita" },
   { label: "Docs", to: "/docs" },
   { label: "GitHub", to: GITHUB_URL, external: true },

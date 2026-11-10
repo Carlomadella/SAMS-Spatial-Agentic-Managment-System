@@ -80,7 +80,7 @@ export function ChangePassword() {
           </div>
         </form>
       )}
-      {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-400" : "text-rose-400"}`}>{msg.text}</p>}
     </div>
   );
 }

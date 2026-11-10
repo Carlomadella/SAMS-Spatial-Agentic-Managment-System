@@ -6,7 +6,7 @@ const KIND_CLS: Record<OutputKind, string> = {
   head: "text-mut",
   ok: "text-emerald-300",
   err: "text-rose-300",
-  warn: "text-amber-300",
+  warn: "text-slate-300",
 };
 
 /** Build/runtime output console, derived from live workspace state. */

@@ -1,62 +1,24 @@
 import { Link } from "../router";
-import { useDesign } from "../design/DesignContext";
-
 /**
- * Logo SAMS. Il mark ha tre varianti (Roadmap 5, scelte da /design): "orbitale" — un nucleo
- * (lo spazio condiviso) con attorno gli agenti in orbita — "monogramma" e "punto". Tutte
- * usano i token d'accento, così seguono tema e palette. È un Link alla home;
- * `withWordmark={false}` mostra solo il mark (es. come cue).
- *
- * `variant` esplicito serve al design lab, che disegna le anteprime dei mark *non* scelti:
- * senza, mostrerebbero tutte la variante attiva. Le pagine non lo passano.
+ * Logo SAMS: un nucleo (lo spazio condiviso) con attorno gli agenti in orbita. Usa i token
+ * d'accento, così segue il tema. È un Link alla home; `withWordmark={false}` mostra solo il
+ * mark (es. come cue).
  */
 export function Logo({
   className = "",
   withWordmark = true,
-  variant,
   asLink = true,
 }: {
   className?: string;
   withWordmark?: boolean;
-  variant?: string;
   /**
    * `false` = solo il disegno, senza link. Serve quando il logo sta già dentro un link o un
-   * bottone (il cue "Scopri di più", le anteprime del lab): un link dentro un link è HTML
-   * non valido e il browser lo spezza in due.
+   * bottone (il cue "Scopri di più"): un link dentro un link è HTML non valido e il browser
+   * lo spezza in due.
    */
   asLink?: boolean;
 }) {
-  const { choice } = useDesign();
-  const kind = variant ?? choice("logo");
-  const accent = "rgb(var(--c-accent))";
-  const accent2 = "rgb(var(--c-accent-2))";
-
-  const mark =
-    kind === "monogramma" ? (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden className="shrink-0">
-        <rect x="2" y="2" width="28" height="28" rx="8" fill={accent} />
-        <text
-          x="16"
-          y="22"
-          textAnchor="middle"
-          fontSize="16"
-          fontWeight="700"
-          fill="rgb(var(--c-on-accent))"
-          fontFamily="Inter, sans-serif"
-        >
-          S
-        </text>
-      </svg>
-    ) : kind === "punto" ? (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden className="shrink-0">
-        <circle cx="16" cy="16" r="7" fill={accent} />
-        <circle cx="16" cy="16" r="7" fill={accent} opacity="0.3">
-          <animate attributeName="r" values="7;9;7" dur="3s" repeatCount="indefinite" />
-        </circle>
-      </svg>
-    ) : (
-      <OrbitalMark accent={accent} accent2={accent2} />
-    );
+  const mark = <OrbitalMark accent="rgb(var(--c-accent))" accent2="rgb(var(--c-accent-2))" />;
 
   const content = (
     <>

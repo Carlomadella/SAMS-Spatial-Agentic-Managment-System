@@ -140,7 +140,7 @@ export function Login() {
             </label>
           )}
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-rose-400">{error}</p>}
           {notice && (
             <p className="flex items-start gap-1.5 text-xs text-emerald-400">
               <MailCheck size={14} className="mt-px shrink-0" />

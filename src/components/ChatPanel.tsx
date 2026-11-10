@@ -197,7 +197,7 @@ function TaskCommandCard({ cmd }: { cmd: TaskCommand }) {
         <Zap size={11} /> Task{cmd.agent ? ` per ${cmd.agent}` : ""}: “{cmd.title}”
       </span>
       {problem ? (
-        <span className="text-amber-400">{problem}</span>
+        <span className="text-slate-400">{problem}</span>
       ) : !canAct ? (
         <span className="text-mut/70" title="Serve il ruolo editor o owner per assegnare">
           👁 Sola lettura

@@ -19,7 +19,7 @@ function fmtTokens(n: number): string {
 
 const STATUS_CHIP: Record<string, string> = {
   done:    "bg-emerald-500/15 text-emerald-300",
-  review:  "bg-amber-500/15 text-amber-300",
+  review:  "bg-slate-500/15 text-slate-300",
   blocked: "bg-rose-500/15 text-rose-300",
   working: "bg-brand/15 text-brand-soft",
   idle:    "bg-ink-700 text-mut",

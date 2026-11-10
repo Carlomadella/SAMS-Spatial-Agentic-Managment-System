@@ -43,32 +43,13 @@ test("un accesso fallito non apre la stanza e lo dice", async ({ page }) => {
   await page.getByPlaceholder("tu@esempio.com").fill("nessuno@esempio.com");
   await page.getByPlaceholder("••••••••").fill("password-sbagliata");
   await page.getByRole("button", { name: "Accedi" }).click();
-  await expect(page.locator("p.text-red-400")).toBeVisible();
+  await expect(page.locator("p.text-rose-400")).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("il design lab applica la palette al sito vero", async ({ page }) => {
+test("il design lab non c'è più: /design è un 404", async ({ page }) => {
   await page.goto("/design");
-  // Il bottone della navbar prende il colore dell'accento: qui si vede se la palette è viva.
-  // `poll` e non una lettura secca: il bottone ha una transizione, e a metà animazione il
-  // colore è un valore intermedio (né ambra né verde).
-  const cta = page.getByRole("link", { name: "Apri la stanza" }).first();
-  const bg = () => cta.evaluate((el) => getComputedStyle(el).backgroundColor);
-
-  await page.getByRole("button", { name: /Foresta/ }).click();
-  await expect.poll(bg).toBe("rgb(16, 185, 129)"); // il verde di Foresta
-
-  // e la scelta sopravvive al reload (è persistita)
-  await page.reload();
-  await expect.poll(bg).toBe("rgb(16, 185, 129)");
-});
-
-test("il design lab cambia la navbar davvero", async ({ page }) => {
-  await page.goto("/design");
-  await expect(page.getByRole("link", { name: "Apri la stanza" }).first()).toBeVisible();
-  await page.getByRole("button", { name: /Minima/ }).click();
-  await expect(page.getByRole("link", { name: "Apri la stanza" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Accedi" }).first()).toBeVisible(); // l'ingresso resta
+  await expect(page.getByRole("button", { name: /Foresta/ })).toHaveCount(0);
 });
 
 test("profilo è protetto: redirect a login", async ({ page }) => {
@@ -96,11 +77,13 @@ test("palette del sito è Rossonero, non il blu dell'app", async ({ page }) => {
   const accent = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-accent").trim());
   expect(accent).toBe("227 6 19"); // il rosso di Rossonero — i colori del Milan, scelti per la 1.0
   expect(accent).not.toBe("79 140 255"); // il vecchio blu della workspace non torna
+  const base = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--c-ink-950").trim());
+  expect(base).toBe("0 0 0"); // il nero dello stemma, non un grigio caldo
 });
 
 test("il testo sul bottone primario contrasta con l'accento, in entrambi i temi", async ({ page }) => {
   // Regressione: era bianco su ambra (2.15:1) e in tema chiaro diventava nero su accento
-  // scuro. Ora `--c-on-accent` è derivato dal contrasto — vedi onAccent in data/palettes.ts.
+  // scuro. Ora `--c-on-accent` è bianco sul rosso (4.9:1) — vedi i test di data/palettes.ts.
   for (const theme of ["dark", "light"]) {
     await page.goto("/");
     await page.evaluate((t) => localStorage.setItem("sams.theme", t), theme);
