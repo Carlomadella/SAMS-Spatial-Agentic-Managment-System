@@ -48,3 +48,6 @@ test-results/
 # graphify (knowledge graph — generated locally, never commit)
 graph.html
 graphify-out/
+
+# Playwright MCP (avanzi dei test nel browser)
+.playwright-mcp/
