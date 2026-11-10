@@ -696,7 +696,9 @@ function MetaProactiveBridge() {
  */
 function AudioBridge() {
   useEffect(() => {
-    const kick = () => audio.resume();
+    // Il primo gesto sblocca l'audio (prima non esiste nessun AudioContext: niente avvisi
+    // di autoplay bloccato); startAmbient qui sotto parte davvero solo allo sblocco.
+    const kick = () => audio.unlock();
     window.addEventListener("pointerdown", kick);
     window.addEventListener("keydown", kick);
 

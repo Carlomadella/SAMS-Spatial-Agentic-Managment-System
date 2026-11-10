@@ -1,8 +1,10 @@
 // ---------------------------------------------------------------------------
 // Tiny WebAudio sound engine — everything is synthesised on the fly, so there
 // are zero binary assets to ship (the lo-fi background included). A single shared AudioContext feeds a master
-// gain (the mute switch). Browsers suspend audio until a user gesture, so call
-// resume() from the first pointer/key event.
+// gain (the mute switch). Browsers block audio until a user gesture, so the
+// AudioContext is not even created before unlock() — called from the first
+// pointer/key event. (Creating it earlier made Firefox log "È stato impedito a un
+// AudioContext di avviarsi automaticamente" at every page load.)
 // ---------------------------------------------------------------------------
 
 import { BASS_NOTE_S, chordForBar, chordHitAt, drumsAt, midiToHz, stepAdvance, STEPS_PER_BAR } from "./lofi";
@@ -10,6 +12,10 @@ import { BASS_NOTE_S, chordForBar, chordHitAt, drumsAt, midiToHz, stepAdvance, S
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let muted = true;
+/** True dopo il primo gesto dell'utente: prima non si crea nessun AudioContext. */
+let unlocked = false;
+/** Il sottofondo è stato chiesto (startAmbient) e partirà allo sblocco. */
+let wantAmbient = false;
 
 /** Il sottofondo lo-fi in corso: bus col suo filtro, fruscio del vinile e sequencer. */
 type LofiHandle = {
@@ -22,7 +28,7 @@ let ambient: LofiHandle | null = null;
 let night = false;
 
 function ensure(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !unlocked) return null;
   if (!ctx) {
     const AC =
       window.AudioContext ??
@@ -50,6 +56,16 @@ export function setMuted(m: boolean): void {
 export function resume(): void {
   const c = ensure();
   if (c && c.state === "suspended") void c.resume();
+}
+
+/**
+ * Da chiamare **solo dentro un gesto dell'utente** (pointerdown/keydown): da qui in poi
+ * l'audio può esistere. Crea il contesto, lo riprende e avvia il sottofondo se era stato chiesto.
+ */
+export function unlock(): void {
+  unlocked = true;
+  resume();
+  if (wantAmbient && !ambient) startAmbient();
 }
 
 /** One short enveloped tone. No-op when muted or audio is unavailable. */
@@ -232,6 +248,7 @@ function playStep(c: AudioContext, out: AudioNode, step: number, t: number): voi
  * creare nodi (niente lavoro inutile), così allo smute riprende a tempo.
  */
 export function startAmbient(): void {
+  wantAmbient = true;
   const c = ensure();
   if (!c || !master || ambient) return;
   const bus = c.createGain();
@@ -263,6 +280,7 @@ export function startAmbient(): void {
 }
 
 export function stopAmbient(): void {
+  wantAmbient = false;
   if (!ambient) return;
   clearInterval(ambient.timer);
   try {
