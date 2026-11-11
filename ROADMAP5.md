@@ -223,8 +223,11 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 - [ ] **Stanza su mobile (390 px).** L'header deborda (l'icona del giardino è tagliata, la ricerca va su 3 righe),
       l'Inspector si sovrappone al pannello inferiore e la barra di stato e il riquadro dei suggerimenti escono dallo
       schermo. Il sito pubblico invece è a posto.
-- [ ] **Il changelog del sito è fermo al 15/07** (`src/site/data/changelog.ts`) e la prima voce dice ancora
+- [x] **Il changelog del sito è fermo al 15/07** (`src/site/data/changelog.ts`) e la prima voce dice ancora
       "Palette Abisso/Ciano". Va allineato a `CHANGELOG.md` (Rossonero, lo-fi, ruoli, OpenRouter…).
+      **Fatto il 2026-11-11:** 8 voci dal 09/11 all'11/11; aggiunte a `CHANGELOG.md` le sezioni mancanti
+      (10/11 b e 11/11). `changelog.test.ts` fallisce se la prima voce del sito non ha la data della sezione
+      più recente di `CHANGELOG.md`. Il link al changelog del repo puntava a `main`, che non esiste: ora `HEAD`.
 - [ ] **Webhook GitHub aperto senza secret.** Senza `GITHUB_WEBHOOK_SECRET` le richieste non firmate sono
       accettate (verificato: 200), anche con `NODE_ENV=production`. In produzione andrebbero rifiutate.
 - [ ] **Privacy e Termini non esistono.** Nel footer puntano a `/#site-footer`. Con registrazione ed email
