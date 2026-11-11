@@ -61,7 +61,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
-| `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC) |
+| `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC). With `NODE_ENV=production` and no secret, the webhook answers 503 to every request |
 | `SAMS_TOKEN` | no | — | **owner** Bearer token: full access, incl. settings/secrets |
 | `SAMS_EDITOR_TOKEN` | no | — | **editor** Bearer token: starts work (assign/approve/sim/chat) but not settings |
 | `SAMS_READONLY_TOKEN` | no | — | **viewer** token: gates the public read-only dashboard (`?public&token=…`) |
@@ -130,7 +130,7 @@ Reset links are single-use, expire after an hour, are stored **hashed** (a datab
 hands out no valid links), and using one logs out every other device on that account.
 
 > ⚠️ **Exposed to the internet?** Always set `GITHUB_WEBHOOK_SECRET` (so incoming
-> webhooks are HMAC-verified) and register the owner account before sharing the URL.
+> webhooks are HMAC-verified; in production, without it, the webhook refuses everything) and register the owner account before sharing the URL.
 > Runtime settings can also be entered in-app (⚙) and persist to `.sams-runtime.json`
 > in `SAMS_DATA_DIR` — put that on a volume to keep them across restarts (the Compose
 > file mounts one on `/data`, the Render Blueprint a disk on `/var/data`).

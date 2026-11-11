@@ -12,7 +12,7 @@ import { runOpenaiTask } from "./openai";
 import { addIssueLabel, createBranch, createPullRequest, getRepoTree, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
-import { parseGithubEvent, parsePushWatering, verifyGithubSignature } from "./webhook";
+import { checkWebhookAuth, parseGithubEvent, parsePushWatering } from "./webhook";
 import { emptyGarden, water } from "./garden/model";
 import { getPending, clearPending } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
@@ -1400,7 +1400,8 @@ function routineTick(): void {
 }
 
 // GitHub webhook — receives push / pull_request / workflow_run events. Verifies
-// the HMAC signature (if GITHUB_WEBHOOK_SECRET is set), re-broadcasts a summary
+// the HMAC signature (GITHUB_WEBHOOK_SECRET; without it, unsigned requests are
+// accepted only outside production — in production they get 503), re-broadcasts a summary
 // as a SAMS WireEvent, and on a CI failure attaches a "wake" suggestion so the
 // frontend can assign a contextual fix task to a free agent.
 // To connect: GitHub → Repo Settings → Webhooks → http://host/api/webhook/github
@@ -1412,7 +1413,14 @@ app.post("/api/webhook/github", (req: Request, res: Response) => {
   const secret = getSettings().githubWebhookSecret;
   const signature = req.headers["x-hub-signature-256"] as string | undefined;
   const rawBody = (req as Request & { rawBody?: string }).rawBody ?? "";
-  if (!verifyGithubSignature(secret, rawBody, signature)) {
+  const auth = checkWebhookAuth(secret, rawBody, signature, process.env.NODE_ENV === "production");
+  if (auth === "unconfigured") {
+    // In produzione una richiesta non firmata non si accetta: manca il secret.
+    log.warn("Webhook GitHub rifiutato: GITHUB_WEBHOOK_SECRET non impostato", { event });
+    res.status(503).json({ error: "webhook non configurato: imposta GITHUB_WEBHOOK_SECRET" });
+    return;
+  }
+  if (auth === "bad_signature") {
     log.warn("Webhook GitHub rifiutato: firma non valida", { event });
     res.status(401).json({ error: "firma non valida" });
     return;
