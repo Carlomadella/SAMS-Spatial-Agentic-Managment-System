@@ -220,9 +220,13 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       Vanno ritentati solo 429/5xx e gli errori di rete.
       **Fatto il 2026-11-11:** `isRetryableError` (timeout, connessione interrotta, `fetch failed`); un 4xx, una
       risposta illeggibile o un errore di programmazione escono al primo tentativo col messaggio vero. 5 test.
-- [ ] **Stanza su mobile (390 px).** L'header deborda (l'icona del giardino è tagliata, la ricerca va su 3 righe),
+- [x] **Stanza su mobile (390 px).** L'header deborda (l'icona del giardino è tagliata, la ricerca va su 3 righe),
       l'Inspector si sovrappone al pannello inferiore e la barra di stato e il riquadro dei suggerimenti escono dallo
       schermo. Il sito pubblico invece è a posto.
+      **Fatto il 2026-11-11 (issue #3):** header su una riga (ricerca a icona, "+" senza etichetta, interruttori
+      dei pannelli solo da `md`, perché su mobile c'è la barra in basso); tab del pannello scorrevoli; l'Inspector
+      su mobile sta nel drawer "Inspector" invece di coprire il pannello; barra di stato su una riga. Nuovo
+      `e2e/mobile.spec.ts` a 390 px (fallisce col codice di prima).
 - [x] **Il changelog del sito è fermo al 15/07** (`src/site/data/changelog.ts`) e la prima voce dice ancora
       "Palette Abisso/Ciano". Va allineato a `CHANGELOG.md` (Rossonero, lo-fi, ruoli, OpenRouter…).
       **Fatto il 2026-11-11:** 8 voci dal 09/11 all'11/11; aggiunte a `CHANGELOG.md` le sezioni mancanti
@@ -246,8 +250,8 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       ospitata né per un viewer, che non può aprire le impostazioni.
 - [ ] Gli agenti di partenza mostrano il modello "Claude Opus" qualunque sia il provider configurato.
 - [ ] `/login` mostra il form anche a chi ha già fatto l'accesso.
-- [ ] Le etichette degli agenti della scena 3D (nome + stelle) restano sopra le finestre modali, per esempio sopra le
-      impostazioni: vanno messe sotto l'overlay.
+- [x] Le etichette degli agenti della scena 3D (nome + stelle) restano sopra le finestre modali, per esempio sopra le
+      impostazioni: vanno messe sotto l'overlay. **Fatto il 2026-11-11:** il contenitore della scena è `isolate`.
 - [ ] La palette comandi (Ctrl+K) offre a un viewer azioni che non può fare: crea agente, impostazioni,
       reimposta area, pausa caffè per tutti. Anche il bottone "+ Agente" in alto resta visibile.
 - [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.

@@ -99,13 +99,14 @@ export function BottomPanel() {
       <ResizeHandle side="top" onDelta={(d) => setBottomHeight(useStore.getState().bottomHeight - d)} />
       {/* tab bar */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-line pr-2">
-        <div className="flex h-full items-stretch">
+        {/* Su un telefono le dieci tab non ci stanno: scorrono in orizzontale. */}
+        <div className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setBottomTab(t.id)}
               className={cn(
-                "relative flex items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide transition-colors",
+                "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide transition-colors",
                 bottomTab === t.id ? "bg-white/[0.04] text-white" : "text-mut hover:bg-white/[0.02] hover:text-slate-300",
               )}
             >
@@ -132,7 +133,7 @@ export function BottomPanel() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 pl-1">
           {(bottomTab === "eventlog" || bottomTab === "tasks") && (
             <button
               title="Svuota"
@@ -163,7 +164,8 @@ export function BottomPanel() {
           {bottomTab === "problems" && <ProblemsView />}
           {bottomTab === "livesim" && <LiveSimPanel />}
         </div>
-        <div className="w-80 shrink-0 border-l border-line bg-ink-900/70">
+        {/* Su mobile l'Inspector (320 px) copriva il contenuto: lì sta nel drawer "Inspector". */}
+        <div className="hidden w-80 shrink-0 border-l border-line bg-ink-900/70 md:block">
           <AgentInspector />
         </div>
       </div>
