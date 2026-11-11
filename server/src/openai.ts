@@ -4,6 +4,7 @@ import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import {
+  concludeWithAnswer,
   MAX_STEPS,
   PROGRESS_START,
   THOUGHT_LIMIT,
@@ -175,7 +176,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     totalTokens += resp.tokens;
 
     if (resp.toolCalls.length === 0) {
-      ctx.doneSummary = resp.text ?? "";
+      concludeWithAnswer(ctx, resp.text);
       truncated = false;
       break;
     }

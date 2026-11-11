@@ -709,6 +709,37 @@ async function waterAgentGarden(agentName: string): Promise<void> {
 }
 
 /**
+ * Il modello ha risposto senza chiamare strumenti: il giro finisce. Se c'è un testo, è la
+ * sua conclusione e il task conta come chiuso quanto un `done` esplicito.
+ */
+export function concludeWithAnswer(ctx: Pick<ToolContext, "doneSummary" | "finished">, text: string | undefined): void {
+  ctx.doneSummary = text ?? "";
+  if (ctx.doneSummary.trim()) ctx.finished = true;
+}
+
+/**
+ * Esito di un task concluso (senza approvazione in sospeso). Ha scritto file o Notion →
+ * "review" (c'è qualcosa da rivedere). Non ha scritto ma ha chiuso con `done` → "done": un
+ * task di sola lettura riuscito è **completato** (collaudo 2026-11-10: finiva "idle", e
+ * Cronologia, metriche e dashboard pubblica non lo contavano). Né l'uno né l'altro → "idle"
+ * con avviso: l'agente si è fermato senza concludere.
+ */
+export function taskOutcome(ctx: Pick<ToolContext, "wroteFiles" | "notionWrote" | "finished">): {
+  status: "review" | "done" | "idle";
+  level: "SUCCESS" | "WARN";
+  message: string;
+  completed: boolean;
+} {
+  if (ctx.wroteFiles || ctx.notionWrote) {
+    return { status: "review", level: "SUCCESS", message: "Lavoro completato", completed: true };
+  }
+  if (ctx.finished) {
+    return { status: "done", level: "SUCCESS", message: "Completato (sola lettura, nessuna modifica)", completed: true };
+  }
+  return { status: "idle", level: "WARN", message: "Concluso senza modifiche — controlla strumenti/istruzioni", completed: false };
+}
+
+/**
  * Shared post-loop wrap-up: emit the summary, either pause for approval (when
  * files were staged) or emit the final status, open a PR if files were pushed,
  * and append the Notion task-log. `prProviderLabel` distinguishes Gemini/Groq
@@ -739,17 +770,18 @@ export async function finalizeTask(
   }
 
   const didSomething = ctx.wroteFiles || ctx.notionWrote;
+  const outcome = taskOutcome(ctx);
   emit({
     agentId, agentName,
     progress: 100,
-    status: didSomething ? "review" : "idle",
-    level: didSomething ? "SUCCESS" : "WARN",
-    message: didSomething ? "Lavoro completato" : "Concluso senza modifiche — controlla strumenti/istruzioni",
+    status: outcome.status,
+    level: outcome.level,
+    message: outcome.message,
     tokens: opts.totalTokens,
   });
 
   // Task completato → annaffia il giardino dell'agente (collega il lavoro reale alla simulazione).
-  if (didSomething) {
+  if (outcome.completed) {
     waterAgentGarden(agentName).catch(() => {});
   }
 
@@ -757,7 +789,7 @@ export async function finalizeTask(
     agentId, agentName,
     title: ctx.title,
     branch: ctx.branch,
-    status: didSomething ? "review" : "idle",
+    status: outcome.status,
     tokens: opts.totalTokens,
     ts: Date.now(),
   });

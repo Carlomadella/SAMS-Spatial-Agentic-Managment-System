@@ -4,6 +4,7 @@ import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import {
+  concludeWithAnswer,
   MAX_STEPS,
   PROGRESS_START,
   THOUGHT_LIMIT,
@@ -82,7 +83,25 @@ interface OpenRouterResponse {
   usage?: { total_tokens?: number };
 }
 
-async function openrouterChat(
+const TRANSIENT_NET_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "EPIPE", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT"]);
+
+/**
+ * Vale la pena riprovare? Solo i guasti **transitori** della rete: timeout, connessione
+ * interrotta, `fetch failed`. Un errore HTTP definitivo (4xx), una risposta illeggibile o un
+ * errore di programmazione escono subito col messaggio vero (collaudo 2026-11-10: venivano
+ * ritentati 4 volte come "OpenRouter occupato", ~30 s persi). 429/5xx si ritentano a parte,
+ * guardando lo status della risposta.
+ */
+export function isRetryableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  const code = (err as { cause?: { code?: unknown } }).cause?.code;
+  if (typeof code === "string" && TRANSIENT_NET_CODES.has(code)) return true;
+  return err instanceof TypeError && /fetch failed|network/i.test(err.message);
+}
+
+/** Una chiamata a OpenRouter con retry sui guasti transitori. Esportata per i test. */
+export async function openrouterChat(
   messages: OpenRouterMessage[],
   tools: OpenRouterTool[],
   systemPrompt: string,
@@ -132,8 +151,8 @@ async function openrouterChat(
         tokens: data.usage?.total_tokens ?? 0,
       };
     } catch (err) {
+      if (!isRetryableError(err) || attempt >= MAX_RETRIES - 1) throw err;
       lastErr = err as Error;
-      if (attempt >= MAX_RETRIES - 1) throw err;
     }
   }
   throw lastErr ?? new Error("OpenRouter: troppi tentativi falliti");
@@ -191,7 +210,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
     totalTokens += resp.tokens;
 
     if (resp.toolCalls.length === 0) {
-      ctx.doneSummary = resp.text ?? "";
+      concludeWithAnswer(ctx, resp.text);
       truncated = false;
       break;
     }

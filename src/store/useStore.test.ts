@@ -528,3 +528,17 @@ describe("drag mobili (personalizzazione ufficio)", () => {
     expect(useStore.getState().furniturePlacements).toEqual({});
   });
 });
+
+// Collaudo 2026-11-10: all'avvio il log mostrava eventi inventati ("Test superati: 24/24",
+// "Pull Request #128", "Distribuito in staging") che Diario e Replay raccontavano come lavoro vero.
+describe("niente eventi finti", () => {
+  it("il log parte vuoto", () => {
+    expect(useStore.getInitialState().events).toEqual([]);
+  });
+
+  it("reimpostare l'area svuota il log invece di rimettere la cronologia inventata", () => {
+    useStore.getState().log({ agentId: null, agentName: "sistema", color: null, level: "INFO", message: "prima" });
+    useStore.getState().resetWorld();
+    expect(useStore.getState().events).toEqual([]);
+  });
+});

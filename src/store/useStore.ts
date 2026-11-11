@@ -20,7 +20,7 @@ import {
   type Toast,
   type Vec2,
 } from "../types";
-import { SEED_AGENTS, seedEvents } from "../data/seed";
+import { SEED_AGENTS } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
 import { countsAsUnread } from "../lib/chat";
@@ -393,7 +393,8 @@ export const useStore = create<State>()(
   persist(
     (set, get) => ({
   agents: SEED_AGENTS.map((a) => ({ ...a })),
-  events: seedEvents(),
+  // Il log parte vuoto: niente cronologia inventata (collaudo 2026-11-10).
+  events: [],
   tasks: [],
   environment: "staging",
   selectedAgentId: null,
@@ -781,7 +782,7 @@ export const useStore = create<State>()(
   resetWorld: () =>
     set({
       agents: SEED_AGENTS.map((a) => ({ ...a })),
-      events: seedEvents(),
+      events: [],
       selectedAgentId: null,
       environment: "staging",
     }),

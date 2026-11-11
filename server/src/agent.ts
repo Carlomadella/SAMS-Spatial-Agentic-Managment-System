@@ -7,6 +7,7 @@ import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import { db, listMemory } from "./db";
 import {
+  concludeWithAnswer,
   GUIDE_LIMIT,
   MAX_STEPS,
   PROGRESS_START,
@@ -182,7 +183,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
     const calls = resp.functionCalls;
     if (calls.length === 0) {
-      ctx.doneSummary = resp.text;
+      concludeWithAnswer(ctx, resp.text);
       truncated = false;
       break;
     }

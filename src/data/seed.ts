@@ -1,4 +1,4 @@
-import type { Agent, FileNode, LogEvent, WorkflowDef } from "../types";
+import type { Agent, FileNode, WorkflowDef } from "../types";
 
 // ---------------------------------------------------------------------------
 // Initial population of the workspace. This is a manual sandbox: these agents
@@ -109,30 +109,6 @@ export const SEED_AGENTS: Agent[] = [
     xp: 10,
   },
 ];
-
-/** Event log seeded to mirror a lively workspace. Timestamps are recent. */
-export function seedEvents(now = Date.now()): LogEvent[] {
-  const rows: Array<[string, Agent["color"], LogEvent["level"], string]> = [
-    ["blue-agent", "blue", "INFO", "Task avviato: Implementa il flusso di autenticazione"],
-    ["green-agent", "green", "SUCCESS", "Test superati: 24/24"],
-    ["orange-agent", "orange", "WARN", "In attesa di revisione: Pull Request #128"],
-    ["purple-agent", "purple", "INFO", "Workflow aggiornato: code-review.flow"],
-    ["yellow-agent", "yellow", "SUCCESS", "Distribuito in ambiente di staging"],
-    ["red-agent", "red", "IDLE", "Nessun task attivo"],
-  ];
-  return rows.map((row, i) => {
-    const [name, color, level, message] = row;
-    return {
-      id: `seed-evt-${i}`,
-      ts: now - (rows.length - i) * 1100,
-      agentId: `agent-${color}`,
-      agentName: name,
-      color,
-      level,
-      message,
-    };
-  });
-}
 
 /** Workflow definitions — what each .flow file does when triggered. */
 export const WORKFLOW_DEFS: WorkflowDef[] = [

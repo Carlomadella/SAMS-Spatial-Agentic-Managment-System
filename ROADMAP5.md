@@ -189,24 +189,37 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 
 **🟠 Importanti — funzionano male**
 
-- [ ] **Ti vedi due volte nella barra presenze.** Da loggato e da solo compare "Ospite (tu), Owner":
+- [x] **Ti vedi due volte nella barra presenze.** Da loggato e da solo compare "Ospite (tu), Owner":
       `PresenceRoster` passa `chatName` (vuoto) invece del nome effettivo (`chatName || accountName`). Così il
       riquadro "nel workspace" compare anche quando non c'è nessun altro.
-- [ ] **I viewer restano "Ospite" per tutti.** `POST /api/presence` richiede *editor*: il viewer riceve 403 a ogni
+      **Fatto il 2026-11-11:** il roster usa lo stesso nome mandato al server (chat → account → Ospite).
+- [x] **I viewer restano "Ospite" per tutti.** `POST /api/presence` richiede *editor*: il viewer riceve 403 a ogni
       apertura (errore in console) e non può presentarsi col suo nome. Cursore e selezione sono già *viewer*.
-- [ ] **Un viewer può diventare il driver del mondo.** `POST /api/driver` è *viewer*, ma un viewer non può
+      **Fatto il 2026-11-11:** `POST /api/presence` ora è *viewer*.
+- [x] **Un viewer può diventare il driver del mondo.** `POST /api/driver` è *viewer*, ma un viewer non può
       salvare il mondo (`/api/world` è *editor*). Se un viewer apre per primo, guida lui la simulazione condivisa.
       Verificato: lease preso da "Viewer". Il lease va riservato a chi può scrivere.
-- [ ] **Eventi finti all'avvio.** Log eventi e Output mostrano "Test superati: 24/24", "In attesa di revisione:
+      **Fatto il 2026-11-11:** `POST /api/driver` è *editor* (GET resta *viewer*) e il client di un viewer non lo
+      chiede. Nuovo `server.roles.test.ts`: avvia il vero `server.ts` e verifica le guardie via HTTP (fallisce
+      con le guardie di prima). Commit `5b81349`.
+- [x] **Eventi finti all'avvio.** Log eventi e Output mostrano "Test superati: 24/24", "In attesa di revisione:
       Pull Request #128", "Distribuito in ambiente di staging" (`src/data/seed.ts`). Il Diario del mondo li racconta
       come lavoro vero ("green-agent ha completato 1 task") e il Replay li conta come azioni. Contraddice
       "niente task fittizie": con un runtime vero si vede una cronologia inventata.
-- [ ] **Un task di sola lettura riuscito non risulta completato.** Viene registrato con stato `idle`
+      **Fatto il 2026-11-11:** `seedEvents` rimosso; il log parte vuoto ("Nessun evento ancora.") anche dopo
+      "Reimposta area". 2 test.
+- [x] **Un task di sola lettura riuscito non risulta completato.** Viene registrato con stato `idle`
       (`agentTools.ts`, `didSomething ? "review" : "idle"`): in Cronologia appare "Inattivo" e i filtri non lo
       trovano. La dashboard pubblica e le metriche segnano **0 completati**. Verificato con Gemini.
-- [ ] **Retry di OpenRouter fuorvianti.** Qualunque eccezione, anche un errore di programmazione, viene
+      **Fatto il 2026-11-11:** `taskOutcome` in `agentTools.ts`: con scritture → *review*; senza scritture ma
+      concluso → **done** ("Completato (sola lettura…)", conta nelle metriche e annaffia il giardino); fermo
+      senza conclusione → *idle* con avviso. Conta come concluso sia `done` sia una risposta finale col testo
+      (`concludeWithAnswer`, usato da Gemini, Groq, OpenRouter e OpenAI). 6 test. Non ancora provato dal vivo.
+- [x] **Retry di OpenRouter fuorvianti.** Qualunque eccezione, anche un errore di programmazione, viene
       ritentata 4 volte con il messaggio "OpenRouter occupato" (~30 s persi) prima di mostrare l'errore vero.
       Vanno ritentati solo 429/5xx e gli errori di rete.
+      **Fatto il 2026-11-11:** `isRetryableError` (timeout, connessione interrotta, `fetch failed`); un 4xx, una
+      risposta illeggibile o un errore di programmazione escono al primo tentativo col messaggio vero. 5 test.
 - [ ] **Stanza su mobile (390 px).** L'header deborda (l'icona del giardino è tagliata, la ricerca va su 3 righe),
       l'Inspector si sovrappone al pannello inferiore e la barra di stato e il riquadro dei suggerimenti escono dallo
       schermo. Il sito pubblico invece è a posto.
