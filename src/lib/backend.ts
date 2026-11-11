@@ -1,6 +1,6 @@
 import type { AgentStatus, LogLevel, PendingFile } from "../types";
 import { useStore } from "../store/useStore";
-import { normalizeRole, type ViewerRole } from "./roleUi";
+import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
@@ -913,9 +913,11 @@ export function sendSelection(agentId: string | null): void {
 
 // Driver lease (opzione B3): rivendica/rinnova per questa vista il ruolo di
 // simulatore autorevole. Chiamato su un heartbeat; aggiorna subito lo store dal
-// risultato (senza aspettare l'eco SSE). Best-effort, gated "viewer" lato server.
+// risultato (senza aspettare l'eco SSE). Best-effort. La guida è da **editor** (chi guida
+// salva il mondo, e un viewer non può): un viewer non la chiede nemmeno.
 export async function claimDriver(): Promise<void> {
-  if (!useStore.getState().backendOnline) return;
+  const st = useStore.getState();
+  if (!st.backendOnline || !canAssign(st.viewerRole)) return;
   try {
     const res = await fetch(`${BASE}/api/driver`, {
       method: "POST",

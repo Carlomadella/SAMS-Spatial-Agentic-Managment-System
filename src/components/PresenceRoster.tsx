@@ -10,7 +10,9 @@ import { observerRoster, overflowCount } from "../lib/observers";
 export function PresenceRoster() {
   const backendOnline = useStore((s) => s.backendOnline);
   const people = useStore((s) => s.people);
-  const myName = useStore((s) => s.chatName);
+  // Il nome con cui ci presentiamo al server: quello scelto in chat, altrimenti quello
+  // dell'account. Prima si usava solo il primo: da loggati comparivi due volte.
+  const myName = useStore((s) => s.chatName.trim() || s.accountName.trim() || "Ospite");
 
   if (!backendOnline) return null;
   const roster = observerRoster(people, myName);

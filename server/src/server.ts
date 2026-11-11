@@ -1184,9 +1184,11 @@ app.post("/api/chat", requireRole("editor"), (req: Request, res: Response) => {
 // questo endpoint le permette di cambiare nome *senza riconnettersi* — primo
 // pezzo concreto del canale client→server (frontiera #1). Aggiorna il nome di
 // tutte le connessioni con lo stesso id (più schede) e ri-annuncia la presence.
+// Da viewer: presentarsi col proprio nome non è "lavoro" (prima era editor e i viewer
+// restavano "Ospite" per tutti).
 const presenceLimiter = createRateLimiter(20, 30_000);
 
-app.post("/api/presence", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/presence", requireRole("viewer"), (req: Request, res: Response) => {
   const { id, name } = sanitizeObserverIdentity((req.body as { id?: unknown })?.id, (req.body as { name?: unknown })?.name);
   if (!id) {
     res.status(400).json({ error: "id osservatore mancante" });
@@ -1263,15 +1265,16 @@ app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) 
 // Elegge UNA vista come simulatore autorevole (primo mattone del mondo animato
 // condiviso — non sposta ancora il game loop). Le viste rinnovano il lease su un
 // heartbeat; il titolare vince sempre il rinnovo, gli altri solo se è scaduto →
-// handover automatico se il driver sparisce. Gated "viewer" come gli altri
-// canali di presenza.
+// handover automatico se il driver sparisce. Leggere chi guida è da viewer;
+// **prendere** la guida è da editor: chi guida salva il mondo, e un viewer non può
+// (collaudo 2026-11-10: un viewer apriva per primo e guidava lui).
 const driverLimiter = createRateLimiter(10, 5000); // heartbeat ~0.5/s, ampio margine
 
 app.get("/api/driver", requireRole("viewer"), (_req: Request, res: Response) => {
   res.json(currentDriver(Date.now()));
 });
 
-app.post("/api/driver", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/driver", requireRole("editor"), (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { id?: unknown; name?: unknown };
   const { id, name } = sanitizeObserverIdentity(body.id, body.name);
   if (!id) {
