@@ -14,10 +14,11 @@ import { randomBytes } from "node:crypto";
 // una sessione revocata chiudono anche lo stream già aperto.
 //
 // Contro chi ne chiede a raffica: un tetto per **account** (tutte le sue sessioni insieme;
-// senza account, per credenziale) e uno per **IP** — oltre, cadono i più vecchi di quel
-// gruppo — e un tetto globale che **rifiuta** il nuovo biglietto invece di scartare quelli
-// degli altri. Ultrareview 2026-11-11: col tetto solo per sessione, un viewer con centinaia
-// di login riempiva il tetto globale e lasciava tutti senza aggiornamenti in tempo reale.
+// senza account, per credenziale) — oltre, cadono i più vecchi **suoi** — e un tetto globale
+// che **rifiuta** il nuovo biglietto invece di scartare quelli degli altri. Ultrareview
+// 2026-11-11: col tetto solo per sessione, un viewer con centinaia di login riempiva il tetto
+// globale. Niente tetto per IP: senza `trust proxy` (Render) l'IP è quello del proxy per
+// tutti, e scartare per IP avrebbe tolto i biglietti agli altri utenti.
 
 export const STREAM_TICKET_TTL_MS = 30_000;
 
@@ -25,7 +26,6 @@ interface Ticket {
   credential: string;
   /** gruppo per il tetto "per account": id utente, o la credenziale se non c'è un account */
   owner: string;
-  ip: string;
   expires: number;
 }
 
@@ -33,7 +33,6 @@ interface Ticket {
 export interface TicketScope {
   /** id dell'account (sessione utente); assente per i token statici e in dev */
   user?: string;
-  ip?: string;
 }
 
 export interface StreamTicketsOptions {
@@ -43,8 +42,6 @@ export interface StreamTicketsOptions {
   max?: number;
   /** biglietti in sospeso per account (o per credenziale, senza account) */
   perCredential?: number;
-  /** biglietti in sospeso per IP */
-  perIp?: number;
 }
 
 export class StreamTickets {
@@ -54,14 +51,12 @@ export class StreamTickets {
   private readonly now: () => number;
   private readonly max: number;
   private readonly perCredential: number;
-  private readonly perIp: number;
 
   constructor(opts: StreamTicketsOptions = {}) {
     this.ttlMs = opts.ttlMs ?? STREAM_TICKET_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.max = opts.max ?? 5_000;
     this.perCredential = opts.perCredential ?? 10;
-    this.perIp = opts.perIp ?? 50;
   }
 
   /** Quanti biglietti sono in memoria (per i test). */
@@ -76,12 +71,10 @@ export class StreamTickets {
   issue(credential: string, scope: TicketScope = {}): string | null {
     this.prune();
     const owner = scope.user ? `u:${scope.user}` : `c:${credential}`;
-    const ip = scope.ip ?? "";
     this.trim((t) => t.owner === owner, this.perCredential);
-    if (ip) this.trim((t) => t.ip === ip, this.perIp);
     if (this.tickets.size >= this.max) return null;
     const ticket = randomBytes(32).toString("hex");
-    this.tickets.set(ticket, { credential, owner, ip, expires: this.now() + this.ttlMs });
+    this.tickets.set(ticket, { credential, owner, expires: this.now() + this.ttlMs });
     return ticket;
   }
 

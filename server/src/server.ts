@@ -790,9 +790,9 @@ app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Respon
     return;
   }
   // Il biglietto ricorda chi l'ha chiesto: lo stream la ricontrolla finché resta aperto.
-  // Tetto per account (tutte le sue sessioni insieme) e per IP: vedi streamTickets.ts.
+  // Tetto per account (tutte le sue sessioni insieme): vedi streamTickets.ts.
   const user = provided ? getSessionUser(db(), provided) : null;
-  const ticket = streamTickets.issue(provided, { user: user?.id, ip: req.ip });
+  const ticket = streamTickets.issue(provided, { user: user?.id });
   if (!ticket) {
     res.status(503).json({ error: "Troppi stream in apertura, riprova tra poco" });
     return;

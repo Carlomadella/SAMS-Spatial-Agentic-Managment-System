@@ -247,6 +247,10 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 - [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.
 - [ ] `/api/health` e `/api/status` sono pubblici ed espongono repo e URL della pagina Notion.
 - [ ] L'SDK di Gemini scrive righe non JSON nei log ("there are non-text parts functionCall…").
+- [ ] **`trust proxy` non impostato.** Dietro il proxy di Render `req.ip` è lo stesso per tutti: i limiti per IP
+      (login, registrazione, presenza, biglietti senza token) valgono come **un solo** limite condiviso. Va impostato
+      `app.set("trust proxy", …)` secondo il deploy (fidarsi di `X-Forwarded-For` senza proxy davanti permette di
+      falsificarlo): serve una variabile, per esempio `SAMS_TRUST_PROXY`. Trovato il 2026-11-11.
 - [ ] **Non verificato:** il build dell'immagine Docker, perché qui Docker non è installato. Va provato nel
       deploy di prova della RC.
 
@@ -277,7 +281,8 @@ Un task vero con **Gemini**: legge il repo coi tool e chiude in ~1 minuto (10,6k
 - [x] **Body non annullati in `web_fetch`** — su redirect, non-ok e `Content-Length` eccessivo il socket restava
       a riempire la memoria fino al timeout. Ora `discardBody`.
 - [x] **DoS sui biglietti dello stream** — il tetto era per sessione: centinaia di login di un viewer riempivano
-      il tetto globale. Ora tetto **per account** (tutte le sessioni insieme) e **per IP** (50).
+      il tetto globale. Ora tetto **per account** (tutte le sessioni insieme). Un primo tetto per IP è stato tolto
+      subito (revisione di sicurezza dello stesso giorno): senza `trust proxy` l'IP è quello del proxy per tutti.
 - [x] **Viste altrui rinominabili / lease altrui rinnovabile** — l'id di una vista è pubblico. Ora presenza,
       driver lease e `/api/worldsim` vogliono anche la stessa identità (account o credenziale) di chi ha aperto la
       vista; anche il limiter del driver è per identità.

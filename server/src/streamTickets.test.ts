@@ -74,31 +74,31 @@ describe("StreamTickets — biglietti monouso per lo stream eventi (D4-C)", () =
 
 // Ultrareview 2026-11-11: il tetto era per token di sessione. Un viewer con centinaia di
 // login (una sessione per login) riempiva il tetto globale e lasciava tutti senza stream.
-describe("StreamTickets — tetto per account e per IP", () => {
+describe("StreamTickets — tetto per account", () => {
   it("tante sessioni dello stesso account contano insieme: cadono i suoi più vecchi", () => {
     const t = new StreamTickets({ perCredential: 3, max: 100 });
-    const altrui = t.issue("sess-B", { user: "user-B", ip: "2.2.2.2" });
-    const primi = Array.from({ length: 3 }, (_, i) => t.issue(`sess-A${i}`, { user: "user-A", ip: `1.1.1.${i}` }));
-    for (let i = 3; i < 50; i++) t.issue(`sess-A${i}`, { user: "user-A", ip: `1.1.1.${i}` });
+    const altrui = t.issue("sess-B", { user: "user-B" });
+    const primi = Array.from({ length: 3 }, (_, i) => t.issue(`sess-A${i}`, { user: "user-A" }));
+    for (let i = 3; i < 50; i++) t.issue(`sess-A${i}`, { user: "user-A" });
     expect(t.size).toBe(4); // 3 di A + 1 di B
     for (const p of primi) expect(t.consume(p)).toBeNull();
     expect(t.consume(altrui)).toBe("sess-B");
   });
 
-  it("tanti account dallo stesso IP non saturano il registro", () => {
-    const t = new StreamTickets({ perCredential: 10, perIp: 5, max: 20 });
-    const altrui = t.issue("sess-B", { user: "user-B", ip: "2.2.2.2" });
-    for (let i = 0; i < 200; i++) t.issue(`sess-${i}`, { user: `user-${i}`, ip: "6.6.6.6" });
-    expect(t.size).toBe(6);
-    expect(t.issue("sess-C", { user: "user-C", ip: "3.3.3.3" })).not.toBeNull();
+  // Revisione di sicurezza 2026-11-11: senza `trust proxy` l'IP è quello del proxy per tutti.
+  // Un tetto per IP che scarta i più vecchi toglieva i biglietti agli altri utenti.
+  it("niente tetto per IP: lo stesso IP (il proxy) non fa cadere i biglietti degli altri", () => {
+    const t = new StreamTickets({ perCredential: 10, max: 1000 });
+    const altrui = t.issue("sess-B", { user: "user-B" });
+    for (let i = 0; i < 200; i++) t.issue(`sess-${i}`, { user: `user-${i}` });
     expect(t.consume(altrui)).toBe("sess-B");
   });
 
   it("senza account (token statico) il gruppo è la credenziale stessa", () => {
     const t = new StreamTickets({ perCredential: 2 });
-    const s1 = t.issue("static-tok", { ip: "1.1.1.1" });
-    t.issue("static-tok", { ip: "1.1.1.2" });
-    t.issue("static-tok", { ip: "1.1.1.3" });
+    const s1 = t.issue("static-tok");
+    t.issue("static-tok");
+    t.issue("static-tok");
     expect(t.consume(s1)).toBeNull();
   });
 });
