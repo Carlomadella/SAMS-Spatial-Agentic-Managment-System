@@ -31,26 +31,28 @@ export function StatusBar() {
       : "Runtime: offline";
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between bg-gradient-to-r from-brand to-[#7a0710] px-3 text-[11px] font-medium text-white/90 shadow-[0_-1px_3px_rgba(0,0,0,0.25)]">
+    // Una riga sola anche su un telefono (collaudo 10/11: a 390 px andava su due righe e usciva
+    // dallo schermo): sotto `sm` restano branch, presenze, ruolo, runtime e connessione.
+    <footer className="flex h-6 shrink-0 items-center justify-between gap-3 overflow-hidden whitespace-nowrap bg-gradient-to-r from-brand to-[#7a0710] px-3 text-[11px] font-medium text-white/90 shadow-[0_-1px_3px_rgba(0,0,0,0.25)]">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1">
           <GitBranch size={12} /> main
         </span>
-        <span className="capitalize opacity-90">{environment}</span>
-        <span className="flex items-center gap-1">
+        <span className="hidden capitalize opacity-90 sm:inline">{environment}</span>
+        <span className="hidden items-center gap-1 sm:flex">
           <CircleAlert size={12} /> 0
         </span>
-        <span className="flex items-center gap-1">
+        <span className="hidden items-center gap-1 sm:flex">
           <TriangleAlert size={12} /> {warnings}
         </span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {tokensUsed > 0 && (
-          <span className="flex items-center gap-1" title="Token Gemini usati (cumulativi)">
+          <span className="hidden items-center gap-1 sm:flex" title="Token Gemini usati (cumulativi)">
             <Zap size={12} /> {fmtTokens(tokensUsed)} tok
           </span>
         )}
-        <span className="flex items-center gap-1">
+        <span className="hidden items-center gap-1 sm:flex">
           <Users size={12} /> {agents.length} agenti
         </span>
         {backendEnabled && backendOnline && (
@@ -63,7 +65,7 @@ export function StatusBar() {
         )}
         {backendEnabled && backendOnline && isShared(observers) && worldDriver && (
           <span
-            className="flex items-center gap-1"
+            className="hidden items-center gap-1 sm:flex"
             title="Vista che simula il mondo condiviso (driver autorevole)"
           >
             🕹️ {worldDriver.holderId === getViewerId() ? "guidi tu" : `guida ${worldDriver.name}`}
@@ -83,7 +85,7 @@ export function StatusBar() {
               !backendEnabled ? "bg-white/60" : backendOnline ? "bg-emerald-300 animate-pulse-soft" : "bg-rose-300"
             }`}
           />
-          <Radio size={12} /> {runtime}
+          <Radio size={12} className="hidden sm:block" /> <span className="sr-only sm:not-sr-only">{runtime}</span>
         </span>
         <span className="hidden sm:inline">UTF-8</span>
         <span className="hidden sm:inline">LF</span>

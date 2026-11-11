@@ -1132,7 +1132,9 @@ function Workspace() {
           ))}
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div data-tour="scene" className="relative min-h-0 flex-1">
+          {/* `isolate`: le etichette 3D (portali <Html> con z-index fino a 80) restano ordinate
+              tra loro ma dentro la scena, sotto drawer e finestre modali (collaudo 10/11). */}
+          <div data-tour="scene" className="relative isolate min-h-0 flex-1">
             <Suspense fallback={<SceneLoading />}>
               <OfficeScene />
             </Suspense>

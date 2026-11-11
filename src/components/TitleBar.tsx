@@ -59,7 +59,7 @@ export function TitleBar() {
   const toggleBottom = useStore((s) => s.toggleBottom);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-gradient-to-b from-ink-850 to-ink-900 px-3 shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-gradient-to-b from-ink-850 to-ink-900 px-3 shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
       {/* brand */}
       <div className="flex items-center gap-2.5 pl-0.5">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-[#7a0710] shadow-glow ring-1 ring-white/10">
@@ -73,24 +73,25 @@ export function TitleBar() {
         </div>
       </div>
 
-      <div className="h-5 w-px bg-line" aria-hidden />
+      <div className="hidden h-5 w-px bg-line sm:block" aria-hidden />
 
-      {/* command search */}
+      {/* command search — su un telefono solo l'icona: il testo andava su tre righe (collaudo 10/11) */}
       <button
         onClick={() => setCommandOpen(true)}
-        className="group mx-auto flex h-8 w-full max-w-xl items-center gap-2 rounded-lg border border-line bg-ink-850 px-3 text-sm text-mut transition-colors hover:border-brand/40 hover:bg-ink-800"
+        aria-label="Digita un comando o cerca"
+        className="group ml-auto flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-ink-850 text-sm text-mut transition-colors hover:border-brand/40 hover:bg-ink-800 sm:mx-auto sm:w-full sm:max-w-xl sm:shrink sm:justify-start sm:px-3"
       >
-        <Search size={15} />
-        <span className="flex-1 text-left">Digita un comando o cerca…</span>
-        <kbd className="flex items-center gap-0.5 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+        <Search size={15} className="shrink-0" />
+        <span className="hidden flex-1 truncate text-left sm:inline">Digita un comando o cerca…</span>
+        <kbd className="hidden items-center gap-0.5 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400 sm:flex">
           <Command size={10} /> K
         </kbd>
       </button>
 
       {/* right actions */}
-      <div className="flex items-center gap-1">
-        <button data-tour="add-agent" onClick={() => addAgent()} className="btn btn-primary mr-1 h-7">
-          <Plus size={14} /> Agente
+      <div className="flex shrink-0 items-center gap-1">
+        <button data-tour="add-agent" onClick={() => addAgent()} aria-label="Aggiungi agente" className="btn btn-primary mr-1 h-7">
+          <Plus size={14} /> <span className="hidden sm:inline">Agente</span>
         </button>
         <span data-tour="garden" className="inline-flex">
           <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
@@ -105,15 +106,18 @@ export function TitleBar() {
           <Settings size={16} />
         </IconBtn>
         )}
-        <IconBtn title="Mostra/nascondi Esplora risorse" onClick={toggleLeft} active={leftOpen}>
-          <PanelLeft size={16} />
-        </IconBtn>
-        <IconBtn title="Mostra/nascondi pannello" onClick={toggleBottom} active={bottomOpen}>
-          <PanelBottom size={16} />
-        </IconBtn>
-        <IconBtn title="Mostra/nascondi panoramica sistema" onClick={toggleRight} active={rightOpen}>
-          <PanelRight size={16} />
-        </IconBtn>
+        {/* Su mobile i pannelli si aprono dalla barra in basso (MobileBar): qui sarebbero doppi. */}
+        <div className="hidden items-center gap-1 md:flex">
+          <IconBtn title="Mostra/nascondi Esplora risorse" onClick={toggleLeft} active={leftOpen}>
+            <PanelLeft size={16} />
+          </IconBtn>
+          <IconBtn title="Mostra/nascondi pannello" onClick={toggleBottom} active={bottomOpen}>
+            <PanelBottom size={16} />
+          </IconBtn>
+          <IconBtn title="Mostra/nascondi panoramica sistema" onClick={toggleRight} active={rightOpen}>
+            <PanelRight size={16} />
+          </IconBtn>
+        </div>
       </div>
     </header>
   );
