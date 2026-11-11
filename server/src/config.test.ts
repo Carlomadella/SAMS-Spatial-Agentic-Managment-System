@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { envLockedChanges, envManagedForUi, envManagedKeys, publicStatus, resolveSettings } from "./config";
+import { envLockedChanges, envManagedForUi, envManagedKeys, publicStatus, resolveSettings, scrubEnvCopies, settingsToPersist } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -91,5 +91,64 @@ describe("envManagedForUi — cosa vede l'owner nelle impostazioni", () => {
 describe("publicStatus — risposta pubblica", () => {
   it("non dice quali variabili d'ambiente sono impostate", () => {
     expect(publicStatus()).not.toHaveProperty("envManaged");
+  });
+});
+
+// Ultrareview 2026-11-11: persist() scriveva nel file anche i valori presi dall'ambiente. Svuotata la
+// variabile (revoca), il vecchio token tornava dal file — che ora sta su un disco persistente.
+describe("settingsToPersist — il file non riceve i valori dell'ambiente", () => {
+  it("un token dall'ambiente non finisce nel file", () => {
+    const env = { SAMS_TOKEN: "owner-env" };
+    const current = resolveSettings(env, { githubRepo: "me/repo" });
+    const data = settingsToPersist(current, { githubRepo: "me/repo" }, env);
+    expect(data).not.toHaveProperty("runtimeToken");
+    expect(data.githubRepo).toBe("me/repo");
+    expect(data).not.toHaveProperty("port");
+  });
+
+  it("per un campo gestito dall'ambiente resta il valore che il file aveva già", () => {
+    const env = { GITHUB_TOKEN: "ghp_env" };
+    const stored = { githubToken: "ghp_ui" };
+    const data = settingsToPersist(resolveSettings(env, stored), stored, env);
+    expect(data.githubToken).toBe("ghp_ui");
+  });
+
+  it("revoca: svuotata la variabile, il token dell'ambiente non torna", () => {
+    const env = { SAMS_TOKEN: "vecchio" };
+    const data = settingsToPersist(resolveSettings(env, null), {}, env);
+    const dopo = resolveSettings({}, data);
+    expect(dopo.runtimeToken).toBe("");
+  });
+
+  it("i campi non gestiti dall'ambiente si salvano dal valore corrente (scelte della UI)", () => {
+    const current = { ...resolveSettings({}, null), model: "x/y:free", openPRs: false };
+    const data = settingsToPersist(current, {}, {});
+    expect(data.model).toBe("x/y:free");
+    expect(data.openPRs).toBe(false);
+  });
+});
+
+describe("scrubEnvCopies — pulizia dei file scritti dalla versione precedente", () => {
+  it("toglie i campi uguali alla variabile d'ambiente (erano copie)", () => {
+    const { cleaned, dropped } = scrubEnvCopies({ runtimeToken: "tok", githubRepo: "me/r" }, { SAMS_TOKEN: "tok" });
+    expect(cleaned).toEqual({ githubRepo: "me/r" });
+    expect(dropped).toEqual(["runtimeToken"]);
+  });
+
+  it("lascia un valore diverso da quello dell'ambiente (scelto dalla UI prima del blocco)", () => {
+    const { cleaned, dropped } = scrubEnvCopies({ githubToken: "ghp_ui" }, { GITHUB_TOKEN: "ghp_env" });
+    expect(cleaned).toEqual({ githubToken: "ghp_ui" });
+    expect(dropped).toEqual([]);
+  });
+});
+
+describe("variabili d'ambiente con spazi", () => {
+  it("si leggono senza spazi in testa o in coda", () => {
+    expect(resolveSettings({ SAMS_MODEL: "  x/y:free \n" }, null).model).toBe("x/y:free");
+  });
+
+  it("una variabile di soli spazi conta come non impostata", () => {
+    expect(resolveSettings({ GITHUB_TOKEN: "   " }, { githubToken: "ghp_file" }).githubToken).toBe("ghp_file");
+    expect(envManagedKeys({ GITHUB_TOKEN: "   " })).not.toContain("githubToken");
   });
 });

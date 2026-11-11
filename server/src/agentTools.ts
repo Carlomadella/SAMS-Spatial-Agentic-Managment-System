@@ -440,6 +440,14 @@ async function readCapped(resp: Response, max: number): Promise<string | null> {
  * otherwise a public URL could simply redirect to http://localhost. The request itself
  * goes through `guardedFetch`, which re-checks the IPs at connect time (DNS rebinding).
  */
+/**
+ * Una risposta che non leggeremo va **annullata**: altrimenti il socket resta aperto e
+ * continua a riempire la memoria fino al timeout (Ultrareview 2026-11-11).
+ */
+function discardBody(r: Response): void {
+  r.body?.cancel().catch(() => {});
+}
+
 async function fetchUrlText(url: string): Promise<string> {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     return "ERRORE: URL non valida — deve iniziare con https://";
@@ -454,6 +462,7 @@ async function fetchUrlText(url: string): Promise<string> {
     const r = await guardedFetch(current, { signal, headers: { "User-Agent": "SAMS-Agent/1.0" } });
     const location = r.headers.get("location");
     if (r.status >= 300 && r.status < 400 && location) {
+      discardBody(r);
       current = new URL(location, current).toString();
       continue;
     }
@@ -461,10 +470,16 @@ async function fetchUrlText(url: string): Promise<string> {
     break;
   }
   if (!httpResp) return `ERRORE: troppi redirect (max ${WEB_FETCH_MAX_REDIRECTS})`;
-  if (!httpResp.ok) return `ERRORE: HTTP ${httpResp.status} su ${current.slice(0, 70)}`;
+  if (!httpResp.ok) {
+    discardBody(httpResp);
+    return `ERRORE: HTTP ${httpResp.status} su ${current.slice(0, 70)}`;
+  }
   const tooBig = `ERRORE: risposta troppo grande (max ${WEB_FETCH_MAX_BYTES / 1000} kB)`;
   const declared = Number(httpResp.headers.get("content-length") ?? "0");
-  if (declared > WEB_FETCH_MAX_BYTES) return tooBig;
+  if (declared > WEB_FETCH_MAX_BYTES) {
+    discardBody(httpResp);
+    return tooBig;
+  }
   const raw = await readCapped(httpResp, WEB_FETCH_MAX_BYTES);
   if (raw === null) return tooBig;
   const ct = httpResp.headers.get("content-type") ?? "";

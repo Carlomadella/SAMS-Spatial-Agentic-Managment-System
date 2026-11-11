@@ -10,6 +10,7 @@ import {
   type SettingsInput,
 } from "../lib/backend";
 import { cn } from "../lib/utils";
+import { withoutLocked } from "../lib/settingsPatch";
 import { isValidRepo } from "../lib/validation";
 
 const MODELS: Record<Provider, string[]> = {
@@ -92,7 +93,9 @@ export function SettingsModal() {
 
   function changeProvider(p: Provider) {
     setProvider(p);
-    if (!MODELS[p].includes(model)) setModel(MODELS[p][0]);
+    // Un modello fissato dall'ambiente non si tocca: resta quello del server.
+    const modelLocked = (status?.envManaged ?? []).includes("model");
+    if (!modelLocked && !MODELS[p].includes(model)) setModel(MODELS[p][0]);
   }
 
   async function onSave() {
@@ -107,7 +110,8 @@ export function SettingsModal() {
       if (provider === "openai" && openaiApiKey.trim()) patch.openaiApiKey = openaiApiKey.trim();
       if (githubToken.trim()) patch.githubToken = githubToken.trim();
       if (notionToken.trim()) patch.notionToken = notionToken.trim();
-      const st = await saveSettings(patch);
+      // I campi fissati dall'ambiente non si mandano: il server risponderebbe 409.
+      const st = await saveSettings(withoutLocked(patch, new Set<string>(status?.envManaged ?? [])));
       setStatus(st);
       useStore.getState().setRuntimeReady(st.ready);
       setGeminiKey("");

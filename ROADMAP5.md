@@ -258,6 +258,36 @@ sconosciuti), impostazioni runtime, palette comandi (50 comandi), Commit Garden,
 Un task vero con **Gemini**: legge il repo coi tool e chiude in ~1 minuto (10,6k token). Il token GitHub ora
 **legge** `Carlomadella/gioco-rap` (albero e file).
 
+### 🔎 Ultrareview del 2026-11-11 — 10 problemi, tutti verificati nel codice e chiusi
+
+- [x] **Token revocato che tornava attivo** (`config.ts`) — `persist()` scriveva nel file anche i valori
+      dell'ambiente: svuotata la variabile, il token tornava dal file (ora su disco persistente). Ora
+      `settingsToPersist` non scrive i campi gestiti dall'ambiente, e al caricamento `scrubEnvCopies` toglie dal
+      file le copie identiche lasciate dalle versioni precedenti.
+- [x] **Template che bloccavano la UI** — `.env.example` (col segnaposto `github_pat_...` che vinceva sul token
+      vero), `docker-compose.yml` (provider, approvazione, PR, branch con default) e `render.yaml`: i campi
+      facoltativi ora sono vuoti o commentati. Su Render resta fisso solo `SAMS_PROVIDER=openrouter`, di proposito.
+- [x] **Un invito poteva creare un owner** — con l'owner che usa solo `SAMS_TOKEN`, il primo a registrarsi con un
+      invito diventava owner. Ora vale sempre il ruolo dell'invito (`registrationRole`).
+- [x] **Crash da risposta malformata** in `guardedFetch` — una riga di stato con caratteri di controllo faceva
+      lanciare `new Response` dentro il callback: eccezione non gestita, runtime giù (riprodotto). Ora try/catch e
+      rifiuto.
+- [x] **Crash dal heartbeat SSE** — un errore di SQLite nel controllo della sessione usciva dal `setInterval`.
+      Ora `heartbeatTick` (`streamHeartbeat.ts`) non lancia mai: chiude solo quello stream.
+- [x] **Body non annullati in `web_fetch`** — su redirect, non-ok e `Content-Length` eccessivo il socket restava
+      a riempire la memoria fino al timeout. Ora `discardBody`.
+- [x] **DoS sui biglietti dello stream** — il tetto era per sessione: centinaia di login di un viewer riempivano
+      il tetto globale. Ora tetto **per account** (tutte le sessioni insieme) e **per IP** (50).
+- [x] **Viste altrui rinominabili / lease altrui rinnovabile** — l'id di una vista è pubblico. Ora presenza,
+      driver lease e `/api/worldsim` vogliono anche la stessa identità (account o credenziale) di chi ha aperto la
+      vista; anche il limiter del driver è per identità.
+- [x] **Controlli da owner senza login** — col biglietto negato `whoami` non partiva e restava il ruolo di
+      partenza (owner); e `whoami` su 401 ricadeva su owner. Ora in entrambi i casi viewer, e dopo un logout il
+      nome dell'account si dimentica.
+- [x] **Impostazioni che tornavano 409** — con `SAMS_MODEL` bloccato, cambiare provider cambiava il modello. Ora
+      la patch non contiene i campi bloccati (`withoutLocked`) e il modello bloccato non si tocca; le variabili
+      d'ambiente si leggono senza spazi in testa e in coda.
+
 ### Non legato alle decisioni, fatto il 2026-11-09
 
 - [x] **Sottofondo lo-fi** al posto del vecchio ronzio della stanza: loop originale **sintetizzato dal

@@ -126,3 +126,32 @@ describe("/api/driver (guida del mondo condiviso)", () => {
     expect(after.holderId).toBe("obs-editor");
   });
 });
+
+// Ultrareview 2026-11-11: l'id di una vista è pubblico. Con /api/presence aperto ai viewer,
+// chiunque poteva rinominare gli altri; col driver, rinnovare il lease altrui.
+describe("l'id di una vista non basta: serve la stessa identità", () => {
+  it("un altro con l'id del driver non rinnova né prende la guida", async () => {
+    const mine = await call("POST", "/api/driver", TOKENS.editor, { id: "obs-editor", name: "Edo" });
+    expect(((await mine.json()) as { youAreDriver: boolean }).youAreDriver).toBe(true);
+    const res = await call("POST", "/api/driver", TOKENS.owner, { id: "obs-editor", name: "Intruso" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { holderId: string; name: string; youAreDriver: boolean };
+    expect(body.youAreDriver).toBe(false);
+    expect(body.name).toBe("Edo");
+  });
+
+  it("solo chi ha aperto la vista può rinominarla", async () => {
+    const t = (await (await call("POST", "/api/events/ticket", TOKENS.editor)).json()) as { ticket: string };
+    const ctrl = new AbortController();
+    const stream = await fetch(`${base}/api/events?t=${t.ticket}&v=obs-view-ed&n=Edo`, { signal: ctrl.signal });
+    expect(stream.status).toBe(200);
+    try {
+      const altrui = (await (await call("POST", "/api/presence", TOKENS.viewer, { id: "obs-view-ed", name: "Hacked" })).json()) as { changed: number };
+      expect(altrui.changed).toBe(0);
+      const mio = (await (await call("POST", "/api/presence", TOKENS.editor, { id: "obs-view-ed", name: "Edoardo" })).json()) as { changed: number };
+      expect(mio.changed).toBe(1);
+    } finally {
+      ctrl.abort();
+    }
+  });
+});

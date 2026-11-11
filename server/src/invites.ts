@@ -55,3 +55,14 @@ export function inviteRejection(
   if (rec.email !== email) return "email_mismatch";
   return null;
 }
+
+/**
+ * Ruolo di un nuovo account. Con un invito vale **sempre** il ruolo dell'invito (mai owner),
+ * anche se è il primo account: un owner che usa solo `SAMS_TOKEN` può invitare senza avere un
+ * account, e chi accettava per primo diventava owner (Ultrareview 2026-11-11). Senza invito il
+ * primo account è owner (chi ospita SAMS), gli altri viewer.
+ */
+export function registrationRole(first: boolean, invitedRole: InvitableRole | null): Role {
+  if (invitedRole) return invitedRole;
+  return first ? "owner" : "viewer";
+}

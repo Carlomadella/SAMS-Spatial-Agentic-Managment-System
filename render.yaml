@@ -3,6 +3,9 @@
 # The one container serves both the API and the Vite build (see Dockerfile); the
 # server binds to Render's injected $PORT. Secrets are left unset (sync:false) —
 # fill them in the Render dashboard after the first deploy.
+# A variable that is set wins over the app's Settings and locks that field in the
+# UI: optional behaviour (base branch, PRs, approval) is left unset so it stays
+# editable in ⚙. Only the provider is fixed, on purpose (OpenRouter).
 #
 # Data: the SQLite database (accounts, sessions, chat, world, routines, history) and
 # the saved settings live on a persistent disk mounted at /var/data (SAMS_DATA_DIR).
@@ -49,12 +52,13 @@ services:
         sync: false
       - key: GITHUB_REPO
         sync: false
+      # Optional (defaults: main, PRs on, no approval). Set only to lock them.
       - key: GITHUB_BASE_BRANCH
-        value: main
+        sync: false
       - key: SAMS_OPEN_PRS
-        value: "true"
+        sync: false
       - key: SAMS_REQUIRE_APPROVAL
-        value: "false"
+        sync: false
       # Security. Roles are enforced as soon as the first account is registered
       # (the first one becomes owner), even without these static tokens: register
       # right after the first deploy. The tokens are for scripts and integrations.

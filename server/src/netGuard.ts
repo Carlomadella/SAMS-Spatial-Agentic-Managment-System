@@ -201,15 +201,26 @@ export function guardedFetch(raw: string, init: GuardedFetchInit = {}, deps: Gua
           reject(new Error(`risposta HTTP non valida (${status})`));
           return;
         }
-        const headers = new Headers();
-        for (const [k, v] of Object.entries(res.headers)) {
-          if (Array.isArray(v)) for (const x of v) headers.append(k, x);
-          else if (v !== undefined) headers.set(k, String(v));
+        // `Headers` e `Response` lanciano su testo di stato o header che Node accetta ma il
+        // fetch standard no (es. caratteri di controllo): qui siamo in un callback, e
+        // un'eccezione non gestita farebbe cadere tutto il runtime (Ultrareview 2026-11-11).
+        try {
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(res.headers)) {
+            if (Array.isArray(v)) for (const x of v) headers.append(k, x);
+            else if (v !== undefined) headers.set(k, String(v));
+          }
+          const noBody = status === 204 || status === 205 || status === 304;
+          const response = new Response(
+            noBody ? null : (Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>),
+            { status, statusText: res.statusMessage, headers },
+          );
+          if (noBody) res.resume();
+          resolvePromise(response);
+        } catch (err) {
+          res.destroy();
+          reject(new Error(`risposta HTTP non valida (${(err as Error).message})`));
         }
-        const noBody = status === 204 || status === 205 || status === 304;
-        if (noBody) res.resume();
-        const body = noBody ? null : (Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>);
-        resolvePromise(new Response(body, { status, statusText: res.statusMessage, headers }));
       },
     );
     req.on("error", reject);

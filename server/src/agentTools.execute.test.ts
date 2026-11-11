@@ -205,3 +205,39 @@ describe("executeTool — web_fetch", () => {
     expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/troppo grande/);
   });
 });
+
+// Ultrareview 2026-11-11: uscendo prima di leggere la risposta (redirect, non-ok,
+// Content-Length eccessivo) il body non veniva annullato e il socket continuava a riempire
+// la memoria fino al timeout.
+describe("executeTool — web_fetch annulla i body che non legge", () => {
+  function trackedResponse(status: number, headers: Record<string, string> = {}) {
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ pull() { /* non finisce mai da solo */ }, cancel });
+    return { res: new Response(body, { status, headers }), cancel };
+  }
+
+  it("risposta non-ok", async () => {
+    const t = trackedResponse(500);
+    vi.stubGlobal("fetch", vi.fn(async () => t.res));
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/HTTP 500/);
+    expect(t.cancel).toHaveBeenCalled();
+  });
+
+  it("Content-Length oltre il limite", async () => {
+    const t = trackedResponse(200, { "content-length": String(50_000_000) });
+    vi.stubGlobal("fetch", vi.fn(async () => t.res));
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toMatch(/troppo grande/);
+    expect(t.cancel).toHaveBeenCalled();
+  });
+
+  it("redirect: il body della risposta 3xx si annulla prima di seguirlo", async () => {
+    const hop = trackedResponse(302, { location: "https://x/dopo" });
+    const f = vi.fn().mockResolvedValueOnce(hop.res).mockResolvedValueOnce(new Response("fine", { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    const { ctx } = mkCtx();
+    expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toBe("fine");
+    expect(hop.cancel).toHaveBeenCalled();
+  });
+});

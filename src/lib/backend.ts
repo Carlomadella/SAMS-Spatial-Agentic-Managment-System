@@ -226,6 +226,8 @@ export interface WhoAmI {
 export async function fetchWhoami(): Promise<WhoAmI> {
   try {
     const res = await fetch(`${BASE}/api/whoami`, { headers: authHeaders(false) });
+    // 401/403: i ruoli sono attivi e non abbiamo accesso → i permessi più bassi, mai owner.
+    if (res.status === 401 || res.status === 403) return { role: "viewer", enforced: true, name: "", email: "" };
     if (!res.ok) return { role: "owner", enforced: false, name: "", email: "" };
     const data = (await res.json()) as { role?: unknown; enforced?: unknown; name?: unknown; email?: unknown };
     return {
@@ -1039,8 +1041,13 @@ export function connectBackend(): () => void {
     if (stopped) return;
     if (ticket === "denied") {
       // Ruoli attivi e nessun accesso: niente stream. Si riprova con attesa crescente,
-      // così dopo il login la stanza si collega da sola.
-      useStore.getState().setStreamAuthRequired(true);
+      // così dopo il login la stanza si collega da sola. Intanto la UI scende ai permessi
+      // più bassi: whoami non parte senza stream, e il ruolo di partenza (o quello di prima
+      // del logout) mostrerebbe controlli da owner che poi falliscono con 401.
+      const st = useStore.getState();
+      st.setStreamAuthRequired(true);
+      st.setViewer("viewer", true);
+      st.setAccountName("");
       scheduleReconnect();
       return;
     }

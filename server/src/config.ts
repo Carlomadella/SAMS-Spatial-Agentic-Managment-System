@@ -100,14 +100,15 @@ function defaults(env: NodeJS.ProcessEnv): Settings {
 /** Solo le variabili d'ambiente davvero impostate (non vuote). */
 function envOverrides(env: NodeJS.ProcessEnv): Partial<Settings> {
   const out: Record<string, unknown> = {};
+  // Spazi in testa/coda (frequenti incollando su Render) tolti: un valore di soli spazi è
+  // "non impostato", e un modello con lo spazio finale non dà più 409 a ogni salvataggio.
+  const val = (name: string): string => (env[name] ?? "").trim();
   for (const [name, key] of ENV_KEYS) {
-    const v = env[name];
-    if (v !== undefined && v !== "") out[key] = v;
+    const v = val(name);
+    if (v !== "") out[key] = v;
   }
-  if (env.SAMS_OPEN_PRS !== undefined && env.SAMS_OPEN_PRS !== "") out.openPRs = env.SAMS_OPEN_PRS !== "false";
-  if (env.SAMS_REQUIRE_APPROVAL !== undefined && env.SAMS_REQUIRE_APPROVAL !== "") {
-    out.requireApproval = env.SAMS_REQUIRE_APPROVAL !== "false";
-  }
+  if (val("SAMS_OPEN_PRS") !== "") out.openPRs = val("SAMS_OPEN_PRS") !== "false";
+  if (val("SAMS_REQUIRE_APPROVAL") !== "") out.requireApproval = val("SAMS_REQUIRE_APPROVAL") !== "false";
   return out as Partial<Settings>;
 }
 
@@ -161,18 +162,35 @@ function load(): Settings {
     return resolveSettings(process.env, null); // no store file yet — first run
   }
   try {
-    return resolveSettings(process.env, JSON.parse(raw) as Partial<Settings>);
+    const { cleaned, dropped } = scrubEnvCopies(JSON.parse(raw) as Partial<Settings>, process.env);
+    fileState = cleaned;
+    if (dropped.length > 0) {
+      try {
+        writeStore(cleaned);
+        console.warn(`${STORE_FILE}: tolti ${dropped.length} campi copiati dall'ambiente (${dropped.join(", ")}).`);
+      } catch {
+        /* sola lettura: il file resta com'è, i valori in memoria sono comunque giusti */
+      }
+    }
+    return resolveSettings(process.env, cleaned);
   } catch (err) {
     console.warn(`⚠️  ${STORE_FILE} è corrotto (${(err as Error).message}); uso i valori di default.`);
     return resolveSettings(process.env, null);
   }
 }
 
-let current: Settings = load();
-
-function persist(): void {
-  const s = current;
-  const data: Omit<Settings, "port"> = {
+/**
+ * Cosa scrivere in `.sams-runtime.json`. I campi **gestiti dall'ambiente** non prendono il
+ * valore corrente (che viene dalla variabile): resta quello che il file aveva già, o niente.
+ * Altrimenti un token messo su Render finiva nel file, e svuotare la variabile per revocarlo
+ * lo faceva tornare dal file al riavvio (Ultrareview 2026-11-11).
+ */
+export function settingsToPersist(
+  s: Settings,
+  stored: Partial<Settings>,
+  env: NodeJS.ProcessEnv = process.env,
+): Partial<Omit<Settings, "port">> {
+  const data: Partial<Omit<Settings, "port">> = {
     provider: s.provider,
     geminiApiKey: s.geminiApiKey,
     anthropicApiKey: s.anthropicApiKey,
@@ -195,6 +213,48 @@ function persist(): void {
     editorToken: s.editorToken,
     readonlyToken: s.readonlyToken,
   };
+  const out = data as Record<string, unknown>;
+  for (const key of envManagedKeys(env)) {
+    if (key === "port") continue;
+    if (key in stored) out[key] = stored[key];
+    else delete out[key];
+  }
+  return data;
+}
+
+/**
+ * Le versioni precedenti copiavano nel file i valori dell'ambiente. Un campo del file **uguale**
+ * alla sua variabile è quasi certamente una di quelle copie: si toglie, così la revoca (variabile
+ * svuotata) funziona anche sui deploy già esistenti. Un valore diverso resta: è una scelta fatta
+ * dalla UI prima che il campo venisse bloccato.
+ */
+export function scrubEnvCopies(
+  stored: Partial<Settings>,
+  env: NodeJS.ProcessEnv = process.env,
+): { cleaned: Partial<Settings>; dropped: Array<keyof Settings> } {
+  const fromEnv = envOverrides(env);
+  const cleaned: Partial<Settings> = { ...stored };
+  const dropped: Array<keyof Settings> = [];
+  for (const key of Object.keys(fromEnv) as Array<keyof Settings>) {
+    if (key in cleaned && cleaned[key] === fromEnv[key]) {
+      delete cleaned[key];
+      dropped.push(key);
+    }
+  }
+  return { cleaned, dropped };
+}
+
+/** Il contenuto del file come caricato (senza le copie dell'ambiente): base per `persist()`. */
+let fileState: Partial<Settings> = {};
+let current: Settings = load();
+
+function persist(): void {
+  const data = settingsToPersist(current, fileState, process.env);
+  fileState = data;
+  writeStore(data);
+}
+
+function writeStore(data: Partial<Omit<Settings, "port">>): void {
   // 0o600: the file holds API tokens in plaintext — keep it owner-only.
   fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
   try {

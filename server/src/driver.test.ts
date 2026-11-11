@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimDriver, DRIVER_TTL, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
+import { claimDriver, DRIVER_TTL, isLeaseHolder, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 
 describe("isLeaseValid", () => {
   it("is false for null and for an expired lease", () => {
@@ -12,7 +12,7 @@ describe("isLeaseValid", () => {
 describe("claimDriver", () => {
   it("grants the lease when there's no holder", () => {
     const { lease, changed } = claimDriver(null, "a", "Anna", 1000);
-    expect(lease).toEqual({ holderId: "a", name: "Anna", expiresAt: 1000 + DRIVER_TTL });
+    expect(lease).toEqual({ holderId: "a", name: "Anna", expiresAt: 1000 + DRIVER_TTL, holderKey: "" });
     expect(changed).toBe(true);
   });
 
@@ -51,5 +51,37 @@ describe("releaseDriver", () => {
     expect(releaseDriver(cur, "a")).toBeNull();
     expect(releaseDriver(cur, "b")).toBe(cur);
     expect(releaseDriver(null, "a")).toBeNull();
+  });
+});
+
+// Ultrareview 2026-11-11: l'id di una vista è pubblico (arriva a tutti con la presenza).
+// Bastava rimandarlo per "rinnovare" il lease altrui e spingere il mondo al suo posto.
+describe("lease legato a chi lo tiene", () => {
+  it("un altro con lo stesso id non rinnova e non ruba il lease", () => {
+    const { lease } = claimDriver(null, "v1", "Ada", 0, DRIVER_TTL, "u:ada");
+    const r = claimDriver(lease, "v1", "Intruso", 100, DRIVER_TTL, "u:eve");
+    expect(r.lease).toBe(lease);
+    expect(r.changed).toBe(false);
+  });
+
+  it("il titolare rinnova col suo id e la sua identità", () => {
+    const { lease } = claimDriver(null, "v1", "Ada", 0, DRIVER_TTL, "u:ada");
+    const r = claimDriver(lease, "v1", "Ada", 100, DRIVER_TTL, "u:ada");
+    expect(r.lease.expiresAt).toBe(100 + DRIVER_TTL);
+    expect(r.lease.holderKey).toBe("u:ada");
+  });
+
+  it("isLeaseHolder vuole sia l'id sia l'identità", () => {
+    const { lease } = claimDriver(null, "v1", "Ada", 0, DRIVER_TTL, "u:ada");
+    expect(isLeaseHolder(lease, "v1", "u:ada", 10)).toBe(true);
+    expect(isLeaseHolder(lease, "v1", "u:eve", 10)).toBe(false);
+    expect(isLeaseHolder(lease, "v2", "u:ada", 10)).toBe(false);
+    expect(isLeaseHolder(lease, "v1", "u:ada", DRIVER_TTL + 1)).toBe(false);
+  });
+
+  it("releaseDriver con l'identità sbagliata non rilascia", () => {
+    const { lease } = claimDriver(null, "v1", "Ada", 0, DRIVER_TTL, "u:ada");
+    expect(releaseDriver(lease, "v1", "u:eve")).toBe(lease);
+    expect(releaseDriver(lease, "v1", "u:ada")).toBeNull();
   });
 });

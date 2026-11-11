@@ -14,6 +14,11 @@ export interface DriverLease {
   name: string;
   /** epoch ms in cui il lease scade se non rinnovato. */
   expiresAt: number;
+  /**
+   * Chi tiene il lease (account o credenziale, vedi `identityKey` in server.ts). L'id della
+   * vista è pubblico: senza questo, chiunque lo rimandasse rinnovava il lease altrui.
+   */
+  holderKey?: string;
 }
 
 /** Durata di un lease driver: va rinnovato entro questo tempo o decade. */
@@ -38,17 +43,23 @@ export function claimDriver(
   name: string,
   now: number,
   ttl = DRIVER_TTL,
+  holderKey = "",
 ): { lease: DriverLease; changed: boolean } {
   if (!isLeaseValid(current, now)) {
-    return { lease: { holderId: id, name, expiresAt: now + ttl }, changed: true };
+    return { lease: { holderId: id, name, expiresAt: now + ttl, holderKey }, changed: true };
   }
-  if (current!.holderId === id) {
-    return { lease: { holderId: id, name, expiresAt: now + ttl }, changed: current!.name !== name };
+  if (current!.holderId === id && (current!.holderKey ?? "") === holderKey) {
+    return { lease: { holderId: id, name, expiresAt: now + ttl, holderKey }, changed: current!.name !== name };
   }
   return { lease: current!, changed: false };
 }
 
-/** Rilascia il lease se `id` è il titolare corrente; altrimenti lo lascia intatto. */
-export function releaseDriver(current: DriverLease | null, id: string): DriverLease | null {
-  return current && current.holderId === id ? null : current;
+/** La vista `id`, aperta da `holderKey`, tiene un lease valido adesso? */
+export function isLeaseHolder(lease: DriverLease | null, id: string, holderKey: string, now: number): boolean {
+  return isLeaseValid(lease, now) && lease!.holderId === id && (lease!.holderKey ?? "") === holderKey;
+}
+
+/** Rilascia il lease se `id` (con la stessa identità) è il titolare; altrimenti lo lascia intatto. */
+export function releaseDriver(current: DriverLease | null, id: string, holderKey = ""): DriverLease | null {
+  return current && current.holderId === id && (current.holderKey ?? "") === holderKey ? null : current;
 }

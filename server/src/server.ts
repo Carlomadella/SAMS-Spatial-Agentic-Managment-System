@@ -30,13 +30,14 @@ import { distinctPeople, presenceState, sanitizeObserverIdentity, type Observer 
 import { sanitizeCursor } from "./cursors";
 import { sanitizeWorldSim } from "./worldsim";
 import { sanitizeSelection } from "./selections";
-import { claimDriver, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
+import { claimDriver, DRIVER_TTL, isLeaseHolder, isLeaseValid, releaseDriver, type DriverLease } from "./driver";
 import { createRateLimiter, identityKey } from "./rateLimit";
 import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
-import { INVITE_TTL_MS, inviteRejection, isInvitableRole } from "./invites";
+import { heartbeatTick } from "./streamHeartbeat";
+import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
 
 const app = express();
@@ -130,6 +131,18 @@ app.use(
 
 /** Connected SSE clients (the SAMS browser UIs), each with its declared identity. */
 const clients = new Map<Response, Observer>();
+/**
+ * Chi ha aperto ogni stream (vedi `viewIdentity`). L'id di una vista è pubblico — arriva a
+ * tutti con la presenza — quindi non basta a dimostrare che la vista è tua: per rinominarla
+ * o guidare il mondo al suo posto serve anche la stessa identità (Ultrareview 2026-11-11).
+ */
+const clientKeys = new Map<Response, string>();
+
+/** L'identità dietro una credenziale: l'account se è una sessione, altrimenti la credenziale stessa. */
+function viewIdentity(token: string): string {
+  const user = token ? getSessionUser(db(), token) : null;
+  return user ? `u:${user.id}` : `c:${token}`;
+}
 const HEARTBEAT_MS = 25000;
 
 /** Write one already-serialized SSE line to every live client, dropping dead ones. */
@@ -256,7 +269,7 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
   // Registrazione da invito (D3-B): il ruolo è quello scelto dall'owner e l'indirizzo è
   // già dimostrato (il link è arrivato lì, o l'owner l'ha consegnato di persona).
   const inviteToken = typeof body.invite === "string" ? body.invite : "";
-  let invitedRole: Role | null = null;
+  let invitedRole: InvitableRole | null = null;
   if (inviteToken) {
     const rec = getInviteByHash(database, hashToken(inviteToken));
     const why = inviteRejection(rec, email);
@@ -275,7 +288,7 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
     }
     invitedRole = rec!.role;
   }
-  const role: Role = first ? "owner" : invitedRole ?? "viewer";
+  const role: Role = registrationRole(first, invitedRole);
   const user: User = {
     id: randomUUID(),
     email,
@@ -777,7 +790,9 @@ app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Respon
     return;
   }
   // Il biglietto ricorda chi l'ha chiesto: lo stream la ricontrolla finché resta aperto.
-  const ticket = streamTickets.issue(provided);
+  // Tetto per account (tutte le sue sessioni insieme) e per IP: vedi streamTickets.ts.
+  const user = provided ? getSessionUser(db(), provided) : null;
+  const ticket = streamTickets.issue(provided, { user: user?.id, ip: req.ip });
   if (!ticket) {
     res.status(503).json({ error: "Troppi stream in apertura, riprova tra poco" });
     return;
@@ -822,6 +837,8 @@ app.get("/api/events", (req: Request, res: Response) => {
   // concreto della frontiera #1): `v` = id stabile persistito, `n` = nome.
   const observer = sanitizeObserverIdentity(req.query.v, req.query.n);
   clients.set(res, observer);
+  const viewKey = viewIdentity(credential ?? "");
+  clientKeys.set(res, viewKey);
   log.info("Vista connessa", { views: clients.size, name: observer.name });
   broadcastPresence(); // tell everyone (incl. the new view) the updated count
 
@@ -833,36 +850,33 @@ app.get("/api/events", (req: Request, res: Response) => {
     closed = true;
     clearInterval(heartbeat);
     clients.delete(res);
+    clientKeys.delete(res);
     log.info("Vista disconnessa", { views: clients.size, name: observer.name });
     broadcastPresence();
     // Se il driver se ne va, rilascia subito il lease (handover immediato, senza
     // aspettare la scadenza) e avvisa le altre viste.
-    if (driverLease && driverLease.holderId === observer.id) {
-      driverLease = releaseDriver(driverLease, observer.id);
+    if (driverLease && driverLease.holderId === observer.id && (driverLease.holderKey ?? "") === viewKey) {
+      driverLease = releaseDriver(driverLease, observer.id, viewKey);
       broadcastDriver();
     }
   }
+  // Logout, sessione revocata o ruoli appena attivati chiudono lo stream: il client riprova,
+  // riceve 401 sul biglietto e mostra "Accesso richiesto". Il ping (evento con nome) evita che
+  // un proxy tenga la UI "connessa" a uno stream muto. `heartbeatTick` non lancia mai: siamo
+  // in un setInterval, dove un'eccezione (es. SQLITE_BUSY) farebbe cadere il runtime.
   const heartbeat = setInterval(() => {
-    if (res.writableEnded || res.destroyed) {
-      cleanup();
-      return;
-    }
-    if (!streamStillAllowed(credential)) {
-      // Logout, sessione revocata o ruoli appena attivati: niente più eventi. Il client
-      // riprova, riceve 401 sul biglietto e mostra "Accesso richiesto".
-      log.info("Stream chiuso: credenziale non più valida", { name: observer.name });
-      res.end();
-      cleanup();
-      return;
-    }
-    try {
-      // Evento con nome (non un commento ":"): il client lo vede e lo usa come
-      // segno di vita. Senza, un proxy che tiene aperta la connessione dopo la
-      // morte del runtime lascerebbe la UI "connessa" a uno stream muto.
-      res.write("event: ping\ndata: {}\n\n");
-    } catch {
-      cleanup();
-    }
+    heartbeatTick({
+      isGone: () => res.writableEnded || res.destroyed,
+      stillAllowed: () => {
+        const ok = streamStillAllowed(credential);
+        if (!ok) log.info("Stream chiuso: credenziale non più valida", { name: observer.name });
+        return ok;
+      },
+      write: (chunk) => res.write(chunk),
+      end: () => res.end(),
+      cleanup,
+      onCheckError: (err) => log.warn("Stream chiuso: controllo della credenziale fallito", { name: observer.name, err: String(err) }),
+    });
   }, HEARTBEAT_MS);
   res.on("error", cleanup);
   req.on("close", cleanup);
@@ -1200,9 +1214,11 @@ app.post("/api/presence", requireRole("viewer"), (req: Request, res: Response) =
     res.status(429).json({ error: `Troppe modifiche — riprova tra ${wait}s`, retryAfterSec: wait });
     return;
   }
+  // Solo le viste aperte con la stessa identità: l'id da solo è pubblico.
+  const who = viewIdentity(bearerToken(req.headers.authorization));
   let changed = 0;
   for (const [res2, obs] of clients) {
-    if (obs.id === id && obs.name !== name) {
+    if (obs.id === id && clientKeys.get(res2) === who && obs.name !== name) {
       clients.set(res2, { id, name });
       changed++;
     }
@@ -1282,15 +1298,18 @@ app.post("/api/driver", requireRole("editor"), (req: Request, res: Response) => 
     return;
   }
   const now = Date.now();
-  if (!driverLimiter.hit(id)) {
+  // Il lease ricorda anche chi lo tiene: con l'id altrui (pubblico) non si rinnova. Anche il
+  // limite è per identità + id, così chi spamma l'id altrui non blocca i rinnovi del titolare.
+  const who = viewIdentity(bearerToken(req.headers.authorization));
+  if (!driverLimiter.hit(`${who}|${id}`)) {
     const d = currentDriver(now);
-    res.json({ ...d, youAreDriver: d.holderId === id });
+    res.json({ ...d, youAreDriver: isLeaseHolder(driverLease, id, who, now) });
     return;
   }
-  const { lease, changed } = claimDriver(driverLease, id, name, now);
+  const { lease, changed } = claimDriver(driverLease, id, name, now, DRIVER_TTL, who);
   driverLease = lease;
   if (changed) broadcastDriver();
-  res.json({ holderId: lease.holderId, name: lease.name, youAreDriver: lease.holderId === id });
+  res.json({ holderId: lease.holderId, name: lease.name, youAreDriver: isLeaseHolder(lease, id, who, now) });
 });
 
 // --- Movimento condiviso: snapshot cinematico (Roadmap 4, opzione B3) -----
@@ -1307,7 +1326,7 @@ app.post("/api/worldsim", requireRole("viewer"), (req: Request, res: Response) =
   const id = typeof body.id === "string" ? body.id : "";
   const now = Date.now();
   // Solo il driver in carica può spingere il mondo animato (evita la doppia simulazione).
-  if (!id || !isLeaseValid(driverLease, now) || driverLease!.holderId !== id) {
+  if (!id || !isLeaseHolder(driverLease, id, viewIdentity(bearerToken(req.headers.authorization)), now)) {
     res.status(204).end();
     return;
   }

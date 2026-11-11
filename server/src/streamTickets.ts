@@ -13,15 +13,27 @@ import { randomBytes } from "node:crypto";
 // statico): il server la ricontrolla per tutta la vita dello stream, così un logout o
 // una sessione revocata chiudono anche lo stream già aperto.
 //
-// Contro chi ne chiede a raffica: un tetto per credenziale (oltre, cadono i suoi più
-// vecchi) e un tetto globale che **rifiuta** il nuovo biglietto invece di scartare
-// quelli degli altri.
+// Contro chi ne chiede a raffica: un tetto per **account** (tutte le sue sessioni insieme;
+// senza account, per credenziale) e uno per **IP** — oltre, cadono i più vecchi di quel
+// gruppo — e un tetto globale che **rifiuta** il nuovo biglietto invece di scartare quelli
+// degli altri. Ultrareview 2026-11-11: col tetto solo per sessione, un viewer con centinaia
+// di login riempiva il tetto globale e lasciava tutti senza aggiornamenti in tempo reale.
 
 export const STREAM_TICKET_TTL_MS = 30_000;
 
 interface Ticket {
   credential: string;
+  /** gruppo per il tetto "per account": id utente, o la credenziale se non c'è un account */
+  owner: string;
+  ip: string;
   expires: number;
+}
+
+/** Chi chiede il biglietto, oltre alla credenziale. */
+export interface TicketScope {
+  /** id dell'account (sessione utente); assente per i token statici e in dev */
+  user?: string;
+  ip?: string;
 }
 
 export interface StreamTicketsOptions {
@@ -29,8 +41,10 @@ export interface StreamTicketsOptions {
   now?: () => number;
   /** biglietti in sospeso in tutto */
   max?: number;
-  /** biglietti in sospeso per credenziale */
+  /** biglietti in sospeso per account (o per credenziale, senza account) */
   perCredential?: number;
+  /** biglietti in sospeso per IP */
+  perIp?: number;
 }
 
 export class StreamTickets {
@@ -40,12 +54,14 @@ export class StreamTickets {
   private readonly now: () => number;
   private readonly max: number;
   private readonly perCredential: number;
+  private readonly perIp: number;
 
   constructor(opts: StreamTicketsOptions = {}) {
     this.ttlMs = opts.ttlMs ?? STREAM_TICKET_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.max = opts.max ?? 5_000;
     this.perCredential = opts.perCredential ?? 10;
+    this.perIp = opts.perIp ?? 50;
   }
 
   /** Quanti biglietti sono in memoria (per i test). */
@@ -57,14 +73,22 @@ export class StreamTickets {
    * Emette un biglietto per questa credenziale ("" in dev aperto). `null` se il
    * registro è pieno: meglio un 503 a chi chiede che togliere il biglietto a un altro.
    */
-  issue(credential: string): string | null {
+  issue(credential: string, scope: TicketScope = {}): string | null {
     this.prune();
-    const mine = [...this.tickets].filter(([, t]) => t.credential === credential);
-    for (let i = 0; i <= mine.length - this.perCredential; i++) this.tickets.delete(mine[i][0]);
+    const owner = scope.user ? `u:${scope.user}` : `c:${credential}`;
+    const ip = scope.ip ?? "";
+    this.trim((t) => t.owner === owner, this.perCredential);
+    if (ip) this.trim((t) => t.ip === ip, this.perIp);
     if (this.tickets.size >= this.max) return null;
     const ticket = randomBytes(32).toString("hex");
-    this.tickets.set(ticket, { credential, expires: this.now() + this.ttlMs });
+    this.tickets.set(ticket, { credential, owner, ip, expires: this.now() + this.ttlMs });
     return ticket;
+  }
+
+  /** Fa posto a un nuovo biglietto nel gruppo: oltre il tetto cadono i suoi più vecchi. */
+  private trim(inGroup: (t: Ticket) => boolean, cap: number): void {
+    const group = [...this.tickets].filter(([, t]) => inGroup(t));
+    for (let i = 0; i <= group.length - cap; i++) this.tickets.delete(group[i][0]);
   }
 
   /** Consuma il biglietto: la credenziale una sola volta, se esiste e non è scaduto; altrimenti null. */

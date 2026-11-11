@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INVITE_TTL_MS, inviteRejection, isInvitableRole, type InviteRecord } from "./invites";
+import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InviteRecord } from "./invites";
 
 const rec = (over: Partial<InviteRecord> = {}): InviteRecord => ({
   id: "i1",
@@ -42,5 +42,23 @@ describe("inviteRejection", () => {
   });
   it("l'invito vale solo per l'indirizzo a cui è stato mandato", () => {
     expect(inviteRejection(rec(), "altro@example.test", 2_000)).toBe("email_mismatch");
+  });
+});
+
+// Ultrareview 2026-11-11: con l'owner che usa solo SAMS_TOKEN (nessun account), il primo a
+// registrarsi con un invito da viewer diventava owner.
+describe("registrationRole", () => {
+  it("con un invito vale il ruolo dell'invito, anche se è il primo account", () => {
+    expect(registrationRole(true, "viewer")).toBe("viewer");
+    expect(registrationRole(true, "editor")).toBe("editor");
+  });
+
+  it("senza invito il primo account è owner, gli altri viewer", () => {
+    expect(registrationRole(true, null)).toBe("owner");
+    expect(registrationRole(false, null)).toBe("viewer");
+  });
+
+  it("un invito non promuove mai a owner", () => {
+    expect(registrationRole(false, "editor")).toBe("editor");
   });
 });

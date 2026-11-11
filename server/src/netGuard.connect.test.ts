@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { AddressInfo } from "node:net";
+import net, { type AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { guardedFetch, makeGuardedLookup } from "./netGuard";
 
@@ -102,4 +102,24 @@ describe("guardedFetch", () => {
     ctrl.abort();
     await expect(guardedFetch(`http://prova.example:${port}/`, { signal: ctrl.signal }, allowAll)).rejects.toThrow();
   });
+});
+
+// Ultrareview 2026-11-11: una riga di stato con caratteri di controllo faceva lanciare
+// `new Response(...)` dentro il callback di http.request: eccezione non gestita, runtime giù.
+describe("guardedFetch — risposta malformata", () => {
+  for (const reason of ["O\x01K", "O\x7fK"]) {
+    it(`rifiuta una riga di stato con ${JSON.stringify(reason)} invece di far cadere il processo`, async () => {
+      const srv = net.createServer((sock) => {
+        sock.once("data", () => sock.end(`HTTP/1.1 200 ${reason}\r\ncontent-length: 2\r\n\r\nhi`));
+      });
+      await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+      const p = (srv.address() as AddressInfo).port;
+      const allow = { resolve: async () => [{ address: "127.0.0.1" }], isBlocked: () => false };
+      try {
+        await expect(guardedFetch(`http://x.example:${p}/`, {}, allow)).rejects.toThrow(/risposta HTTP non valida/);
+      } finally {
+        srv.close();
+      }
+    });
+  }
 });

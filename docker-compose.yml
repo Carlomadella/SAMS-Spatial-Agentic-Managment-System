@@ -6,6 +6,8 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # A variable set here wins over the app's Settings and locks that field in the UI.
+      # Optional ones therefore have NO default: left unset, they stay editable in ⚙.
       # AI providers — set at least one
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
@@ -14,13 +16,13 @@ services:
       # GitHub (required for code tasks)
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITHUB_REPO=${GITHUB_REPO:-}
-      - GITHUB_BASE_BRANCH=${GITHUB_BASE_BRANCH:-main}
+      - GITHUB_BASE_BRANCH=${GITHUB_BASE_BRANCH:-}
       # Runtime behaviour
       # Database + saved settings live here (the volume below), not next to the code.
       - SAMS_DATA_DIR=/data
-      - SAMS_PROVIDER=${SAMS_PROVIDER:-gemini}
-      - SAMS_OPEN_PRS=${SAMS_OPEN_PRS:-true}
-      - SAMS_REQUIRE_APPROVAL=${SAMS_REQUIRE_APPROVAL:-false}
+      - SAMS_PROVIDER=${SAMS_PROVIDER:-}
+      - SAMS_OPEN_PRS=${SAMS_OPEN_PRS:-}
+      - SAMS_REQUIRE_APPROVAL=${SAMS_REQUIRE_APPROVAL:-}
       # Notion (optional)
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_PAGE_ID=${NOTION_PAGE_ID:-}
