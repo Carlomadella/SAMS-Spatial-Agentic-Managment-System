@@ -225,8 +225,11 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       schermo. Il sito pubblico invece è a posto.
 - [ ] **Il changelog del sito è fermo al 15/07** (`src/site/data/changelog.ts`) e la prima voce dice ancora
       "Palette Abisso/Ciano". Va allineato a `CHANGELOG.md` (Rossonero, lo-fi, ruoli, OpenRouter…).
-- [ ] **Webhook GitHub aperto senza secret.** Senza `GITHUB_WEBHOOK_SECRET` le richieste non firmate sono
+- [x] **Webhook GitHub aperto senza secret.** Senza `GITHUB_WEBHOOK_SECRET` le richieste non firmate sono
       accettate (verificato: 200), anche con `NODE_ENV=production`. In produzione andrebbero rifiutate.
+      **Fatto il 2026-11-11:** `checkWebhookAuth` in `webhook.ts`: senza secret in produzione → **503**
+      ("imposta GITHUB_WEBHOOK_SECRET"), firma sbagliata → 401; in locale senza secret resta aperto.
+      Test unitari + `server.webhook.test.ts` sul vero `server.ts` (con il codice di prima riceveva 200).
 - [ ] **Privacy e Termini non esistono.** Nel footer puntano a `/#site-footer`. Con registrazione ed email
       servono due pagine vere. Va anche controllato che `contatti@sams.app` sia nostro: il dominio `sams.app` è
       registrato e risolve.

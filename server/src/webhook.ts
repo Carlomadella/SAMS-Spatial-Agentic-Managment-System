@@ -36,6 +36,25 @@ export function verifyGithubSignature(secret: string, rawBody: string, signature
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** Esito del controllo d'accesso del webhook. */
+export type WebhookAuth = "ok" | "unconfigured" | "bad_signature";
+
+/**
+ * Decide se accettare una richiesta al webhook. Senza secret la firma non si può
+ * verificare: in locale si accetta (comodo per provare), in **produzione** no —
+ * chiunque conosca l'URL potrebbe altrimenti iniettare eventi falsi (CI fallita →
+ * agente svegliato, push → giardino innaffiato). Collaudo 2026-11-10.
+ */
+export function checkWebhookAuth(
+  secret: string,
+  rawBody: string,
+  signature: string | undefined,
+  production: boolean,
+): WebhookAuth {
+  if (!secret) return production ? "unconfigured" : "ok";
+  return verifyGithubSignature(secret, rawBody, signature) ? "ok" : "bad_signature";
+}
+
 function str(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }

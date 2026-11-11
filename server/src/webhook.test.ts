@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
-import { verifyGithubSignature, parseGithubEvent, parsePushWatering } from "./webhook";
+import { checkWebhookAuth, verifyGithubSignature, parseGithubEvent, parsePushWatering } from "./webhook";
 
 const sign = (secret: string, body: string) =>
   "sha256=" + createHmac("sha256", secret).update(body, "utf8").digest("hex");
@@ -19,6 +19,23 @@ describe("verifyGithubSignature", () => {
   });
   it("disabilita la verifica con segreto vuoto", () => {
     expect(verifyGithubSignature("", "qualsiasi", undefined)).toBe(true);
+  });
+});
+
+describe("checkWebhookAuth", () => {
+  const body = '{"a":1}';
+  it("senza secret accetta solo fuori produzione", () => {
+    expect(checkWebhookAuth("", body, undefined, false)).toBe("ok");
+    expect(checkWebhookAuth("", body, undefined, true)).toBe("unconfigured");
+    // nemmeno una "firma" qualsiasi basta: senza secret non c'è niente da verificare
+    expect(checkWebhookAuth("", body, sign("x", body), true)).toBe("unconfigured");
+  });
+  it("con secret verifica la firma, in produzione e no", () => {
+    for (const production of [false, true]) {
+      expect(checkWebhookAuth("s3", body, sign("s3", body), production)).toBe("ok");
+      expect(checkWebhookAuth("s3", body, undefined, production)).toBe("bad_signature");
+      expect(checkWebhookAuth("s3", body, sign("altro", body), production)).toBe("bad_signature");
+    }
   });
 });
 
