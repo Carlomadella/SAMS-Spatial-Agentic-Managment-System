@@ -21,7 +21,7 @@ export function Changelog() {
         <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Novità di SAMS</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-slate-400">
           Le modifiche più recenti. La cronologia completa è nel{" "}
-          <a href={`${GITHUB_URL}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+          <a href={`${GITHUB_URL}/blob/HEAD/CHANGELOG.md`} target="_blank" rel="noreferrer" className="text-brand hover:underline">
             changelog del repository
           </a>
           .

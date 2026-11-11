@@ -10,6 +10,35 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-11 — Collaudo: ruoli, eventi e OpenRouter 🧹
+
+- **Fixed** — Chi ha accesso da *viewer* si presenta col proprio nome: prima riceveva 403 e restava "Ospite"
+  per tutti.
+- **Fixed** — La guida della simulazione condivisa spetta solo a chi può salvare il mondo (*editor*); un viewer
+  che apriva per primo la prendeva lui.
+- **Fixed** — Da loggati non si compare più due volte nella barra delle presenze.
+- **Fixed** — Niente eventi inventati all'avvio ("Test superati: 24/24", "Pull Request #128"…): il log parte
+  vuoto, e Diario e Replay non raccontano più lavoro mai fatto.
+- **Fixed** — Un task di sola lettura concluso risulta **completato** (prima "Inattivo", e le metriche
+  segnavano 0).
+- **Fixed** — OpenRouter ritenta solo i guasti passeggeri (429, 5xx, rete): un errore vero si vede subito
+  invece che dopo ~30 s di "OpenRouter occupato".
+- **Docs** — Il changelog del sito è di nuovo allineato a questo file.
+
+### 2026-11-10 (b) — Ruoli sempre attivi e inviti 🔐
+
+- **Security** — Appena esiste un account, i ruoli valgono anche senza token statici: prima un deploy senza
+  `SAMS_TOKEN` lasciava l'anonimo *owner*.
+- **Changed** — Database e impostazioni salvate stanno in `SAMS_DATA_DIR`; il Blueprint di Render monta un disco
+  persistente su `/var/data`.
+- **Security** — Con i ruoli attivi chat, mondo, cronologia, routine e metriche si leggono solo con un accesso.
+  Lo stream degli eventi si apre con un biglietto monouso da 30 s, così il token non finisce in un URL, e si
+  chiude dopo un logout.
+- **Added** — **Inviti via email** con ruolo (*editor* o *viewer*, mai *owner*): validi 7 giorni, una volta sola
+  e solo per l'indirizzo invitato. Senza un canale email il link lo riceve il proprietario.
+- **Security** — Nessun link di reset o d'invito finisce più nei log; `web_fetch` controlla gli indirizzi al
+  momento della connessione (chiusa la finestra di DNS rebinding).
+
 ### 2026-11-10 — Collaudo pre-rilascio: tre bloccanti chiusi 🧪
 
 - **Fixed** — **OpenRouter funziona di nuovo** (in realtà per la prima volta): un trattino lungo nell'header
