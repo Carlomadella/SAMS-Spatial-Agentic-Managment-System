@@ -257,10 +257,13 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 - [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.
 - [ ] `/api/health` e `/api/status` sono pubblici ed espongono repo e URL della pagina Notion.
 - [ ] L'SDK di Gemini scrive righe non JSON nei log ("there are non-text parts functionCall…").
-- [ ] **`trust proxy` non impostato.** Dietro il proxy di Render `req.ip` è lo stesso per tutti: i limiti per IP
+- [x] **`trust proxy` non impostato.** Dietro il proxy di Render `req.ip` è lo stesso per tutti: i limiti per IP
       (login, registrazione, presenza, biglietti senza token) valgono come **un solo** limite condiviso. Va impostato
       `app.set("trust proxy", …)` secondo il deploy (fidarsi di `X-Forwarded-For` senza proxy davanti permette di
       falsificarlo): serve una variabile, per esempio `SAMS_TRUST_PROXY`. Trovato il 2026-11-11.
+      **Chiuso il 2026-11-11:** `SAMS_TRUST_PROXY` (numero di hop o elenco IP/CIDR, `true` rifiutato), `1` in
+      `render.yaml`; verifica con `GET /api/admin/client-ip` (owner). Da controllare sul deploy vero che `ip` sia
+      il proprio IP pubblico.
 - [ ] **Non verificato:** il build dell'immagine Docker, perché qui Docker non è installato. Va provato nel
       deploy di prova della RC.
 

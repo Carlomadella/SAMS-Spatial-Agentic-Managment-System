@@ -66,6 +66,7 @@ beforeAll(async () => {
     SAMS_TOKEN: TOKENS.owner,
     SAMS_EDITOR_TOKEN: TOKENS.editor,
     SAMS_READONLY_TOKEN: TOKENS.viewer,
+    SAMS_TRUST_PROXY: "1",
   };
   child = spawn(process.execPath, [tsxCli, serverEntry], { cwd: workDir, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d) => (output += String(d)));
@@ -153,5 +154,21 @@ describe("l'id di una vista non basta: serve la stessa identità", () => {
     } finally {
       ctrl.abort();
     }
+  });
+});
+
+describe("GET /api/admin/client-ip (diagnostica di SAMS_TRUST_PROXY)", () => {
+  it("con 1 hop fidato prende l'IP aggiunto dal proxy, non quello scritto dal client", async () => {
+    const res = await fetch(`${base}/api/admin/client-ip`, {
+      headers: { Authorization: `Bearer ${TOKENS.owner}`, "X-Forwarded-For": "6.6.6.6, 203.0.113.7" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { trustProxy: unknown; ip: string };
+    expect(body.trustProxy).toBe(1);
+    expect(body.ip).toBe("203.0.113.7");
+  });
+  it("è solo per l'owner", async () => {
+    expect((await call("GET", "/api/admin/client-ip", TOKENS.editor)).status).toBe(403);
+    expect((await call("GET", "/api/admin/client-ip")).status).toBe(401);
   });
 });

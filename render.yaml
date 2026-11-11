@@ -28,6 +28,12 @@ services:
         value: production
       - key: SAMS_DATA_DIR
         value: /var/data
+      # Render's proxy appends the client IP to X-Forwarded-For: trust exactly that one
+      # hop, so per-IP limits see the real client. Never more than the proxies in
+      # front (or "true"): the client could pick its own IP. Check with
+      # GET /api/admin/client-ip (owner).
+      - key: SAMS_TRUST_PROXY
+        value: "1"
       # Public address of the deploy (e.g. https://sams.onrender.com): reset and
       # verification links are built from it. Without it they point to localhost.
       - key: SAMS_PUBLIC_URL

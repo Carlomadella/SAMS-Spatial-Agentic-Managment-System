@@ -39,8 +39,15 @@ import { StreamTickets } from "./streamTickets";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
+import { parseTrustProxy } from "./trustProxy";
 
 const app = express();
+
+// IP vero del client dietro un proxy (Render): vedi trustProxy.ts. Senza, tutti i limiti
+// per IP valgono come uno solo, condiviso fra tutti gli utenti.
+const trustProxy = parseTrustProxy(process.env.SAMS_TRUST_PROXY);
+if (trustProxy.warning) log.warn(trustProxy.warning);
+app.set("trust proxy", trustProxy.value);
 
 /** I token dei tre tier dalle impostazioni correnti (owner/editor/viewer). */
 function roleTokens(): RoleTokens {
@@ -353,6 +360,18 @@ app.get("/api/auth/me", (req: Request, res: Response) => {
 // utilizzabili i ruoli in un team — senza, dopo il primo utente restano tutti viewer.
 app.get("/api/auth/users", requireRole("owner"), (_req: Request, res: Response) => {
   res.json({ users: listUsers(db()) });
+});
+
+// Diagnostica di `SAMS_TRUST_PROXY` (solo owner): quale IP il server attribuisce a chi
+// chiama e cosa è arrivato nell'header. `ip` deve essere il proprio IP pubblico.
+app.get("/api/admin/client-ip", requireRole("owner"), (req: Request, res: Response) => {
+  res.json({
+    trustProxy: trustProxy.value,
+    ip: req.ip ?? null,
+    ips: req.ips,
+    forwardedFor: req.headers["x-forwarded-for"] ?? null,
+    socket: req.socket.remoteAddress ?? null,
+  });
 });
 
 // Cambio password del proprio account (autenticato): verifica la vecchia, imposta la nuova

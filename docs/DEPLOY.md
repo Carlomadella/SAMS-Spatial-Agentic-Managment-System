@@ -73,6 +73,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_MCP_SERVERS` | no | — | JSON allow-list of MCP servers (`mcp_call`) |
 | `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | in-memory | MySQL for durable Commit Garden |
 | `SAMS_DATA_DIR` | on hosts | server working dir | folder for the database (`.sams-data.db`) and the saved settings (`.sams-runtime.json`); point it at a persistent disk/volume, or both are lost on every redeploy |
+| `SAMS_TRUST_PROXY` | behind a proxy | off | how many proxies sit in front (Render: `1`, already in `render.yaml`), or a list of their IPs/CIDRs; lets per-IP limits see the real client. Never more hops than there really are, and `true` is refused: the client could choose its own IP. Check with `GET /api/admin/client-ip` as owner |
 | `PORT` | no | `3000` | injected by most managed hosts |
 
 ### Roles and access
