@@ -18,7 +18,15 @@ export const COPY_TABLES = [
   "chat_messages",
   "world_snapshot",
   "world_agents",
+  "settings",
 ] as const;
+
+/**
+ * Tabelle che la destinazione può avere già piene senza bloccare la copia: `settings`
+ * si riempie da sola al primo avvio su MySQL (import dal file). Lì si tiene quello che
+ * c'è e la copia la salta.
+ */
+const KEEP_IF_PRESENT: ReadonlySet<string> = new Set(["settings"]);
 
 /** Ordine delle righe da preservare: il roster del mondo si legge in ordine d'inserimento. */
 const ORDER_BY: Partial<Record<(typeof COPY_TABLES)[number], { sqlite: string; mysql: string }>> = {
@@ -44,6 +52,7 @@ async function columns(db: SqlRunner, table: string): Promise<string[]> {
 export async function nonEmptyTables(db: SqlRunner): Promise<string[]> {
   const out: string[] = [];
   for (const t of COPY_TABLES) {
+    if (KEEP_IF_PRESENT.has(t)) continue;
     const row = await db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t}`);
     if (Number(row?.n ?? 0) > 0) out.push(t);
   }
@@ -58,6 +67,13 @@ export async function copyDatabase(src: SqlDriver, dst: SqlDriver): Promise<Reco
   const counts: Record<string, number> = {};
   await dst.transaction(async (tx) => {
     for (const table of COPY_TABLES) {
+      if (KEEP_IF_PRESENT.has(table)) {
+        const row = await tx.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+        if (Number(row?.n ?? 0) > 0) {
+          counts[table] = 0;
+          continue;
+        }
+      }
       // Solo le colonne che esistono da entrambe le parti (es. `seq` c'è solo in MySQL
       // e si rigenera da sola nell'ordine d'inserimento).
       const dstCols = new Set(await columns(tx, table));

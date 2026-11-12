@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import "dotenv/config";
 import { dataFile } from "./dataDir";
+import { loadSettingRows, saveSettingRows } from "./db";
+import { Mutex, type SqlDriver } from "./sql";
 
 export type Provider = "gemini" | "claude" | "groq" | "openrouter" | "openai";
 
@@ -244,14 +246,174 @@ export function scrubEnvCopies(
   return { cleaned, dropped };
 }
 
+// --- opzione C: scelte nel database, segreti nell'ambiente (o nel file in locale) -------
+
+/** I segreti: non vanno mai nel database. In produzione arrivano dall'ambiente. */
+export const SECRET_KEYS = [
+  "geminiApiKey",
+  "anthropicApiKey",
+  "groqApiKey",
+  "openrouterApiKey",
+  "openaiApiKey",
+  "githubToken",
+  "githubWebhookSecret",
+  "notionToken",
+  "runtimeToken",
+  "editorToken",
+  "readonlyToken",
+  "mcpServers",
+] as const satisfies ReadonlyArray<keyof Settings>;
+
+/** Le scelte non segrete: stanno nella tabella `settings`, così sopravvivono senza disco. */
+export const CHOICE_KEYS = [
+  "provider",
+  "model",
+  "githubRepo",
+  "baseBranch",
+  "openPRs",
+  "requireApproval",
+  "notionPageId",
+  "agentId",
+  "environmentId",
+] as const satisfies ReadonlyArray<keyof Settings>;
+
+type SecretKey = (typeof SECRET_KEYS)[number];
+type ChoiceKey = (typeof CHOICE_KEYS)[number];
+
+const PROVIDERS: ReadonlyArray<Provider> = ["gemini", "claude", "groq", "openrouter", "openai"];
+
+/** La variabile d'ambiente che imposta un segreto (per i messaggi di errore della UI). */
+export function secretEnvName(key: SecretKey): string {
+  return ENV_KEYS.find(([, k]) => k === key)?.[0] ?? key;
+}
+
+/**
+ * `SAMS_EPHEMERAL_DISK=1`: il server non ha un disco persistente (es. piano gratuito di
+ * Render). Il file `.sams-runtime.json` sparirebbe al riavvio, quindi i segreti non si
+ * salvano dalla UI: si impostano come variabili d'ambiente. Non lo si indovina dal codice.
+ */
+export function ephemeralDisk(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = (env.SAMS_EPHEMERAL_DISK ?? "").trim().toLowerCase();
+  return v !== "" && v !== "0" && v !== "false" && v !== "no";
+}
+
+/** I segreti che la patch vorrebbe cambiare: su disco effimero vanno rifiutati. */
+export function secretChanges(patch: Partial<Settings>, current: Settings): SecretKey[] {
+  return SECRET_KEYS.filter((k) => k in patch && patch[k] !== undefined && patch[k] !== current[k]);
+}
+
+function pick<K extends keyof Settings>(src: Partial<Settings>, keys: ReadonlyArray<K>): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const k of keys) if (k in src && src[k] !== undefined) out[k] = src[k];
+  return out as Partial<Settings>;
+}
+
+function omit(src: Partial<Settings>, keys: ReadonlyArray<keyof Settings>): Partial<Settings> {
+  const out: Partial<Settings> = { ...src };
+  for (const k of keys) delete out[k];
+  return out;
+}
+
+/** Scelte → righe della tabella (valori in JSON, così i booleani restano booleani). */
+export function encodeChoices(choices: Partial<Settings>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of CHOICE_KEYS) if (k in choices && choices[k] !== undefined) out[k] = JSON.stringify(choices[k]);
+  return out;
+}
+
+/** Righe della tabella → scelte. Righe sconosciute, corrotte o del tipo sbagliato si ignorano. */
+export function decodeChoices(rows: Record<string, string>): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const k of CHOICE_KEYS as ReadonlyArray<ChoiceKey>) {
+    if (!(k in rows)) continue;
+    let v: unknown;
+    try {
+      v = JSON.parse(rows[k]);
+    } catch {
+      continue;
+    }
+    if (k === "openPRs" || k === "requireApproval") {
+      if (typeof v === "boolean") out[k] = v;
+    } else if (k === "provider") {
+      if (typeof v === "string" && PROVIDERS.includes(v as Provider)) out[k] = v;
+    } else if (typeof v === "string") {
+      out[k] = v;
+    }
+  }
+  return out as Partial<Settings>;
+}
+
 /** Il contenuto del file come caricato (senza le copie dell'ambiente): base per `persist()`. */
 let fileState: Partial<Settings> = {};
 let current: Settings = load();
+/** Il database delle scelte, collegato da `initSettings()` dopo `initDb()`. Prima: solo file. */
+let settingsDb: SqlDriver | null = null;
+/** Le scelte come stanno nella tabella (senza le copie dell'ambiente). */
+let dbState: Partial<Settings> = {};
+/** Scritture serializzate: due salvataggi da ⚙ non si sovrappongono nel database. */
+const settingsLock = new Mutex();
 
-function persist(): void {
-  const data = settingsToPersist(current, fileState, process.env);
-  fileState = data;
-  writeStore(data);
+/**
+ * Collega le impostazioni al database (va chiamata subito dopo `initDb()`):
+ * 1. legge le scelte dalla tabella `settings`;
+ * 2. se la tabella è vuota, ci **importa** le scelte che il file aveva (una volta sola);
+ * 3. toglie dalla tabella le copie identiche alle variabili d'ambiente (come per il file);
+ * 4. toglie le scelte dal file, che da qui in poi tiene solo i segreti (se il disco è
+ *    effimero il file non si tocca).
+ * Ritorna i campi importati dal file, per il log di avvio.
+ */
+export function initSettings(d: SqlDriver, env: NodeJS.ProcessEnv = process.env): Promise<{ imported: string[] }> {
+  return settingsLock.run(async () => {
+    const rows = await loadSettingRows(d);
+    let stored = decodeChoices(rows);
+    let imported: string[] = [];
+    if (Object.keys(rows).length === 0) {
+      const fromFile = pick(fileState, CHOICE_KEYS);
+      imported = Object.keys(fromFile);
+      if (imported.length > 0) await saveSettingRows(d, encodeChoices(fromFile));
+      stored = fromFile;
+    }
+    const { cleaned, dropped } = scrubEnvCopies(stored, env);
+    if (dropped.length > 0) await saveSettingRows(d, {}, dropped);
+    settingsDb = d;
+    dbState = cleaned;
+    if (Object.keys(pick(fileState, CHOICE_KEYS)).length > 0 && !ephemeralDisk(env)) {
+      const secretsOnly = omit(fileState, CHOICE_KEYS);
+      try {
+        writeStore(secretsOnly);
+        fileState = secretsOnly;
+      } catch {
+        /* file in sola lettura: resta com'è, il database vince comunque sulle scelte */
+      }
+    }
+    current = resolveSettings(env, { ...fileState, ...dbState });
+    return { imported };
+  });
+}
+
+/**
+ * Salva `next`. Con il database collegato: le scelte vanno nella tabella; i segreti nel
+ * file solo se la patch ne cambia qualcuno (mai su disco effimero). Senza database (test,
+ * script): tutto nel file, come prima.
+ */
+async function persist(next: Settings, changed: ReadonlyArray<keyof Settings>): Promise<void> {
+  const env = process.env;
+  if (!settingsDb) {
+    const data = settingsToPersist(next, fileState, env);
+    writeStore(data);
+    fileState = data;
+    return;
+  }
+  const choices = pick(settingsToPersist(next, dbState, env), CHOICE_KEYS);
+  const remove = CHOICE_KEYS.filter((k) => !(k in choices));
+  await saveSettingRows(settingsDb, encodeChoices(choices), remove);
+  dbState = choices;
+  const secretChanged = changed.some((k) => (SECRET_KEYS as ReadonlyArray<keyof Settings>).includes(k));
+  if (secretChanged && !ephemeralDisk(env)) {
+    const data = pick(settingsToPersist(next, fileState, env), SECRET_KEYS);
+    writeStore(data);
+    fileState = data;
+  }
 }
 
 function writeStore(data: Partial<Omit<Settings, "port">>): void {
@@ -291,17 +453,27 @@ export type SettingsPatch = Partial<
   >
 >;
 
-export function updateSettings(patch: SettingsPatch): Settings {
-  current = { ...current, ...patch };
-  persist();
-  return current;
+/**
+ * Applica una patch dalla UI. Prima si salva, poi si aggiorna la memoria: se il database
+ * non risponde, le impostazioni in uso restano quelle di prima (e la richiesta fallisce).
+ */
+export function updateSettings(patch: SettingsPatch): Promise<Settings> {
+  return settingsLock.run(async () => {
+    const next = { ...current, ...patch };
+    await persist(next, Object.keys(patch) as Array<keyof Settings>);
+    current = next;
+    return current;
+  });
 }
 
 /** Store the provisioned Agent + Environment IDs (Claude provider only). */
-export function setProvision(ids: { agentId: string; environmentId: string }): Settings {
-  current = { ...current, agentId: ids.agentId, environmentId: ids.environmentId };
-  persist();
-  return current;
+export function setProvision(ids: { agentId: string; environmentId: string }): Promise<Settings> {
+  return settingsLock.run(async () => {
+    const next = { ...current, agentId: ids.agentId, environmentId: ids.environmentId };
+    await persist(next, ["agentId", "environmentId"]);
+    current = next;
+    return current;
+  });
 }
 
 export function isConfigured(): boolean {

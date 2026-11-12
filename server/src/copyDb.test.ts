@@ -7,8 +7,10 @@ import {
   insertChatMessage,
   listChatMessages,
   loadWorldAgents,
+  loadSettingRows,
   loadWorldSnapshot,
   openDb,
+  saveSettingRows,
   saveWorldAgents,
   setMemory,
 } from "./db";
@@ -46,5 +48,19 @@ describe("copyDatabase", () => {
     await createUser(dst, { id: "u9", email: "z@x.co", name: "Z", passHash: "s:h", role: "owner", createdAt: 1, emailVerified: true });
     await expect(copyDatabase(src, dst)).rejects.toThrow(/non è vuota.*users/);
     expect(await countUsers(dst)).toBe(1);
+  });
+
+  it("copia le impostazioni; se la destinazione le ha già (import al primo avvio) tiene le sue", async () => {
+    const src = await openDb(":memory:");
+    await saveSettingRows(src, { model: '"da-sqlite"' });
+    const empty = await openDb(":memory:");
+    expect((await copyDatabase(src, empty)).settings).toBe(1);
+    expect((await loadSettingRows(empty)).model).toBe('"da-sqlite"');
+
+    const busy = await openDb(":memory:");
+    await saveSettingRows(busy, { model: '"gia-su-mysql"' });
+    const counts = await copyDatabase(src, busy);
+    expect(counts.settings).toBe(0);
+    expect((await loadSettingRows(busy)).model).toBe('"gia-su-mysql"');
   });
 });

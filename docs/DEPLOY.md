@@ -38,6 +38,16 @@ points `SAMS_DATA_DIR` there, so accounts, chat, the world and the saved setting
 survive deploys and restarts. A service with a disk runs as a single instance (Render
 also turns off zero-downtime deploys for it), and needs a paid plan — `starter` is enough.
 
+**Without a disk (e.g. the free plan).** Two things are needed: `SAMS_DB_URL` (data in an
+external MySQL 8) and `SAMS_EPHEMERAL_DISK=1`. Then the choices made in ⚙ (engine, model,
+repo, branch, PRs, approval, Notion page, provisioning ids) are saved in the database and
+survive restarts; **keys and tokens are never stored in the database** — set them as
+environment variables (`OPENROUTER_API_KEY`, `GITHUB_TOKEN`, …). With `SAMS_EPHEMERAL_DISK`
+on, ⚙ shows a notice, the key fields are read-only, and the runtime answers `409` with the
+name of the variable to set instead of saving a key that the next restart would erase.
+Remove the `disk:` block and `SAMS_DATA_DIR` from `render.yaml` only after both are set.
+Note: on a plan that sleeps when idle, routines run only while the service is awake.
+
 ## Option C — Fly.io
 
 ```bash
@@ -71,10 +81,11 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `RESEND_API_KEY` | no | — | alternative email channel via the Resend API (ignored if `SMTP_HOST` is set) |
 | `NOTION_TOKEN` / `NOTION_PAGE_ID` | no | — | let agents write to a Notion page |
 | `SAMS_MCP_SERVERS` | no | — | JSON allow-list of MCP servers (`mcp_call`) |
-| `SAMS_DB_URL` | on hosts without a disk | SQLite in `SAMS_DATA_DIR` | `mysql://user:password@host:3306/db` — keep accounts, chat, world, routines and history in MySQL 8 instead of the SQLite file. Set but unreachable → the runtime does not start. Append `?ssl-mode=REQUIRED` for TLS. Move existing data with `npm run db:to-mysql` (in `server/`, target empty). Saved settings (`.sams-runtime.json`) still live in `SAMS_DATA_DIR`: on a diskless host set them as environment variables |
+| `SAMS_DB_URL` | on hosts without a disk | SQLite in `SAMS_DATA_DIR` | `mysql://user:password@host:3306/db` — keep accounts, chat, world, routines and history in MySQL 8 instead of the SQLite file. Set but unreachable → the runtime does not start. Append `?ssl-mode=REQUIRED` for TLS. Move existing data with `npm run db:to-mysql` (in `server/`, target empty). The non-secret settings from ⚙ live in the same database; keys and tokens do not (see `SAMS_EPHEMERAL_DISK`) |
+| `SAMS_EPHEMERAL_DISK` | on hosts without a disk | off | `1` = the server's disk is wiped on restart (e.g. Render free). Keys and tokens can then only come from environment variables: ⚙ shows them read-only and the runtime rejects them with `409`. The other settings are still saved, in the database |
 | `SAMS_DB_SSL_CA` | no | — | CA certificate (PEM text or file path) for providers with their own CA, e.g. Aiven |
 | `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | in-memory | MySQL for durable Commit Garden |
-| `SAMS_DATA_DIR` | on hosts | server working dir | folder for the database (`.sams-data.db`) and the saved settings (`.sams-runtime.json`); point it at a persistent disk/volume, or both are lost on every redeploy |
+| `SAMS_DATA_DIR` | on hosts | server working dir | folder for the SQLite database (`.sams-data.db`) and the keys saved from ⚙ (`.sams-runtime.json`); point it at a persistent disk/volume, or both are lost on every redeploy. With `SAMS_DB_URL` + `SAMS_EPHEMERAL_DISK=1` it is not needed |
 | `SAMS_TRUST_PROXY` | behind a proxy | off | how many proxies sit in front (Render: `1`, already in `render.yaml`), or a list of their IPs/CIDRs; lets per-IP limits see the real client. Never more hops than there really are, and `true` is refused: the client could choose its own IP. Check with `GET /api/admin/client-ip` as owner |
 | `PORT` | no | `3000` | injected by most managed hosts |
 
@@ -134,12 +145,17 @@ hands out no valid links), and using one logs out every other device on that acc
 
 > ⚠️ **Exposed to the internet?** Always set `GITHUB_WEBHOOK_SECRET` (so incoming
 > webhooks are HMAC-verified; in production, without it, the webhook refuses everything) and register the owner account before sharing the URL.
-> Runtime settings can also be entered in-app (⚙) and persist to `.sams-runtime.json`
-> in `SAMS_DATA_DIR` — put that on a volume to keep them across restarts (the Compose
-> file mounts one on `/data`, the Render Blueprint a disk on `/var/data`).
+> Runtime settings can also be entered in-app (⚙). Where they go depends on the kind:
+> **choices** (engine, model, repo, branch, PRs, approval, Notion page, provisioning ids)
+> are saved in the database, in the `settings` table; **keys and tokens** are saved in
+> `.sams-runtime.json` in `SAMS_DATA_DIR` — put that on a volume to keep them across
+> restarts (the Compose file mounts one on `/data`, the Render Blueprint a disk on
+> `/var/data`), or set them as environment variables. On the first start with this
+> version the choices found in an older `.sams-runtime.json` are imported into the
+> database once and removed from the file, which then keeps only the keys.
 >
-> **Precedence: environment > saved file > defaults.** A variable that is set (and
-> non-empty) in the environment always wins over `.sams-runtime.json`, so rotating
+> **Precedence: environment > saved value (database or file) > defaults.** A variable that is set (and
+> non-empty) in the environment always wins over what was saved, so rotating
 > `SAMS_TOKEN` or an API key on the host takes effect on the next restart. Fields set
 > by the environment are **read-only in the app** (marked "dal server" in ⚙): the
 > runtime rejects in-app changes to them with `409`, so a token you think you rotated

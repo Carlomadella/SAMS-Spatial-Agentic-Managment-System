@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { envLockedChanges, envManagedForUi, envManagedKeys, getSettings, isReady, publicStatus, updateSettings, type SettingsPatch } from "./config";
+import { envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, getSettings, initSettings, isReady, publicStatus, secretChanges, secretEnvName, updateSettings, type SettingsPatch } from "./config";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -252,7 +252,9 @@ app.get("/api/status", async (req: Request, res: Response) => {
  */
 async function ownerStatus(req: Request) {
   const st = publicStatus();
-  return (await roleOf(req)) === "owner" ? { ...st, envManaged: envManagedForUi() } : st;
+  return (await roleOf(req)) === "owner"
+    ? { ...st, envManaged: envManagedForUi(), ephemeralDisk: ephemeralDisk() }
+    : st;
 }
 
 /**
@@ -798,7 +800,24 @@ app.post("/api/settings", requireRole("owner"), async (req: Request, res: Respon
     });
     return;
   }
-  updateSettings(patch);
+  // Disco effimero (SAMS_EPHEMERAL_DISK): una chiave salvata qui sparirebbe al primo
+  // riavvio, in silenzio. Meglio dirlo subito: i segreti si impostano sul server.
+  const secrets = ephemeralDisk() ? secretChanges(patch, getSettings()) : [];
+  if (secrets.length > 0) {
+    const vars = secrets.map(secretEnvName);
+    res.status(409).json({
+      error: `Su questo server le chiavi non si salvano da qui (non c'è un disco che sopravvive ai riavvii): imposta ${vars.join(", ")} come ${vars.length === 1 ? "variabile" : "variabili"} d'ambiente sul server e riavvia.`,
+      envRequired: vars,
+    });
+    return;
+  }
+  try {
+    await updateSettings(patch);
+  } catch (err) {
+    log.error("Salvataggio impostazioni fallito", { err: String(err) });
+    res.status(500).json({ error: "Impostazioni non salvate: il database non risponde. Riprova." });
+    return;
+  }
   res.json(await ownerStatus(req));
 });
 
@@ -1587,6 +1606,11 @@ process.on("unhandledRejection", (reason) => log.error("UnhandledRejection", { r
 try {
   await initDb();
   log.info("Database pronto", { backend: dbBackend() });
+  // Le scelte di ⚙ (provider, modello, repo…) stanno nel database: si caricano qui,
+  // prima di servire richieste. La prima volta si importano dal vecchio file.
+  const { imported } = await initSettings(db());
+  if (imported.length > 0) log.info("Impostazioni importate dal file nel database", { fields: imported });
+  if (ephemeralDisk()) log.info("Disco effimero: le chiavi si leggono solo dalle variabili d'ambiente");
 } catch (err) {
   log.error("Database non raggiungibile: il runtime non parte", { backend: dbBackend(), err: String(err) });
   process.exit(1);

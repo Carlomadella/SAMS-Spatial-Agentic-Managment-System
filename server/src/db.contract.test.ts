@@ -19,6 +19,7 @@ import {
   insertRoutine,
   insertTask,
   listChatMessages,
+  loadSettingRows,
   listMemory,
   listPendingInvites,
   listRoutines,
@@ -29,6 +30,7 @@ import {
   pruneAuthSessions,
   pruneWorldTombstones,
   recentTasks,
+  saveSettingRows,
   saveWorldAgents,
   setMemory,
   setUserRole,
@@ -50,7 +52,7 @@ import type { WorldAgentSnapshot } from "./worldState";
  */
 const TABLES = [
   "task_log", "agent_memory", "routines", "world_snapshot", "world_agents", "chat_messages",
-  "users", "auth_sessions", "password_resets", "email_verifications", "invites",
+  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings",
 ];
 
 // L'URL di test può stare in server/.env (così la password non finisce sulla riga di comando).
@@ -211,6 +213,16 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     await insertTask(db, { agentId: "a", agentName: "A", title: "y", branch: "b", status: "error", tokens: 5, ts: 2 });
     expect(await taskStats(db)).toEqual({ total: 2, completed: 1, tokens: 15 });
     expect((await recentTasks(db, 1)).map((t) => t.title)).toEqual(["y"]);
+  });
+
+  it("impostazioni: upsert, rimozione e valori lunghi", async () => {
+    expect(await loadSettingRows(db)).toEqual({});
+    await saveSettingRows(db, { model: '"a"', openPRs: "true" });
+    await saveSettingRows(db, { model: '"b"', githubRepo: JSON.stringify("x/" + "y".repeat(500)) }, ["openPRs"]);
+    const rows = await loadSettingRows(db);
+    expect(rows.model).toBe('"b"');
+    expect(rows.openPRs).toBeUndefined();
+    expect(JSON.parse(rows.githubRepo)).toHaveLength(502);
   });
 
   it("migrare due volte è innocuo", async () => {

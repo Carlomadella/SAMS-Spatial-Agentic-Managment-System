@@ -84,6 +84,9 @@ export interface RuntimeStatus {
   notionReady: boolean;
   /** Campi impostati da variabili d'ambiente sul server (solo i nomi): non si cambiano dalla UI. */
   envManaged?: string[];
+  /** Solo per l'owner: il server non ha un disco persistente (SAMS_EPHEMERAL_DISK), quindi
+   *  le chiavi si impostano come variabili d'ambiente; le altre scelte restano nel database. */
+  ephemeralDisk?: boolean;
 }
 
 export interface SettingsInput {

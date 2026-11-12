@@ -73,4 +73,26 @@ describe("<SettingsModal /> — campi gestiti dall'ambiente", () => {
     expect(await screen.findByText("Questi campi sono impostati da variabili d'ambiente sul server")).toBeTruthy();
     expect(screen.queryByText(/envManaged/)).toBeNull();
   });
+
+  it("disco effimero: avviso, chiavi in sola lettura, scelte salvabili e niente chiavi nella richiesta", async () => {
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+      json({ ...baseStatus, hasGithubToken: false, envManaged: [], ephemeralDisk: true }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<SettingsModal />);
+    expect(await screen.findByRole("note")).toBeTruthy();
+    const gh = screen.getByLabelText(/GitHub token/) as HTMLInputElement;
+    await waitFor(() => expect(gh.disabled).toBe(true));
+    expect(gh.placeholder).toContain("GITHUB_TOKEN");
+    expect((screen.getByLabelText(/OpenRouter API key/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/Repository/) as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByLabelText(/Modello/) as HTMLSelectElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: /Salva/ }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, i]) => i?.method === "POST")).toBe(true));
+    const post = fetchMock.mock.calls.find(([, i]) => i?.method === "POST")!;
+    const body = JSON.parse(String(post[1]!.body)) as Record<string, unknown>;
+    expect(body).toHaveProperty("githubRepo", "me/repo");
+    expect(Object.keys(body).filter((k) => /Key$|Token$/.test(k))).toEqual([]);
+  });
 });

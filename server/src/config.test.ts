@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { envLockedChanges, envManagedForUi, envManagedKeys, publicStatus, resolveSettings, scrubEnvCopies, settingsToPersist } from "./config";
+import { CHOICE_KEYS, SECRET_KEYS, decodeChoices, encodeChoices, envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, publicStatus, resolveSettings, scrubEnvCopies, secretChanges, secretEnvName, settingsToPersist } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -150,5 +150,42 @@ describe("variabili d'ambiente con spazi", () => {
   it("una variabile di soli spazi conta come non impostata", () => {
     expect(resolveSettings({ GITHUB_TOKEN: "   " }, { githubToken: "ghp_file" }).githubToken).toBe("ghp_file");
     expect(envManagedKeys({ GITHUB_TOKEN: "   " })).not.toContain("githubToken");
+  });
+});
+
+describe("opzione C — scelte nel database, segreti fuori", () => {
+  it("segreti e scelte coprono tutti i 21 campi salvabili, senza sovrapporsi", () => {
+    const all = Object.keys(resolveSettings({}, null)).filter((k) => k !== "port").sort();
+    expect([...SECRET_KEYS, ...CHOICE_KEYS].sort()).toEqual(all);
+    expect(SECRET_KEYS).toHaveLength(12);
+    expect(CHOICE_KEYS).toHaveLength(9);
+  });
+
+  it("encode/decode delle scelte: andata e ritorno, segreti esclusi", () => {
+    const rows = encodeChoices({ provider: "openrouter", model: "m", openPRs: false, githubToken: "ghp_x" } as never);
+    expect(rows).not.toHaveProperty("githubToken");
+    expect(decodeChoices(rows)).toEqual({ provider: "openrouter", model: "m", openPRs: false });
+  });
+
+  it("decode ignora righe corrotte, sconosciute o del tipo sbagliato", () => {
+    expect(
+      decodeChoices({ provider: '"nessuno"', openPRs: '"si"', model: "{rotto", githubToken: '"ghp"', baseBranch: '"dev"' }),
+    ).toEqual({ baseBranch: "dev" });
+  });
+
+  it("SAMS_EPHEMERAL_DISK: vero solo se impostato a un valore affermativo", () => {
+    expect(ephemeralDisk({})).toBe(false);
+    expect(ephemeralDisk({ SAMS_EPHEMERAL_DISK: "1" })).toBe(true);
+    expect(ephemeralDisk({ SAMS_EPHEMERAL_DISK: " true " })).toBe(true);
+    expect(ephemeralDisk({ SAMS_EPHEMERAL_DISK: "0" })).toBe(false);
+    expect(ephemeralDisk({ SAMS_EPHEMERAL_DISK: "false" })).toBe(false);
+  });
+
+  it("secretChanges trova solo i segreti cambiati, e il nome della variabile da impostare", () => {
+    const cur = resolveSettings({}, { openrouterApiKey: "sk-1" });
+    expect(secretChanges({ openrouterApiKey: "sk-1", model: "x" }, cur)).toEqual([]);
+    expect(secretChanges({ openrouterApiKey: "sk-2", githubToken: "g" }, cur)).toEqual(["openrouterApiKey", "githubToken"]);
+    expect(secretEnvName("openrouterApiKey")).toBe("OPENROUTER_API_KEY");
+    expect(secretEnvName("runtimeToken")).toBe("SAMS_TOKEN");
   });
 });
