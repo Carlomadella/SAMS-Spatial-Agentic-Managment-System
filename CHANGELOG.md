@@ -10,6 +10,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-12 — Database MySQL 🗄️
+
+- **Added** — I dati (account, sessioni, chat, mondo, routine, cronologia) possono stare in **MySQL 8** con
+  `SAMS_DB_URL`: il disco del server non serve più. Senza la variabile resta il file SQLite di sempre.
+- **Added** — `npm run db:to-mysql` porta i dati di un file `.sams-data.db` esistente in un MySQL vuoto, senza
+  toccare l'originale.
+- **Changed** — Lo strato dati è asincrono e uguale per i due database. Il salvataggio del mondo condiviso e le
+  operazioni sugli account (primo owner, ultimo owner) restano atomici anche così.
+
 ### 2026-11-11 — Collaudo: ruoli, eventi e OpenRouter 🧹
 
 - **Fixed** — Chi ha accesso da *viewer* si presenta col proprio nome: prima riceveva 403 e restava "Ospite"

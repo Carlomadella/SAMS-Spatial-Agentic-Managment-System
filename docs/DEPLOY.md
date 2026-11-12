@@ -71,6 +71,8 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `RESEND_API_KEY` | no | — | alternative email channel via the Resend API (ignored if `SMTP_HOST` is set) |
 | `NOTION_TOKEN` / `NOTION_PAGE_ID` | no | — | let agents write to a Notion page |
 | `SAMS_MCP_SERVERS` | no | — | JSON allow-list of MCP servers (`mcp_call`) |
+| `SAMS_DB_URL` | on hosts without a disk | SQLite in `SAMS_DATA_DIR` | `mysql://user:password@host:3306/db` — keep accounts, chat, world, routines and history in MySQL 8 instead of the SQLite file. Set but unreachable → the runtime does not start. Append `?ssl-mode=REQUIRED` for TLS. Move existing data with `npm run db:to-mysql` (in `server/`, target empty). Saved settings (`.sams-runtime.json`) still live in `SAMS_DATA_DIR`: on a diskless host set them as environment variables |
+| `SAMS_DB_SSL_CA` | no | — | CA certificate (PEM text or file path) for providers with their own CA, e.g. Aiven |
 | `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | in-memory | MySQL for durable Commit Garden |
 | `SAMS_DATA_DIR` | on hosts | server working dir | folder for the database (`.sams-data.db`) and the saved settings (`.sams-runtime.json`); point it at a persistent disk/volume, or both are lost on every redeploy |
 | `SAMS_TRUST_PROXY` | behind a proxy | off | how many proxies sit in front (Render: `1`, already in `render.yaml`), or a list of their IPs/CIDRs; lets per-IP limits see the real client. Never more hops than there really are, and `true` is refused: the client could choose its own IP. Check with `GET /api/admin/client-ip` as owner |

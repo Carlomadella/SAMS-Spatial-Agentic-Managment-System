@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: "2026-11-12",
+    title: "I dati possono vivere in MySQL",
+    summary:
+      "Account, chat, mondo e cronologia possono stare in un database MySQL invece che in un file sul server, così un riavvio non cancella più niente. Un comando porta i dati esistenti nel nuovo database.",
+    tag: "Added",
+  },
+  {
     date: "2026-11-11",
     title: "Ognuno col suo nome, nessuno guida senza poter salvare",
     summary:

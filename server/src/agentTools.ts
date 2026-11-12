@@ -655,12 +655,12 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       const value = str(args.value);
       if (!key) { result = "ERRORE: key è obbligatoria"; }
       else {
-        setMemory(db(), agentId, key, value);
+        await setMemory(db(), agentId, key, value);
         result = `Memorizzato: "${key}"`;
         emit({ agentId, agentName, progress, level: "INFO", message: `🧠 Memoria salvata: "${key}"` });
       }
     } else if (name === "recall") {
-      const memories = listMemory(db(), agentId);
+      const memories = await listMemory(db(), agentId);
       if (!memories.length) {
         result = "Nessuna memoria salvata";
       } else {
@@ -800,7 +800,7 @@ export async function finalizeTask(
     waterAgentGarden(agentName).catch(() => {});
   }
 
-  logTask({
+  await logTask({
     agentId, agentName,
     title: ctx.title,
     branch: ctx.branch,

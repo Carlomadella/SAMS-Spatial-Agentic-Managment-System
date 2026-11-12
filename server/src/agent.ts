@@ -149,7 +149,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   }
 
   // load agent memories saved in previous tasks
-  const savedMemories = listMemory(db(), agentId);
+  const savedMemories = await listMemory(db(), agentId);
   const memories = savedMemories.length
     ? savedMemories.map((m) => `[${m.key}]: ${m.value}`).join("\n")
     : "";
