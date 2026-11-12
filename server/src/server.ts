@@ -19,7 +19,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -40,6 +40,7 @@ import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
 import { parseTrustProxy } from "./trustProxy";
+import { Mutex } from "./sql";
 
 const app = express();
 
@@ -60,9 +61,14 @@ function roleTokens(): RoleTokens {
  * statici (decisione 1A). Se il DB non risponde si sceglie la via **chiusa**: meglio un
  * 401 di troppo che un anonimo owner.
  */
-function accountsExist(): boolean {
+let accountsSeen = false;
+async function accountsExist(): Promise<boolean> {
+  // Gli account non si cancellano: una volta visto il primo, la risposta resta "sì" e si
+  // risparmia una query a ogni richiesta (con MySQL è un viaggio di rete).
+  if (accountsSeen) return true;
   try {
-    return countUsers(db()) > 0;
+    accountsSeen = (await countUsers(db())) > 0;
+    return accountsSeen;
   } catch (err) {
     log.warn("Conteggio account non riuscito: ruoli considerati attivi", { err: String(err) });
     return true;
@@ -70,18 +76,27 @@ function accountsExist(): boolean {
 }
 
 /**
+ * Serializza le sezioni "leggi → controlla → scrivi" che prima erano atomiche perché
+ * sincrone (nessun `await` in mezzo): il CAS del mondo e le operazioni sugli account
+ * (primo owner, ultimo owner). Con il DB asincrono due richieste potrebbero intrecciarsi.
+ * Vale per un solo processo, che è il modo in cui SAMS gira (un'istanza).
+ */
+const worldLock = new Mutex();
+const accountsLock = new Mutex();
+
+/**
  * Ruolo risolto per la richiesta corrente. Un **token di sessione utente valido** (auth
  * reale) vince e porta il ruolo dell'account; altrimenti si ricade sui token statici da
  * env (owner solo in dev aperto: nessun token e nessun account). Così una persona loggata sul sito
  * governa anche la workspace col proprio ruolo, senza doppioni di configurazione.
  */
-function roleOf(req: Request): Role {
+async function roleOf(req: Request): Promise<Role> {
   const provided = bearerToken(req.headers.authorization);
   if (provided) {
-    const user = getSessionUser(db(), provided);
+    const user = await getSessionUser(db(), provided);
     if (user) return user.role;
   }
-  return resolveRole(roleTokens(), provided, accountsExist());
+  return resolveRole(roleTokens(), provided, await accountsExist());
 }
 
 /**
@@ -90,18 +105,19 @@ function roleOf(req: Request): Role {
  * `min="owner"` protegge config/segreti, `min="editor"` protegge l'avvio di lavoro.
  * 401 se manca del tutto il token, 403 se il ruolo è insufficiente.
  */
-function requireRole(min: Role): (req: Request, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
+function requireRole(min: Role): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  // Express 5 inoltra all'error handler un middleware asincrono che rifiuta (DB giù → 500).
+  return async (req, res, next) => {
     const provided = bearerToken(req.headers.authorization);
     // Con i ruoli attivi, un anonimo risulta "viewer" (vedi resolveRole) ma non deve
     // superare nemmeno la guardia più bassa: serve una credenziale riconosciuta.
-    const hasSession = provided ? getSessionUser(db(), provided) !== null : false;
-    if (isAnonymousWhenEnforced(roleTokens(), provided, hasSession, accountsExist())) {
+    const hasSession = provided ? (await getSessionUser(db(), provided)) !== null : false;
+    if (isAnonymousWhenEnforced(roleTokens(), provided, hasSession, await accountsExist())) {
       log.warn("Richiesta anonima respinta", { path: req.path, ip: req.ip, need: min });
       res.status(401).json({ error: "Token mancante o non valido" });
       return;
     }
-    const role = roleOf(req);
+    const role = await roleOf(req);
     if (roleAtLeast(role, min)) { next(); return; }
     log.warn("Richiesta non autorizzata", { path: req.path, ip: req.ip, role, need: min });
     if (!provided) {
@@ -146,8 +162,8 @@ const clients = new Map<Response, Observer>();
 const clientKeys = new Map<Response, string>();
 
 /** L'identità dietro una credenziale: l'account se è una sessione, altrimenti la credenziale stessa. */
-function viewIdentity(token: string): string {
-  const user = token ? getSessionUser(db(), token) : null;
+async function viewIdentity(token: string): Promise<string> {
+  const user = token ? await getSessionUser(db(), token) : null;
   return user ? `u:${user.id}` : `c:${token}`;
 }
 const HEARTBEAT_MS = 25000;
@@ -220,13 +236,13 @@ function broadcastDriver(): void {
   writeToClients(`data: ${JSON.stringify({ agentId: "driver", agentName: "driver", driver: d })}\n\n`);
 }
 
-app.get("/api/health", (_req: Request, res: Response) => {
+app.get("/api/health", async (_req: Request, res: Response) => {
   res.json({ ok: true, ...publicStatus() });
 });
 
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
-app.get("/api/status", (req: Request, res: Response) => {
-  res.json(ownerStatus(req));
+app.get("/api/status", async (req: Request, res: Response) => {
+  res.json(await ownerStatus(req));
 });
 
 /**
@@ -234,9 +250,9 @@ app.get("/api/status", (req: Request, res: Response) => {
  * (`envManaged`, solo nomi). Gli altri non lo ricevono: anche i nomi dicono cosa è
  * configurato o cosa manca (es. il secret dei webhook).
  */
-function ownerStatus(req: Request) {
+async function ownerStatus(req: Request) {
   const st = publicStatus();
-  return roleOf(req) === "owner" ? { ...st, envManaged: envManagedForUi() } : st;
+  return (await roleOf(req)) === "owner" ? { ...st, envManaged: envManagedForUi() } : st;
 }
 
 /**
@@ -244,13 +260,13 @@ function ownerStatus(req: Request) {
  * disabilitare le azioni che il ruolo non può compiere. `enforced` dice se i
  * ruoli sono attivi (token statici o almeno un account; altrimenti dev aperto, tutti "owner").
  */
-app.get("/api/whoami", (req: Request, res: Response) => {
+app.get("/api/whoami", async (req: Request, res: Response) => {
   const provided = bearerToken(req.headers.authorization);
-  const user = provided ? getSessionUser(db(), provided) : null;
-  const enforced = rolesEnforced(roleTokens(), accountsExist()) || Boolean(user);
+  const user = provided ? await getSessionUser(db(), provided) : null;
+  const enforced = rolesEnforced(roleTokens(), await accountsExist()) || Boolean(user);
   // `name`/`email` valorizzati solo con una sessione utente reale: così la workspace
   // può presentarsi con l'identità dell'account (presence/cursori/chat) invece di "Ospite".
-  res.json({ role: roleOf(req), enforced, name: user?.name ?? "", email: user?.email ?? "" });
+  res.json({ role: await roleOf(req), enforced, name: user?.name ?? "", email: user?.email ?? "" });
 });
 
 // --- Auth reale: account utente (Roadmap 4, frontiera #3) ------------------
@@ -263,22 +279,33 @@ const authLimiter = createRateLimiter(12, 5 * 60_000); // 12 tentativi / 5 min p
 // non esiste, così un attaccante non distingue "email assente" da "password errata".
 const DUMMY_PASS_HASH = hashPassword("__sams_dummy_password__");
 
-app.post("/api/auth/register", (req: Request, res: Response) => {
+app.post("/api/auth/register", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const body = (req.body ?? {}) as { email?: unknown; password?: unknown; name?: unknown; invite?: unknown };
   const email = normalizeEmail(body.email);
   if (!isValidEmail(email)) { res.status(400).json({ error: "Email non valida" }); return; }
   const pw = validatePassword(body.password);
   if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
+  // In coda alle altre operazioni sugli account: due prime registrazioni in corsa non
+  // devono diventare owner entrambe, né scontrarsi sul vincolo UNIQUE dell'email.
+  await accountsLock.run(() => registerAccount(res, body, email));
+});
+
+async function registerAccount(
+  res: Response,
+  body: { password?: unknown; name?: unknown; invite?: unknown },
+  email: string,
+): Promise<void> {
+
   const database = db();
-  if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
-  const first = countUsers(database) === 0;
+  if (await getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
+  const first = (await countUsers(database)) === 0;
   // Registrazione da invito (D3-B): il ruolo è quello scelto dall'owner e l'indirizzo è
   // già dimostrato (il link è arrivato lì, o l'owner l'ha consegnato di persona).
   const inviteToken = typeof body.invite === "string" ? body.invite : "";
   let invitedRole: InvitableRole | null = null;
   if (inviteToken) {
-    const rec = getInviteByHash(database, hashToken(inviteToken));
+    const rec = await getInviteByHash(database, hashToken(inviteToken));
     const why = inviteRejection(rec, email);
     if (why) {
       const error = why === "expired" ? "L'invito è scaduto: chiedine uno nuovo a chi ti ha invitato"
@@ -289,7 +316,7 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
       return;
     }
     // Spendilo prima di creare l'account: due registrazioni in corsa non passano entrambe.
-    if (!consumeInvite(database, rec!.tokenHash)) {
+    if (!await consumeInvite(database, rec!.tokenHash)) {
       res.status(400).json({ error: "L'invito è già stato usato", reason: "used" });
       return;
     }
@@ -307,27 +334,27 @@ app.post("/api/auth/register", (req: Request, res: Response) => {
     // a caccia di un link per entrare in casa propria sarebbe assurdo. Nasce verificato.
     emailVerified: first || invitedRole !== null || !VERIFICATION_ENFORCED,
   };
-  createUser(database, user);
+  await createUser(database, user);
   log.info("Nuovo account registrato", { email, role, verificato: user.emailVerified });
 
   // Con un canale email reale l'account nasce **non verificato**: niente sessione, prima
   // conferma l'indirizzo. Senza canale, si entra subito come prima (retro-compatibile).
   if (!user.emailVerified) {
-    void deliver(user, "verify", issueLink(user, "verify"));
+    void deliver(user, "verify", await issueLink(user, "verify"));
     res.status(201).json({ user: publicUser(user), verificationRequired: true });
     return;
   }
   const token = newSessionToken();
-  createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
+  await createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
   res.status(201).json({ token, user: publicUser(user) });
-});
+}
 
-app.post("/api/auth/login", (req: Request, res: Response) => {
+app.post("/api/auth/login", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
   const email = normalizeEmail(body.email);
   const database = db();
-  const user = getUserByEmail(database, email);
+  const user = await getUserByEmail(database, email);
   const password = typeof body.password === "string" ? body.password : "";
   // Verifica sempre un hash (quello dell'utente o il civetta) per non trapelare via timing.
   const ok = verifyPassword(password, user ? user.passHash : DUMMY_PASS_HASH);
@@ -340,31 +367,31 @@ app.post("/api/auth/login", (req: Request, res: Response) => {
     return;
   }
   const token = newSessionToken();
-  createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
+  await createAuthSession(database, token, user.id, Date.now() + SESSION_TTL_MS);
   res.json({ token, user: publicUser(user) });
 });
 
-app.post("/api/auth/logout", (req: Request, res: Response) => {
+app.post("/api/auth/logout", async (req: Request, res: Response) => {
   const token = bearerToken(req.headers.authorization);
-  if (token) deleteAuthSession(db(), token);
+  if (token) await deleteAuthSession(db(), token);
   res.status(204).end();
 });
 
-app.get("/api/auth/me", (req: Request, res: Response) => {
-  const user = getSessionUser(db(), bearerToken(req.headers.authorization));
+app.get("/api/auth/me", async (req: Request, res: Response) => {
+  const user = await getSessionUser(db(), bearerToken(req.headers.authorization));
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
   res.json({ user: publicUser(user) });
 });
 
 // Gestione utenti (solo owner): elenca gli account e cambia i ruoli. Serve a rendere
 // utilizzabili i ruoli in un team — senza, dopo il primo utente restano tutti viewer.
-app.get("/api/auth/users", requireRole("owner"), (_req: Request, res: Response) => {
-  res.json({ users: listUsers(db()) });
+app.get("/api/auth/users", requireRole("owner"), async (_req: Request, res: Response) => {
+  res.json({ users: await listUsers(db()) });
 });
 
 // Diagnostica di `SAMS_TRUST_PROXY` (solo owner): quale IP il server attribuisce a chi
 // chiama e cosa è arrivato nell'header. `ip` deve essere il proprio IP pubblico.
-app.get("/api/admin/client-ip", requireRole("owner"), (req: Request, res: Response) => {
+app.get("/api/admin/client-ip", requireRole("owner"), async (req: Request, res: Response) => {
   res.json({
     trustProxy: trustProxy.value,
     ip: req.ip ?? null,
@@ -376,9 +403,9 @@ app.get("/api/admin/client-ip", requireRole("owner"), (req: Request, res: Respon
 
 // Cambio password del proprio account (autenticato): verifica la vecchia, imposta la nuova
 // e slogga gli altri dispositivi (le altre sessioni). Nessuna email → solo cambio, non reset.
-app.post("/api/auth/password", (req: Request, res: Response) => {
+app.post("/api/auth/password", async (req: Request, res: Response) => {
   const token = bearerToken(req.headers.authorization);
-  const user = getSessionUser(db(), token);
+  const user = await getSessionUser(db(), token);
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
   const body = (req.body ?? {}) as { oldPassword?: unknown; newPassword?: unknown };
   if (!verifyPassword(typeof body.oldPassword === "string" ? body.oldPassword : "", user.passHash)) {
@@ -388,8 +415,8 @@ app.post("/api/auth/password", (req: Request, res: Response) => {
   const pw = validatePassword(body.newPassword);
   if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
   const database = db();
-  updateUserPassword(database, user.id, hashPassword(body.newPassword as string));
-  deleteUserSessionsExcept(database, user.id, token);
+  await updateUserPassword(database, user.id, hashPassword(body.newPassword as string));
+  await deleteUserSessionsExcept(database, user.id, token);
   log.info("Password cambiata", { email: user.email });
   res.status(204).end();
 });
@@ -411,19 +438,19 @@ const VERIFICATION_ENFORCED = mailerCanDeliver(MAILER_CONFIG);
 log.info("Canale email", { driver: MAILER_CONFIG.driver, verificaImposta: VERIFICATION_ENFORCED });
 
 /** Emette un token monouso e ne restituisce il link (senza spedirlo). */
-function issueLink(user: User, kind: "reset" | "verify"): string {
+async function issueLink(user: User, kind: "reset" | "verify"): Promise<string> {
   const token = newToken();
   const table = kind === "reset" ? "password_resets" : "email_verifications";
   const ttl = kind === "reset" ? RESET_TTL_MS : VERIFY_TTL_MS;
   const now = Date.now();
-  createToken(db(), table, {
+  await createToken(db(), table, {
     tokenHash: hashToken(token),
     userId: user.id,
     createdAt: now,
     expiresAt: tokenExpiry(ttl, now),
     usedAt: null,
   });
-  pruneTokens(db(), table, now); // GC opportunistico: le tabelle non crescono all'infinito
+  await pruneTokens(db(), table, now); // GC opportunistico: le tabelle non crescono all'infinito
   const base = MAILER_CONFIG.baseUrl;
   return kind === "reset" ? resetLink(base, token) : verifyLink(base, token);
 }
@@ -446,12 +473,12 @@ async function deliver(user: User, kind: "reset" | "verify", link: string): Prom
  * "Password dimenticata". Risponde **sempre 204**, esista o no l'account: se rispondesse
  * 404 per le email sconosciute, chiunque potrebbe usarlo per scoprire chi ha un account.
  */
-app.post("/api/auth/forgot", (req: Request, res: Response) => {
+app.post("/api/auth/forgot", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const email = normalizeEmail((req.body ?? {}).email);
-  const user = isValidEmail(email) ? getUserByEmail(db(), email) : null;
+  const user = isValidEmail(email) ? await getUserByEmail(db(), email) : null;
   if (user && VERIFICATION_ENFORCED) {
-    const link = issueLink(user, "reset");
+    const link = await issueLink(user, "reset");
     void deliver(user, "reset", link); // non attendiamo: la risposta non deve dipendere dall'SMTP
     log.info("Reset password richiesto", { email });
   } else if (user) {
@@ -464,12 +491,12 @@ app.post("/api/auth/forgot", (req: Request, res: Response) => {
 });
 
 /** Reimposta la password spendendo un token monouso. */
-app.post("/api/auth/reset", (req: Request, res: Response) => {
+app.post("/api/auth/reset", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const body = (req.body ?? {}) as { token?: unknown; password?: unknown };
   const token = typeof body.token === "string" ? body.token : "";
   const database = db();
-  const rec = getToken(database, "password_resets", hashToken(token));
+  const rec = await getToken(database, "password_resets", hashToken(token));
   if (!isTokenUsable(rec)) {
     const why = tokenRejection(rec);
     const error = why === "expired" ? "Il link è scaduto: richiedine uno nuovo"
@@ -480,30 +507,30 @@ app.post("/api/auth/reset", (req: Request, res: Response) => {
   }
   const pw = validatePassword(body.password);
   if (!pw.ok) { res.status(400).json({ error: pw.error }); return; }
-  const user = getUserById(database, rec!.userId);
+  const user = await getUserById(database, rec!.userId);
   if (!user) { res.status(400).json({ error: "Link di reset non valido" }); return; }
   // Spendi il token **prima** di cambiare la password: se due richieste corrono con lo
   // stesso link, il DB ne lascia passare una sola (UPDATE … WHERE used_at IS NULL).
-  if (!consumeToken(database, "password_resets", rec!.tokenHash)) {
+  if (!await consumeToken(database, "password_resets", rec!.tokenHash)) {
     res.status(400).json({ error: "Il link è già stato usato: richiedine uno nuovo", reason: "used" });
     return;
   }
-  updateUserPassword(database, user.id, hashPassword(body.password as string));
+  await updateUserPassword(database, user.id, hashPassword(body.password as string));
   // Chi era entrato con la vecchia password esce: un reset è anche un modo di cacciare
   // qualcuno che non dovrebbe più essere dentro.
-  deleteAllUserSessions(database, user.id);
+  await deleteAllUserSessions(database, user.id);
   // Chi dimostra di controllare la casella ha, di fatto, verificato l'indirizzo.
-  if (!user.emailVerified) setEmailVerified(database, user.id, true);
+  if (!user.emailVerified) await setEmailVerified(database, user.id, true);
   log.info("Password reimpostata", { email: user.email });
   res.status(204).end();
 });
 
 /** Conferma un indirizzo email spendendo il token del link di verifica. */
-app.post("/api/auth/verify", (req: Request, res: Response) => {
+app.post("/api/auth/verify", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const token = typeof (req.body ?? {}).token === "string" ? (req.body as { token: string }).token : "";
   const database = db();
-  const rec = getToken(database, "email_verifications", hashToken(token));
+  const rec = await getToken(database, "email_verifications", hashToken(token));
   if (!isTokenUsable(rec)) {
     const why = tokenRejection(rec);
     const error = why === "expired" ? "Il link di verifica è scaduto: chiedine uno nuovo"
@@ -512,24 +539,24 @@ app.post("/api/auth/verify", (req: Request, res: Response) => {
     res.status(400).json({ error, reason: why });
     return;
   }
-  const user = getUserById(database, rec!.userId);
+  const user = await getUserById(database, rec!.userId);
   if (!user) { res.status(400).json({ error: "Link di verifica non valido" }); return; }
-  if (!consumeToken(database, "email_verifications", rec!.tokenHash)) {
+  if (!await consumeToken(database, "email_verifications", rec!.tokenHash)) {
     res.status(400).json({ error: "Questo indirizzo è già stato confermato", reason: "used" });
     return;
   }
-  setEmailVerified(database, user.id, true);
+  await setEmailVerified(database, user.id, true);
   log.info("Email verificata", { email: user.email });
   res.json({ user: publicUser({ ...user, emailVerified: true }) });
 });
 
 /** Rimanda il link di verifica al proprio indirizzo (serve una sessione). */
-app.post("/api/auth/verify/resend", (req: Request, res: Response) => {
+app.post("/api/auth/verify/resend", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
-  const user = getSessionUser(db(), bearerToken(req.headers.authorization));
+  const user = await getSessionUser(db(), bearerToken(req.headers.authorization));
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
   if (user.emailVerified) { res.status(409).json({ error: "Indirizzo già confermato" }); return; }
-  void deliver(user, "verify", issueLink(user, "verify"));
+  void deliver(user, "verify", await issueLink(user, "verify"));
   res.status(204).end();
 });
 
@@ -539,31 +566,35 @@ app.post("/api/auth/verify/resend", (req: Request, res: Response) => {
  * chiuso fuori richiederebbe un intervento a mano sul DB. Owner-only, ovviamente: emette
  * un link che cambia la password di un altro account.
  */
-app.post("/api/auth/users/reset", requireRole("owner"), (req: Request, res: Response) => {
+app.post("/api/auth/users/reset", requireRole("owner"), async (req: Request, res: Response) => {
   const email = normalizeEmail((req.body ?? {}).email);
-  const user = getUserByEmail(db(), email);
+  const user = await getUserByEmail(db(), email);
   if (!user) { res.status(404).json({ error: "Utente non trovato" }); return; }
-  const link = issueLink(user, "reset");
-  log.info("Link di reset emesso dall'owner", { email, by: actorLabel(roleOf(req), (req.body ?? {}).actor) });
+  const link = await issueLink(user, "reset");
+  log.info("Link di reset emesso dall'owner", { email, by: actorLabel(await roleOf(req), (req.body ?? {}).actor) });
   res.json({ link, expiresInMin: Math.round(RESET_TTL_MS / 60_000) });
 });
 
-app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Response) => {
+app.post("/api/auth/users/role", requireRole("owner"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
   const email = normalizeEmail(body.email);
   const role = body.role;
   if (role !== "owner" && role !== "editor" && role !== "viewer") { res.status(400).json({ error: "Ruolo non valido" }); return; }
-  const database = db();
-  const target = getUserByEmail(database, email);
-  if (!target) { res.status(404).json({ error: "Utente non trovato" }); return; }
-  // Non lasciare mai il workspace senza owner: l'ultimo owner non può declassarsi.
-  if (target.role === "owner" && role !== "owner" && countOwners(database) <= 1) {
-    res.status(409).json({ error: "Non puoi declassare l'ultimo owner" });
-    return;
-  }
-  setUserRole(database, email, role);
-  log.info("Ruolo utente aggiornato", { email, role });
-  res.json({ user: { email: target.email, name: target.name, role } });
+  // In coda alle altre operazioni sugli account: due declassamenti in corsa non devono
+  // vedere entrambi "ci sono 2 owner" e lasciare il workspace senza nessuno.
+  await accountsLock.run(async () => {
+    const database = db();
+    const target = await getUserByEmail(database, email);
+    if (!target) { res.status(404).json({ error: "Utente non trovato" }); return; }
+    // Non lasciare mai il workspace senza owner: l'ultimo owner non può declassarsi.
+    if (target.role === "owner" && role !== "owner" && (await countOwners(database)) <= 1) {
+      res.status(409).json({ error: "Non puoi declassare l'ultimo owner" });
+      return;
+    }
+    await setUserRole(database, email, role);
+    log.info("Ruolo utente aggiornato", { email, role });
+    res.json({ user: { email: target.email, name: target.name, role } });
+  });
 });
 
 // --- Inviti (D3-B) ------------------------------------------------------------
@@ -574,18 +605,18 @@ app.post("/api/auth/users/role", requireRole("owner"), (req: Request, res: Respo
  * lo consegna a mano (come il reset). Un nuovo invito alla stessa email sostituisce il
  * precedente non usato.
  */
-app.post("/api/auth/invites", requireRole("owner"), (req: Request, res: Response) => {
+app.post("/api/auth/invites", requireRole("owner"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
   const email = normalizeEmail(body.email);
   if (!isValidEmail(email)) { res.status(400).json({ error: "Email non valida" }); return; }
   if (!isInvitableRole(body.role)) { res.status(400).json({ error: "Si può invitare solo come editor o osservatore" }); return; }
   const database = db();
-  if (getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
-  const inviter = getSessionUser(database, bearerToken(req.headers.authorization));
+  if (await getUserByEmail(database, email)) { res.status(409).json({ error: "Esiste già un account con questa email" }); return; }
+  const inviter = await getSessionUser(database, bearerToken(req.headers.authorization));
   const token = newToken();
   const now = Date.now();
   const id = randomUUID();
-  createInvite(database, {
+  await createInvite(database, {
     id,
     tokenHash: hashToken(token),
     email,
@@ -595,7 +626,7 @@ app.post("/api/auth/invites", requireRole("owner"), (req: Request, res: Response
     expiresAt: tokenExpiry(INVITE_TTL_MS, now),
     usedAt: null,
   });
-  pruneInvites(database, now);
+  await pruneInvites(database, now);
   const link = inviteLink(MAILER_CONFIG.baseUrl, token);
   // Senza canale reale non si "spedisce" nei log: il link lo consegna l'owner.
   const emailed = mailerCanDeliver(MAILER_CONFIG);
@@ -613,12 +644,12 @@ app.post("/api/auth/invites", requireRole("owner"), (req: Request, res: Response
   });
 });
 
-app.get("/api/auth/invites", requireRole("owner"), (_req: Request, res: Response) => {
-  res.json({ invites: listPendingInvites(db()) });
+app.get("/api/auth/invites", requireRole("owner"), async (_req: Request, res: Response) => {
+  res.json({ invites: await listPendingInvites(db()) });
 });
 
-app.delete("/api/auth/invites/:id", requireRole("owner"), (req: Request, res: Response) => {
-  if (!revokeInvite(db(), String(req.params.id))) { res.status(404).json({ error: "Invito non trovato" }); return; }
+app.delete("/api/auth/invites/:id", requireRole("owner"), async (req: Request, res: Response) => {
+  if (!await revokeInvite(db(), String(req.params.id))) { res.status(404).json({ error: "Invito non trovato" }); return; }
   log.info("Invito revocato", { id: req.params.id });
   res.status(204).end();
 });
@@ -627,10 +658,10 @@ app.delete("/api/auth/invites/:id", requireRole("owner"), (req: Request, res: Re
  * La pagina /invito legge per chi è l'invito (email e ruolo) prima di mostrare il form.
  * POST e non GET: il token viaggia nel corpo, non in un URL che finisce nei log.
  */
-app.post("/api/auth/invites/lookup", (req: Request, res: Response) => {
+app.post("/api/auth/invites/lookup", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const token = typeof (req.body ?? {}).token === "string" ? (req.body as { token: string }).token : "";
-  const rec = token ? getInviteByHash(db(), hashToken(token)) : null;
+  const rec = token ? await getInviteByHash(db(), hashToken(token)) : null;
   const why = rec ? inviteRejection(rec, rec.email) : "unknown";
   if (why) {
     const error = why === "expired" ? "L'invito è scaduto: chiedine uno nuovo a chi ti ha invitato"
@@ -643,10 +674,10 @@ app.post("/api/auth/invites/lookup", (req: Request, res: Response) => {
 });
 
 /** Runtime metrics: since-boot counters + cumulative (durable) task stats. */
-app.get("/api/metrics", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/metrics", requireRole("viewer"), async (_req: Request, res: Response) => {
   let lifetime = { total: 0, completed: 0, tokens: 0 };
   try {
-    lifetime = taskStats(db());
+    lifetime = await taskStats(db());
   } catch {
     /* DB unavailable — report since-boot metrics only */
   }
@@ -654,8 +685,8 @@ app.get("/api/metrics", requireRole("viewer"), (_req: Request, res: Response) =>
 });
 
 /** Recent finished tasks from the durable log (newest first). */
-app.get("/api/history", requireRole("viewer"), (_req: Request, res: Response) => {
-  res.json(recentTasks(db(), 20));
+app.get("/api/history", requireRole("viewer"), async (_req: Request, res: Response) => {
+  res.json(await recentTasks(db(), 20));
 });
 
 /**
@@ -671,7 +702,7 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   let lifetime = { total: 0, completed: 0, tokens: 0 };
   try {
-    lifetime = taskStats(db());
+    lifetime = await taskStats(db());
   } catch {
     /* DB unavailable — since-boot metrics only */
   }
@@ -683,7 +714,7 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   let world = { agents: 0, working: 0, idle: 0 };
   try {
-    world = summarizeWorld(loadWorldSnapshot(db()));
+    world = summarizeWorld(await loadWorldSnapshot(db()));
   } catch {
     /* world snapshot unavailable — omit */
   }
@@ -738,7 +769,7 @@ app.get("/api/repo/tree", requireRole("viewer"), async (_req: Request, res: Resp
 });
 
 /** Save settings entered in the app (keys, repo, model…). */
-app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) => {
+app.post("/api/settings", requireRole("owner"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as SettingsPatch;
   const patch: SettingsPatch = {};
   if (body.provider === "gemini" || body.provider === "claude" || body.provider === "groq" || body.provider === "openrouter" || body.provider === "openai") patch.provider = body.provider;
@@ -768,13 +799,13 @@ app.post("/api/settings", requireRole("owner"), (req: Request, res: Response) =>
     return;
   }
   updateSettings(patch);
-  res.json(ownerStatus(req));
+  res.json(await ownerStatus(req));
 });
 
 /** Create (or re-create) the managed Agent + Environment (Claude provider only). */
 app.post("/api/provision", requireRole("owner"), async (req: Request, res: Response) => {
   if (getSettings().provider !== "claude") {
-    res.json({ ...ownerStatus(req), note: "Gemini non richiede provisioning" });
+    res.json({ ...(await ownerStatus(req)), note: "Gemini non richiede provisioning" });
     return;
   }
   // Stessa regola delle impostazioni: se gli id vengono dall'ambiente, quelli nuovi
@@ -789,7 +820,7 @@ app.post("/api/provision", requireRole("owner"), async (req: Request, res: Respo
   }
   try {
     const ids = await provision();
-    res.json({ ...ownerStatus(req), ...ids });
+    res.json({ ...(await ownerStatus(req)), ...ids });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -802,7 +833,7 @@ app.post("/api/provision", requireRole("owner"), async (req: Request, res: Respo
 const streamTickets = new StreamTickets();
 /** Il client ne chiede uno a ogni (ri)connessione: 30 al minuto per identità bastano e avanzano. */
 const ticketLimiter = createRateLimiter(30, 60_000);
-app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/events/ticket", requireRole("viewer"), async (req: Request, res: Response) => {
   const provided = bearerToken(req.headers.authorization);
   if (!ticketLimiter.hit(identityKey(provided, req.ip))) {
     res.status(429).json({ error: "Troppe richieste, riprova tra poco" });
@@ -810,7 +841,7 @@ app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Respon
   }
   // Il biglietto ricorda chi l'ha chiesto: lo stream la ricontrolla finché resta aperto.
   // Tetto per account (tutte le sue sessioni insieme): vedi streamTickets.ts.
-  const user = provided ? getSessionUser(db(), provided) : null;
+  const user = provided ? await getSessionUser(db(), provided) : null;
   const ticket = streamTickets.issue(provided, { user: user?.id });
   if (!ticket) {
     res.status(503).json({ error: "Troppi stream in apertura, riprova tra poco" });
@@ -827,24 +858,29 @@ app.post("/api/events/ticket", requireRole("viewer"), (req: Request, res: Respon
  * `credential === null` = stream aperto senza biglietto (in dev) e poi i ruoli si sono
  * attivati, per esempio alla prima registrazione: anche quello va chiuso.
  */
-function streamStillAllowed(credential: string | null): boolean {
+async function streamStillAllowed(credential: string | null): Promise<boolean> {
   const tokens = roleTokens();
-  const exist = accountsExist();
+  const exist = await accountsExist();
   if (!rolesEnforced(tokens, exist)) return true;
   if (credential === null) return false;
-  const hasSession = credential ? getSessionUser(db(), credential) !== null : false;
+  const hasSession = credential ? (await getSessionUser(db(), credential)) !== null : false;
   return !isAnonymousWhenEnforced(tokens, credential, hasSession, exist);
 }
 
-app.get("/api/events", (req: Request, res: Response) => {
+app.get("/api/events", async (req: Request, res: Response) => {
   // Con i ruoli attivi lo stream vuole un biglietto valido (D4-C); in dev aperto no.
   // Il biglietto si consuma comunque, se c'è: non deve restare valido in un log.
   const credential = streamTickets.consume(req.query.t);
-  if (!streamStillAllowed(credential)) {
+  if (!(await streamStillAllowed(credential))) {
     log.warn("Stream eventi senza biglietto valido respinto", { ip: req.ip });
     res.status(401).json({ error: "Biglietto dello stream mancante o scaduto" });
     return;
   }
+  // Tutte le letture dal DB prima di registrare la vista: da `clients.set` in poi il
+  // codice resta sincrono fino all'aggancio di `cleanup`, così una vista chiusa nel
+  // frattempo non resta orfana nelle mappe.
+  const viewKey = await viewIdentity(credential ?? "");
+  if (res.writableEnded || res.destroyed || req.destroyed) return;
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
@@ -856,7 +892,6 @@ app.get("/api/events", (req: Request, res: Response) => {
   // concreto della frontiera #1): `v` = id stabile persistito, `n` = nome.
   const observer = sanitizeObserverIdentity(req.query.v, req.query.n);
   clients.set(res, observer);
-  const viewKey = viewIdentity(credential ?? "");
   clientKeys.set(res, viewKey);
   log.info("Vista connessa", { views: clients.size, name: observer.name });
   broadcastPresence(); // tell everyone (incl. the new view) the updated count
@@ -884,10 +919,10 @@ app.get("/api/events", (req: Request, res: Response) => {
   // un proxy tenga la UI "connessa" a uno stream muto. `heartbeatTick` non lancia mai: siamo
   // in un setInterval, dove un'eccezione (es. SQLITE_BUSY) farebbe cadere il runtime.
   const heartbeat = setInterval(() => {
-    heartbeatTick({
+    void heartbeatTick({
       isGone: () => res.writableEnded || res.destroyed,
-      stillAllowed: () => {
-        const ok = streamStillAllowed(credential);
+      stillAllowed: async () => {
+        const ok = await streamStillAllowed(credential);
         if (!ok) log.info("Stream chiuso: credenziale non più valida", { name: observer.name });
         return ok;
       },
@@ -910,7 +945,7 @@ const lastAssign = new Map<string, number>();
 // agenti. Questo limite è per *utente* (token, o IP in mancanza), non per agente.
 const assignQuota = createRateLimiter(15, 60_000); // max 15 assegnazioni / minuto
 
-app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/assign", requireRole("editor"), async (req: Request, res: Response) => {
   const body = req.body as AssignBody;
   if (!body?.agentId || !body?.title) {
     res.status(400).json({ error: "agentId and title are required" });
@@ -942,7 +977,7 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
   res.json({ ok: true });
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
-  log.info("Task assegnato", { by: actorLabel(roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
+  log.info("Task assegnato", { by: actorLabel(await roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
 
   const { provider } = getSettings();
   const runner =
@@ -970,15 +1005,15 @@ app.post("/api/assign", requireRole("editor"), (req: Request, res: Response) => 
 });
 
 /** Agent memory — read all memories for an agent (may hold repo context → "viewer"). */
-app.get("/api/memory/:agentId", requireRole("viewer"), (req: Request, res: Response) => {
+app.get("/api/memory/:agentId", requireRole("viewer"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
-  res.json(listMemory(db(), agentId));
+  res.json(await listMemory(db(), agentId));
 });
 
 /** Agent memory — clear all memories for an agent. */
-app.delete("/api/memory/:agentId", requireRole("editor"), (req: Request, res: Response) => {
+app.delete("/api/memory/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
-  clearMemory(db(), agentId);
+  await clearMemory(db(), agentId);
   res.json({ ok: true });
 });
 
@@ -994,7 +1029,7 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
   res.json({ ok: true }); // respond immediately; commit happens in background
 
   const actor = (req.body as { actor?: string } | undefined)?.actor;
-  log.info("Modifiche approvate", { by: actorLabel(roleOf(req), actor), agent: work.agentName, title: work.title });
+  log.info("Modifiche approvate", { by: actorLabel(await roleOf(req), actor), agent: work.agentName, title: work.title });
 
   const s = getSettings();
   const agentName = work.agentName;
@@ -1022,10 +1057,10 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
 });
 
 /** Reject staged files: discard buffer, agent returns to idle. */
-app.post("/api/reject/:agentId", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/reject/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
   const actor = (req.body as { actor?: string } | undefined)?.actor;
-  log.info("Modifiche rifiutate", { by: actorLabel(roleOf(req), actor), agent: agentId });
+  log.info("Modifiche rifiutate", { by: actorLabel(await roleOf(req), actor), agent: agentId });
   clearPending(agentId);
   broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
   res.json({ ok: true });
@@ -1033,11 +1068,11 @@ app.post("/api/reject/:agentId", requireRole("editor"), (req: Request, res: Resp
 
 // --- Live Simulation mode ------------------------------------------------
 
-app.get("/api/sim/status", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/sim/status", requireRole("viewer"), async (_req: Request, res: Response) => {
   res.json(simStatus());
 });
 
-app.post("/api/sim/start", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/sim/start", requireRole("editor"), async (req: Request, res: Response) => {
   const label =
     typeof req.body?.label === "string" && req.body.label.trim()
       ? req.body.label.trim()
@@ -1047,7 +1082,7 @@ app.post("/api/sim/start", requireRole("editor"), (req: Request, res: Response) 
   res.json(simStatus());
 });
 
-app.post("/api/sim/stop", requireRole("editor"), (_req: Request, res: Response) => {
+app.post("/api/sim/stop", requireRole("editor"), async (_req: Request, res: Response) => {
   stopSim();
   broadcast({ agentId: "sim", agentName: "sim", level: "WARN", message: "🔴 Live Sim fermata" });
   res.json(simStatus());
@@ -1069,7 +1104,7 @@ app.get("/api/sim/issues", requireRole("viewer"), async (_req: Request, res: Res
 
 // Claim/release touch GitHub labels and precede an assignment (which needs "editor"):
 // same gate, so a viewer can't claim an issue it could never work on.
-app.post("/api/sim/claim/:issueNumber", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/sim/claim/:issueNumber", requireRole("editor"), async (req: Request, res: Response) => {
   const issueNumber = Number(req.params.issueNumber);
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     res.status(400).json({ error: "issueNumber non valido" });
@@ -1093,7 +1128,7 @@ app.post("/api/sim/claim/:issueNumber", requireRole("editor"), (req: Request, re
   res.json({ ok: true, issueNumber, agentId });
 });
 
-app.post("/api/sim/release/:issueNumber", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/sim/release/:issueNumber", requireRole("editor"), async (req: Request, res: Response) => {
   const issueNumber = Number(req.params.issueNumber);
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     res.status(400).json({ error: "issueNumber non valido" });
@@ -1109,7 +1144,7 @@ app.post("/api/sim/release/:issueNumber", requireRole("editor"), (req: Request, 
 // Release whatever issue an agent currently holds — robust to the client having
 // lost track of the issue number (e.g. the issue was closed on GitHub and dropped
 // out of the polled list). This is the primary completion-driven release path.
-app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = (req.params.agentId as string)?.trim();
   if (!agentId) {
     res.status(400).json({ error: "agentId richiesto" });
@@ -1128,58 +1163,63 @@ app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), (req: Requ
 // toward an authoritative server state, without yet reconciling back to the
 // client. Survives runtime restarts.
 
-app.get("/api/world", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/world", requireRole("viewer"), async (_req: Request, res: Response) => {
   try {
-    res.json(loadWorldSnapshot(db()));
+    res.json(await loadWorldSnapshot(db()));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
-app.post("/api/world", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/world", requireRole("editor"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { agents?: unknown; baseVersion?: unknown };
   const agents = sanitizeWorldAgents(body.agents);
   const baseVersion = typeof body.baseVersion === "number" ? body.baseVersion : undefined;
   try {
-    // Concorrenza ottimistica (compare-and-swap): con più scrittori, rifiuta una
-    // scrittura la cui `baseVersion` non è più quella corrente e restituisce lo
-    // snapshot autorevole, così il client concilia (adotta la versione remota) e
-    // ripresenta. Load→check→save è atomico qui: nessun `await` nel mezzo.
-    const current = loadWorldSnapshot(db());
-    if (!isFreshWrite(current.version, baseVersion)) {
-      res.status(409).json({
-        ok: false,
-        conflict: true,
-        version: current.version,
-        updatedAt: current.updatedAt,
-        agents: current.agents,
-      });
-      return;
-    }
-    // Merge per-riga (non sostituzione del blob): create/update + tombstone per
-    // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
-    // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
-    const snapshot = saveWorldAgents(db(), agents);
-    // Propaga live lo snapshot autorevole a tutte le viste (presence realtime) —
-    // **solo se qualcosa è cambiato**: un push no-op (vista che ha appena adottato e
-    // rispinge il roster identico) non genera echo → niente ping-pong tra le viste.
-    if (snapshot.changed) {
-      broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
-    }
-    res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
+    await worldLock.run(() => saveWorldCas(res, agents, baseVersion));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
+
+async function saveWorldCas(res: Response, agents: ReturnType<typeof sanitizeWorldAgents>, baseVersion: number | undefined): Promise<void> {
+  // Concorrenza ottimistica (compare-and-swap): con più scrittori, rifiuta una
+  // scrittura la cui `baseVersion` non è più quella corrente e restituisce lo
+  // snapshot autorevole, così il client concilia (adotta la versione remota) e
+  // ripresenta. Load→check→save è atomico perché gira sotto `worldLock`: due POST
+  // non possono leggere la stessa versione e salvare entrambe.
+  const current = await loadWorldSnapshot(db());
+  if (!isFreshWrite(current.version, baseVersion)) {
+    res.status(409).json({
+      ok: false,
+      conflict: true,
+      version: current.version,
+      updatedAt: current.updatedAt,
+      agents: current.agents,
+    });
+    return;
+  }
+  // Merge per-riga (non sostituzione del blob): create/update + tombstone per
+  // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
+  // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
+  const snapshot = await saveWorldAgents(db(), agents);
+  // Propaga live lo snapshot autorevole a tutte le viste (presence realtime) —
+  // **solo se qualcosa è cambiato**: un push no-op (vista che ha appena adottato e
+  // rispinge il roster identico) non genera echo → niente ping-pong tra le viste.
+  if (snapshot.changed) {
+    broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
+  }
+  res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
+}
 
 // --- Chat di workspace (Roadmap 4, frontiera #2) -------------------------
 // A human-to-human channel next to the scene, separate from the runtime event
 // log. Messages live in SQLite and are broadcast over SSE to every connected
 // view, so people watching the same office can talk live.
 
-app.get("/api/chat", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/chat", requireRole("viewer"), async (_req: Request, res: Response) => {
   try {
-    res.json(listChatMessages(db()));
+    res.json(await listChatMessages(db()));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -1188,7 +1228,7 @@ app.get("/api/chat", requireRole("viewer"), (_req: Request, res: Response) => {
 // Per-IP flood guard for the shared chat: at most 10 messages every 30s.
 const chatLimiter = createRateLimiter(10, 30_000);
 
-app.post("/api/chat", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/chat", requireRole("editor"), async (req: Request, res: Response) => {
   const input = sanitizeChatInput(req.body);
   if (!input) {
     res.status(400).json({ error: "Messaggio vuoto" });
@@ -1202,7 +1242,7 @@ app.post("/api/chat", requireRole("editor"), (req: Request, res: Response) => {
   }
   const msg: ChatMessage = { id: randomUUID(), author: input.author, text: input.text, ts: Date.now() };
   try {
-    insertChatMessage(db(), msg);
+    await insertChatMessage(db(), msg);
     recordChatMessage();
     // Rimbalza a tutte le viste (fuori da recordEvent: non è un evento runtime).
     writeToClients(`data: ${JSON.stringify({ agentId: "chat", agentName: "chat", chat: msg })}\n\n`);
@@ -1221,7 +1261,7 @@ app.post("/api/chat", requireRole("editor"), (req: Request, res: Response) => {
 // restavano "Ospite" per tutti).
 const presenceLimiter = createRateLimiter(20, 30_000);
 
-app.post("/api/presence", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/presence", requireRole("viewer"), async (req: Request, res: Response) => {
   const { id, name } = sanitizeObserverIdentity((req.body as { id?: unknown })?.id, (req.body as { name?: unknown })?.name);
   if (!id) {
     res.status(400).json({ error: "id osservatore mancante" });
@@ -1234,7 +1274,7 @@ app.post("/api/presence", requireRole("viewer"), (req: Request, res: Response) =
     return;
   }
   // Solo le viste aperte con la stessa identità: l'id da solo è pubblico.
-  const who = viewIdentity(bearerToken(req.headers.authorization));
+  const who = await viewIdentity(bearerToken(req.headers.authorization));
   let changed = 0;
   for (const [res2, obs] of clients) {
     if (obs.id === id && clientKeys.get(res2) === who && obs.name !== name) {
@@ -1256,7 +1296,7 @@ app.post("/api/presence", requireRole("viewer"), (req: Request, res: Response) =
 // oltre soglia si scarta in silenzio (204) — i cursori sono lossy per natura.
 const cursorLimiter = createRateLimiter(20, 1000); // ~20 update/s per vista
 
-app.post("/api/cursor", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/cursor", requireRole("viewer"), async (req: Request, res: Response) => {
   const c = sanitizeCursor(req.body);
   if (!c) {
     res.status(400).json({ error: "cursore non valido" });
@@ -1280,7 +1320,7 @@ app.post("/api/cursor", requireRole("viewer"), (req: Request, res: Response) => 
 // `recordEvent`, gated "viewer", rate-limit per-vista.
 const selectionLimiter = createRateLimiter(15, 5000); // ~3 update/s per vista
 
-app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/selection", requireRole("viewer"), async (req: Request, res: Response) => {
   const sel = sanitizeSelection(req.body);
   if (!sel) {
     res.status(400).json({ error: "selezione non valida" });
@@ -1305,11 +1345,11 @@ app.post("/api/selection", requireRole("viewer"), (req: Request, res: Response) 
 // (collaudo 2026-11-10: un viewer apriva per primo e guidava lui).
 const driverLimiter = createRateLimiter(10, 5000); // heartbeat ~0.5/s, ampio margine
 
-app.get("/api/driver", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/driver", requireRole("viewer"), async (_req: Request, res: Response) => {
   res.json(currentDriver(Date.now()));
 });
 
-app.post("/api/driver", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/driver", requireRole("editor"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { id?: unknown; name?: unknown };
   const { id, name } = sanitizeObserverIdentity(body.id, body.name);
   if (!id) {
@@ -1319,7 +1359,7 @@ app.post("/api/driver", requireRole("editor"), (req: Request, res: Response) => 
   const now = Date.now();
   // Il lease ricorda anche chi lo tiene: con l'id altrui (pubblico) non si rinnova. Anche il
   // limite è per identità + id, così chi spamma l'id altrui non blocca i rinnovi del titolare.
-  const who = viewIdentity(bearerToken(req.headers.authorization));
+  const who = await viewIdentity(bearerToken(req.headers.authorization));
   if (!driverLimiter.hit(`${who}|${id}`)) {
     const d = currentDriver(now);
     res.json({ ...d, youAreDriver: isLeaseHolder(driverLease, id, who, now) });
@@ -1340,12 +1380,12 @@ app.post("/api/driver", requireRole("editor"), (req: Request, res: Response) => 
 // silenzio (204), così non esistono due simulatori che si contendono il movimento.
 const worldSimLimiter = createRateLimiter(15, 1000); // fino a ~15 update/s dal driver
 
-app.post("/api/worldsim", requireRole("viewer"), (req: Request, res: Response) => {
+app.post("/api/worldsim", requireRole("viewer"), async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { id?: unknown; agents?: unknown };
   const id = typeof body.id === "string" ? body.id : "";
   const now = Date.now();
   // Solo il driver in carica può spingere il mondo animato (evita la doppia simulazione).
-  if (!id || !isLeaseHolder(driverLease, id, viewIdentity(bearerToken(req.headers.authorization)), now)) {
+  if (!id || !isLeaseHolder(driverLease, id, await viewIdentity(bearerToken(req.headers.authorization)), now)) {
     res.status(204).end();
     return;
   }
@@ -1365,22 +1405,22 @@ app.post("/api/worldsim", requireRole("viewer"), (req: Request, res: Response) =
 // SQLite; a scheduler tick fires a `wake` (source: "routine") that the UI turns
 // into an assignment to a free agent — reusing the same path as webhook wakes.
 
-app.get("/api/routines", requireRole("viewer"), (_req: Request, res: Response) => {
+app.get("/api/routines", requireRole("viewer"), async (_req: Request, res: Response) => {
   try {
-    res.json(listRoutines(db()).map((r) => ({ ...r, schedule: describeSchedule(r) })));
+    res.json((await listRoutines(db())).map((r) => ({ ...r, schedule: describeSchedule(r) })));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
-app.post("/api/routines", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/routines", requireRole("editor"), async (req: Request, res: Response) => {
   const input = sanitizeRoutine(req.body);
   if (!input) {
     res.status(400).json({ error: "Nome e titolo del task sono obbligatori" });
     return;
   }
   try {
-    const routine = insertRoutine(db(), randomUUID(), input);
+    const routine = await insertRoutine(db(), randomUUID(), input);
     broadcast({ agentId: "routine", agentName: "Routine", level: "INFO", message: `⏰ Routine creata: ${routine.name} (${describeSchedule(routine)})` });
     res.json({ ...routine, schedule: describeSchedule(routine) });
   } catch (err) {
@@ -1388,21 +1428,21 @@ app.post("/api/routines", requireRole("editor"), (req: Request, res: Response) =
   }
 });
 
-app.post("/api/routines/:id/toggle", requireRole("editor"), (req: Request, res: Response) => {
+app.post("/api/routines/:id/toggle", requireRole("editor"), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const enabled = req.body?.enabled !== false;
   try {
-    setRoutineEnabled(db(), id, enabled);
+    await setRoutineEnabled(db(), id, enabled);
     res.json({ ok: true, id, enabled });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
-app.delete("/api/routines/:id", requireRole("editor"), (req: Request, res: Response) => {
+app.delete("/api/routines/:id", requireRole("editor"), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   try {
-    deleteRoutine(db(), id);
+    await deleteRoutine(db(), id);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -1417,16 +1457,20 @@ app.delete("/api/routines/:id", requireRole("editor"), (req: Request, res: Respo
  * burst. `markRoutineRun` stamps the time so a routine runs once per due window.
  */
 const ROUTINE_TICK_MS = 30_000;
-function routineTick(): void {
+async function routineTick(): Promise<void> {
   if (!isReady() || clients.size === 0) return;
   let due;
   try {
-    due = dueRoutines(listRoutines(db()), Date.now());
+    due = dueRoutines(await listRoutines(db()), Date.now());
   } catch {
     return; // DB unavailable — try again next tick
   }
   for (const r of due) {
-    markRoutineRun(db(), r.id, Date.now());
+    try {
+      await markRoutineRun(db(), r.id, Date.now());
+    } catch {
+      return; // senza timbro la routine ripartirebbe a ogni giro: meglio riprovare dopo
+    }
     broadcast({
       agentId: "routine",
       agentName: "Routine",
@@ -1444,7 +1488,7 @@ function routineTick(): void {
 // frontend can assign a contextual fix task to a free agent.
 // To connect: GitHub → Repo Settings → Webhooks → http://host/api/webhook/github
 // (Content-Type: application/json; set a Secret = GITHUB_WEBHOOK_SECRET).
-app.post("/api/webhook/github", (req: Request, res: Response) => {
+app.post("/api/webhook/github", async (req: Request, res: Response) => {
   const event = req.headers["x-github-event"] as string | undefined;
   if (!event) { res.status(400).json({ error: "x-github-event header missing" }); return; }
 
@@ -1538,6 +1582,16 @@ app.use((err: Error & { type?: string; status?: number }, _req: Request, res: Re
 // Last-resort safety net so a stray rejection logs instead of crashing silently.
 process.on("unhandledRejection", (reason) => log.error("UnhandledRejection", { reason: String(reason) }));
 
+// Il database si apre **prima** di accettare richieste: con MySQL (SAMS_DB_URL) è una
+// connessione di rete, e se non risponde è meglio non partire che scrivere altrove.
+try {
+  await initDb();
+  log.info("Database pronto", { backend: dbBackend() });
+} catch (err) {
+  log.error("Database non raggiungibile: il runtime non parte", { backend: dbBackend(), err: String(err) });
+  process.exit(1);
+}
+
 const { port, githubRepo } = getSettings();
 app.listen(port, () => {
   log.info(`SAMS runtime avviato`, { url: `http://localhost:${port}`, repo: githubRepo, ready: isReady() });
@@ -1545,16 +1599,16 @@ app.listen(port, () => {
     .then((k) => log.info("Garden store pronto", { backend: k }))
     .catch((err) => log.error("Garden store init fallito", { error: (err as Error).message }));
   // Start the routine scheduler (checks for due recurring tasks every 30s).
-  setInterval(routineTick, ROUTINE_TICK_MS);
+  setInterval(() => void routineTick(), ROUTINE_TICK_MS);
   // Garbage-collect expired auth sessions: once at boot, then every 6 hours.
-  const pruneSessions = () => {
+  const pruneSessions = async () => {
     try {
-      const n = pruneAuthSessions(db());
+      const n = await pruneAuthSessions(db());
       if (n > 0) log.info("Sessioni scadute rimosse", { count: n });
     } catch {
       /* DB non disponibile → riprova al prossimo giro */
     }
   };
-  pruneSessions();
-  setInterval(pruneSessions, 6 * 60 * 60 * 1000);
+  void pruneSessions();
+  setInterval(() => void pruneSessions(), 6 * 60 * 60 * 1000);
 });

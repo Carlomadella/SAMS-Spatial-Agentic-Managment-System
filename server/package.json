@@ -9,6 +9,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
+    "db:to-mysql": "tsx src/migrateToMysql.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
