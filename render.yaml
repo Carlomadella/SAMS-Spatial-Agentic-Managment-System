@@ -7,32 +7,38 @@
 # UI: optional behaviour (base branch, PRs, approval) is left unset so it stays
 # editable in ⚙. Only the provider is fixed, on purpose (OpenRouter).
 #
-# Data: the SQLite database (accounts, sessions, chat, world, routines, history) and
-# the saved settings live on a persistent disk mounted at /var/data (SAMS_DATA_DIR).
-# Without it everything would be lost on every deploy or restart. A service with a
-# disk runs as a single instance and needs a paid plan (starter is enough).
-#
-# Without a disk (e.g. plan: free): set SAMS_DB_URL (external MySQL 8) and
-# SAMS_EPHEMERAL_DISK=1, then remove `disk:` and SAMS_DATA_DIR. The choices made in ⚙
-# (model, repo, approval…) are then saved in MySQL; keys and tokens never go there —
-# they must be set below as variables (⚙ shows them read-only). See docs/DEPLOY.md.
+# Plan: free. A free service has no persistent disk: its files are wiped on every
+# deploy, restart or spin-down (after ~15 min without traffic; waking up takes about a
+# minute). So:
+# - data (accounts, sessions, chat, world, routines, history) and the choices made in
+#   ⚙ (model, repo, approval…) live in an external MySQL 8: SAMS_DB_URL is REQUIRED.
+#   With SAMS_EPHEMERAL_DISK=1 and no SAMS_DB_URL the runtime refuses to start;
+# - keys and tokens never go in the database: set them below as variables (⚙ shows
+#   them read-only, with a notice);
+# - routines run inside the server: while it sleeps they don't fire;
+# - outbound SMTP ports (25/465/587) are blocked on free: use Resend for email.
+# Variables marked sync:false are asked for only when the Blueprint is first created;
+# on an existing service add them by hand in the Environment tab. See docs/DEPLOY.md.
 services:
   - type: web
     name: sams
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     autoDeploy: true
-    disk:
-      name: sams-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SAMS_DATA_DIR
-        value: /var/data
+      # No persistent disk: keys only from the environment, data only in MySQL.
+      - key: SAMS_EPHEMERAL_DISK
+        value: "1"
+      # MySQL 8 (e.g. mysql://user:password@host:3306/db?ssl-mode=REQUIRED). Required.
+      - key: SAMS_DB_URL
+        sync: false
+      # CA certificate (PEM text) for providers with their own CA, e.g. Aiven.
+      - key: SAMS_DB_SSL_CA
+        sync: false
       # Render's proxy appends the client IP to X-Forwarded-For: trust exactly that one
       # hop, so per-IP limits see the real client. Never more than the proxies in
       # front (or "true"): the client could pick its own IP. Check with
@@ -81,8 +87,8 @@ services:
         sync: false
       - key: SAMS_READONLY_TOKEN
         sync: false
-      # Email (reset and verification links). Set ONE channel: Resend or SMTP.
-      # With neither, links are only written to the server log.
+      # Email (reset and verification links). On the free plan outbound SMTP ports are
+      # blocked: use Resend. With no channel, links are only written to the server log.
       - key: SAMS_MAIL_FROM
         sync: false
       - key: RESEND_API_KEY

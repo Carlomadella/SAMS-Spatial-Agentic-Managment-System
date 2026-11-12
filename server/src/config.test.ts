@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHOICE_KEYS, SECRET_KEYS, decodeChoices, encodeChoices, envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, publicStatus, resolveSettings, scrubEnvCopies, secretChanges, secretEnvName, settingsToPersist } from "./config";
+import { CHOICE_KEYS, SECRET_KEYS, decodeChoices, encodeChoices, envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, publicStatus, resolveSettings, scrubEnvCopies, secretChanges, secretEnvName, settingsToPersist } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -187,5 +187,12 @@ describe("opzione C — scelte nel database, segreti fuori", () => {
     expect(secretChanges({ openrouterApiKey: "sk-2", githubToken: "g" }, cur)).toEqual(["openrouterApiKey", "githubToken"]);
     expect(secretEnvName("openrouterApiKey")).toBe("OPENROUTER_API_KEY");
     expect(secretEnvName("runtimeToken")).toBe("SAMS_TOKEN");
+  });
+
+  it("disco effimero senza SAMS_DB_URL: il server non deve partire", () => {
+    expect(ephemeralWithoutDb({ SAMS_EPHEMERAL_DISK: "1" })).toBe(true);
+    expect(ephemeralWithoutDb({ SAMS_EPHEMERAL_DISK: "1", SAMS_DB_URL: "  " })).toBe(true);
+    expect(ephemeralWithoutDb({ SAMS_EPHEMERAL_DISK: "1", SAMS_DB_URL: "mysql://u:p@h:3306/db" })).toBe(false);
+    expect(ephemeralWithoutDb({})).toBe(false);
   });
 });

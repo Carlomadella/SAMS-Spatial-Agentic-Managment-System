@@ -33,20 +33,32 @@ This repo ships a [`render.yaml`](../render.yaml) Blueprint.
    from that moment roles are enforced (see [Roles](#roles-and-access)).
 
 The service listens on Render's injected `$PORT` and is health-checked at
-`/api/health`. The Blueprint attaches a 1 GB **persistent disk** at `/var/data` and
-points `SAMS_DATA_DIR` there, so accounts, chat, the world and the saved settings
-survive deploys and restarts. A service with a disk runs as a single instance (Render
-also turns off zero-downtime deploys for it), and needs a paid plan — `starter` is enough.
+`/api/health`. The Blueprint uses Render's **free plan**, which has no persistent disk,
+so:
 
-**Without a disk (e.g. the free plan).** Two things are needed: `SAMS_DB_URL` (data in an
-external MySQL 8) and `SAMS_EPHEMERAL_DISK=1`. Then the choices made in ⚙ (engine, model,
-repo, branch, PRs, approval, Notion page, provisioning ids) are saved in the database and
-survive restarts; **keys and tokens are never stored in the database** — set them as
-environment variables (`OPENROUTER_API_KEY`, `GITHUB_TOKEN`, …). With `SAMS_EPHEMERAL_DISK`
-on, ⚙ shows a notice, the key fields are read-only, and the runtime answers `409` with the
-name of the variable to set instead of saving a key that the next restart would erase.
-Remove the `disk:` block and `SAMS_DATA_DIR` from `render.yaml` only after both are set.
-Note: on a plan that sleeps when idle, routines run only while the service is awake.
+- **`SAMS_DB_URL` is required**: accounts, chat, the world, routines, history and the
+  choices made in ⚙ (engine, model, repo, branch, PRs, approval, Notion page,
+  provisioning ids) live in an external MySQL 8. The Blueprint sets
+  `SAMS_EPHEMERAL_DISK=1`, and with it the runtime **refuses to start** without
+  `SAMS_DB_URL` rather than keep data on a disk that is wiped.
+- **Keys and tokens are never stored in the database**: set them as environment
+  variables (`OPENROUTER_API_KEY`, `GITHUB_TOKEN`, …). ⚙ shows a notice, the key fields
+  are read-only, and the runtime answers `409` with the name of the variable to set.
+- The service **sleeps after ~15 minutes without traffic** and takes about a minute to
+  wake up; Render may also restart it at any time. **Routines run only while it is
+  awake.** Free services share 750 instance hours per workspace per month.
+- **Outbound SMTP is blocked** on the free plan (ports 25/465/587): send email with
+  `RESEND_API_KEY`.
+
+Variables marked `sync: false` are asked for only when the Blueprint is first created;
+on an existing service add new ones (e.g. `SAMS_DB_URL`) by hand in the Environment tab.
+
+**Moving an existing disk-based service to free.** Before syncing the Blueprint: copy the
+data on the disk into MySQL (`npm run db:to-mysql` on the `.sams-data.db` from
+`/var/data`, target empty), set `SAMS_DB_URL` (and `SAMS_DB_SSL_CA` if needed) and set
+the keys that were saved from ⚙ as variables. To stay on a paid plan with a disk
+instead, use `plan: starter`, a `disk:` on `/var/data`, `SAMS_DATA_DIR=/var/data` and no
+`SAMS_EPHEMERAL_DISK`.
 
 ## Option C — Fly.io
 
