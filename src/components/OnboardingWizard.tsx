@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Bot, Check, GitBranch, Sprout, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 
@@ -15,8 +15,22 @@ export function OnboardingWizard() {
   });
   const [step, setStep] = useState(0);
   const [closed, setClosed] = useState(false);
+  const visible = open && !closed;
 
-  if (!open || closed) return null;
+  // Esc chiude come "Salta" (in cattura e fermato: non deve deselezionare l'agente).
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      dismiss();
+      setClosed(true);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [visible]);
+
+  if (!visible) return null;
 
   function close() { dismiss(); setClosed(true); }
   function next() {
