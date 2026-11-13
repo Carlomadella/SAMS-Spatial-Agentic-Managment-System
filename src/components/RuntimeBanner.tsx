@@ -31,7 +31,7 @@ export function RuntimeBanner() {
           : "Quasi pronto: collega le chiavi per far lavorare davvero gli agenti."}
       </span>
       {!offline && (
-        <button onClick={() => setSettingsOpen(true)} className="btn btn-primary h-7 shrink-0">
+        <button onClick={() => setSettingsOpen(true, "motore")} className="btn btn-primary h-7 shrink-0">
           <Settings size={13} /> Apri impostazioni
         </button>
       )}

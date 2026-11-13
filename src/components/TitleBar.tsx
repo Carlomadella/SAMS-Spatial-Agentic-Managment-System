@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
-import { canConfigure } from "../lib/roleUi";
 
 function IconBtn({
   onClick,
@@ -46,7 +45,6 @@ function IconBtn({
 export function TitleBar() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
-  const viewerRole = useStore((s) => s.viewerRole);
   const setGardenOpen = useStore((s) => s.setGardenOpen);
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
@@ -101,11 +99,10 @@ export function TitleBar() {
         <IconBtn title={theme === "dark" ? "Tema chiaro" : "Tema scuro"} onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
-        {canConfigure(viewerRole) && (
-        <IconBtn title="Impostazioni runtime" onClick={() => setSettingsOpen(true)}>
+        {/* Per tutti: ognuno vede le sue categorie, le sensibili solo l'owner. */}
+        <IconBtn title="Impostazioni" onClick={() => setSettingsOpen(true)}>
           <Settings size={16} />
         </IconBtn>
-        )}
         {/* Su mobile i pannelli si aprono dalla barra in basso (MobileBar): qui sarebbero doppi. */}
         <div className="hidden items-center gap-1 md:flex">
           <IconBtn title="Mostra/nascondi Esplora risorse" onClick={toggleLeft} active={leftOpen}>

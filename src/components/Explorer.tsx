@@ -531,8 +531,9 @@ export function Explorer() {
       <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-mut">Esplora risorse</span>
         <button
-          title="Impostazioni area di lavoro"
-          aria-label="Impostazioni area di lavoro"
+          title="Impostazioni"
+          aria-label="Impostazioni"
+          onClick={() => useStore.getState().setSettingsOpen(true)}
           className="rounded p-0.5 text-mut transition-colors hover:bg-ink-700 hover:text-slate-300"
         >
           <Settings2 size={13} />
