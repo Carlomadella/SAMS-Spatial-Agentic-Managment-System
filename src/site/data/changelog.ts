@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: "2026-11-13",
+    title: "SAMS gira sul piano gratuito di Render",
+    summary:
+      "Il server non ha più bisogno di un disco: dati e scelte delle impostazioni stanno nel database MySQL esterno, chiavi e token solo nelle variabili d'ambiente. Senza database configurato il server non parte, invece di perdere i dati al primo riavvio.",
+    tag: "Changed",
+  },
+  {
     date: "2026-11-12",
     title: "I dati possono vivere in MySQL",
     summary:
