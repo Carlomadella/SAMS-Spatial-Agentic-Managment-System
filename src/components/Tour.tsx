@@ -56,6 +56,20 @@ export function Tour() {
     if (open) setStep(0);
   }, [open]);
 
+  // Esc chiude il tour come "Salta". In cattura e fermato, così non arriva anche
+  // all'Esc globale della stanza (che deselezionerebbe l'agente).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      try { localStorage.setItem("sams.tour", "1"); } catch { /* ignore */ }
+      setTourOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, setTourOpen]);
+
   if (!open) return null;
 
   function finish() {
