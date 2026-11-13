@@ -380,14 +380,29 @@ app.post("/api/github/disconnect", async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// Il controllo di salute (Render) è pubblico: dice solo se il server è su e pronto.
+// Repo, branch e pagina Notion non sono affari di chi non è entrato.
 app.get("/api/health", async (_req: Request, res: Response) => {
-  res.json({ ok: true, ...publicStatus() });
+  res.json({ ok: true, ready: isReady() });
 });
 
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
 app.get("/api/status", async (req: Request, res: Response) => {
+  // Con i ruoli attivi un anonimo riceve la stessa forma (la UI non si rompe) ma senza
+  // gli indirizzi del workspace. In dev aperto, senza ruoli, nessuno è anonimo.
+  if (await isAnonymousRequest(req)) {
+    res.json({ ...publicStatus(), repo: "", baseBranch: "", notionPageId: "" });
+    return;
+  }
   res.json(await ownerStatus(req));
 });
+
+/** true se i ruoli sono attivi e la richiesta non porta né una sessione né un token valido. */
+async function isAnonymousRequest(req: Request): Promise<boolean> {
+  const provided = bearerToken(req.headers.authorization);
+  const hasSession = provided ? (await getSessionUser(db(), provided)) !== null : false;
+  return isAnonymousWhenEnforced(roleTokens(), provided, hasSession, await accountsExist());
+}
 
 /**
  * Lo stato pubblico più, **solo per l'owner**, i campi bloccati dall'ambiente
