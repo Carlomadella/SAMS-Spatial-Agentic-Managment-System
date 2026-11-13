@@ -22,6 +22,7 @@ import { assignRemote, backendEnabled, fetchRepoTree, GITHUB_CHANGED_EVENT } fro
 import { buildFileTree } from "../lib/fileTree";
 import { metaRepo } from "../lib/metaAgent";
 import { cn } from "../lib/utils";
+import { canAssign } from "../lib/roleUi";
 
 function slugify(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40) || "task";
@@ -145,6 +146,7 @@ function AgentsSection() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const addAgent = useStore((s) => s.addAgent);
+  const canEdit = canAssign(useStore((s) => s.viewerRole));
   const [open, setOpen] = useState(true);
 
   return (
@@ -163,14 +165,16 @@ function AgentsSection() {
           Agenti
           <span className="rounded-full bg-ink-700 px-1.5 text-[9px]">{agents.length}</span>
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); addAgent(); }}
-          title="Crea nuovo agente"
-          aria-label="Crea nuovo agente"
-          className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ink-600 hover:text-white"
-        >
-          <Plus size={12} />
-        </button>
+        {canEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); addAgent(); }}
+            title="Crea nuovo agente"
+            aria-label="Crea nuovo agente"
+            className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ink-600 hover:text-white"
+          >
+            <Plus size={12} />
+          </button>
+        )}
       </div>
 
       {open && (
@@ -178,13 +182,15 @@ function AgentsSection() {
           {agents.map((a) => (
             <AgentRow key={a.id} agent={a} isSelected={a.id === selectedAgentId} />
           ))}
-          <button
-            onClick={() => addAgent()}
-            className="mt-0.5 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-mut transition-colors hover:bg-ink-700/60 hover:text-slate-300"
-          >
-            <Plus size={12} />
-            Crea agente
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => addAgent()}
+              className="mt-0.5 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-mut transition-colors hover:bg-ink-700/60 hover:text-slate-300"
+            >
+              <Plus size={12} />
+              Crea agente
+            </button>
+          )}
         </div>
       )}
     </div>

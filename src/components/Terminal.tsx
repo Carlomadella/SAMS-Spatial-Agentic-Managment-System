@@ -5,6 +5,10 @@ import { metaRepo } from "../lib/metaAgent";
 import { resolveAgentByToken } from "../lib/agentMatch";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import type { EnvironmentName } from "../types";
+import { canAssign } from "../lib/roleUi";
+
+/** Comandi che cambiano il mondo condiviso: a un viewer si risponde "sola lettura". */
+const WRITE_COMMANDS = new Set(["spawn", "clear-task", "free", "assign"]);
 
 // ---------------------------------------------------------------------------
 // A real, scriptable console for driving the workspace. Not a shell — a thin
@@ -72,8 +76,14 @@ export function Terminal() {
     const [name, ...rest] = cmd.split(/\s+/);
     const arg = rest.join(" ");
     const s = useStore.getState();
+    const lower = name.toLowerCase();
+    const simWrite = lower === "sim" && ["start", "stop"].includes((rest[0] ?? "").toLowerCase());
+    if ((WRITE_COMMANDS.has(lower) || simWrite) && !canAssign(s.viewerRole)) {
+      push({ kind: "err", text: "sola lettura — serve il ruolo editor o owner" });
+      return;
+    }
 
-    switch (name.toLowerCase()) {
+    switch (lower) {
       case "help":
       case "?":
         push(...HELP.map(out));

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { cn } from "../lib/utils";
+import { canAssign } from "../lib/roleUi";
 
 function IconBtn({
   onClick,
@@ -49,6 +50,7 @@ export function TitleBar() {
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
   const addAgent = useStore((s) => s.addAgent);
+  const canEdit = canAssign(useStore((s) => s.viewerRole));
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
   const bottomOpen = useStore((s) => s.bottomOpen);
@@ -88,9 +90,11 @@ export function TitleBar() {
 
       {/* right actions */}
       <div className="flex shrink-0 items-center gap-1">
-        <button data-tour="add-agent" onClick={() => addAgent()} aria-label="Aggiungi agente" className="btn btn-primary mr-1 h-7">
-          <Plus size={14} /> <span className="hidden sm:inline">Agente</span>
-        </button>
+        {canEdit && (
+          <button data-tour="add-agent" onClick={() => addAgent()} aria-label="Aggiungi agente" className="btn btn-primary mr-1 h-7">
+            <Plus size={14} /> <span className="hidden sm:inline">Agente</span>
+          </button>
+        )}
         <span data-tour="garden" className="inline-flex">
           <IconBtn title="Commit Garden" onClick={() => setGardenOpen(true)}>
             <Sprout size={16} />
