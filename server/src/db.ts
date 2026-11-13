@@ -175,6 +175,12 @@ const SQLITE_SCHEMA = `
  * - collation **binaria**: confronti sensibili a maiuscole e accenti, come in SQLite.
  */
 const MYSQL_TABLE_OPTS = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin";
+/**
+ * Su TiDB (es. TiDB Cloud) gli AUTO_INCREMENT sono crescenti solo per singolo nodo:
+ * AUTO_ID_CACHE=1 li rende crescenti su tutti i nodi, così `seq` resta l'ordine
+ * d'inserimento. Il commento `/*T! … *\/` lo esegue solo TiDB; MySQL lo ignora.
+ */
+const TIDB_ORDERED_AUTO_ID = "/*T![auto_id_cache] AUTO_ID_CACHE=1 */";
 const MYSQL_SCHEMA = `
     CREATE TABLE IF NOT EXISTS task_log (
       id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -236,7 +242,7 @@ const MYSQL_SCHEMA = `
       deleted_at   BIGINT       NULL,
       UNIQUE KEY uq_world_agents_seq (seq),
       INDEX idx_world_agents_deleted (deleted_at)
-    ) ${MYSQL_TABLE_OPTS};
+    ) ${MYSQL_TABLE_OPTS} ${TIDB_ORDERED_AUTO_ID};
 
     CREATE TABLE IF NOT EXISTS chat_messages (
       id     VARCHAR(64)  NOT NULL PRIMARY KEY,
