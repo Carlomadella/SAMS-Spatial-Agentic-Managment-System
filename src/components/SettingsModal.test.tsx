@@ -51,7 +51,9 @@ describe("<SettingsModal /> — campi gestiti dall'ambiente", () => {
     fireEvent.click(screen.getByRole("button", { name: /GitHub del server/ }));
     expect((screen.getByLabelText(/GitHub token/) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getAllByText("dal server")).toHaveLength(1);
-    expect((screen.getByLabelText(/Repository/) as HTMLInputElement).disabled).toBe(false);
+    // la repo del server non si sceglie più da qui: ognuno usa «Il tuo GitHub»
+    expect(screen.queryByLabelText(/Repository/)).toBeNull();
+    expect(screen.queryByLabelText(/Branch base/)).toBeNull();
   });
 
   it("senza variabili d'ambiente nessun campo è bloccato", async () => {
@@ -59,7 +61,7 @@ describe("<SettingsModal /> — campi gestiti dall'ambiente", () => {
     useStore.setState({ settingsSection: "repository" });
     render(<SettingsModal />);
     const gh = await screen.findByLabelText(/GitHub token/);
-    await waitFor(() => expect(screen.getByLabelText(/Repository/)).toHaveProperty("value", "me/repo"));
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
     expect((gh as HTMLInputElement).disabled).toBe(false);
     expect(screen.queryByText("dal server")).toBeNull();
   });
@@ -71,9 +73,8 @@ describe("<SettingsModal /> — campi gestiti dall'ambiente", () => {
         : json(baseStatus),
     );
     vi.stubGlobal("fetch", fetchMock);
-    useStore.setState({ settingsSection: "repository" });
     render(<SettingsModal />);
-    await waitFor(() => expect(screen.getByLabelText(/Repository/)).toHaveProperty("value", "me/repo"));
+    await waitFor(() => expect(screen.getByLabelText(/^Modello/)).toHaveProperty("value", baseStatus.model));
     fireEvent.click(screen.getByRole("button", { name: /Salva/ }));
     expect(await screen.findByText("Questi campi sono impostati da variabili d'ambiente sul server")).toBeTruthy();
     expect(screen.queryByText(/envManaged/)).toBeNull();
@@ -93,13 +94,15 @@ describe("<SettingsModal /> — campi gestiti dall'ambiente", () => {
     const gh = screen.getByLabelText(/GitHub token/) as HTMLInputElement;
     expect(gh.disabled).toBe(true);
     expect(gh.placeholder).toContain("GITHUB_TOKEN");
-    expect((screen.getByLabelText(/Repository/) as HTMLInputElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: /Salva/ }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([, i]) => i?.method === "POST")).toBe(true));
     const post = fetchMock.mock.calls.find(([, i]) => i?.method === "POST")!;
     const body = JSON.parse(String(post[1]!.body)) as Record<string, unknown>;
-    expect(body).toHaveProperty("githubRepo", "me/repo");
+    expect(body).toHaveProperty("model", baseStatus.model);
+    // la finestra non manda più repo e branch del server
+    expect(body).not.toHaveProperty("githubRepo");
+    expect(body).not.toHaveProperty("baseBranch");
     expect(Object.keys(body).filter((k) => /Key$|Token$/.test(k))).toEqual([]);
   });
 });
@@ -111,7 +114,7 @@ describe("<SettingsModal /> — categorie e ruoli", () => {
   });
 
   const OWNER_ONLY = [/Motore AI/, /GitHub del server/, /Comportamento agenti/, /Integrazioni/, /Utenti e inviti/];
-  const FOR_ALL = [/^Account$/, /Il tuo GitHub/, /Aspetto/, /Stato del sistema/];
+  const FOR_ALL = [/^Account$/, /Il tuo GitHub/, /^Team$/, /Aspetto/, /Stato del sistema/];
 
   it("un editor vede le categorie per tutti ma nessuna sensibile", async () => {
     vi.stubGlobal("fetch", vi.fn(() => json(baseStatus)));
@@ -146,5 +149,31 @@ describe("<SettingsModal /> — categorie e ruoli", () => {
     render(<SettingsModal />);
     fireEvent.click(await screen.findByRole("radio", { name: /Verde salvia/ }));
     expect(useStore.getState().roomTheme).toBe("sage");
+  });
+});
+
+describe("<SettingsModal /> — Team", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useStore.setState({ settingsOpen: false, settingsSection: "account", viewerRole: "owner", roleEnforced: false });
+  });
+
+  it("un osservatore vede nome e ruolo dei componenti, senza poterli cambiare", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        String(url).endsWith("/api/team")
+          ? json({ members: [{ name: "Carlo", role: "owner" }, { name: "Lucia", role: "viewer" }] })
+          : json(baseStatus),
+      ),
+    );
+    useStore.setState({ settingsOpen: true, settingsSection: "team", viewerRole: "viewer", roleEnforced: true });
+    render(<SettingsModal />);
+    const list = await screen.findByRole("list", { name: /Componenti del team/ });
+    expect(within(list).getByText("Carlo")).toBeTruthy();
+    expect(within(list).getByText(/Owner/)).toBeTruthy();
+    expect(within(list).getByText("Lucia")).toBeTruthy();
+    expect(within(list).queryByRole("button")).toBeNull();
+    expect(within(list).queryByRole("combobox")).toBeNull();
   });
 });

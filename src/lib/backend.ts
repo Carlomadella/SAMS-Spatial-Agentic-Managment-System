@@ -266,6 +266,24 @@ export async function fetchUsers(): Promise<ManagedUser[]> {
   }
 }
 
+/** Un componente del team come lo vede chiunque: niente email. */
+export interface TeamMember {
+  name: string;
+  role: ViewerRole;
+}
+
+/** Chi fa parte del team (per ogni ruolo, sola lettura). null se non disponibile. */
+export async function fetchTeam(): Promise<TeamMember[] | null> {
+  try {
+    const res = await fetch(`${BASE}/api/team`, { headers: authHeaders(false) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { members?: TeamMember[] };
+    return body.members ?? [];
+  } catch {
+    return null;
+  }
+}
+
 // --- Inviti (D3-B) -------------------------------------------------------------
 
 export type InviteRole = "editor" | "viewer";

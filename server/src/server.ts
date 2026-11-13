@@ -535,6 +535,15 @@ app.get("/api/auth/users", requireRole("owner"), async (_req: Request, res: Resp
   res.json({ users: await listUsers(db()) });
 });
 
+/**
+ * Chi fa parte del team, per chiunque abbia un account: solo nome e ruolo, mai l'email.
+ * In sola lettura: ruoli e inviti restano all'owner (`/api/auth/users`).
+ */
+app.get("/api/team", requireRole("viewer"), async (_req: Request, res: Response) => {
+  const members = (await listUsers(db())).map((u) => ({ name: u.name, role: u.role }));
+  res.json({ members });
+});
+
 // Diagnostica di `SAMS_TRUST_PROXY` (solo owner): quale IP il server attribuisce a chi
 // chiama e cosa è arrivato nell'header. `ip` deve essere il proprio IP pubblico.
 app.get("/api/admin/client-ip", requireRole("owner"), async (req: Request, res: Response) => {
