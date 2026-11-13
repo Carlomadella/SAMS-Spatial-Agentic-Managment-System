@@ -218,4 +218,14 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     await migrate(db);
     expect(await countUsers(db)).toBe(1);
   });
+
+  // TiDB assegna gli AUTO_INCREMENT a blocchi per nodo: senza AUTO_ID_CACHE=1 `seq`
+  // non segue l'ordine d'inserimento quando le scritture passano da nodi diversi.
+  it("TiDB: world_agents.seq crescente su tutti i nodi (AUTO_ID_CACHE=1)", async () => {
+    if (db.dialect !== "mysql") return;
+    const v = await db.get<{ v: string }>(`SELECT VERSION() AS v`);
+    if (!/tidb/i.test(v?.v ?? "")) return;
+    const row = await db.get<Record<string, string>>(`SHOW CREATE TABLE world_agents`);
+    expect(row?.["Create Table"]).toMatch(/AUTO_ID_CACHE=1\b/);
+  });
 });
