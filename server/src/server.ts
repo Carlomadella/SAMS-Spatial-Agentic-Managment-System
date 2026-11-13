@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, getSettings, initSettings, isReady, publicStatus, secretChanges, secretEnvName, updateSettings, type SettingsPatch } from "./config";
+import { envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, getSettings, initSettings, isReady, publicStatus, secretChanges, secretEnvName, updateSettings, type SettingsPatch } from "./config";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -1600,6 +1600,13 @@ app.use((err: Error & { type?: string; status?: number }, _req: Request, res: Re
 
 // Last-resort safety net so a stray rejection logs instead of crashing silently.
 process.on("unhandledRejection", (reason) => log.error("UnhandledRejection", { reason: String(reason) }));
+
+if (ephemeralWithoutDb()) {
+  log.error(
+    "SAMS_EPHEMERAL_DISK è attivo ma manca SAMS_DB_URL: i dati finirebbero su un disco che si azzera. Imposta SAMS_DB_URL (MySQL 8) e riavvia.",
+  );
+  process.exit(1);
+}
 
 // Il database si apre **prima** di accettare richieste: con MySQL (SAMS_DB_URL) è una
 // connessione di rete, e se non risponde è meglio non partire che scrivere altrove.

@@ -10,6 +10,15 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-13 — Render sul piano gratuito ☁️
+
+- **Changed** — `render.yaml` passa al piano **free**: niente disco, `SAMS_EPHEMERAL_DISK=1`, dati e scelte di ⚙
+  su MySQL esterno (`SAMS_DB_URL`, obbligatoria), chiavi e token solo come variabili.
+- **Added** — Con `SAMS_EPHEMERAL_DISK=1` e senza `SAMS_DB_URL` il runtime non parte: i dati finirebbero su un disco
+  che si azzera. Su Render il deploy fallito lascia in piedi la versione precedente.
+- **Docs** — Limiti del piano gratuito (spegnimento dopo ~15 minuti, routine ferme mentre dorme, SMTP bloccato: usare
+  Resend) e passaggio di un servizio esistente dal disco al gratuito.
+
 ### 2026-11-12 (b) — Impostazioni senza disco ⚙️
 
 - **Changed** — Le scelte fatte da ⚙ che non sono segreti (motore, modello, repository, branch, PR automatiche,

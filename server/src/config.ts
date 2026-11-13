@@ -297,6 +297,15 @@ export function ephemeralDisk(env: NodeJS.ProcessEnv = process.env): boolean {
   return v !== "" && v !== "0" && v !== "false" && v !== "no";
 }
 
+/**
+ * Disco effimero ma niente `SAMS_DB_URL`: il database SQLite starebbe sul disco che si
+ * azzera, e account, chat e mondo sparirebbero al primo riavvio. Il server non parte:
+ * su Render un deploy che non parte lascia in piedi la versione precedente.
+ */
+export function ephemeralWithoutDb(env: NodeJS.ProcessEnv = process.env): boolean {
+  return ephemeralDisk(env) && (env.SAMS_DB_URL ?? "").trim() === "";
+}
+
 /** I segreti che la patch vorrebbe cambiare: su disco effimero vanno rifiutati. */
 export function secretChanges(patch: Partial<Settings>, current: Settings): SecretKey[] {
   return SECRET_KEYS.filter((k) => k in patch && patch[k] !== undefined && patch[k] !== current[k]);
