@@ -245,18 +245,43 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 
 **🟡 Minori**
 
-- [ ] Tour e onboarding non si chiudono con **Esc**, anche se sono `aria-modal`.
-- [ ] L'onboarding dice "Gemini è gratuito" e "`npm start`… porta 8787": non va bene per chi usa la versione
+- [x] Tour e onboarding non si chiudono con **Esc**, anche se sono `aria-modal`.
+      **Fatto il 2026-11-13:** Esc chiude come "Salta" (e li segna come visti); l'ascoltatore è in cattura e
+      ferma l'evento, così non deseleziona anche l'agente. `EscModals.test.tsx`.
+- [x] L'onboarding dice "Gemini è gratuito" e "`npm start`… porta 8787": non va bene per chi usa la versione
       ospitata né per un viewer, che non può aprire le impostazioni.
-- [ ] Gli agenti di partenza mostrano il modello "Claude Opus" qualunque sia il provider configurato.
-- [ ] `/login` mostra il form anche a chi ha già fatto l'accesso.
+      **Fatto il 2026-11-14:** i passi di "Come iniziare" dipendono da chi entra e dal runtime: server che non
+      risponde → "aspetta qualche secondo"; motore da configurare → l'owner va al Motore AI, gli altri sanno che
+      tocca al proprietario; poi "Assegna il primo task" (editor/owner) o "Guarda il lavoro" (viewer). Niente più
+      provider consigliato né porte. "Apri impostazioni" solo se c'è davvero da configurare, altrimenti "Inizia".
+      `OnboardingWizard.test.tsx`.
+- [x] Gli agenti di partenza mostrano il modello "Claude Opus" qualunque sia il provider configurato.
+      **Fatto il 2026-11-13:** il server espone `activeModel` in `/api/status`: il modello usato
+      davvero col provider attivo (ognuno ripiega sul suo default se `model` non ha la sua forma). Il chip
+      nell'Inspector mostra quello; l'etichetta salvata sull'agente resta solo come ripiego senza runtime. Anche la
+      dashboard pubblica ora mostra il modello effettivo. Test: `activeModel.test.ts`, `backend.runtimeModel.test.ts`.
+- [x] `/login` mostra il form anche a chi ha già fatto l'accesso.
+      **Fatto il 2026-11-13:** con una sessione valida `/login` porta a `/app` (con `replace`, così "indietro"
+      non torna al form). Finché la sessione si sta verificando il form resta. 2 test in `Login.test.tsx`.
 - [x] Le etichette degli agenti della scena 3D (nome + stelle) restano sopra le finestre modali, per esempio sopra le
       impostazioni: vanno messe sotto l'overlay. **Fatto il 2026-11-11:** il contenitore della scena è `isolate`.
-- [ ] La palette comandi (Ctrl+K) offre a un viewer azioni che non può fare: crea agente, impostazioni,
+- [x] La palette comandi (Ctrl+K) offre a un viewer azioni che non può fare: crea agente, impostazioni,
       reimposta area, pausa caffè per tutti. Anche il bottone "+ Agente" in alto resta visibile.
-- [ ] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.
-- [ ] `/api/health` e `/api/status` sono pubblici ed espongono repo e URL della pagina Notion.
-- [ ] L'SDK di Gemini scrive righe non JSON nei log ("there are non-text parts functionCall…").
+      **Fatto il 2026-11-13:** al viewer la palette non offre più crea agente, invio a una zona, pausa caffè,
+      reimposta area e il task rapido; spariscono il "+ Agente" in alto e i due "Crea agente" dell'Explorer; nel
+      terminale `spawn`, `assign`, `free`/`clear-task` e `sim start|stop` rispondono "sola lettura". Le
+      impostazioni restano: dal 13/11 la rotella è per tutti (PR #15). `ViewerReadOnly.test.tsx`.
+- [x] `.dockerignore` non esclude `server/.sams-data.db`: il database locale finisce nel contesto di build.
+      **Già a posto (controllato il 2026-11-13):** `.dockerignore` contiene `server/.sams-data.db*`.
+- [x] `/api/health` e `/api/status` sono pubblici ed espongono repo e URL della pagina Notion.
+      **Fatto il 2026-11-13:** `/api/health` risponde solo `{ ok, ready }`. `/api/status` a un anonimo (ruoli attivi,
+      nessuna sessione né token) tiene la stessa forma ma con `repo`, `baseBranch` e `notionPageId` vuoti; con una
+      credenziale qualsiasi, anche viewer, resta com'era. In dev aperto non cambia nulla. 3 test in
+      `server.roles.test.ts`. Resta pubblico, di proposito, il repo nella dashboard `?public`.
+- [x] L'SDK di Gemini scrive righe non JSON nei log ("there are non-text parts functionCall…").
+      **Fatto il 2026-11-13:** `collectStream` legge il testo dalle parti (`chunkText`) invece che dal getter `.text`
+      dell'SDK, che era quello a scrivere l'avviso. Stessa regola (prima candidata, niente parti "thought").
+      Test in `gemini.test.ts`.
 - [x] **`trust proxy` non impostato.** Dietro il proxy di Render `req.ip` è lo stesso per tutti: i limiti per IP
       (login, registrazione, presenza, biglietti senza token) valgono come **un solo** limite condiviso. Va impostato
       `app.set("trust proxy", …)` secondo il deploy (fidarsi di `X-Forwarded-For` senza proxy davanti permette di
