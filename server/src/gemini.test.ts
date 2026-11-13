@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GenerateContentResponse } from "@google/genai";
 import { collectStream, usageTokens } from "./gemini";
 
@@ -68,5 +68,30 @@ describe("collectStream", () => {
     );
     expect(result.functionCalls).toHaveLength(2);
     expect(result.functionCalls.map((c) => c.name)).toEqual(["gh_list_files", "notion_read"]);
+  });
+});
+
+// I log del server sono JSON una riga per evento: il getter `.text` dell'SDK scriveva con
+// console.warn "there are non-text parts functionCall…" a ogni chunk con una chiamata a tool.
+describe("collectStream non passa dal getter .text dell'SDK", () => {
+  it("chunk con testo + functionCall: testo giusto, nessun console.warn", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const chunk = {
+      candidates: [{ content: { parts: [
+        { text: "Penso", thought: true },
+        { text: "Leggo il file" },
+        { functionCall: { name: "gh_read_file", args: {} } },
+      ] } }],
+      functionCalls: [{ name: "gh_read_file", args: {} }],
+      get text(): string {
+        console.warn("there are non-text parts functionCall in the response");
+        return "Leggo il file";
+      },
+    } as unknown as GenerateContentResponse;
+    const result = await collectStream(fakeStream([chunk]), () => {});
+    expect(result.text).toBe("Leggo il file");
+    expect(result.functionCalls).toHaveLength(1);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
