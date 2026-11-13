@@ -11,6 +11,11 @@
 # the saved settings live on a persistent disk mounted at /var/data (SAMS_DATA_DIR).
 # Without it everything would be lost on every deploy or restart. A service with a
 # disk runs as a single instance and needs a paid plan (starter is enough).
+#
+# Without a disk (e.g. plan: free): set SAMS_DB_URL (external MySQL 8) and
+# SAMS_EPHEMERAL_DISK=1, then remove `disk:` and SAMS_DATA_DIR. The choices made in ⚙
+# (model, repo, approval…) are then saved in MySQL; keys and tokens never go there —
+# they must be set below as variables (⚙ shows them read-only). See docs/DEPLOY.md.
 services:
   - type: web
     name: sams

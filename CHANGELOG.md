@@ -10,6 +10,19 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-12 (b) — Impostazioni senza disco ⚙️
+
+- **Changed** — Le scelte fatte da ⚙ che non sono segreti (motore, modello, repository, branch, PR automatiche,
+  approvazione, pagina Notion, id del provisioning) si salvano nel **database**, nella nuova tabella `settings`:
+  con `SAMS_DB_URL` sopravvivono ai riavvii anche senza disco. Al primo avvio vengono importate una volta dal
+  vecchio `.sams-runtime.json`, che da lì tiene solo chiavi e token.
+- **Added** — `SAMS_EPHEMERAL_DISK=1` per i server senza disco persistente (es. piano gratuito di Render): le
+  chiavi si leggono solo dalle variabili d'ambiente, ⚙ lo dice con un avviso e mostra i campi delle chiavi in
+  sola lettura, e il server rifiuta (409) una chiave che al riavvio sparirebbe, indicando la variabile da impostare.
+- **Security** — Chiavi API e token non finiscono mai nel database (opzione C del doc di decisione del 12/11).
+- **Changed** — `npm run db:to-mysql` copia anche la tabella `settings`; se MySQL le ha già (import al primo
+  avvio) tiene le sue.
+
 ### 2026-11-12 — Database MySQL 🗄️
 
 - **Added** — I dati (account, sessioni, chat, mondo, routine, cronologia) possono stare in **MySQL 8** con

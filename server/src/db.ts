@@ -163,6 +163,14 @@ const SQLITE_SCHEMA = `
       used_at    INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_invites_email ON invites (email);
+
+    -- Impostazioni scelte da ⚙ che non sono segreti (provider, modello, repo…), una riga
+    -- per campo, valore in JSON. Le chiavi e i token non ci finiscono mai (opzione C).
+    CREATE TABLE IF NOT EXISTS settings (
+      name       TEXT    PRIMARY KEY,
+      value      TEXT    NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
 `;
 
 /**
@@ -301,6 +309,12 @@ const MYSQL_SCHEMA = `
       UNIQUE KEY uq_invites_token (token_hash),
       INDEX idx_invites_email (email)
     ) ${MYSQL_TABLE_OPTS};
+
+    CREATE TABLE IF NOT EXISTS settings (
+      name       VARCHAR(64)  NOT NULL PRIMARY KEY,
+      value      TEXT         NOT NULL,
+      updated_at BIGINT       NOT NULL
+    ) ${MYSQL_TABLE_OPTS};
 `;
 
 /** Crea le tabelle mancanti e applica le migrazioni idempotenti. Ritorna lo stesso driver. */
@@ -406,6 +420,35 @@ function onConflictUpdate(dialect: Dialect, keys: string[], set: string[], extra
     return `ON DUPLICATE KEY UPDATE ${[...set.map((c) => `${c} = VALUES(${c})`), ...extra].join(", ")}`;
   }
   return `ON CONFLICT (${keys.join(", ")}) DO UPDATE SET ${[...set.map((c) => `${c} = excluded.${c}`), ...extra].join(", ")}`;
+}
+
+// --- impostazioni non segrete -------------------------------------------------
+
+/** Le righe di `settings` come nome → valore (testo JSON, lo decodifica config.ts). */
+export async function loadSettingRows(db: SqlRunner): Promise<Record<string, string>> {
+  const rows = await db.all<{ name: string; value: string }>(`SELECT name, value FROM settings`);
+  const out: Record<string, string> = {};
+  for (const r of rows) out[String(r.name)] = String(r.value);
+  return out;
+}
+
+/** Scrive (upsert) i campi in `set` e toglie quelli in `remove`, tutto in una transazione. */
+export async function saveSettingRows(
+  db: SqlDriver,
+  set: Record<string, string>,
+  remove: ReadonlyArray<string> = [],
+  now = Date.now(),
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const [name, value] of Object.entries(set)) {
+      await tx.run(
+        `INSERT INTO settings (name, value, updated_at) VALUES (?, ?, ?)
+         ${onConflictUpdate(tx.dialect, ["name"], ["value", "updated_at"])}`,
+        [name, value, now],
+      );
+    }
+    for (const name of remove) await tx.run(`DELETE FROM settings WHERE name = ?`, [name]);
+  });
 }
 
 // --- chat di workspace helpers (mondo condiviso) ---------------------------

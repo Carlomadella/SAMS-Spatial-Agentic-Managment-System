@@ -40,6 +40,10 @@ function Chip({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
+
+/** I campi segreti della finestra: su disco effimero si impostano solo sul server. */
+const SECRET_UI_FIELDS = ["geminiApiKey", "anthropicApiKey", "groqApiKey", "openrouterApiKey", "openaiApiKey", "githubToken", "notionToken"];
+
 export function SettingsModal() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
@@ -110,8 +114,10 @@ export function SettingsModal() {
       if (provider === "openai" && openaiApiKey.trim()) patch.openaiApiKey = openaiApiKey.trim();
       if (githubToken.trim()) patch.githubToken = githubToken.trim();
       if (notionToken.trim()) patch.notionToken = notionToken.trim();
-      // I campi fissati dall'ambiente non si mandano: il server risponderebbe 409.
-      const st = await saveSettings(withoutLocked(patch, new Set<string>(status?.envManaged ?? [])));
+      // I campi fissati dall'ambiente (e su disco effimero le chiavi) non si mandano:
+      // il server risponderebbe 409.
+      const locked = new Set<string>([...(status?.envManaged ?? []), ...(status?.ephemeralDisk ? SECRET_UI_FIELDS : [])]);
+      const st = await saveSettings(withoutLocked(patch, locked));
       setStatus(st);
       useStore.getState().setRuntimeReady(st.ready);
       setGeminiKey("");
@@ -146,9 +152,13 @@ export function SettingsModal() {
 
   // Campi impostati da variabili d'ambiente sul server: l'ambiente vince al riavvio,
   // quindi qui sono in sola lettura (il server rifiuterebbe comunque il cambio con 409).
-  const envLocked = new Set(status?.envManaged ?? []);
+  // Disco effimero: anche le chiavi stanno solo sul server (una chiave salvata da qui
+  // sparirebbe al primo riavvio). Le scelte (modello, repo…) restano modificabili.
+  const ephemeral = !!status?.ephemeralDisk;
+  const envLocked = new Set([...(status?.envManaged ?? []), ...(ephemeral ? SECRET_UI_FIELDS : [])]);
   const lockedHint = "Impostato da una variabile d'ambiente sul server: si cambia lì, non da qui.";
   const lockedPlaceholder = "•••••••• (impostato dal server)";
+  const lockedPh = (has: boolean, envVar: string) => (has ? lockedPlaceholder : `da impostare sul server: ${envVar}`);
 
   const keyChip =
     provider === "gemini"
@@ -192,6 +202,13 @@ export function SettingsModal() {
         </div>
 
         <div className="space-y-3 px-4 py-4">
+          {ephemeral && (
+            <p role="note" className="rounded-md border border-line bg-ink-800 px-3 py-2 text-[11px] leading-relaxed text-mut">
+              Questo server non ha un disco che sopravvive ai riavvii: le <b className="text-white">chiavi e i token</b> si
+              impostano come variabili d&apos;ambiente sul server (es. su Render). Motore, modello, repository e le altre
+              scelte si salvano da qui e restano.
+            </p>
+          )}
           <Field label="Motore (modello AI)" locked={envLocked.has("provider")}>
             <select
               value={provider}
@@ -215,7 +232,7 @@ export function SettingsModal() {
                 value={geminiApiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 disabled={envLocked.has("geminiApiKey")}
-                placeholder={envLocked.has("geminiApiKey") ? lockedPlaceholder : status?.hasGeminiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "AIza…  (aistudio.google.com)"}
+                placeholder={envLocked.has("geminiApiKey") ? lockedPh(!!status?.hasGeminiKey, "GEMINI_API_KEY") : status?.hasGeminiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "AIza…  (aistudio.google.com)"}
                 className="settings-input"
               />
             </Field>
@@ -226,7 +243,7 @@ export function SettingsModal() {
                 value={groqApiKey}
                 onChange={(e) => setGroqKey(e.target.value)}
                 disabled={envLocked.has("groqApiKey")}
-                placeholder={envLocked.has("groqApiKey") ? lockedPlaceholder : status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
+                placeholder={envLocked.has("groqApiKey") ? lockedPh(!!status?.hasGroqKey, "GROQ_API_KEY") : status?.hasGroqKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "gsk_…  (console.groq.com)"}
                 className="settings-input"
               />
             </Field>
@@ -237,7 +254,7 @@ export function SettingsModal() {
                 value={openrouterApiKey}
                 onChange={(e) => setOpenrouterKey(e.target.value)}
                 disabled={envLocked.has("openrouterApiKey")}
-                placeholder={envLocked.has("openrouterApiKey") ? lockedPlaceholder : status?.hasOpenrouterKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-or-…  (openrouter.ai/keys)"}
+                placeholder={envLocked.has("openrouterApiKey") ? lockedPh(!!status?.hasOpenrouterKey, "OPENROUTER_API_KEY") : status?.hasOpenrouterKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-or-…  (openrouter.ai/keys)"}
                 className="settings-input"
               />
             </Field>
@@ -248,7 +265,7 @@ export function SettingsModal() {
                 value={openaiApiKey}
                 onChange={(e) => setOpenaiKey(e.target.value)}
                 disabled={envLocked.has("openaiApiKey")}
-                placeholder={envLocked.has("openaiApiKey") ? lockedPlaceholder : status?.hasOpenaiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-…  (platform.openai.com/api-keys)"}
+                placeholder={envLocked.has("openaiApiKey") ? lockedPh(!!status?.hasOpenaiKey, "OPENAI_API_KEY") : status?.hasOpenaiKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-…  (platform.openai.com/api-keys)"}
                 className="settings-input"
               />
             </Field>
@@ -259,7 +276,7 @@ export function SettingsModal() {
                 value={anthropicApiKey}
                 onChange={(e) => setAnthropicKey(e.target.value)}
                 disabled={envLocked.has("anthropicApiKey")}
-                placeholder={envLocked.has("anthropicApiKey") ? lockedPlaceholder : status?.hasAnthropicKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-ant-…"}
+                placeholder={envLocked.has("anthropicApiKey") ? lockedPh(!!status?.hasAnthropicKey, "ANTHROPIC_API_KEY") : status?.hasAnthropicKey ? "•••••••• (impostata — lascia vuoto per tenerla)" : "sk-ant-…"}
                 className="settings-input"
               />
             </Field>
@@ -271,7 +288,7 @@ export function SettingsModal() {
               value={githubToken}
               onChange={(e) => setGithubToken(e.target.value)}
               disabled={envLocked.has("githubToken")}
-              placeholder={envLocked.has("githubToken") ? lockedPlaceholder : status?.hasGithubToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "github_pat_…"}
+              placeholder={envLocked.has("githubToken") ? lockedPh(!!status?.hasGithubToken, "GITHUB_TOKEN") : status?.hasGithubToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "github_pat_…"}
               className="settings-input"
             />
           </Field>
@@ -321,7 +338,7 @@ export function SettingsModal() {
                   value={notionToken}
                   onChange={(e) => setNotionToken(e.target.value)}
                   disabled={envLocked.has("notionToken")}
-                  placeholder={envLocked.has("notionToken") ? lockedPlaceholder : status?.hasNotionToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "ntn_… / secret_…"}
+                  placeholder={envLocked.has("notionToken") ? lockedPh(!!status?.hasNotionToken, "NOTION_TOKEN") : status?.hasNotionToken ? "•••••••• (impostato — lascia vuoto per tenerlo)" : "ntn_… / secret_…"}
                   className="settings-input"
                 />
               </Field>

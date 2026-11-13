@@ -26,6 +26,6 @@ export async function provision(): Promise<{ agentId: string; environmentId: str
     tools: [{ type: "agent_toolset_20260401" }],
   });
 
-  setProvision({ agentId: agent.id, environmentId: env.id });
+  await setProvision({ agentId: agent.id, environmentId: env.id });
   return { agentId: agent.id, environmentId: env.id };
 }
