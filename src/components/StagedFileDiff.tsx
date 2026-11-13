@@ -6,19 +6,20 @@ import { cn } from "../lib/utils";
 
 const MAX_LINES = 400; // cap rendered diff size
 
-/** One staged file as a real before/after diff against the repo's current content. */
-export function StagedFileDiff({ file }: { file: PendingFile }) {
+/** One staged file as a real before/after diff against the repo's current content.
+ *  `agentId` fa leggere il "prima" dalla repo del task di quell'agente. */
+export function StagedFileDiff({ file, agentId }: { file: PendingFile; agentId?: string }) {
   const [ops, setOps] = useState<DiffOp[] | null>(null);
 
   useEffect(() => {
     let alive = true;
-    void fetchFile(file.path).then(({ content }) => {
+    void fetchFile(file.path, undefined, agentId).then(({ content }) => {
       if (alive) setOps(lineDiff(content, file.content));
     });
     return () => {
       alive = false;
     };
-  }, [file.path, file.content]);
+  }, [file.path, file.content, agentId]);
 
   const stat = ops ? diffStat(ops) : null;
 

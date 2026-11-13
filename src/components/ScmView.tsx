@@ -132,7 +132,7 @@ function PendingCard({ agent }: { agent: Agent }) {
       {/* diff list */}
       <div className="max-h-52 space-y-1 overflow-y-auto p-2">
         {agent.pendingFiles!.map((f, i) => (
-          <StagedFileDiff key={i} file={f} />
+          <StagedFileDiff key={i} file={f} agentId={agent.id} />
         ))}
       </div>
 

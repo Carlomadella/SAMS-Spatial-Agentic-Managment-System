@@ -11,6 +11,8 @@ import {
   createInvite,
   createToken,
   createUser,
+  deleteGithubLink,
+  getGithubLink,
   getMemory,
   getSessionUser,
   getToken,
@@ -30,7 +32,9 @@ import {
   pruneAuthSessions,
   pruneWorldTombstones,
   recentTasks,
+  saveGithubLink,
   saveSettingRows,
+  setGithubRepo,
   saveWorldAgents,
   setMemory,
   setUserRole,
@@ -52,7 +56,7 @@ import type { WorldAgentSnapshot } from "./worldState";
  */
 const TABLES = [
   "task_log", "agent_memory", "routines", "world_snapshot", "world_agents", "chat_messages",
-  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings",
+  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings", "github_links",
 ];
 
 // L'URL di test può stare in server/.env (così la password non finisce sulla riga di comando).
@@ -223,6 +227,20 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     expect(rows.model).toBe('"b"');
     expect(rows.openPRs).toBeUndefined();
     expect(JSON.parse(rows.githubRepo)).toHaveLength(502);
+  });
+
+  it("github_links: collega, sceglie la repo, ricollega e scollega", async () => {
+    await saveGithubLink(db, "u1", "mario", "v1:" + "x".repeat(300), 1);
+    expect(await setGithubRepo(db, "u1", "mario/app", "dev", 2)).toBe(true);
+    await saveGithubLink(db, "u1", "MARIO", "v1:nuovo", 3);
+    expect(await getGithubLink(db, "u1")).toEqual({
+      userId: "u1", login: "MARIO", tokenEnc: "v1:nuovo", repo: "mario/app", baseBranch: "dev", updatedAt: 3,
+    });
+    await saveGithubLink(db, "u1", "luigi", "v1:altro", 4);
+    expect(await getGithubLink(db, "u1")).toMatchObject({ login: "luigi", repo: "", baseBranch: "" });
+    expect(await setGithubRepo(db, "nessuno", "a/b", "main")).toBe(false);
+    await deleteGithubLink(db, "u1");
+    expect(await getGithubLink(db, "u1")).toBeNull();
   });
 
   it("migrare due volte è innocuo", async () => {

@@ -132,9 +132,9 @@ export interface TaskHistoryRow {
 }
 
 /** Current repo content of a file (the "before" of a staged diff); "" if new/unreachable. */
-export async function fetchFile(path: string, ref?: string): Promise<{ content: string; exists: boolean }> {
+export async function fetchFile(path: string, ref?: string, agentId?: string): Promise<{ content: string; exists: boolean }> {
   try {
-    const q = new URLSearchParams({ path, ...(ref ? { ref } : {}) });
+    const q = new URLSearchParams({ path, ...(ref ? { ref } : {}), ...(agentId ? { agentId } : {}) });
     const res = await fetch(`${BASE}/api/file?${q.toString()}`, { headers: authHeaders(false) });
     if (!res.ok) return { content: "", exists: false };
     return (await res.json()) as { content: string; exists: boolean };
@@ -970,6 +970,8 @@ export interface RepoTreeResponse {
   entries: { path: string; type: "blob" | "tree" }[];
   truncated: boolean;
   connected: boolean;
+  /** Con "Accedi con GitHub" attivo: cosa manca all'utente (collegare GitHub o scegliere la repo). */
+  needsGithub?: string;
 }
 
 /** L'albero dei file del repo di lavoro per la sidebar. `null` se irraggiungibile. */
@@ -1123,4 +1125,69 @@ export function connectBackend(): () => void {
     source = null;
     useStore.getState().setBackendOnline(false);
   };
+}
+
+// --- GitHub dell'utente ("Accedi con GitHub") ---------------------------------
+
+/** Evento di finestra lanciato quando l'utente collega/scollega GitHub o cambia repo. */
+export const GITHUB_CHANGED_EVENT = "sams:github-changed";
+
+export interface GithubAccountStatus {
+  /** Il server ha la OAuth App configurata. */
+  enabled: boolean;
+  /** Chi guarda ha fatto l'accesso a SAMS. */
+  signedIn: boolean;
+  connected: boolean;
+  login: string;
+  repo: string;
+  baseBranch: string;
+}
+
+export interface GithubRepoOption {
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+  canPush: boolean;
+}
+
+/** Stato del collegamento GitHub di chi guarda. `null` se il runtime non risponde. */
+export async function fetchGithubAccount(): Promise<GithubAccountStatus | null> {
+  try {
+    const res = await fetch(`${BASE}/api/github/me`, { headers: authHeaders(false) });
+    if (!res.ok) return null;
+    return (await res.json()) as GithubAccountStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** Indirizzo di GitHub dove autorizzare SAMS. */
+export async function startGithubConnect(): Promise<string> {
+  const res = await fetch(`${BASE}/api/github/connect`, { method: "POST", headers: authHeaders(false) });
+  if (!res.ok) throw new Error(await errorOf(res, `HTTP ${res.status}`));
+  return ((await res.json()) as { url: string }).url;
+}
+
+/** Le repo GitHub dell'utente collegato. */
+export async function fetchGithubRepos(): Promise<GithubRepoOption[]> {
+  const res = await fetch(`${BASE}/api/github/repos`, { headers: authHeaders(false) });
+  if (!res.ok) throw new Error(await errorOf(res, `HTTP ${res.status}`));
+  return ((await res.json()) as { repos: GithubRepoOption[] }).repos;
+}
+
+/** Sceglie la repo di lavoro (e, se dato, il branch base). */
+export async function chooseGithubRepo(repo: string, baseBranch?: string): Promise<{ repo: string; baseBranch: string }> {
+  const res = await fetch(`${BASE}/api/github/repo`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ repo, ...(baseBranch ? { baseBranch } : {}) }),
+  });
+  if (!res.ok) throw new Error(await errorOf(res, `HTTP ${res.status}`));
+  return (await res.json()) as { repo: string; baseBranch: string };
+}
+
+/** Scollega GitHub. */
+export async function disconnectGithub(): Promise<void> {
+  const res = await fetch(`${BASE}/api/github/disconnect`, { method: "POST", headers: authHeaders(false) });
+  if (!res.ok) throw new Error(await errorOf(res, `HTTP ${res.status}`));
 }

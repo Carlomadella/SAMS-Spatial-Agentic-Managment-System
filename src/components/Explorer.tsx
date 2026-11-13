@@ -18,7 +18,7 @@ import {
 import { useStore } from "../store/useStore";
 import { WORKFLOW_DEFS } from "../data/seed";
 import { AGENT_HEX, type Agent, type FileNode, type WorkflowDef } from "../types";
-import { assignRemote, backendEnabled, fetchRepoTree } from "../lib/backend";
+import { assignRemote, backendEnabled, fetchRepoTree, GITHUB_CHANGED_EVENT } from "../lib/backend";
 import { buildFileTree } from "../lib/fileTree";
 import { metaRepo } from "../lib/metaAgent";
 import { cn } from "../lib/utils";
@@ -439,6 +439,7 @@ function FilesSection() {
   const [branch, setBranch] = useState("");
   const [truncated, setTruncated] = useState(false);
   const [status, setStatus] = useState<"loading" | "ready" | "disconnected" | "error">("loading");
+  const [needsGithub, setNeedsGithub] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const openRepoFile = useStore((s) => s.openRepoFile);
@@ -446,13 +447,23 @@ function FilesSection() {
   const activePath = useStore((s) => s.openedFilePath);
 
   // I file veri del repo di lavoro (via GitHub), non più un albero finto.
+  // Si ricarica quando l'utente collega GitHub o cambia repo nelle impostazioni.
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    const onChange = () => setReloadKey((k) => k + 1);
+    window.addEventListener(GITHUB_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(GITHUB_CHANGED_EVENT, onChange);
+  }, []);
+
   useEffect(() => {
     let alive = true;
+    setStatus("loading");
     fetchRepoTree().then((res) => {
       if (!alive) return;
       if (!res) return setStatus("error");
       setBranch(res.branch);
       setRepoBranch(res.branch); // il visualizzatore legge i file su questo branch
+      setNeedsGithub(res.needsGithub ?? "");
       if (!res.connected) return setStatus("disconnected");
       setTree(buildFileTree(res.entries));
       setTruncated(res.truncated);
@@ -461,7 +472,7 @@ function FilesSection() {
     return () => {
       alive = false;
     };
-  }, [setRepoBranch]);
+  }, [setRepoBranch, reloadKey]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -486,7 +497,7 @@ function FilesSection() {
         {status === "loading" && <p className="px-2 py-1 text-[11px] text-mut">Carico i file dal repo…</p>}
         {status === "disconnected" && (
           <p className="px-2 py-1 text-[11px] leading-relaxed text-mut">
-            Collega un repo GitHub nelle impostazioni per vedere i file del workspace.
+            {needsGithub || "Collega un repo GitHub nelle impostazioni per vedere i file del workspace."}
           </p>
         )}
         {status === "error" && <p className="px-2 py-1 text-[11px] text-mut">Repo non raggiungibile.</p>}

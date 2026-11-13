@@ -9,7 +9,8 @@ import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
 import { runOpenaiTask } from "./openai";
-import { addIssueLabel, createBranch, createPullRequest, getRepoTree, listIssues, readFile, removeIssueLabel, runWithRepo, writeFilesAtomic } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, readFile, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
+import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, OAuthStates, revokeToken } from "./githubAccounts";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { checkWebhookAuth, parseGithubEvent, parsePushWatering } from "./webhook";
@@ -19,9 +20,9 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
-import { createMailer, inviteLink, mailerCanDeliver, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
+import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
 import { isFreshWrite, sanitizeWorldAgents, summarizeWorld } from "./worldState";
@@ -235,6 +236,145 @@ function broadcastDriver(): void {
   const d = currentDriver(Date.now());
   writeToClients(`data: ${JSON.stringify({ agentId: "driver", agentName: "driver", driver: d })}\n\n`);
 }
+
+// --- GitHub di ogni utente ("Accedi con GitHub") ---------------------------
+// Con la OAuth App configurata (vedi githubAccounts.ts) ogni account collega il proprio
+// GitHub e sceglie una sua repo: i task che assegna lavorano lì, con il suo token. Senza
+// OAuth App (sviluppo locale, script con token statici) valgono token e repo del server.
+
+const oauthStates = new OAuthStates();
+const publicBase = (): string => normalizeBaseUrl(process.env.SAMS_PUBLIC_URL);
+
+type UserGithub =
+  | { kind: "server" }
+  | { kind: "missing"; error: string }
+  | { kind: "user"; ctx: GithubContext; login: string };
+
+/** L'utente con sessione valida dietro la richiesta, o null. */
+async function sessionUser(req: Request): Promise<User | null> {
+  const provided = bearerToken(req.headers.authorization);
+  return provided ? getSessionUser(db(), provided) : null;
+}
+
+/**
+ * Su quale GitHub lavora chi fa la richiesta:
+ * - `server`: collegamento spento, o richiesta senza account (token statici) → impostazioni del server;
+ * - `missing`: collegamento attivo ma l'utente non ha ancora collegato GitHub o scelto la repo;
+ * - `user`: repo, token e branch base dell'utente.
+ */
+async function userGithub(req: Request): Promise<UserGithub> {
+  const cfg = githubOAuthConfig();
+  if (!cfg) return { kind: "server" };
+  const user = await sessionUser(req);
+  if (!user) return { kind: "server" };
+  const link = await getGithubLink(db(), user.id);
+  if (!link) return { kind: "missing", error: "Collega il tuo account GitHub in ⚙ Impostazioni per far lavorare gli agenti sulle tue repo." };
+  const token = decryptToken(link.tokenEnc, cfg.secretKey);
+  if (!token) return { kind: "missing", error: "Il collegamento a GitHub non è più valido: ricollegalo in ⚙ Impostazioni." };
+  if (!link.repo) return { kind: "missing", error: "Scegli in ⚙ Impostazioni la repo GitHub su cui far lavorare gli agenti." };
+  return { kind: "user", login: link.login, ctx: { repo: link.repo, token, baseBranch: link.baseBranch || "main" } };
+}
+
+/** Il token GitHub (in chiaro) dell'utente collegato, o null. */
+async function linkedToken(req: Request): Promise<{ user: User; token: string } | null> {
+  const cfg = githubOAuthConfig();
+  const user = cfg ? await sessionUser(req) : null;
+  const link = cfg && user ? await getGithubLink(db(), user.id) : null;
+  const token = cfg && link ? decryptToken(link.tokenEnc, cfg.secretKey) : null;
+  return user && token ? { user, token } : null;
+}
+
+/** Stato del collegamento GitHub di chi chiama (mai il token). */
+app.get("/api/github/me", async (req: Request, res: Response) => {
+  const cfg = githubOAuthConfig();
+  const user = await sessionUser(req);
+  const off = { enabled: Boolean(cfg), signedIn: Boolean(user), connected: false, login: "", repo: "", baseBranch: "" };
+  if (!cfg || !user) { res.json(off); return; }
+  const link = await getGithubLink(db(), user.id);
+  if (!link || decryptToken(link.tokenEnc, cfg.secretKey) === null) { res.json(off); return; }
+  res.json({ ...off, connected: true, login: link.login, repo: link.repo, baseBranch: link.baseBranch });
+});
+
+/** Avvia il collegamento: restituisce l'indirizzo di GitHub dove autorizzare SAMS. */
+app.post("/api/github/connect", async (req: Request, res: Response) => {
+  const cfg = githubOAuthConfig();
+  if (!cfg) { res.status(503).json({ error: "Il collegamento a GitHub non è configurato su questo server." }); return; }
+  const user = await sessionUser(req);
+  if (!user) { res.status(401).json({ error: "Accedi al tuo account SAMS per collegare GitHub." }); return; }
+  const state = oauthStates.create(user.id);
+  res.json({ url: authorizeUrl(cfg.clientId, callbackUrl(publicBase()), state) });
+});
+
+/** Ritorno da GitHub: salva il token (cifrato) e torna alla workspace. */
+app.get("/api/github/callback", async (req: Request, res: Response) => {
+  const back = (outcome: string) => res.redirect(`${publicBase()}/app?github=${outcome}`);
+  const cfg = githubOAuthConfig();
+  const state = typeof req.query.state === "string" ? req.query.state : "";
+  const code = typeof req.query.code === "string" ? req.query.code : "";
+  const userId = state ? oauthStates.consume(state) : null;
+  if (!cfg || !userId || !code) { back(req.query.error === "access_denied" ? "denied" : "error"); return; }
+  try {
+    const token = await exchangeCode(cfg, code, callbackUrl(publicBase()));
+    const login = await fetchLogin(token);
+    await saveGithubLink(db(), userId, login, encryptToken(token, cfg.secretKey));
+    log.info("GitHub collegato", { userId, login });
+    back("connected");
+  } catch (err) {
+    log.warn("Collegamento GitHub fallito", { err: String(err) });
+    back("error");
+  }
+});
+
+/** Le repo GitHub dell'utente collegato, per scegliere quella di lavoro. */
+app.get("/api/github/repos", async (req: Request, res: Response) => {
+  const linked = await linkedToken(req);
+  if (!linked) { res.status(409).json({ error: "Collega prima il tuo account GitHub." }); return; }
+  try {
+    res.json({ repos: await listUserRepos(linked.token) });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/** Sceglie la repo (owner/repo) e il branch base. Verifica che il token ci possa scrivere. */
+app.post("/api/github/repo", async (req: Request, res: Response) => {
+  const linked = await linkedToken(req);
+  if (!linked) { res.status(409).json({ error: "Collega prima il tuo account GitHub." }); return; }
+  const body = (req.body ?? {}) as { repo?: unknown; baseBranch?: unknown };
+  const repo = typeof body.repo === "string" ? body.repo.trim() : "";
+  if (!isValidRepoName(repo)) { res.status(400).json({ error: "Repo non valida: usa il formato owner/repo." }); return; }
+  const wanted = typeof body.baseBranch === "string" ? body.baseBranch.trim() : "";
+  if (wanted && !isValidBranchName(wanted)) { res.status(400).json({ error: "Nome del branch base non valido." }); return; }
+  let info;
+  try {
+    info = await fetchUserRepo(linked.token, repo);
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) {
+      res.status(404).json({ error: `Il tuo account GitHub non vede la repo ${repo}.` });
+      return;
+    }
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    return;
+  }
+  if (!info) { res.status(404).json({ error: `Il tuo account GitHub non vede la repo ${repo}.` }); return; }
+  if (!info.canPush) { res.status(403).json({ error: `Non hai i permessi di scrittura su ${repo}: gli agenti non potrebbero creare branch e PR.` }); return; }
+  const baseBranch = wanted || info.defaultBranch;
+  await setGithubRepo(db(), linked.user.id, info.fullName, baseBranch);
+  res.json({ ok: true, repo: info.fullName, baseBranch });
+});
+
+/** Scollega GitHub: cancella il token salvato e lo revoca su GitHub. */
+app.post("/api/github/disconnect", async (req: Request, res: Response) => {
+  const user = await sessionUser(req);
+  if (!user) { res.status(401).json({ error: "Accedi al tuo account SAMS." }); return; }
+  const linked = await linkedToken(req);
+  await deleteGithubLink(db(), user.id);
+  const cfg = githubOAuthConfig();
+  if (cfg && linked) {
+    revokeToken(cfg, linked.token).catch((err: unknown) => log.warn("Revoca token GitHub non riuscita", { err: String(err) }));
+  }
+  res.json({ ok: true });
+});
 
 app.get("/api/health", async (_req: Request, res: Response) => {
   res.json({ ok: true, ...publicStatus() });
@@ -738,13 +878,25 @@ app.get("/api/public", async (req: Request, res: Response) => {
  */
 app.get("/api/file", requireRole("viewer"), async (req: Request, res: Response) => {
   const filePath = String(req.query.path ?? "");
-  const ref = String(req.query.ref ?? getSettings().baseBranch);
   if (!filePath) {
     res.status(400).json({ error: "path richiesto" });
     return;
   }
+  // Il diff di un task in attesa si legge dalla repo di quel task (anche se a guardarlo
+  // è un altro utente); altrimenti dalla repo di chi chiama.
+  const agentId = typeof req.query.agentId === "string" ? req.query.agentId : "";
+  const pendingCtx = agentId ? getPending(agentId)?.github : undefined;
+  let ctx: Partial<GithubContext> = {};
+  if (pendingCtx) {
+    ctx = pendingCtx;
+  } else {
+    const ug = await userGithub(req);
+    if (ug.kind === "missing") { res.json({ content: "", exists: false }); return; }
+    if (ug.kind === "user") ctx = ug.ctx;
+  }
   try {
-    res.json({ content: await readFile(filePath, ref), exists: true });
+    const content = await runWithGithub(ctx, () => readFile(filePath, String(req.query.ref ?? githubContext().baseBranch)));
+    res.json({ content, exists: true });
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
       res.json({ content: "", exists: false }); // new file → no "before"
@@ -756,15 +908,21 @@ app.get("/api/file", requireRole("viewer"), async (req: Request, res: Response) 
 
 /** L'albero dei file del repo di lavoro, per la sidebar "Esplora risorse". Senza
  *  token GitHub risponde `connected:false` (la UI mostra un invito a collegarlo). */
-app.get("/api/repo/tree", requireRole("viewer"), async (_req: Request, res: Response) => {
-  const s = getSettings();
-  if (!s.githubToken) {
-    res.json({ repo: s.githubRepo, branch: s.baseBranch, entries: [], truncated: false, connected: false });
+app.get("/api/repo/tree", requireRole("viewer"), async (req: Request, res: Response) => {
+  const ug = await userGithub(req);
+  if (ug.kind === "missing") {
+    res.json({ repo: "", branch: "", entries: [], truncated: false, connected: false, needsGithub: ug.error });
+    return;
+  }
+  const ctx: Partial<GithubContext> = ug.kind === "user" ? ug.ctx : {};
+  const g = runWithGithub(ctx, githubContext);
+  if (!g.token) {
+    res.json({ repo: g.repo, branch: g.baseBranch, entries: [], truncated: false, connected: false });
     return;
   }
   try {
-    const { entries, truncated, branch } = await getRepoTree(s.baseBranch);
-    res.json({ repo: s.githubRepo, branch, entries, truncated, connected: true });
+    const { entries, truncated, branch } = await runWithGithub(ctx, () => getRepoTree(g.baseBranch));
+    res.json({ repo: g.repo, branch, entries, truncated, connected: true });
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : String(err), entries: [], connected: false });
   }
@@ -975,6 +1133,14 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // Con "Accedi con GitHub" attivo il task lavora sul GitHub di chi lo assegna: se non
+  // l'ha ancora collegato (o non ha scelto la repo) glielo si dice subito.
+  const ug = await userGithub(req);
+  if (ug.kind === "missing") {
+    res.status(409).json({ error: ug.error, needsGithub: true });
+    return;
+  }
+
   const now = Date.now();
   const prev = lastAssign.get(body.agentId) ?? 0;
   const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
@@ -1010,7 +1176,8 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // global repository. Invalid overrides are ignored (fall back to global).
   const repo = typeof body.repo === "string" && /^[\w.-]+\/[\w.-]+$/.test(body.repo) ? body.repo : null;
   const start = () => runner(body, broadcast);
-  const work = repo ? runWithRepo(repo, start) : start();
+  const inRepo = () => (repo ? runWithRepo(repo, start) : start());
+  const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
   work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
     broadcast({
@@ -1052,27 +1219,32 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
 
   const s = getSettings();
   const agentName = work.agentName;
-  try {
-    await createBranch(work.branch, s.baseBranch);
-    broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
-    // Atomic commit: all staged files in a single tree+commit (no partial-commit risk)
-    const commitMsg = work.files.length === 1
-      ? work.files[0].message
-      : `SAMS(${agentName}): ${work.title} — ${work.files.length} file`;
-    await writeFilesAtomic(work.files.map((f) => ({ path: f.path, content: f.content })), work.branch, commitMsg);
-    broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}` });
-    if (s.openPRs) {
-      const pr = await createPullRequest({
-        branch: work.branch,
-        title: work.title,
-        body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${work.title}\n\n_Branch \`${work.branch}\` → \`${s.baseBranch}\`._`,
-      });
-      broadcast({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
+  // Si committa sulla repo del task, con il token di chi l'ha assegnato (salvati quando
+  // i file sono stati messi in attesa), non sulla repo del server.
+  await runWithGithub(work.github ?? {}, async () => {
+    const baseBranch = githubContext().baseBranch;
+    try {
+      await createBranch(work.branch, baseBranch);
+      broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
+      // Atomic commit: all staged files in a single tree+commit (no partial-commit risk)
+      const commitMsg = work.files.length === 1
+        ? work.files[0].message
+        : `SAMS(${agentName}): ${work.title} — ${work.files.length} file`;
+      await writeFilesAtomic(work.files.map((f) => ({ path: f.path, content: f.content })), work.branch, commitMsg);
+      broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}` });
+      if (s.openPRs) {
+        const pr = await createPullRequest({
+          branch: work.branch,
+          title: work.title,
+          body: `Automated by SAMS agent **${agentName}**.\n\n**Task:** ${work.title}\n\n_Branch \`${work.branch}\` → \`${baseBranch}\`._`,
+        });
+        broadcast({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
+      }
+      broadcast({ agentId, agentName, status: "review", progress: 100, level: "SUCCESS", message: "Lavoro completato" });
+    } catch (err) {
+      broadcast({ agentId, agentName, status: "blocked", level: "ERROR", message: `Commit fallito: ${(err as Error).message}` });
     }
-    broadcast({ agentId, agentName, status: "review", progress: 100, level: "SUCCESS", message: "Lavoro completato" });
-  } catch (err) {
-    broadcast({ agentId, agentName, status: "blocked", level: "ERROR", message: `Commit fallito: ${(err as Error).message}` });
-  }
+  });
 });
 
 /** Reject staged files: discard buffer, agent returns to idle. */

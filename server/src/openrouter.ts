@@ -1,4 +1,5 @@
 import { getSettings } from "./config";
+import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
@@ -160,7 +161,7 @@ export async function openrouterChat(
 
 /** Self-hosted agent loop using OpenRouter (free ":free" models, OpenAI-compatible API). */
 export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
-  const s = getSettings();
+  const s = effectiveSettings();
   const agentId = body.agentId;
   const agentName = body.agentName || body.agentId;
   const title = body.title;

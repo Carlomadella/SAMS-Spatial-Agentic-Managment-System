@@ -10,6 +10,21 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-13 (b) — Il GitHub di ogni utente 🐙
+
+- **Added** — **Accedi con GitHub**: ogni account collega il proprio GitHub (GitHub OAuth App) da ⚙ → *Il tuo
+  GitHub* e sceglie una delle sue repo. I task che assegna lavorano lì, con il suo token; l'approvazione committa
+  sulla repo del task anche se approva un altro. Il token è salvato **cifrato** (AES-256-GCM, `SAMS_SECRET_KEY`)
+  nella nuova tabella `github_links` e viene revocato quando si scollega. Nuove variabili `GITHUB_CLIENT_ID`,
+  `GITHUB_CLIENT_SECRET`, `SAMS_SECRET_KEY`.
+- **Changed** — Con la OAuth App attiva, chi non ha collegato GitHub (o non ha scelto la repo) riceve un avviso
+  invece di lavorare sulla repo del server. `GITHUB_TOKEN`/`GITHUB_REPO` restano come ripiego per script e lavori
+  lato server.
+- **Changed** — Il sito in locale gira sulla porta **5180** (fissa: se è occupata Vite si ferma invece di
+  spostarsi). Così una scheda di un altro progetto rimasta aperta su 5173 non chiama più SAMS.
+- **Fixed** — In produzione three.js non stampa più gli avvisi innocui del compilatore degli shader di Windows
+  (`warning X4000`).
+
 ### 2026-11-13 — Render sul piano gratuito ☁️
 
 - **Changed** — `render.yaml` passa al piano **free**: niente disco, `SAMS_EPHEMERAL_DISK=1`, dati e scelte di ⚙

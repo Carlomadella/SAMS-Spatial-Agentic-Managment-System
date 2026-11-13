@@ -1,6 +1,5 @@
 import { getClient } from "./anthropic";
-import { getSettings } from "./config";
-import { createPullRequest } from "./github";
+import { createPullRequest, effectiveSettings } from "./github";
 import { appendTaskLog, notionConfigured } from "./notion";
 import { makeBranch, truncate } from "./agentTools";
 import { logTask } from "./db";
@@ -11,7 +10,7 @@ import type { AssignBody, WireEvent } from "./types";
  * agent's progress back through `emit`, then open a pull request.
  */
 export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
-  const s = getSettings();
+  const s = effectiveSettings();
   const client = getClient();
 
   const agentId = body.agentId;
