@@ -10,7 +10,7 @@ import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
 import { runOpenaiTask } from "./openai";
 import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, readFile, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
-import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, OAuthStates, revokeToken } from "./githubAccounts";
+import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, oauthCookie, OAuthStates, readOauthCookie, revokeToken } from "./githubAccounts";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { checkWebhookAuth, parseGithubEvent, parsePushWatering } from "./webhook";
@@ -301,7 +301,8 @@ app.post("/api/github/connect", async (req: Request, res: Response) => {
   if (!cfg) { res.status(503).json({ error: "Il collegamento a GitHub non è configurato su questo server." }); return; }
   const user = await sessionUser(req);
   if (!user) { res.status(401).json({ error: "Accedi al tuo account SAMS per collegare GitHub." }); return; }
-  const state = oauthStates.create(user.id);
+  const { state, nonce } = oauthStates.create(user.id);
+  res.setHeader("Set-Cookie", oauthCookie(nonce, publicBase().startsWith("https://")));
   res.json({ url: authorizeUrl(cfg.clientId, callbackUrl(publicBase()), state) });
 });
 
@@ -311,7 +312,10 @@ app.get("/api/github/callback", async (req: Request, res: Response) => {
   const cfg = githubOAuthConfig();
   const state = typeof req.query.state === "string" ? req.query.state : "";
   const code = typeof req.query.code === "string" ? req.query.code : "";
-  const userId = state ? oauthStates.consume(state) : null;
+  // Vale solo dal browser che ha avviato il giro (cookie col nonce); poi il cookie si cancella.
+  const nonce = readOauthCookie(req.headers.cookie);
+  res.setHeader("Set-Cookie", oauthCookie("", publicBase().startsWith("https://"), 0));
+  const userId = state && nonce ? oauthStates.consume(state, nonce) : null;
   if (!cfg || !userId || !code) { back(req.query.error === "access_denied" ? "denied" : "error"); return; }
   try {
     const token = await exchangeCode(cfg, code, callbackUrl(publicBase()));
@@ -882,20 +886,25 @@ app.get("/api/file", requireRole("viewer"), async (req: Request, res: Response) 
     res.status(400).json({ error: "path richiesto" });
     return;
   }
-  // Il diff di un task in attesa si legge dalla repo di quel task (anche se a guardarlo
-  // è un altro utente); altrimenti dalla repo di chi chiama.
+  // Il "prima" del diff di un task in attesa si legge dalla repo di quel task, col token di
+  // chi l'ha assegnato, così chi approva vede il diff giusto. Solo per i file che l'agente
+  // sta per cambiare e solo sul branch base del task: chi vede la workspace riceve già il
+  // loro contenuto nuovo, ma non deve poter leggere nient'altro di quella repo.
   const agentId = typeof req.query.agentId === "string" ? req.query.agentId : "";
-  const pendingCtx = agentId ? getPending(agentId)?.github : undefined;
+  const pending = agentId ? getPending(agentId) : undefined;
+  const staged = pending?.github && pending.files.some((f) => f.path === filePath) ? pending.github : undefined;
   let ctx: Partial<GithubContext> = {};
-  if (pendingCtx) {
-    ctx = pendingCtx;
+  let ref = typeof req.query.ref === "string" ? req.query.ref : "";
+  if (staged) {
+    ctx = staged;
+    ref = staged.baseBranch;
   } else {
     const ug = await userGithub(req);
     if (ug.kind === "missing") { res.json({ content: "", exists: false }); return; }
     if (ug.kind === "user") ctx = ug.ctx;
   }
   try {
-    const content = await runWithGithub(ctx, () => readFile(filePath, String(req.query.ref ?? githubContext().baseBranch)));
+    const content = await runWithGithub(ctx, () => readFile(filePath, ref || githubContext().baseBranch));
     res.json({ content, exists: true });
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {

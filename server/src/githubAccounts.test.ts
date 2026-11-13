@@ -8,6 +8,8 @@ import {
   isValidBranchName,
   isValidRepoName,
   OAuthStates,
+  oauthCookie,
+  readOauthCookie,
 } from "./githubAccounts";
 
 describe("githubOAuthConfig", () => {
@@ -48,28 +50,48 @@ describe("cifratura del token", () => {
 });
 
 describe("OAuthStates", () => {
-  it("lega lo state all'utente, una volta sola", () => {
+  it("lega lo state all'utente e al browser, una volta sola", () => {
     const st = new OAuthStates();
-    const s = st.create("u1", 1000);
-    expect(st.consume(s, 2000)).toBe("u1");
-    expect(st.consume(s, 2000)).toBeNull();
+    const { state, nonce } = st.create("u1", 1000);
+    expect(st.consume(state, nonce, 2000)).toBe("u1");
+    expect(st.consume(state, nonce, 2000)).toBeNull();
+  });
+  it("da un altro browser (nonce diverso o assente) non vale, e lo state si brucia", () => {
+    const st = new OAuthStates();
+    const { state, nonce } = st.create("u1", 1000);
+    expect(st.consume(state, "nonce-di-un-altro", 2000)).toBeNull();
+    expect(st.consume(state, nonce, 2000)).toBeNull();
+    const second = st.create("u1", 1000);
+    expect(st.consume(second.state, "", 2000)).toBeNull();
   });
   it("scade", () => {
     const st = new OAuthStates(100);
-    const s = st.create("u1", 1000);
-    expect(st.consume(s, 1100)).toBeNull();
+    const { state, nonce } = st.create("u1", 1000);
+    expect(st.consume(state, nonce, 1100)).toBeNull();
   });
   it("uno state inventato non vale", () => {
-    expect(new OAuthStates().consume("inventato")).toBeNull();
+    expect(new OAuthStates().consume("inventato", "x")).toBeNull();
   });
   it("rispetta il tetto togliendo il più vecchio", () => {
     const st = new OAuthStates(60_000, 2);
     const a = st.create("a", 0);
     const b = st.create("b", 0);
     const c = st.create("c", 0);
-    expect(st.consume(a, 1)).toBeNull();
-    expect(st.consume(b, 1)).toBe("b");
-    expect(st.consume(c, 1)).toBe("c");
+    expect(st.consume(a.state, a.nonce, 1)).toBeNull();
+    expect(st.consume(b.state, b.nonce, 1)).toBe("b");
+    expect(st.consume(c.state, c.nonce, 1)).toBe("c");
+  });
+});
+
+describe("cookie del giro OAuth", () => {
+  it("HttpOnly, SameSite=Lax, solo su /api/github; Secure in https", () => {
+    expect(oauthCookie("abc", true)).toBe("sams_gh_oauth=abc; Path=/api/github; HttpOnly; SameSite=Lax; Max-Age=600; Secure");
+    expect(oauthCookie("", false, 0)).toBe("sams_gh_oauth=; Path=/api/github; HttpOnly; SameSite=Lax; Max-Age=0");
+  });
+  it("si rilegge dall'header Cookie", () => {
+    expect(readOauthCookie("a=1; sams_gh_oauth=xyz; b=2")).toBe("xyz");
+    expect(readOauthCookie("a=1")).toBe("");
+    expect(readOauthCookie(undefined)).toBe("");
   });
 });
 

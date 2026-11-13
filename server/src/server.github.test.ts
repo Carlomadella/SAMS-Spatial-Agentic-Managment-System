@@ -116,6 +116,22 @@ describe("Accedi con GitHub", () => {
     expect(u.searchParams.get("client_id")).toBe("client-finto");
     expect(u.searchParams.get("redirect_uri")).toBe("https://sams.example/api/github/callback");
     expect(u.searchParams.get("state")).toMatch(/^[0-9a-f]{48}$/);
+    // il nonce va in un cookie del browser che ha avviato il giro
+    expect(res.headers.get("set-cookie") ?? "").toMatch(
+      /^sams_gh_oauth=[0-9a-f]{48}; Path=\/api\/github; HttpOnly; SameSite=Lax; Max-Age=600; Secure$/,
+    );
+  });
+
+  it("callback con uno state vero ma da un altro browser (cookie sbagliato o assente): rifiutata", async () => {
+    for (const cookie of ["sams_gh_oauth=nonce-sbagliato", ""]) {
+      const started = await call("POST", "/api/github/connect", session);
+      const state = new URL(((await started.json()) as { url: string }).url).searchParams.get("state")!;
+      const res = await fetch(`${base}/api/github/callback?code=abc&state=${state}`, {
+        redirect: "manual",
+        headers: cookie ? { Cookie: cookie } : {},
+      });
+      expect(res.headers.get("location")).toBe("https://sams.example/app?github=error");
+    }
   });
 
   it("connect senza account: 401", async () => {

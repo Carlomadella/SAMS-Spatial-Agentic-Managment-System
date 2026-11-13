@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { jsonFetch } from "./http";
 
 /**
@@ -87,32 +87,44 @@ export function decryptToken(enc: string, secretKey: string): string | null {
  * avviato: la sessione viaggia come bearer token (non come cookie), quindi la callback
  * non saprebbe altrimenti di chi è. Monouso, scade dopo 10 minuti. Vive in memoria:
  * SAMS gira come un solo processo.
+ *
+ * Lo state da solo non basta: chi lo genera potrebbe mandare il link a un'altra persona,
+ * che autorizzando collegherebbe il PROPRIO GitHub all'account di chi l'ha generato. Per
+ * questo ogni state ha anche un `nonce` che il server mette in un cookie HttpOnly del
+ * browser che ha avviato il giro: la callback vale solo se arriva da quello stesso browser.
  */
 export class OAuthStates {
-  private readonly states = new Map<string, { userId: string; expiresAt: number }>();
+  private readonly states = new Map<string, { userId: string; nonce: string; expiresAt: number }>();
 
   constructor(
     private readonly ttlMs = 10 * 60_000,
     private readonly max = 500,
   ) {}
 
-  create(userId: string, now = Date.now()): string {
+  create(userId: string, now = Date.now()): { state: string; nonce: string } {
     this.sweep(now);
     if (this.states.size >= this.max) {
       const oldest = this.states.keys().next().value;
       if (oldest !== undefined) this.states.delete(oldest);
     }
     const state = randomBytes(24).toString("hex");
-    this.states.set(state, { userId, expiresAt: now + this.ttlMs });
-    return state;
+    const nonce = randomBytes(24).toString("hex");
+    this.states.set(state, { userId, nonce, expiresAt: now + this.ttlMs });
+    return { state, nonce };
   }
 
-  /** L'utente legato a `state`, una volta sola. Null se sconosciuto o scaduto. */
-  consume(state: string, now = Date.now()): string | null {
+  /**
+   * L'utente legato a `state`, una volta sola, solo se `nonce` (dal cookie del browser) è
+   * quello emesso con lo state. Null se sconosciuto, scaduto o da un altro browser.
+   */
+  consume(state: string, nonce: string, now = Date.now()): string | null {
     const hit = this.states.get(state);
     if (!hit) return null;
     this.states.delete(state);
-    return hit.expiresAt > now ? hit.userId : null;
+    if (hit.expiresAt <= now) return null;
+    const a = Buffer.from(nonce, "utf8");
+    const b = Buffer.from(hit.nonce, "utf8");
+    return a.length === b.length && timingSafeEqual(a, b) ? hit.userId : null;
   }
 
   private sweep(now: number): void {
@@ -232,4 +244,22 @@ export async function revokeToken(cfg: GithubOAuthConfig, token: string): Promis
     },
     "GitHub",
   );
+}
+
+// --- cookie del giro OAuth --------------------------------------------------------
+
+export const OAUTH_COOKIE = "sams_gh_oauth";
+
+/** Cookie col nonce: HttpOnly, SameSite=Lax (arriva sul ritorno da github.com), solo su /api/github. */
+export function oauthCookie(nonce: string, secure: boolean, maxAgeSec = 600): string {
+  return `${OAUTH_COOKIE}=${nonce}; Path=/api/github; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? "; Secure" : ""}`;
+}
+
+/** Il valore del cookie del giro OAuth dall'header `Cookie`, o "". */
+export function readOauthCookie(header: string | undefined): string {
+  for (const part of (header ?? "").split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === OAUTH_COOKIE) return v.join("=");
+  }
+  return "";
 }
