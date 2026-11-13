@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, MailCheck } from "lucide-react";
 import { Container } from "../components/Container";
 import { Logo } from "../components/Logo";
@@ -15,8 +15,17 @@ import { useNavigate } from "../router";
  * rientro per chi è chiuso fuori, e l'avviso per chi deve ancora confermare l'indirizzo.
  */
 export function Login() {
-  const { login, register } = useAuth();
+  const { user, loading, login, register } = useAuth();
   const navigate = useNavigate();
+  // true dopo un accesso fatto da questo form: lì naviga già submit(), l'effetto sotto
+  // non deve aggiungere una seconda voce alla cronologia.
+  const signedInHere = useRef(false);
+
+  // Chi ha già una sessione non deve rivedere il form: va dritto nella stanza.
+  // replace, così "indietro" non riporta su /login.
+  useEffect(() => {
+    if (!loading && user && !signedInHere.current) navigate("/app", { replace: true });
+  }, [loading, user, navigate]);
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,11 +83,14 @@ export function Login() {
       return;
     }
     if (res.ok) {
+      signedInHere.current = true;
       navigate("/app");
       return;
     }
     setError(res.error ?? "Operazione non riuscita.");
   }
+
+  if (user && !signedInHere.current) return null;
 
   return (
     <Container className="flex min-h-[calc(100vh-4rem)] items-center justify-center py-16">
