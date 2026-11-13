@@ -13,6 +13,7 @@ import {
   createIssue,
   createPullRequest,
   currentRepo,
+  githubContext,
   getWorkflowJobs,
   listCIRuns,
   triggerWorkflow,
@@ -768,7 +769,7 @@ export async function finalizeTask(
   if (ctx.doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(ctx.doneSummary, THOUGHT_LIMIT) });
 
   if (ctx.requireApproval && ctx.stagedFiles.length > 0) {
-    setPending(agentId, { branch: ctx.branch, title: ctx.title, agentName, files: ctx.stagedFiles });
+    setPending(agentId, { branch: ctx.branch, title: ctx.title, agentName, files: ctx.stagedFiles, github: githubContext() });
     emit({
       agentId, agentName,
       status: "awaiting_approval",

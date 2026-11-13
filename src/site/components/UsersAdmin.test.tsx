@@ -84,14 +84,14 @@ describe("<UsersAdmin />", () => {
 
   it("l'owner genera un link di reset e lo vede, pronto da consegnare", async () => {
     fetchUsers.mockResolvedValue([{ email: "bea@x.co", name: "Bea", role: "viewer", createdAt: 1 }]);
-    issueUserResetLink.mockResolvedValue({ ok: true, link: "http://localhost:5173/reset?token=abc123" });
+    issueUserResetLink.mockResolvedValue({ ok: true, link: "http://localhost:5180/reset?token=abc123" });
     render(<UsersAdmin selfEmail="me@x.co" />);
     await waitFor(() => expect(screen.getByText("Bea")).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText(/Genera un link di reset per bea@x.co/));
     await waitFor(() => expect(issueUserResetLink).toHaveBeenCalledWith("bea@x.co"));
     const field = (await screen.findByLabelText("Link di reset")) as HTMLInputElement;
-    expect(field.value).toBe("http://localhost:5173/reset?token=abc123");
+    expect(field.value).toBe("http://localhost:5180/reset?token=abc123");
     expect(field.readOnly).toBe(true);
   });
 

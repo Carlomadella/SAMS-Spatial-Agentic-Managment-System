@@ -64,7 +64,20 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      # GitHub — required for code tasks (fine-grained token, Contents: read/write).
+      # "Accedi con GitHub": every user connects their own GitHub and picks one of their
+      # repos; the tasks they assign work there, with their token. Needs a GitHub OAuth
+      # App whose callback is <SAMS_PUBLIC_URL>/api/github/callback (see docs/DEPLOY.md).
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      # Encrypts the users' GitHub tokens in the database. Never change it once users have
+      # connected (they would have to connect again). Generated on Blueprint creation.
+      - key: SAMS_SECRET_KEY
+        generateValue: true
+      # Server's own GitHub — optional fallback. With the OAuth App set, it is used only by
+      # scripts with static tokens and server-side jobs (routines, sim, webhooks): users
+      # always work on their own repo. Leave GITHUB_REPO unset to keep it editable in ⚙.
       - key: GITHUB_TOKEN
         sync: false
       - key: GITHUB_REPO

@@ -353,7 +353,7 @@ npm run build
 npm --prefix server run typecheck
 npm --prefix server test      # 30 test attesi
 
-# avvio completo (web + runtime) e apertura su http://localhost:5173
+# avvio completo (web + runtime) e apertura su http://localhost:5180
 npm start
 ```
 

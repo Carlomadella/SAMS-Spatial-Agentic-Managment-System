@@ -1,10 +1,13 @@
 import type { PendingFile } from "./types";
+import type { GithubContext } from "./github";
 
 export interface PendingWork {
   branch: string;
   title: string;
   agentName: string;
   files: PendingFile[];
+  /** Repo, token e branch base del task: chi approva committa lì, non sulla repo del server. */
+  github?: GithubContext;
   createdAt: number;
 }
 

@@ -21,10 +21,10 @@ describe("normalizeBaseUrl", () => {
   });
 
   it("ricade sul default per valori vuoti o non stringa", () => {
-    expect(normalizeBaseUrl("")).toBe("http://localhost:5173");
-    expect(normalizeBaseUrl("   ")).toBe("http://localhost:5173");
-    expect(normalizeBaseUrl(undefined)).toBe("http://localhost:5173");
-    expect(normalizeBaseUrl(42)).toBe("http://localhost:5173");
+    expect(normalizeBaseUrl("")).toBe("http://localhost:5180");
+    expect(normalizeBaseUrl("   ")).toBe("http://localhost:5180");
+    expect(normalizeBaseUrl(undefined)).toBe("http://localhost:5180");
+    expect(normalizeBaseUrl(42)).toBe("http://localhost:5180");
   });
 });
 
@@ -32,7 +32,7 @@ describe("resolveMailerConfig", () => {
   it("senza configurazione → driver console (SAMS resta usabile appena scaricato)", () => {
     const c = resolveMailerConfig({});
     expect(c.driver).toBe("console");
-    expect(c.baseUrl).toBe("http://localhost:5173");
+    expect(c.baseUrl).toBe("http://localhost:5180");
     expect(c.from).toBe("SAMS <noreply@sams.local>");
   });
 

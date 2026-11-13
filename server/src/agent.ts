@@ -1,7 +1,6 @@
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
-import { getSettings } from "./config";
-import { readFile } from "./github";
+import { readFile, effectiveSettings } from "./github";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
@@ -118,7 +117,7 @@ export function composeSystem(o: {
  * never touches GitHub.
  */
 export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
-  const s = getSettings();
+  const s = effectiveSettings();
   const agentId = body.agentId;
   const agentName = body.agentName || body.agentId;
   const title = body.title;

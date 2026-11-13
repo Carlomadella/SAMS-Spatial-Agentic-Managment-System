@@ -12,6 +12,7 @@ import {
 import { cn } from "../lib/utils";
 import { withoutLocked } from "../lib/settingsPatch";
 import { isValidRepo } from "../lib/validation";
+import { GithubAccount } from "./GithubAccount";
 
 const MODELS: Record<Provider, string[]> = {
   gemini: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"],
@@ -44,6 +45,12 @@ function Chip({ ok, label }: { ok: boolean; label: string }) {
 /** I campi segreti della finestra: su disco effimero si impostano solo sul server. */
 const SECRET_UI_FIELDS = ["geminiApiKey", "anthropicApiKey", "groqApiKey", "openrouterApiKey", "openaiApiKey", "githubToken", "notionToken"];
 
+/** L'esito del ritorno da GitHub letto dall'indirizzo, o null se non si torna da lì. */
+export function githubReturnOutcome(search: string): "connected" | "denied" | "error" | null {
+  const v = new URLSearchParams(search).get("github");
+  return v === "connected" || v === "denied" || v === "error" ? v : null;
+}
+
 export function SettingsModal() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
@@ -66,6 +73,25 @@ export function SettingsModal() {
   const [notionPageId, setNotionPageId] = useState("");
   const [busy, setBusy] = useState<"" | "save" | "provision">("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  // Ritorno da GitHub dopo "Collega GitHub" (/app?github=…): si dice com'è andata, si
+  // riapre questa finestra per scegliere la repo e si pulisce l'indirizzo.
+  useEffect(() => {
+    const outcome = githubReturnOutcome(window.location.search);
+    if (!outcome) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("github");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    const { pushToast } = useStore.getState();
+    if (outcome === "connected") {
+      pushToast("SUCCESS", "GitHub collegato: ora scegli la repo su cui far lavorare gli agenti.");
+      setOpen(true);
+    } else if (outcome === "denied") {
+      pushToast("WARN", "Collegamento a GitHub annullato.");
+    } else {
+      pushToast("ERROR", "Collegamento a GitHub non riuscito: riprova da ⚙ Impostazioni.");
+    }
+  }, [setOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -202,6 +228,7 @@ export function SettingsModal() {
         </div>
 
         <div className="space-y-3 px-4 py-4">
+          <GithubAccount />
           {ephemeral && (
             <p role="note" className="rounded-md border border-line bg-ink-800 px-3 py-2 text-[11px] leading-relaxed text-mut">
               Questo server non ha un disco che sopravvive ai riavvii: le <b className="text-white">chiavi e i token</b> si

@@ -171,6 +171,17 @@ const SQLITE_SCHEMA = `
       value      TEXT    NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    -- Account GitHub collegato da ogni utente ("Accedi con GitHub"). Il token è cifrato
+    -- con SAMS_SECRET_KEY (vedi githubAccounts.ts): nel DB non c'è mai in chiaro.
+    CREATE TABLE IF NOT EXISTS github_links (
+      user_id     TEXT    PRIMARY KEY,
+      login       TEXT    NOT NULL,
+      token_enc   TEXT    NOT NULL,
+      repo        TEXT    NOT NULL DEFAULT '',
+      base_branch TEXT    NOT NULL DEFAULT '',
+      updated_at  INTEGER NOT NULL
+    );
 `;
 
 /**
@@ -314,6 +325,15 @@ const MYSQL_SCHEMA = `
       name       VARCHAR(64)  NOT NULL PRIMARY KEY,
       value      TEXT         NOT NULL,
       updated_at BIGINT       NOT NULL
+    ) ${MYSQL_TABLE_OPTS};
+
+    CREATE TABLE IF NOT EXISTS github_links (
+      user_id     VARCHAR(64)  NOT NULL PRIMARY KEY,
+      login       VARCHAR(255) NOT NULL,
+      token_enc   TEXT         NOT NULL,
+      repo        VARCHAR(255) NOT NULL DEFAULT '',
+      base_branch VARCHAR(255) NOT NULL DEFAULT '',
+      updated_at  BIGINT       NOT NULL
     ) ${MYSQL_TABLE_OPTS};
 `;
 
@@ -1088,4 +1108,75 @@ export async function logTask(e: TaskLogEntry): Promise<void> {
   } catch (err) {
     console.warn("task log write failed:", (err as Error).message);
   }
+}
+
+// --- account GitHub collegati ------------------------------------------------
+
+export interface GithubLinkRow {
+  userId: string;
+  login: string;
+  /** Token cifrato (AES-256-GCM): si decifra solo in githubAccounts.ts. */
+  tokenEnc: string;
+  repo: string;
+  baseBranch: string;
+  updatedAt: number;
+}
+
+/** Il collegamento GitHub di un utente, o null se non l'ha fatto. */
+export async function getGithubLink(db: SqlRunner, userId: string): Promise<GithubLinkRow | null> {
+  const r = await db.get(`SELECT * FROM github_links WHERE user_id = ?`, [userId]);
+  if (!r) return null;
+  return {
+    userId: String(r.user_id),
+    login: String(r.login),
+    tokenEnc: String(r.token_enc),
+    repo: String(r.repo ?? ""),
+    baseBranch: String(r.base_branch ?? ""),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+/**
+ * Salva (o rinnova) il collegamento dopo l'autorizzazione su GitHub. Se l'utente ricollega
+ * lo **stesso** account la repo scelta resta; se collega un account diverso si azzera,
+ * perché la repo di prima potrebbe non essere accessibile al nuovo token.
+ */
+export async function saveGithubLink(
+  db: SqlDriver,
+  userId: string,
+  login: string,
+  tokenEnc: string,
+  now = Date.now(),
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const prev = await getGithubLink(tx, userId);
+    const kept = prev && prev.login.toLowerCase() === login.toLowerCase() ? prev : null;
+    await tx.run(
+      `INSERT INTO github_links (user_id, login, token_enc, repo, base_branch, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+       ${onConflictUpdate(tx.dialect, ["user_id"], ["login", "token_enc", "repo", "base_branch", "updated_at"])}`,
+      [userId, login, tokenEnc, kept?.repo ?? "", kept?.baseBranch ?? "", now],
+    );
+  });
+}
+
+/** Imposta la repo (owner/repo) e il branch base scelti dall'utente. */
+export async function setGithubRepo(
+  db: SqlRunner,
+  userId: string,
+  repo: string,
+  baseBranch: string,
+  now = Date.now(),
+): Promise<boolean> {
+  const r = await db.run(`UPDATE github_links SET repo = ?, base_branch = ?, updated_at = ? WHERE user_id = ?`, [
+    repo,
+    baseBranch,
+    now,
+    userId,
+  ]);
+  return r.changes > 0;
+}
+
+/** Scollega GitHub per un utente. */
+export async function deleteGithubLink(db: SqlRunner, userId: string): Promise<void> {
+  await db.run(`DELETE FROM github_links WHERE user_id = ?`, [userId]);
 }

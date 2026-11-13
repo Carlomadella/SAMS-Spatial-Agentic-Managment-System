@@ -1,4 +1,5 @@
 import { getSettings } from "./config";
+import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
@@ -120,7 +121,7 @@ async function groqChat(
 
 /** Self-hosted agent loop using Groq (free Llama 3.3 70B, OpenAI-compatible API). */
 export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
-  const s = getSettings();
+  const s = effectiveSettings();
   const agentId = body.agentId;
   const agentName = body.agentName || body.agentId;
   const title = body.title;

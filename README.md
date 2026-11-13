@@ -40,7 +40,7 @@ cursors, selections and edits in real time, chat next to the scene, and see
 
 ```bash
 npm install
-npm run dev            # http://localhost:5173  (frontend only — everything works in a manual sandbox)
+npm run dev            # http://localhost:5180  (frontend only — everything works in a manual sandbox)
 ```
 
 Want **real** agents that open PRs, plus the shared multiplayer runtime?
@@ -50,7 +50,7 @@ npm run bootstrap      # install web + server deps (once)
 npm start              # launch the app AND the runtime together (scripts/dev-all.mjs)
 ```
 
-Then open **http://localhost:5173** — the welcome site is at `/`, the 3D workspace
+Then open **http://localhost:5180** — the welcome site is at `/`, the 3D workspace
 at `/app`. A modern browser with **WebGL** is required for the 3D scene.
 
 > No keys, no accounts? SAMS still runs as a fully-featured **manual sandbox** and
@@ -128,7 +128,7 @@ the **same room at the same time**.
 - **Event Log** — every action streams here live (color-coded per agent, INFO/SUCCESS/WARN/ERROR/IDLE), exportable to CSV.
 - **Metrics, history & world diary** — task stats, a timeline, and a narrated "diary" of what happened in the world.
 - **Replay & OG image** — replay a session; generate a shareable social preview.
-- **Public dashboard** — open `?public` (e.g. `http://localhost:5173/?public`) for a **read-only** dashboard (runtime status, task metrics, Commit Garden leaderboard) with **no** controls. Gate it with `SAMS_READONLY_TOKEN` + `&token=…`.
+- **Public dashboard** — open `?public` (e.g. `http://localhost:5180/?public`) for a **read-only** dashboard (runtime status, task metrics, Commit Garden leaderboard) with **no** controls. Gate it with `SAMS_READONLY_TOKEN` + `&token=…`.
 - **Commit Garden** — a 🌿 door in the room opens a virtual garden where every GitHub **push waters a plant** that grows (seed → sprout → … → blooming), with per-user profile pages at `/u/:user`. It's built into the runtime; with the webhook connected, pushes auto-water in real time.
 
 ### 7 · The shell & quality-of-life
@@ -146,7 +146,7 @@ the **same room at the same time**.
 
 **A. Just play (manual sandbox) — 30 seconds**
 
-1. `npm run dev` → open `http://localhost:5173/app`.
+1. `npm run dev` → open `http://localhost:5180/app`.
 2. **+ Agent** to spawn a character, click it to select, click the floor to walk it around.
 3. Open the **Agent inspector**, give it a task title, drag the progress slider. Watch the Event Log.
 

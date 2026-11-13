@@ -48,7 +48,7 @@ export interface Mailer {
   send(msg: MailMessage): Promise<void>;
 }
 
-const DEFAULT_BASE_URL = "http://localhost:5173";
+const DEFAULT_BASE_URL = "http://localhost:5180";
 const DEFAULT_FROM = "SAMS <noreply@sams.local>";
 
 /** Via lo slash finale, così `${baseUrl}/reset` non produce mai un doppio slash. */

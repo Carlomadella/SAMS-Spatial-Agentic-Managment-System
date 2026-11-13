@@ -28,7 +28,8 @@ This repo ships a [`render.yaml`](../render.yaml) Blueprint.
 3. After the first deploy, open the service's **Environment** tab and fill the
    secrets left blank: at least `OPENROUTER_API_KEY` (or the key of the provider you
    pick in `SAMS_PROVIDER`), `SAMS_PUBLIC_URL` (the service's `https://…onrender.com`
-   address, used in reset/verification links), and `GITHUB_TOKEN`/`GITHUB_REPO` for code tasks.
+   address, used in reset/verification links), and `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`
+   so every user works on their own GitHub (see [Sign in with GitHub](#sign-in-with-github)).
 4. **Open the app and register right away.** The first account becomes the owner, and
    from that moment roles are enforced (see [Roles](#roles-and-access)).
 
@@ -41,8 +42,9 @@ so:
   provisioning ids) live in an external MySQL 8. The Blueprint sets
   `SAMS_EPHEMERAL_DISK=1`, and with it the runtime **refuses to start** without
   `SAMS_DB_URL` rather than keep data on a disk that is wiped.
-- **Keys and tokens are never stored in the database**: set them as environment
-  variables (`OPENROUTER_API_KEY`, `GITHUB_TOKEN`, …). ⚙ shows a notice, the key fields
+- **The server's keys and tokens are never stored in the database**: set them as environment
+  variables (`OPENROUTER_API_KEY`, `GITHUB_TOKEN`, …). The only exception are the GitHub
+  tokens of users who connected their account, stored **encrypted** with `SAMS_SECRET_KEY`. ⚙ shows a notice, the key fields
   are read-only, and the runtime answers `409` with the name of the variable to set.
 - The service **sleeps after ~15 minutes without traffic** and takes about a minute to
   wake up; Render may also restart it at any time. **Routines run only while it is
@@ -78,8 +80,10 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_PROVIDER` | no | `gemini` (`openrouter` in the Render Blueprint) | `gemini` (free) · `groq` (free) · `openrouter` (free) · `claude` (paid) |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` | ≥1 | — | key for the chosen provider |
 | `SAMS_MODEL` | no | `gemini-2.5-flash` | model id for the provider (OpenRouter: a `:free` tool-capable id, e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`) |
-| `GITHUB_TOKEN` | for code tasks | — | fine-grained, **Contents: read & write** |
-| `GITHUB_REPO` | for code tasks | — | `owner/repo` (overridable per-agent in the UI) |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for per-user GitHub | — | GitHub OAuth App: each user connects their own GitHub and picks their repo (see [Sign in with GitHub](#sign-in-with-github)) |
+| `SAMS_SECRET_KEY` | with the OAuth App | — | long random string; encrypts the users' GitHub tokens in the database. **Never change it** once users have connected |
+| `GITHUB_TOKEN` | fallback | — | the server's own token (fine-grained, **Contents: read & write**). With the OAuth App set it is used only by static-token scripts and server-side jobs (routines, sim, webhooks) |
+| `GITHUB_REPO` | fallback | — | `owner/repo` of the server's token. Setting it locks the field in ⚙ |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
@@ -87,7 +91,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_TOKEN` | no | — | **owner** Bearer token: full access, incl. settings/secrets |
 | `SAMS_EDITOR_TOKEN` | no | — | **editor** Bearer token: starts work (assign/approve/sim/chat) but not settings |
 | `SAMS_READONLY_TOKEN` | no | — | **viewer** token: gates the public read-only dashboard (`?public&token=…`) |
-| `SAMS_PUBLIC_URL` | for emails | `http://localhost:5173` | public origin used to build password-reset / verification links |
+| `SAMS_PUBLIC_URL` | for emails | `http://localhost:5180` | public origin used to build password-reset / verification links |
 | `SAMS_MAIL_FROM` | no | `SAMS <noreply@sams.local>` | sender of the account emails |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | no | — | SMTP channel (port defaults to `587`; `465` implies TLS, or force it with `SMTP_SECURE=true`) |
 | `RESEND_API_KEY` | no | — | alternative email channel via the Resend API (ignored if `SMTP_HOST` is set) |
@@ -172,3 +176,41 @@ hands out no valid links), and using one logs out every other device on that acc
 > by the environment are **read-only in the app** (marked "dal server" in ⚙): the
 > runtime rejects in-app changes to them with `409`, so a token you think you rotated
 > from the UI can never silently come back on the next restart. Change those on the host.
+
+## Sign in with GitHub
+
+Every SAMS account can connect **its own GitHub** and choose one of its repositories:
+the tasks that person assigns work on that repo, with that person's permissions
+(branches, commits and PRs appear under their GitHub name). Nobody is tied to the
+server's repository.
+
+1. On GitHub: **Settings → Developer settings → OAuth Apps → New OAuth App**.
+   - *Application name*: `SAMS`
+   - *Homepage URL*: your public address (e.g. `https://sams-83ts.onrender.com`)
+   - *Authorization callback URL*: the same address + `/api/github/callback`
+     (e.g. `https://sams-83ts.onrender.com/api/github/callback`). It must match
+     `SAMS_PUBLIC_URL` exactly.
+2. Copy the **Client ID**, then **Generate a new client secret** and copy it.
+3. On the server set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `SAMS_SECRET_KEY`
+   (a long random string; the Render Blueprint generates it). Restart.
+4. In the app: **⚙ → Il tuo GitHub → Collega GitHub**, authorize, then pick the repo
+   and press **Usa questa repo**. SAMS checks that you can write to it.
+
+How it behaves:
+
+- The OAuth App asks for the `repo` scope (read/write and PRs, private repos included).
+- With the OAuth App configured, a signed-in user who has not connected GitHub (or not
+  chosen a repo) gets a clear `409` when assigning a task: work never falls back to the
+  server's repository.
+- Approving a staged diff commits to the repo of the task, with the token of whoever
+  assigned it, even if someone else approves.
+- **Disconnect** deletes the stored token and revokes it on GitHub.
+- Changing the public address (e.g. a custom domain) means updating the callback URL in
+  the OAuth App and `SAMS_PUBLIC_URL` together.
+
+## Custom domain
+
+Render's free plan supports custom domains with automatic HTTPS. You must own the
+domain: buy it from a registrar, then in Render **Settings → Custom Domains → Add**,
+create the DNS record Render shows at your registrar, and wait for verification. Then
+update `SAMS_PUBLIC_URL` and the OAuth App's URLs to the new address.

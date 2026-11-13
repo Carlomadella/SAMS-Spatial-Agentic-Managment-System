@@ -6,6 +6,7 @@ import { grassTexture } from "./textures";
 import { STAGE_LABEL, type GardenState, type Stage } from "../lib/garden";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
 import { forestSlots } from "../lib/forest";
+import { configureRenderer } from "./glSetup";
 
 type Vec3 = [number, number, number];
 
@@ -672,7 +673,7 @@ export function GardenScene({
   const event = useMemo(() => getSeasonalEvent(), []);
 
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7, 14], fov: 38 }} gl={{ antialias: true }}>
+    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7, 14], fov: 38 }} gl={{ antialias: true }} onCreated={({ gl }) => configureRenderer(gl)}>
       <color attach="background" args={[seasonSky.sky]} />
       <fog attach="fog" args={[seasonSky.fog, 28, 64]} />
       <Suspense fallback={null}>

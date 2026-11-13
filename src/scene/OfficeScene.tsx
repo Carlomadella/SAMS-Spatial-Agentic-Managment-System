@@ -54,6 +54,7 @@ import {
   ZONES,
 } from "../data/world";
 import type { Vec2, Zone } from "../types";
+import { configureRenderer } from "./glSetup";
 
 function Floor() {
   // Colori del guscio della stanza dal tema selezionato (persistito).
@@ -1008,6 +1009,7 @@ export function OfficeScene() {
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.06,
       }}
+      onCreated={({ gl }) => configureRenderer(gl)}
       onContextMenu={(e) => e.preventDefault()}
     >
       <color attach="background" args={["#f3ece0"]} />

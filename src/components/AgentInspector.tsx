@@ -595,7 +595,7 @@ export function AgentInspector() {
           </div>
           <div className="mb-3 max-h-52 space-y-1.5 overflow-y-auto">
             {agent.pendingFiles!.map((f, i) => (
-              <StagedFileDiff key={i} file={f} />
+              <StagedFileDiff key={i} file={f} agentId={agent.id} />
             ))}
           </div>
           <div className="flex gap-2">

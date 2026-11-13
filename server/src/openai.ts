@@ -1,4 +1,5 @@
 import { getSettings } from "./config";
+import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
@@ -126,7 +127,7 @@ async function openaiChat(
 
 /** Self-hosted agent loop using the OpenAI (ChatGPT) chat-completions API. */
 export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => void): Promise<void> {
-  const s = getSettings();
+  const s = effectiveSettings();
   const agentId = body.agentId;
   const agentName = body.agentName || body.agentId;
   const title = body.title;

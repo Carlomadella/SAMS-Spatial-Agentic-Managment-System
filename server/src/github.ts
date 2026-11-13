@@ -1,30 +1,62 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { getSettings } from "./config";
+import { getSettings, type Settings } from "./config";
 import { HttpError, jsonFetch } from "./http";
 
 const API = "https://api.github.com";
 
-// Per-task repository override. The "meta-agente" works on a different repo than
-// the global setting (SAMS itself). We can't mutate the global Settings because
-// several agents may run concurrently — instead each task runs inside an
-// AsyncLocalStorage context that carries its own target repo. `currentRepo()`
-// falls back to the global setting when no override is active.
-const repoStore = new AsyncLocalStorage<{ repo: string }>();
+// Contesto GitHub per-task. Ogni task gira dentro un AsyncLocalStorage che porta la
+// repo su cui lavorare e, quando l'utente ha collegato il suo account GitHub, anche il
+// SUO token e il SUO branch base. Non si tocca mai la configurazione globale: più agenti
+// di utenti diversi possono lavorare in contemporanea. Fuori da un contesto (o per i
+// campi non impostati) valgono le impostazioni del server.
+export interface GithubContext {
+  repo: string;
+  token: string;
+  baseBranch: string;
+}
+const ctxStore = new AsyncLocalStorage<Partial<GithubContext>>();
+
+/** Esegue `fn` con `ctx` come destinazione GitHub per tutto l'albero asincrono. */
+export function runWithGithub<T>(ctx: Partial<GithubContext>, fn: () => T): T {
+  // Un contesto annidato eredita i campi che non ridefinisce (es. il meta-agente cambia
+  // solo la repo ma lavora col token dell'utente).
+  return ctxStore.run({ ...ctxStore.getStore(), ...ctx }, fn);
+}
 
 /** Run `fn` with `repo` as the active GitHub target for the whole async tree. */
 export function runWithRepo<T>(repo: string, fn: () => T): T {
-  return repoStore.run({ repo }, fn);
+  return runWithGithub({ repo }, fn);
+}
+
+/** Repo, token e branch base attivi: quelli del contesto, altrimenti quelli del server. */
+export function githubContext(): GithubContext {
+  const s = getSettings();
+  const c = ctxStore.getStore() ?? {};
+  return {
+    repo: c.repo || s.githubRepo,
+    token: c.token || s.githubToken,
+    baseBranch: c.baseBranch || s.baseBranch,
+  };
 }
 
 /** The repository GitHub calls currently target (per-task override or global). */
 export function currentRepo(): string {
-  return repoStore.getStore()?.repo ?? getSettings().githubRepo;
+  return githubContext().repo;
+}
+
+/**
+ * Le impostazioni del server con repo, token e branch base del contesto GitHub attivo.
+ * I runner dei task la usano al posto di `getSettings()`, così tutto quello che fanno
+ * (strumenti, linee guida, PR) va sulla repo di chi ha assegnato il task.
+ */
+export function effectiveSettings(): Settings {
+  const g = githubContext();
+  return { ...getSettings(), githubRepo: g.repo, githubToken: g.token, baseBranch: g.baseBranch };
 }
 
 function headers(): Record<string, string> {
-  const s = getSettings();
   return {
-    Authorization: `Bearer ${s.githubToken}`,
+    Authorization: `Bearer ${githubContext().token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
     "Content-Type": "application/json",
@@ -181,10 +213,9 @@ export async function createPullRequest(args: {
   title: string;
   body: string;
 }): Promise<PullRequest> {
-  const s = getSettings();
   return (await gh(`/pulls`, {
     method: "POST",
-    body: JSON.stringify({ title: args.title, head: args.branch, base: s.baseBranch, body: args.body }),
+    body: JSON.stringify({ title: args.title, head: args.branch, base: githubContext().baseBranch, body: args.body }),
   })) as PullRequest;
 }
 
