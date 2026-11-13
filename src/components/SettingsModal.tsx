@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import {
+  applyRuntimeStatus,
   fetchStatus,
   fetchWhoami,
   provisionAgents,
@@ -241,7 +242,7 @@ export function SettingsModal() {
       const locked = new Set<string>([...(status?.envManaged ?? []), ...(status?.ephemeralDisk ? SECRET_UI_FIELDS : [])]);
       const st = await saveSettings(withoutLocked(patch, locked));
       setStatus(st);
-      useStore.getState().setRuntimeReady(st.ready);
+      applyRuntimeStatus(st);
       setGeminiKey("");
       setAnthropicKey("");
       setGroqKey("");
@@ -263,7 +264,7 @@ export function SettingsModal() {
     try {
       const st = await provisionAgents();
       setStatus(st);
-      useStore.getState().setRuntimeReady(st.ready);
+      applyRuntimeStatus(st);
       setMsg({ kind: "ok", text: "Agenti provisionati e pronti." });
     } catch (e) {
       setMsg({ kind: "err", text: (e as Error).message });

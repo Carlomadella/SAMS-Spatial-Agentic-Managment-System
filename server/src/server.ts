@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, getSettings, initSettings, isReady, publicStatus, secretChanges, secretEnvName, updateSettings, type SettingsPatch } from "./config";
+import { activeModel } from "./activeModel";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -395,7 +396,7 @@ app.get("/api/status", async (req: Request, res: Response) => {
  * configurato o cosa manca (es. il secret dei webhook).
  */
 async function ownerStatus(req: Request) {
-  const st = publicStatus();
+  const st = { ...publicStatus(), activeModel: activeModel() };
   return (await roleOf(req)) === "owner"
     ? { ...st, envManaged: envManagedForUi(), ephemeralDisk: ephemeralDisk() }
     : st;
@@ -866,7 +867,8 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   res.json(
     buildPublicSnapshot({
-      status: publicStatus(),
+      // Nella dashboard pubblica il modello è quello usato davvero, non il campo grezzo.
+      status: { ...publicStatus(), model: activeModel() },
       metrics: { ...metricsSnapshot({ clients: clients.size }), lifetime },
       board,
       world,

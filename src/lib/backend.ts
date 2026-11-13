@@ -77,6 +77,8 @@ export interface RuntimeStatus {
   repo: string;
   baseBranch: string;
   model: string;
+  /** Il modello usato davvero col provider attivo (ogni provider ha il suo default). */
+  activeModel?: string;
   openPRs: boolean;
   requireApproval: boolean;
   hasNotionToken: boolean;
@@ -474,10 +476,17 @@ export async function setUserRoleRemote(email: string, role: ViewerRole): Promis
   }
 }
 
-/** Fetch status and reflect `ready` into the store (drives the banner). */
+/** Riporta nello store `ready` (guida il banner) e il modello effettivo (chip degli agenti). */
+export function applyRuntimeStatus(st: RuntimeStatus | null): void {
+  const s = useStore.getState();
+  s.setRuntimeReady(!!st?.ready);
+  s.setRuntimeModel(st?.activeModel ?? "");
+}
+
+/** Fetch status and reflect it into the store. */
 export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
   const st = await fetchStatus();
-  useStore.getState().setRuntimeReady(!!st?.ready);
+  applyRuntimeStatus(st);
   return st;
 }
 
