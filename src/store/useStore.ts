@@ -73,6 +73,8 @@ interface State {
   bottomTab: BottomTab;
   commandOpen: boolean;
   settingsOpen: boolean;
+  /** Categoria aperta nella finestra Impostazioni (vedi `SETTINGS_SECTIONS`). */
+  settingsSection: string;
   gardenOpen: boolean;
   /** Percorso del file del repo aperto nel visualizzatore, o null (transient). */
   openedFilePath: string | null;
@@ -245,7 +247,9 @@ interface State {
   setActivity: (a: ActivityView) => void;
   setBottomTab: (t: BottomTab) => void;
   setCommandOpen: (open: boolean) => void;
-  setSettingsOpen: (open: boolean) => void;
+  /** Apre/chiude le Impostazioni; con `section` le apre su quella categoria. */
+  setSettingsOpen: (open: boolean, section?: string) => void;
+  setSettingsSection: (section: string) => void;
   setGardenOpen: (open: boolean) => void;
   /** Apre un file del repo nel visualizzatore (per percorso repo-relativo). */
   openRepoFile: (path: string) => void;
@@ -403,6 +407,7 @@ export const useStore = create<State>()(
   bottomTab: "eventlog",
   commandOpen: false,
   settingsOpen: false,
+  settingsSection: "account",
   gardenOpen: false,
   openedFilePath: null,
   repoBranch: "",
@@ -799,7 +804,8 @@ export const useStore = create<State>()(
   setActivity: (a) => set({ activity: a }),
   setBottomTab: (t) => set(t === "chat" ? { bottomTab: t, bottomOpen: true, chatUnread: 0 } : { bottomTab: t, bottomOpen: true }),
   setCommandOpen: (open) => set({ commandOpen: open }),
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsOpen: (open, section) => set(section ? { settingsOpen: open, settingsSection: section } : { settingsOpen: open }),
+  setSettingsSection: (section) => set({ settingsSection: section }),
   setGardenOpen: (open) => set({ gardenOpen: open }),
   openRepoFile: (path) => set({ openedFilePath: path }),
   closeRepoFile: () => set({ openedFilePath: null }),

@@ -24,7 +24,7 @@ export function OnboardingWizard() {
     else {
       dismiss();
       setClosed(true);
-      setSettingsOpen(true);
+      setSettingsOpen(true, "motore");
     }
   }
 
