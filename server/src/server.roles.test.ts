@@ -67,6 +67,8 @@ beforeAll(async () => {
     SAMS_EDITOR_TOKEN: TOKENS.editor,
     SAMS_READONLY_TOKEN: TOKENS.viewer,
     SAMS_TRUST_PROXY: "1",
+    GITHUB_REPO: "acme/segreto",
+    NOTION_PAGE_ID: "notion-pagina-privata",
   };
   child = spawn(process.execPath, [tsxCli, serverEntry], { cwd: workDir, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d) => (output += String(d)));
@@ -170,5 +172,33 @@ describe("GET /api/admin/client-ip (diagnostica di SAMS_TRUST_PROXY)", () => {
   it("è solo per l'owner", async () => {
     expect((await call("GET", "/api/admin/client-ip", TOKENS.editor)).status).toBe(403);
     expect((await call("GET", "/api/admin/client-ip")).status).toBe(401);
+  });
+});
+
+// Collaudo 2026-11-10: /api/health e /api/status erano pubblici e dicevano a chiunque
+// quale repo e quale pagina Notion usa il workspace.
+describe("stato del runtime: niente repo né Notion a chi non è entrato", () => {
+  it("/api/health dice solo se il server è su e pronto", async () => {
+    const res = await call("GET", "/api/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.ok).toBe(true);
+    expect(typeof body.ready).toBe("boolean");
+    expect(JSON.stringify(body)).not.toContain("acme/segreto");
+    expect(JSON.stringify(body)).not.toContain("notion-pagina-privata");
+  });
+
+  it("/api/status a un anonimo: repo, branch e pagina Notion vuoti", async () => {
+    const body = (await (await call("GET", "/api/status")).json()) as Record<string, unknown>;
+    expect(body.repo).toBe("");
+    expect(body.baseBranch).toBe("");
+    expect(body.notionPageId).toBe("");
+    expect(typeof body.ready).toBe("boolean");
+  });
+
+  it("/api/status a un viewer con credenziale: li vede", async () => {
+    const body = (await (await call("GET", "/api/status", TOKENS.viewer)).json()) as Record<string, unknown>;
+    expect(body.repo).toBe("acme/segreto");
+    expect(body.notionPageId).toBe("notion-pagina-privata");
   });
 });

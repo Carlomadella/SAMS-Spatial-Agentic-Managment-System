@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Bot, Check, GitBranch, Sprout, X } from "lucide-react";
 import { useStore } from "../store/useStore";
+import { canAssign, canConfigure, type ViewerRole } from "../lib/roleUi";
 
 const TOTAL = 2;
 
@@ -10,13 +11,32 @@ function dismiss() {
 
 export function OnboardingWizard() {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const role = useStore((s) => s.viewerRole);
+  const online = useStore((s) => s.backendOnline);
+  const ready = useStore((s) => s.runtimeReady);
+  // Solo l'owner può configurare il motore: per lui, se manca, l'ultimo bottone apre lì.
+  const goToEngine = canConfigure(role) && online && !ready;
   const [open] = useState(() => {
     try { return !localStorage.getItem("sams.welcomed"); } catch { return false; }
   });
   const [step, setStep] = useState(0);
   const [closed, setClosed] = useState(false);
+  const visible = open && !closed;
 
-  if (!open || closed) return null;
+  // Esc chiude come "Salta" (in cattura e fermato: non deve deselezionare l'agente).
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      dismiss();
+      setClosed(true);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [visible]);
+
+  if (!visible) return null;
 
   function close() { dismiss(); setClosed(true); }
   function next() {
@@ -24,7 +44,7 @@ export function OnboardingWizard() {
     else {
       dismiss();
       setClosed(true);
-      setSettingsOpen(true, "motore");
+      if (goToEngine) setSettingsOpen(true, "motore");
     }
   }
 
@@ -75,19 +95,13 @@ export function OnboardingWizard() {
           {step === 1 && (
             <>
               <h2 className="text-[22px] font-bold text-white">Come iniziare</h2>
-              <p className="mt-0.5 text-[12px] text-mut">Tre passi per essere operativi</p>
+              <p className="mt-0.5 text-[12px] text-mut">Cosa ti serve per partire</p>
               <ol className="mt-4 space-y-4">
-                <StepRow n={1} label="Avvia il runtime">
-                  Nel terminale della repo:{" "}
-                  <code className="rounded bg-ink-700 px-1.5 py-0.5 text-[12px] text-brand-soft">npm start</code>.
-                  Il server parte sulla porta 8787.
-                </StepRow>
-                <StepRow n={2} label="Configura le chiavi">
-                  Apri ⚙ Impostazioni, inserisci la API key (Gemini è gratuito), il GitHub token e il repository.
-                </StepRow>
-                <StepRow n={3} label="Assegna il primo task">
-                  Clicca un agente in scena, scrivi il task nel pannello a destra e premi <strong>Assegna</strong>.
-                </StepRow>
+                {startSteps(role, online, ready).map((st, i) => (
+                  <StepRow key={st.label} n={i + 1} label={st.label}>
+                    {st.body}
+                  </StepRow>
+                ))}
               </ol>
             </>
           )}
@@ -99,8 +113,10 @@ export function OnboardingWizard() {
             <button onClick={next} className="btn btn-primary gap-1.5">
               {step < TOTAL - 1 ? (
                 <><ArrowRight size={14} /> Avanti</>
-              ) : (
+              ) : goToEngine ? (
                 <><Check size={14} /> Apri impostazioni</>
+              ) : (
+                <><Check size={14} /> Inizia</>
               )}
             </button>
           </div>
@@ -108,6 +124,33 @@ export function OnboardingWizard() {
       </div>
     </div>
   );
+}
+
+/**
+ * I passi del "Come iniziare", secondo chi entra e lo stato del runtime. Niente comandi
+ * da terminale né provider consigliati: chi usa la versione ospitata non ha un terminale,
+ * e un viewer non può aprire il Motore AI.
+ */
+function startSteps(role: ViewerRole, online: boolean, ready: boolean): { label: string; body: ReactNode }[] {
+  const steps: { label: string; body: ReactNode }[] = [];
+  if (!online) {
+    steps.push({
+      label: "Aspetta il runtime",
+      body: "Il server non risponde ancora. Se è appena partito o si sta risvegliando, ci vuole qualche secondo.",
+    });
+  } else if (!ready) {
+    steps.push(
+      canConfigure(role)
+        ? { label: "Configura il motore", body: <>Apri ⚙ Impostazioni → <strong>Motore AI</strong>: scegli il fornitore del modello e incolla la sua chiave.</> }
+        : { label: "Motore non ancora pronto", body: "Il motore AI lo configura il proprietario del workspace. Finché non lo fa, gli agenti non possono lavorare." },
+    );
+  }
+  steps.push(
+    canAssign(role)
+      ? { label: "Assegna il primo task", body: <>Clicca un agente in scena, scrivi il task nel pannello a destra e premi <strong>Assegna</strong>.</> }
+      : { label: "Guarda il lavoro", body: "Hai la sola lettura: segui gli agenti in scena, la chat e la cronologia dei task. Per assegnare lavoro chiedi al proprietario il ruolo editor." },
+  );
+  return steps;
 }
 
 function FeatureRow({ icon: Icon, label, desc }: { icon: typeof Bot; label: string; desc: string }) {

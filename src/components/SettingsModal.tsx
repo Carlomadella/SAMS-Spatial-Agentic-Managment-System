@@ -15,23 +15,26 @@ import {
   Rocket,
   Sparkles,
   User,
+  UserRound,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import {
+  applyRuntimeStatus,
   fetchStatus,
+  fetchTeam,
   fetchWhoami,
   provisionAgents,
   saveSettings,
   type Provider,
   type RuntimeStatus,
   type SettingsInput,
+  type TeamMember,
 } from "../lib/backend";
 import { cn } from "../lib/utils";
 import { withoutLocked } from "../lib/settingsPatch";
-import { isValidRepo } from "../lib/validation";
 import { canConfigure, roleMeta } from "../lib/roleUi";
 import { ROOM_THEMES } from "../lib/roomThemes";
 import { OFFICE_ARRANGEMENTS } from "../lib/officeLayout";
@@ -75,6 +78,7 @@ const SECRET_UI_FIELDS = ["geminiApiKey", "anthropicApiKey", "groqApiKey", "open
 export type SettingsSection =
   | "account"
   | "github"
+  | "team"
   | "aspetto"
   | "stato"
   | "motore"
@@ -94,13 +98,14 @@ interface SectionDef {
 export const SETTINGS_SECTIONS: SectionDef[] = [
   { id: "account", label: "Account", hint: "Chi sei e che ruolo hai in questo workspace.", icon: User, ownerOnly: false },
   { id: "github", label: "Il tuo GitHub", hint: "Il tuo account GitHub e la repo su cui lavorano i tuoi task.", icon: Github, ownerOnly: false },
+  { id: "team", label: "Team", hint: "Chi fa parte di questo workspace e con che ruolo.", icon: Users, ownerOnly: false },
   { id: "aspetto", label: "Aspetto", hint: "Tema dell'interfaccia e della stanza. Vale solo su questo browser.", icon: Palette, ownerOnly: false },
   { id: "stato", label: "Stato del sistema", hint: "Cosa è configurato sul server, in sola lettura.", icon: Activity, ownerOnly: false },
   { id: "motore", label: "Motore AI", hint: "Il fornitore del modello, la sua chiave e il modello usato dagli agenti.", icon: Sparkles, ownerOnly: true },
-  { id: "repository", label: "GitHub del server", hint: "Token e repo usati da routine, simulazione e webhook.", icon: KeyRound, ownerOnly: true },
+  { id: "repository", label: "GitHub del server", hint: "Il token usato da routine, simulazione e webhook.", icon: KeyRound, ownerOnly: true },
   { id: "agenti", label: "Comportamento agenti", hint: "Cosa fanno gli agenti dopo aver scritto il codice.", icon: Bot, ownerOnly: true },
   { id: "integrazioni", label: "Integrazioni", hint: "Servizi esterni collegati agli agenti.", icon: Plug, ownerOnly: true },
-  { id: "utenti", label: "Utenti e inviti", hint: "Ruoli degli account, inviti e link di reset password.", icon: Users, ownerOnly: true },
+  { id: "utenti", label: "Utenti e inviti", hint: "Ruoli degli account, inviti e link di reset password.", icon: UserRound, ownerOnly: true },
 ];
 
 /** Le sezioni che si salvano con il pulsante «Salva» (il resto si applica da solo). */
@@ -144,8 +149,6 @@ export function SettingsModal() {
   const [openrouterApiKey, setOpenrouterKey] = useState("");
   const [openaiApiKey, setOpenaiKey] = useState("");
   const [githubToken, setGithubToken] = useState("");
-  const [repo, setRepo] = useState("");
-  const [branch, setBranch] = useState("main");
   const [model, setModel] = useState(MODELS.gemini[0]);
   const [openPRs, setOpenPRs] = useState(true);
   const [requireApproval, setRequireApproval] = useState(false);
@@ -187,8 +190,6 @@ export function SettingsModal() {
       }
       setStatus(st);
       setProvider(st.provider);
-      setRepo(st.repo);
-      setBranch(st.baseBranch);
       setModel(st.model);
       setOpenPRs(st.openPRs);
       setRequireApproval(st.requireApproval);
@@ -228,7 +229,7 @@ export function SettingsModal() {
     setBusy("save");
     setMsg(null);
     try {
-      const patch: SettingsInput = { provider, githubRepo: repo, baseBranch: branch, model, openPRs, requireApproval, notionPageId };
+      const patch: SettingsInput = { provider, model, openPRs, requireApproval, notionPageId };
       if (provider === "gemini" && geminiApiKey.trim()) patch.geminiApiKey = geminiApiKey.trim();
       if (provider === "claude" && anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
       if (provider === "groq" && groqApiKey.trim()) patch.groqApiKey = groqApiKey.trim();
@@ -241,7 +242,7 @@ export function SettingsModal() {
       const locked = new Set<string>([...(status?.envManaged ?? []), ...(status?.ephemeralDisk ? SECRET_UI_FIELDS : [])]);
       const st = await saveSettings(withoutLocked(patch, locked));
       setStatus(st);
-      useStore.getState().setRuntimeReady(st.ready);
+      applyRuntimeStatus(st);
       setGeminiKey("");
       setAnthropicKey("");
       setGroqKey("");
@@ -263,7 +264,7 @@ export function SettingsModal() {
     try {
       const st = await provisionAgents();
       setStatus(st);
-      useStore.getState().setRuntimeReady(st.ready);
+      applyRuntimeStatus(st);
       setMsg({ kind: "ok", text: "Agenti provisionati e pronti." });
     } catch (e) {
       setMsg({ kind: "err", text: (e as Error).message });
@@ -275,7 +276,7 @@ export function SettingsModal() {
   // Campi impostati da variabili d'ambiente sul server: l'ambiente vince al riavvio,
   // quindi qui sono in sola lettura (il server rifiuterebbe comunque il cambio con 409).
   // Disco effimero: anche le chiavi stanno solo sul server (una chiave salvata da qui
-  // sparirebbe al primo riavvio). Le scelte (modello, repo…) restano modificabili.
+  // sparirebbe al primo riavvio). Le scelte (motore, modello…) restano modificabili.
   const ephemeral = !!status?.ephemeralDisk;
   const envLocked = new Set([...(status?.envManaged ?? []), ...(ephemeral ? SECRET_UI_FIELDS : [])]);
   const lockedHint = "Impostato da una variabile d'ambiente sul server: si cambia lì, non da qui.";
@@ -306,6 +307,8 @@ export function SettingsModal() {
         return <AccountSection />;
       case "github":
         return <GithubAccount />;
+      case "team":
+        return <TeamSection />;
       case "aspetto":
         return <AppearanceSection />;
       case "stato":
@@ -321,7 +324,6 @@ export function SettingsModal() {
             <dl className="divide-y divide-line rounded-lg border border-line bg-ink-800 text-[12px]">
               <InfoRow label="Motore" value={status ? PROVIDER_LABEL[status.provider] : "—"} />
               <InfoRow label="Modello" value={status?.model || "—"} mono />
-              <InfoRow label="Repo del server" value={status?.repo || "—"} mono />
               <InfoRow label="PR automatiche" value={status ? (status.openPRs ? "Sì" : "No") : "—"} />
               <InfoRow label="Approvazione prima del commit" value={status ? (status.requireApproval ? "Sì" : "No") : "—"} />
             </dl>
@@ -448,8 +450,8 @@ export function SettingsModal() {
           <div className="space-y-3">
             {ephemeralNote}
             <p className="text-[11px] leading-relaxed text-mut">
-              Ogni utente fa lavorare i suoi task sulla propria repo da <b className="text-slate-300">Il tuo GitHub</b>.
-              Questo token serve ai lavori che girano senza un utente: routine, simulazione e webhook.
+              Ogni utente sceglie la repo dei suoi task da <b className="text-slate-300">Il tuo GitHub</b>.
+              Questo token serve solo ai lavori che girano senza un utente: routine, simulazione e webhook.
             </p>
             <Field label="GitHub token (fine-grained, Contents R/W)" icon={Github} locked={envLocked.has("githubToken")}>
               <input
@@ -461,19 +463,6 @@ export function SettingsModal() {
                 className="settings-input"
               />
             </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Repository (owner/repo)" locked={envLocked.has("githubRepo")}>
-                <input disabled={envLocked.has("githubRepo")} value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" className="settings-input" />
-              </Field>
-              <Field label="Branch base" locked={envLocked.has("baseBranch")}>
-                <input disabled={envLocked.has("baseBranch")} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" className="settings-input" />
-              </Field>
-            </div>
-            {repo.trim() !== "" && !isValidRepo(repo) && (
-              <p className="-mt-1.5 text-[11px] text-slate-400">
-                Formato non valido — usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.
-              </p>
-            )}
           </div>
         );
       case "agenti":
@@ -664,6 +653,51 @@ function AccountSection() {
         <ExternalLink size={14} /> {name ? "Profilo, password ed esci" : "Accedi"}
       </a>
     </div>
+  );
+}
+
+/** Chi fa parte del team: nome e ruolo, in sola lettura (per ogni ruolo). */
+function TeamSection() {
+  const [members, setMembers] = useState<TeamMember[] | null | undefined>(undefined);
+  const enforced = useStore((s) => s.roleEnforced);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchTeam().then((m) => {
+      if (alive) setMembers(m);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!enforced) {
+    return <p className="text-[12px] text-mut">In modalità aperta non ci sono account, quindi nessun team.</p>;
+  }
+  if (members === undefined) {
+    return (
+      <p className="flex items-center gap-2 text-[12px] text-mut">
+        <Loader2 size={14} className="animate-spin" /> Carico il team…
+      </p>
+    );
+  }
+  if (members === null) {
+    return <p className="text-[12px] text-mut">Non riesco a leggere il team: accedi con il tuo account e riprova.</p>;
+  }
+  return (
+    <ul className="divide-y divide-line rounded-lg border border-line bg-ink-800" aria-label="Componenti del team">
+      {members.map((m, i) => {
+        const meta = roleMeta(m.role);
+        return (
+          <li key={`${m.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]">
+            <span className="min-w-0 truncate text-slate-200">{m.name}</span>
+            <span className="shrink-0 text-mut" title={meta.title}>
+              {meta.icon} {meta.label}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

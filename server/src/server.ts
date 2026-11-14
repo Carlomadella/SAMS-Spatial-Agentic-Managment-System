@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, getSettings, initSettings, isReady, publicStatus, secretChanges, secretEnvName, updateSettings, type SettingsPatch } from "./config";
+import { activeModel } from "./activeModel";
 import { log } from "./log";
 import { provision } from "./provision";
 import { runTask } from "./sessions";
@@ -380,14 +381,29 @@ app.post("/api/github/disconnect", async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// Il controllo di salute (Render) è pubblico: dice solo se il server è su e pronto.
+// Repo, branch e pagina Notion non sono affari di chi non è entrato.
 app.get("/api/health", async (_req: Request, res: Response) => {
-  res.json({ ok: true, ...publicStatus() });
+  res.json({ ok: true, ready: isReady() });
 });
 
 /** Sanitized snapshot for the Settings UI (never returns the secret values). */
 app.get("/api/status", async (req: Request, res: Response) => {
+  // Con i ruoli attivi un anonimo riceve la stessa forma (la UI non si rompe) ma senza
+  // gli indirizzi del workspace. In dev aperto, senza ruoli, nessuno è anonimo.
+  if (await isAnonymousRequest(req)) {
+    res.json({ ...publicStatus(), repo: "", baseBranch: "", notionPageId: "" });
+    return;
+  }
   res.json(await ownerStatus(req));
 });
+
+/** true se i ruoli sono attivi e la richiesta non porta né una sessione né un token valido. */
+async function isAnonymousRequest(req: Request): Promise<boolean> {
+  const provided = bearerToken(req.headers.authorization);
+  const hasSession = provided ? (await getSessionUser(db(), provided)) !== null : false;
+  return isAnonymousWhenEnforced(roleTokens(), provided, hasSession, await accountsExist());
+}
 
 /**
  * Lo stato pubblico più, **solo per l'owner**, i campi bloccati dall'ambiente
@@ -395,7 +411,7 @@ app.get("/api/status", async (req: Request, res: Response) => {
  * configurato o cosa manca (es. il secret dei webhook).
  */
 async function ownerStatus(req: Request) {
-  const st = publicStatus();
+  const st = { ...publicStatus(), activeModel: activeModel() };
   return (await roleOf(req)) === "owner"
     ? { ...st, envManaged: envManagedForUi(), ephemeralDisk: ephemeralDisk() }
     : st;
@@ -533,6 +549,15 @@ app.get("/api/auth/me", async (req: Request, res: Response) => {
 // utilizzabili i ruoli in un team — senza, dopo il primo utente restano tutti viewer.
 app.get("/api/auth/users", requireRole("owner"), async (_req: Request, res: Response) => {
   res.json({ users: await listUsers(db()) });
+});
+
+/**
+ * Chi fa parte del team, per chiunque abbia un account: solo nome e ruolo, mai l'email.
+ * In sola lettura: ruoli e inviti restano all'owner (`/api/auth/users`).
+ */
+app.get("/api/team", requireRole("viewer"), async (_req: Request, res: Response) => {
+  const members = (await listUsers(db())).map((u) => ({ name: u.name, role: u.role }));
+  res.json({ members });
 });
 
 // Diagnostica di `SAMS_TRUST_PROXY` (solo owner): quale IP il server attribuisce a chi
@@ -866,7 +891,8 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   res.json(
     buildPublicSnapshot({
-      status: publicStatus(),
+      // Nella dashboard pubblica il modello è quello usato davvero, non il campo grezzo.
+      status: { ...publicStatus(), model: activeModel() },
       metrics: { ...metricsSnapshot({ clients: clients.size }), lifetime },
       board,
       world,

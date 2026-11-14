@@ -77,6 +77,8 @@ export interface RuntimeStatus {
   repo: string;
   baseBranch: string;
   model: string;
+  /** Il modello usato davvero col provider attivo (ogni provider ha il suo default). */
+  activeModel?: string;
   openPRs: boolean;
   requireApproval: boolean;
   hasNotionToken: boolean;
@@ -263,6 +265,24 @@ export async function fetchUsers(): Promise<ManagedUser[]> {
     return body.users ?? [];
   } catch {
     return [];
+  }
+}
+
+/** Un componente del team come lo vede chiunque: niente email. */
+export interface TeamMember {
+  name: string;
+  role: ViewerRole;
+}
+
+/** Chi fa parte del team (per ogni ruolo, sola lettura). null se non disponibile. */
+export async function fetchTeam(): Promise<TeamMember[] | null> {
+  try {
+    const res = await fetch(`${BASE}/api/team`, { headers: authHeaders(false) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { members?: TeamMember[] };
+    return body.members ?? [];
+  } catch {
+    return null;
   }
 }
 
@@ -474,10 +494,17 @@ export async function setUserRoleRemote(email: string, role: ViewerRole): Promis
   }
 }
 
-/** Fetch status and reflect `ready` into the store (drives the banner). */
+/** Riporta nello store `ready` (guida il banner) e il modello effettivo (chip degli agenti). */
+export function applyRuntimeStatus(st: RuntimeStatus | null): void {
+  const s = useStore.getState();
+  s.setRuntimeReady(!!st?.ready);
+  s.setRuntimeModel(st?.activeModel ?? "");
+}
+
+/** Fetch status and reflect it into the store. */
 export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
   const st = await fetchStatus();
-  useStore.getState().setRuntimeReady(!!st?.ready);
+  applyRuntimeStatus(st);
   return st;
 }
 

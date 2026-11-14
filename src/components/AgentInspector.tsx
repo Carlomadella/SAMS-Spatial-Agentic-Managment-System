@@ -64,6 +64,7 @@ export function AgentInspector() {
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const viewerRole = useStore((s) => s.viewerRole);
+  const runtimeModel = useStore((s) => s.runtimeModel);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const feedAgent = useStore((s) => s.feedAgent);
   const log = useStore((s) => s.log);
@@ -152,7 +153,11 @@ export function AgentInspector() {
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="chip bg-ink-700 text-slate-300">{agent.model}</span>
+        {/* Il modello vero è quello del provider attivo: l'etichetta salvata sull'agente
+            ("Claude Opus" per quelli di partenza) resta solo come ripiego senza runtime. */}
+        <span className="chip bg-ink-700 text-slate-300" title="Modello usato dal runtime">
+          {runtimeModel || agent.model}
+        </span>
         <select
           value={agent.role}
           onChange={(e) => setRole(agent.id, e.target.value)}
