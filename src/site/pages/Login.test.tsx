@@ -8,7 +8,8 @@ vi.mock("../../lib/backend", () => ({
 
 const login = vi.fn();
 const register = vi.fn();
-vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ login, register }) }));
+let authState: { user: { email: string } | null; loading: boolean } = { user: null, loading: false };
+vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ ...authState, login, register }) }));
 
 const navigate = vi.fn();
 vi.mock("../router", () => ({
@@ -27,6 +28,21 @@ describe("<Login />", () => {
     login.mockReset();
     register.mockReset();
     navigate.mockReset();
+    authState = { user: null, loading: false };
+  });
+
+  it("chi ha già fatto l'accesso non vede il form: va nella stanza senza lasciare /login nella cronologia", () => {
+    authState = { user: { email: "a@b.co" }, loading: false };
+    render(<Login />);
+    expect(navigate).toHaveBeenCalledWith("/app", { replace: true });
+    expect(screen.queryByPlaceholderText("tu@esempio.com")).toBeNull();
+  });
+
+  it("finché la sessione si sta ancora verificando non reindirizza", () => {
+    authState = { user: null, loading: true };
+    render(<Login />);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText("tu@esempio.com")).toBeTruthy();
   });
 
   it("accesso riuscito → si entra nella stanza", async () => {
