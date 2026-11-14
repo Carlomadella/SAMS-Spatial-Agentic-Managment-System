@@ -170,3 +170,22 @@ describe("Accedi con GitHub", () => {
     expect((await call("POST", "/api/github/disconnect", session)).status).toBe(200);
   });
 });
+
+describe("Team visibile a tutti", () => {
+  it("un osservatore vede nome e ruolo di ogni account, senza email; un anonimo no", async () => {
+    const reg = await call("POST", "/api/auth/register", undefined, { email: "lucia@example.com", password: "password-lunga-2", name: "Lucia" });
+    expect(reg.status).toBe(201);
+    const viewer = ((await reg.json()) as { token: string }).token;
+
+    const res = await call("GET", "/api/team", viewer);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { members: Array<Record<string, unknown>> };
+    expect(body.members).toEqual([
+      { name: "Mario", role: "owner" },
+      { name: "Lucia", role: "viewer" },
+    ]);
+    expect(JSON.stringify(body)).not.toContain("@example.com");
+
+    expect((await call("GET", "/api/team")).status).toBe(401);
+  });
+});
