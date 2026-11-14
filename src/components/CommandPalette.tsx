@@ -37,6 +37,7 @@ import { assignRemote } from "../lib/backend";
 import { metaRepo } from "../lib/metaAgent";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { titleCase } from "../lib/utils";
+import { canAssign } from "../lib/roleUi";
 
 interface Command {
   id: string;
@@ -62,6 +63,9 @@ export function CommandPalette() {
   const setOpen = useStore((s) => s.setCommandOpen);
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
+  // Un viewer guarda soltanto: i comandi che cambiano il mondo condiviso (agenti, zone,
+  // caffè, reset, task) non gli vanno offerti — il server li rifiuterebbe comunque.
+  const canEdit = canAssign(useStore((s) => s.viewerRole));
 
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -72,8 +76,8 @@ export function CommandPalette() {
     const sel = agents.find((a) => a.id === selectedAgentId);
     const list: Command[] = [];
 
-    list.push({ id: "add", label: "Crea nuovo agente", icon: Plus, keywords: "create add new crea aggiungi nuovo", run: () => s.addAgent() });
-    for (const c of AGENT_COLORS) {
+    if (canEdit) list.push({ id: "add", label: "Crea nuovo agente", icon: Plus, keywords: "create add new crea aggiungi nuovo", run: () => s.addAgent() });
+    if (canEdit) for (const c of AGENT_COLORS) {
       list.push({
         id: `add-${c}`,
         label: `Crea agente ${COLOR_IT[c] ?? c}`,
@@ -94,7 +98,7 @@ export function CommandPalette() {
       });
     }
 
-    if (sel) {
+    if (sel && canEdit) {
       for (const z of ZONES) {
         list.push({
           id: `zone-${z.id}`,
@@ -184,7 +188,7 @@ export function CommandPalette() {
     } });
 
     // Interazioni della stanza, raggiungibili anche senza cliccare l'hotspot 3D.
-    list.push({ id: "coffee", label: "Pausa caffè per tutti", icon: Coffee, keywords: "caffè coffee pausa energia sazia bisogni fame", run: () => {
+    if (canEdit) list.push({ id: "coffee", label: "Pausa caffè per tutti", icon: Coffee, keywords: "caffè coffee pausa energia sazia bisogni fame", run: () => {
       const r = coffeeBreak(s.agents);
       r.fedIds.forEach((id) => s.feedAgent(id, r.amount));
       s.pushToast("SUCCESS", r.message);
@@ -192,17 +196,17 @@ export function CommandPalette() {
     list.push({ id: "clock", label: "Che ore sono in ufficio?", icon: Clock, keywords: "orologio ora tempo clock giornata", run: () => s.pushToast("INFO", officeClockChime()) });
 
     list.push({ id: "clear", label: "Svuota log eventi", icon: Trash2, keywords: "log clear svuota", run: () => s.clearEvents() });
-    list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
+    if (canEdit) list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
 
     return list;
-  }, [agents, selectedAgentId]);
+  }, [agents, selectedAgentId, canEdit]);
 
   const quickAssign = useMemo<Command | null>(() => {
     const q = query.trim();
     if (!q) return null;
     if (hasUnfilledPlaceholders(q)) return null; // don't assign an unfilled template
     const sel = agents.find((a) => a.id === selectedAgentId);
-    if (!sel) return null;
+    if (!sel || !canEdit) return null;
     const backendOnline = useStore.getState().backendOnline;
     if (!backendOnline) return null;
     return {
@@ -215,7 +219,7 @@ export function CommandPalette() {
         assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions, metaRepo(sel)).catch(() => {});
       },
     };
-  }, [query, agents, selectedAgentId]);
+  }, [query, agents, selectedAgentId, canEdit]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
