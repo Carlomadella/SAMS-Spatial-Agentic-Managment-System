@@ -32,6 +32,21 @@ export interface StreamResult {
 }
 
 /**
+ * Il testo di un chunk, letto dalle parti invece che dal getter `.text` dell'SDK: quel
+ * getter fa console.warn ("there are non-text parts functionCall…") a ogni chunk con una
+ * chiamata a tool, e sporca i log JSON. Stessa regola dell'SDK: solo la prima candidata,
+ * le parti "thought" escluse. Senza candidate (chunk di sola usage, o i finti dei test)
+ * si ripiega su `.text`, che lì non avvisa.
+ */
+export function chunkText(chunk: GenerateContentResponse): string {
+  const parts = chunk.candidates?.[0]?.content?.parts;
+  if (!parts) return chunk.text ?? "";
+  let text = "";
+  for (const p of parts) if (typeof p.text === "string" && !p.thought) text += p.text;
+  return text;
+}
+
+/**
  * Drain an async generator of GenerateContentResponse chunks into a StreamResult.
  * Exported as a pure function so tests can inject a fake stream without mocking the client.
  */
@@ -43,7 +58,7 @@ export async function collectStream(
   const functionCalls: FunctionCall[] = [];
   let tokens = 0;
   for await (const chunk of stream) {
-    const t = chunk.text ?? "";
+    const t = chunkText(chunk);
     if (t) {
       text += t;
       onText(t);
