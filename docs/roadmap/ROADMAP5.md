@@ -85,6 +85,9 @@ Crea diversi design per ognuno dei Componenti condivisi visibili a schermo nel b
       dopo il login la stanza si collega da sola in pochi secondi, senza ricaricare.
       ⚠️ Visto durante le prove: l'e2e `sidebars.spec.ts` "Panoramica sistema e Gate di sicurezza" è **instabile**
       (fallisce 2 volte su 5 anche sul commit precedente: il bottone "Apri pull request" non diventa cliccabile).
+      **Sistemato il 2026-11-15:** stessa causa del test sulla barra attività (la scena WebGL ridisegna sempre e il
+      controllo di stabilità del click non si assesta): click forzato, e ora il test verifica che l'evento compaia
+      davvero nel log. 15/15 verdi con `--repeat-each=5`.
 - [x] **D3-B** — inviti: tabella `invites` (token sha256 a riposo, scadenza, ruolo), `POST /api/auth/invites`
       (owner), registrazione da link d'invito che assegna il ruolo, UI nella `UsersAdmin`, email + test.
       **Fatto il 2026-11-10:** l'owner invita email + ruolo (*editor* o *viewer*, mai owner) dal Profilo; con un

@@ -62,11 +62,14 @@ test("sidebar destra: Panoramica sistema e Gate di sicurezza sono presenti e rea
   await expect(page.getByText("Panoramica sistema")).toBeVisible();
   await expect(page.getByText("Gate di sicurezza").first()).toBeVisible();
 
+  // Stessa ragione del test sopra: la scena WebGL ridipinge di continuo e il controllo di
+  // stabilità del click non si assesta mai (falliva 2 volte su 5). I bottoni sono statici:
+  // click forzato, e le verifiche vere sono le `expect` dopo.
   // Lo switch ambiente del pannello destro risponde.
-  await page.getByRole("button", { name: "prod", exact: true }).click();
-  await expect(page.getByRole("button", { name: "prod", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "prod", exact: true }).click({ force: true });
+  await expect(page.getByRole("button", { name: /Push al remoto/ })).toContainText("origin/prod");
 
-  // Un'azione del gate registra un evento e apre il log senza errori.
-  await page.getByRole("button", { name: /Apri pull request/ }).click();
-  await expect(page.locator("span.font-bold").filter({ hasText: /^SAMS$/ })).toBeVisible();
+  // Un'azione del gate registra un evento e apre il log.
+  await page.getByRole("button", { name: /Apri pull request/ }).click({ force: true });
+  await expect(page.getByText("Aperta pull request per le modifiche in staging").first()).toBeVisible();
 });
