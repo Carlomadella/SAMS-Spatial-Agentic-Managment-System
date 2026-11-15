@@ -66,8 +66,8 @@ export function TitleBar() {
           <SamsMark size={24} className="text-white" />
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-[13px] font-bold tracking-tight text-white">SAMS</span>
-          <span className="hidden text-[12px] text-mut sm:inline">
+          <span className="whitespace-nowrap text-[13px] font-bold tracking-tight text-white">SAMS</span>
+          <span className="hidden whitespace-nowrap text-[12px] text-mut xl:inline">
             Spatial Agentic Management System
           </span>
         </div>
