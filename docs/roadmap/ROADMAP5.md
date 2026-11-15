@@ -240,8 +240,12 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
 - [ ] **Privacy e Termini non esistono.** Nel footer puntano a `/#site-footer`. Con registrazione ed email
       servono due pagine vere. Va anche controllato che `contatti@sams.app` sia nostro: il dominio `sams.app` è
       registrato e risolve.
-- [ ] **Commit Garden non persistente.** `DB_HOST` è vuoto, quindi lo store è in memoria e i giardini si
+- [x] **Commit Garden non persistente.** `DB_HOST` è vuoto, quindi lo store è in memoria e i giardini si
       azzerano a ogni riavvio. Per la 1.0 serve MySQL configurato, oppure va spostato sul SQLite che esiste già.
+      **Fatto il 2026-11-15:** i giardini stanno nella tabella `gardens` del database di SAMS (SQLite in locale,
+      MySQL/TiDB con `SAMS_DB_URL`), quindi niente più configurazione a parte. `DB_HOST` resta solo come ripiego
+      per chi aveva già un database separato. `gardens` entra anche nella copia SQLite → MySQL. Test di contratto
+      sui due dialetti in `db.contract.test.ts`.
 
 **🟡 Minori**
 

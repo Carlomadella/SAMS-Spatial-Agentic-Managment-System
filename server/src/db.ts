@@ -5,6 +5,7 @@ import type { User } from "./auth";
 import type { TokenRecord } from "./tokens";
 import type { InvitableRole, InviteRecord, PendingInvite } from "./invites";
 import type { Role } from "./roles";
+import type { GardenState } from "./garden/model";
 import { dataFile } from "./dataDir";
 import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
@@ -182,6 +183,16 @@ const SQLITE_SCHEMA = `
       base_branch TEXT    NOT NULL DEFAULT '',
       updated_at  INTEGER NOT NULL
     );
+
+    -- Commit Garden: un giardino per login GitHub (minuscolo). Lo stato intero è JSON in
+    -- \`data\`; \`waterings\` è a parte solo per ordinare la classifica.
+    CREATE TABLE IF NOT EXISTS gardens (
+      login      TEXT    PRIMARY KEY,
+      waterings  INTEGER NOT NULL DEFAULT 0,
+      data       TEXT    NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gardens_waterings ON gardens (waterings);
 `;
 
 /**
@@ -335,6 +346,14 @@ const MYSQL_SCHEMA = `
       base_branch VARCHAR(255) NOT NULL DEFAULT '',
       updated_at  BIGINT       NOT NULL
     ) ${MYSQL_TABLE_OPTS};
+
+    CREATE TABLE IF NOT EXISTS gardens (
+      login      VARCHAR(100) NOT NULL PRIMARY KEY,
+      waterings  INT          NOT NULL DEFAULT 0,
+      data       TEXT         NOT NULL,
+      updated_at BIGINT       NOT NULL,
+      INDEX idx_gardens_waterings (waterings)
+    ) ${MYSQL_TABLE_OPTS};
 `;
 
 /** Crea le tabelle mancanti e applica le migrazioni idempotenti. Ritorna lo stesso driver. */
@@ -469,6 +488,32 @@ export async function saveSettingRows(
     }
     for (const name of remove) await tx.run(`DELETE FROM settings WHERE name = ?`, [name]);
   });
+}
+
+// --- Commit Garden -------------------------------------------------------------
+
+/** Il giardino di un login GitHub (senza badare alle maiuscole), o null. */
+export async function getGarden(db: SqlRunner, login: string): Promise<GardenState | null> {
+  const r = await db.get<{ data: string }>(`SELECT data FROM gardens WHERE login = ?`, [login.toLowerCase()]);
+  return r ? (JSON.parse(String(r.data)) as GardenState) : null;
+}
+
+/** Salva (upsert) lo stato di un giardino. */
+export async function putGarden(db: SqlRunner, g: GardenState, now = Date.now()): Promise<void> {
+  await db.run(
+    `INSERT INTO gardens (login, waterings, data, updated_at) VALUES (?, ?, ?, ?)
+     ${onConflictUpdate(db.dialect, ["login"], ["waterings", "data", "updated_at"])}`,
+    [g.user.toLowerCase(), g.waterings, JSON.stringify(g), now],
+  );
+}
+
+/** I giardini più annaffiati, per la classifica. */
+export async function topGardens(db: SqlRunner, limit: number): Promise<GardenState[]> {
+  const rows = await db.all<{ data: string }>(
+    `SELECT data FROM gardens ORDER BY waterings DESC, login ASC LIMIT ?`,
+    [Math.max(1, Math.min(100, Math.floor(limit)))],
+  );
+  return rows.map((r) => JSON.parse(String(r.data)) as GardenState);
 }
 
 // --- chat di workspace helpers (mondo condiviso) ---------------------------

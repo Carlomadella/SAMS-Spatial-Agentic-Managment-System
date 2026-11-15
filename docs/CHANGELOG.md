@@ -18,6 +18,9 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   service worker passa a `sams-shell-v2` così la favicon nuova arriva anche a chi aveva la PWA installata.
 - **Changed** — Documenti spostati in `docs/` (`README`, `CHANGELOG`, `IMPLEMENTAZIONE`, `DEPLOY`) e le roadmap in
   `docs/roadmap/`; lo screenshot in `media/photo/`. Sistemati tutti i link e i percorsi che li citavano.
+- **Fixed** — **Commit Garden persistente**: i giardini stanno nella tabella `gardens` del database di SAMS
+  (SQLite o MySQL/TiDB) invece che in memoria, quindi non si azzerano più a ogni riavvio. `DB_HOST` resta solo
+  come ripiego per un vecchio database separato.
 
 ### 2026-11-13 (b) — Il GitHub di ogni utente 🐙
 

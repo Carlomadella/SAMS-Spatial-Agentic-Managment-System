@@ -12,6 +12,7 @@ import {
   createToken,
   createUser,
   deleteGithubLink,
+  getGarden,
   getGithubLink,
   getMemory,
   getSessionUser,
@@ -31,6 +32,7 @@ import {
   migrate,
   pruneAuthSessions,
   pruneWorldTombstones,
+  putGarden,
   recentTasks,
   saveGithubLink,
   saveSettingRows,
@@ -39,7 +41,9 @@ import {
   setMemory,
   setUserRole,
   taskStats,
+  topGardens,
 } from "./db";
+import { emptyGarden } from "./garden/model";
 import { MAX_CHAT_MESSAGES } from "./chat";
 import { openMysql, openSqlite, type SqlDriver } from "./sql";
 import type { User } from "./auth";
@@ -56,7 +60,7 @@ import type { WorldAgentSnapshot } from "./worldState";
  */
 const TABLES = [
   "task_log", "agent_memory", "routines", "world_snapshot", "world_agents", "chat_messages",
-  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings", "github_links",
+  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings", "github_links", "gardens",
 ];
 
 // L'URL di test può stare in server/.env (così la password non finisce sulla riga di comando).
@@ -241,6 +245,17 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     expect(await setGithubRepo(db, "nessuno", "a/b", "main")).toBe(false);
     await deleteGithubLink(db, "u1");
     expect(await getGithubLink(db, "u1")).toBeNull();
+  });
+
+  it("gardens: salva, aggiorna senza badare alle maiuscole e ordina per annaffiature", async () => {
+    const g = (login: string, waterings: number) => ({ ...emptyGarden(login), waterings });
+    await putGarden(db, g("Mario", 3), 1);
+    await putGarden(db, g("luigi", 7), 2);
+    await putGarden(db, g("MARIO", 5), 3);
+    expect(await getGarden(db, "mario")).toMatchObject({ user: "MARIO", waterings: 5 });
+    expect(await getGarden(db, "nessuno")).toBeNull();
+    expect((await topGardens(db, 10)).map((x) => x.waterings)).toEqual([7, 5]);
+    expect(await topGardens(db, 1)).toHaveLength(1);
   });
 
   it("migrare due volte è innocuo", async () => {

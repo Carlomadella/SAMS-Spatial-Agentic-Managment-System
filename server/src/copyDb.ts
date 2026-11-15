@@ -19,6 +19,7 @@ export const COPY_TABLES = [
   "world_snapshot",
   "world_agents",
   "settings",
+  "gardens",
 ] as const;
 
 /**
