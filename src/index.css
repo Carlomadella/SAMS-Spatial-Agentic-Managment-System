@@ -59,6 +59,7 @@
   .theme-light .text-slate-200 { color: #1f1f1f; }
   .theme-light .text-slate-300 { color: #333333; }
   .theme-light .text-slate-400 { color: #5c5c5c; }
+  .theme-light .text-slate-500 { color: #666666; }
 
   html,
   body,
@@ -178,4 +179,12 @@
   .cg-sway {
     animation: none;
   }
+}
+
+/* Testo rosso leggibile (WCAG AA, 4.5:1). Il rosso pieno dello stemma (--c-accent) sul nero
+   si ferma a 4.3:1: va bene per sfondi e bottoni, non per il testo piccolo. Il testo usa la
+   variante "soft" del tema: più chiara sul nero (5.8:1), più scura sul bianco (7.6:1).
+   Fuori da @layer apposta, così vince sull'utility generata da Tailwind. */
+.text-brand {
+  color: rgb(var(--c-accent-soft));
 }

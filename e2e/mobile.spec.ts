@@ -44,7 +44,7 @@ test("header su una riga, con tutti i bottoni dentro lo schermo", async ({ page 
   // Il Commit Garden intero, non tagliato.
   inside(await box(page, 'header button[title="Commit Garden"]'));
   // La ricerca è un bottone di una riga sola.
-  expect((await box(page, 'header button[aria-label="Digita un comando o cerca"]')).height).toBeLessThanOrEqual(33);
+  expect((await box(page, '[data-testid="command-search"]')).height).toBeLessThanOrEqual(33);
 });
 
 test("barra di stato su una riga e dentro lo schermo", async ({ page }) => {

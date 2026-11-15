@@ -78,12 +78,13 @@ export function TitleBar() {
       {/* command search — su un telefono solo l'icona: il testo andava su tre righe (collaudo 10/11) */}
       <button
         onClick={() => setCommandOpen(true)}
-        aria-label="Digita un comando o cerca"
+        data-testid="command-search"
         className="group ml-auto flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-ink-850 text-sm text-mut transition-colors hover:border-brand/40 hover:bg-ink-800 sm:mx-auto sm:w-full sm:max-w-xl sm:shrink sm:justify-start sm:px-3"
       >
         <Search size={15} className="shrink-0" />
-        <span className="hidden flex-1 truncate text-left sm:inline">Digita un comando o cerca…</span>
-        <kbd className="hidden items-center gap-0.5 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400 sm:flex">
+        {/* Il nome accessibile è il testo stesso (WCAG 2.5.3): sul telefono resta solo per i lettori di schermo */}
+        <span className="sr-only sm:not-sr-only sm:flex-1 sm:truncate sm:text-left">Digita un comando o cerca…</span>
+        <kbd aria-hidden className="hidden items-center gap-0.5 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400 sm:flex">
           <Command size={10} /> K
         </kbd>
       </button>
