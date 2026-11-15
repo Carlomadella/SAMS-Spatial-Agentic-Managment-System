@@ -91,12 +91,19 @@ export function SystemOverview() {
               title={a.name}
               aria-label={`Seleziona ${a.name}`}
               onClick={() => selectAgent(a.id)}
-              className={cn(
-                "absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 transition-transform hover:scale-125",
-                selected ? "ring-white" : "ring-black/30",
-              )}
-              style={{ ...p, background: AGENT_HEX[a.color] }}
-            />
+              // Area cliccabile 24×24 (WCAG 2.5.8) attorno al pallino da 12px che si vede.
+              className="group absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+              style={p}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "h-3 w-3 rounded-full ring-2 transition-transform group-hover:scale-125",
+                  selected ? "ring-white" : "ring-black/30",
+                )}
+                style={{ background: AGENT_HEX[a.color] }}
+              />
+            </button>
           );
         })}
       </div>

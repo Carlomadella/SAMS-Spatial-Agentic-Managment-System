@@ -75,7 +75,7 @@ export function Footer() {
           </div>
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{col.title}</h3>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{col.title}</h2>
               <ul className="flex flex-col gap-2">
                 {col.links.map((l) => (
                   <li key={l.label}>

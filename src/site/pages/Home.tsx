@@ -54,7 +54,7 @@ export function Home() {
             className="mx-auto flex max-w-md flex-col items-center gap-2 rounded-2xl border border-line/70 bg-ink-900/40 px-6 py-5 text-center transition-colors hover:border-brand/40"
           >
             <Logo withWordmark={false} asLink={false} />
-            <h4 className="mt-1 text-sm font-semibold text-slate-200">Scopri di più</h4>
+            <h2 className="mt-1 text-sm font-semibold text-slate-200">Scopri di più</h2>
             <p className="text-xs leading-relaxed text-slate-400">{TAGLINE} Un cruscotto operativo e un mondo simulato, insieme.</p>
             <ChevronDown size={18} className="mt-1 animate-bounce text-brand" />
           </a>
@@ -108,7 +108,7 @@ export function Home() {
           </div>
           <p className="mt-6 text-center text-sm text-slate-500">
             Hai domande?{" "}
-            <Link to="/#site-footer" className="text-brand hover:underline">
+            <Link to="/#site-footer" className="text-brand underline underline-offset-2">
               Contattaci
             </Link>
             .

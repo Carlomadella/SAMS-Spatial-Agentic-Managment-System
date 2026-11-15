@@ -142,6 +142,7 @@ function PendingCard({ agent }: { agent: Agent }) {
             onClick={handleReject}
             className="btn gap-1 border-rose-500/30 px-2.5 text-[11px] text-rose-300 hover:bg-rose-500/10"
             title="Rifiuta modifiche"
+            aria-label="Rifiuta modifiche"
           >
             <X size={11} />
           </button>
