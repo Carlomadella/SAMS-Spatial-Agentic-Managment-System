@@ -65,11 +65,11 @@ test("sidebar destra: Panoramica sistema e Gate di sicurezza sono presenti e rea
   // Stessa ragione del test sopra: la scena WebGL ridipinge di continuo e il controllo di
   // stabilità del click non si assesta mai (falliva 2 volte su 5). I bottoni sono statici:
   // click forzato, e le verifiche vere sono le `expect` dopo.
-  // Lo switch ambiente del pannello destro risponde.
+  // Lo switch ambiente del pannello destro risponde e registra un evento vero.
   await page.getByRole("button", { name: "prod", exact: true }).click({ force: true });
-  await expect(page.getByRole("button", { name: /Push al remoto/ })).toContainText("origin/prod");
+  await expect(page.getByRole("button", { name: "prod", exact: true })).toHaveAttribute("aria-pressed", "true");
 
-  // Un'azione del gate registra un evento e apre il log.
-  await page.getByRole("button", { name: /Apri pull request/ }).click({ force: true });
-  await expect(page.getByText("Aperta pull request per le modifiche in staging").first()).toBeVisible();
+  // La scorciatoia "Log eventi" apre il log, dove c'è il cambio d'ambiente.
+  await page.getByRole("button", { name: /Log eventi.*Cosa è successo/ }).click({ force: true });
+  await expect(page.getByText("Ambiente cambiato → prod").first()).toBeVisible();
 });

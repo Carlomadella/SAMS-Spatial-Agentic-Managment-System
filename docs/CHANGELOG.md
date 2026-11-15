@@ -21,6 +21,10 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 - **Fixed** — **Commit Garden persistente**: i giardini stanno nella tabella `gardens` del database di SAMS
   (SQLite o MySQL/TiDB) invece che in memoria, quindi non si azzerano più a ogni riavvio. `DB_HOST` resta solo
   come ripiego per un vecchio database separato.
+- **Fixed** — **Gate di sicurezza con dati veri**: il pannello a destra mostra quante modifiche aspettano
+  l'approvazione e di quali agenti; un click porta in Controllo sorgente con l'agente selezionato. Tolti gli 8
+  bottoni che scrivevano nel log eventi inventati ("Push effettuato su origin/prod", "Gate approvato") senza fare
+  nulla, e il bottone morto "Altre azioni".
 
 ### 2026-11-13 (b) — Il GitHub di ogni utente 🐙
 
