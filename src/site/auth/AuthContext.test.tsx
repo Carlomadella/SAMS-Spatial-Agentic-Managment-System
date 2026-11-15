@@ -61,6 +61,22 @@ describe("<AuthProvider /> (auth reale)", () => {
     expect(localStorage.getItem("sams.site.token")).toBeNull();
   });
 
+  it("/me con 401: il token scaduto viene cancellato", async () => {
+    localStorage.setItem("sams.site.token", "vecchio");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonRes(401, { error: "sessione scaduta" })));
+    render(<AuthProvider><Consumer /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("anon"));
+    expect(localStorage.getItem("sams.site.token")).toBeNull();
+  });
+
+  it("/me con 503: il server è in difficoltà, la sessione non si butta", async () => {
+    localStorage.setItem("sams.site.token", "valido");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonRes(503, { error: "database non pronto" })));
+    render(<AuthProvider><Consumer /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("anon"));
+    expect(localStorage.getItem("sams.site.token")).toBe("valido");
+  });
+
   it("logout: pulisce token e utente", async () => {
     vi.stubGlobal(
       "fetch",

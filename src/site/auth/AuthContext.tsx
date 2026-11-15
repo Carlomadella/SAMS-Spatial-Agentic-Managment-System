@@ -93,9 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const body = (await res.json()) as { user: SiteUser };
           setUser(body.user);
-        } else {
+        } else if (res.status === 401 || res.status === 403) {
           writeToken(""); // token scaduto/invalido
         }
+        // Altri errori (500, 503: DB o runtime in difficoltà) non dicono nulla del token:
+        // si resta sloggati per questa visita ma la sessione non si butta.
       })
       .catch(() => {
         /* runtime irraggiungibile → resta sloggato, il token si ritenta al prossimo avvio */

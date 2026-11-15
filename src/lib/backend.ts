@@ -858,12 +858,14 @@ export interface MemoryEntry { key: string; value: string; updatedAt: number }
 
 export async function fetchMemory(agentId: string): Promise<MemoryEntry[]> {
   const res = await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { headers: authHeaders(false) });
-  if (!res.ok) return [];
+  // Un errore non è "nessuna memoria": chi chiama mostra il problema invece di una lista vuota.
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as MemoryEntry[];
 }
 
 export async function clearMemory(agentId: string): Promise<void> {
-  await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE", headers: authHeaders(false) });
+  const res = await fetch(`${BASE}/api/memory/${encodeURIComponent(agentId)}`, { method: "DELETE", headers: authHeaders(false) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 // --- Presence: identità della vista (mondo condiviso, Roadmap 4) ----------
