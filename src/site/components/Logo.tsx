@@ -1,8 +1,8 @@
 import { Link } from "../router";
+import { SamsMark } from "../../components/SamsMark";
 /**
- * Logo SAMS: un nucleo (lo spazio condiviso) con attorno gli agenti in orbita. Usa i token
- * d'accento, così segue il tema. È un Link alla home; `withWordmark={false}` mostra solo il
- * mark (es. come cue).
+ * Logo SAMS: il cubo-stanza con l'agente rossonero (stesso disegno di `media/logo/`).
+ * È un Link alla home; `withWordmark={false}` mostra solo il mark (es. come cue).
  */
 export function Logo({
   className = "",
@@ -18,7 +18,7 @@ export function Logo({
    */
   asLink?: boolean;
 }) {
-  const mark = <OrbitalMark accent="rgb(var(--c-accent))" accent2="rgb(var(--c-accent-2))" />;
+  const mark = <SamsMark size={34} className="text-slate-50" />;
 
   const content = (
     <>
@@ -33,27 +33,5 @@ export function Logo({
     <Link to="/" aria-label="SAMS — home" className={`flex items-center gap-2.5 ${className}`}>
       {content}
     </Link>
-  );
-}
-
-/** Il mark storico: nucleo + anelli + agenti in orbita. */
-function OrbitalMark({ accent, accent2 }: { accent: string; accent2: string }) {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden className="shrink-0">
-        {/* anelli d'orbita */}
-        <circle cx="16" cy="16" r="13" stroke={accent} strokeOpacity="0.28" strokeWidth="1" />
-        <circle cx="16" cy="16" r="8.5" stroke={accent} strokeOpacity="0.18" strokeWidth="1" />
-        {/* nucleo */}
-        <circle cx="16" cy="16" r="4" fill={accent} />
-        <circle cx="16" cy="16" r="4" fill={accent} opacity="0.35">
-          <animate attributeName="r" values="4;5.5;4" dur="3s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.35;0;0.35" dur="3s" repeatCount="indefinite" />
-        </circle>
-      {/* agenti in orbita */}
-      <circle cx="16" cy="3" r="2.3" fill={accent} />
-      <circle cx="29" cy="16" r="2.3" fill={accent2} />
-      <circle cx="16" cy="29" r="2.3" fill={accent} />
-      <circle cx="3" cy="16" r="2.3" fill={accent2} />
-    </svg>
   );
 }

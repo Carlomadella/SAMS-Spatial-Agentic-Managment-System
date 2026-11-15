@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: "2026-11-15",
+    title: "Un logo nuovo, rossonero",
+    summary:
+      "La stanza ha un volto: un cubo con dentro l'agente rossonero. Lo trovi nella scheda del browser, sull'icona dell'app installata, nella barra in alto e qui sul sito.",
+    tag: "Changed",
+  },
+  {
     date: "2026-11-13",
     title: "SAMS gira sul piano gratuito di Render",
     summary:

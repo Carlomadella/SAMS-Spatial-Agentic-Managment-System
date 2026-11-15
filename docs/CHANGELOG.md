@@ -3,12 +3,21 @@
 Registro delle modifiche di SAMS. Il formato si ispira a
 [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); le date sono in formato
 `AAAA-MM-GG`. La storia più ampia (motivazioni, brainstorming) vive nei file
-`ROADMAP*.md`; qui c'è l'elenco puntuale di cosa è cambiato.
+`docs/roadmap/ROADMAP*.md`; qui c'è l'elenco puntuale di cosa è cambiato.
 
 ## [Non rilasciato]
 
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
-> [`ROADMAP5.md`](./ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
+> [`ROADMAP5.md`](./roadmap/ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
+
+### 2026-11-15 — Logo rossonero e documenti in ordine 🗂️
+
+- **Changed** — Nuovo logo: il cubo-stanza con l'agente rossonero. È la favicon, l'icona della PWA (192/512,
+  maskable, apple-touch), il mark della barra titolo dell'app e del logo del sito (componente `SamsMark`). I file
+  sorgente stanno in `media/logo/`; tolto `scripts/gen-icons.mjs`, che rigenerava le vecchie icone blu. La cache del
+  service worker passa a `sams-shell-v2` così la favicon nuova arriva anche a chi aveva la PWA installata.
+- **Changed** — Documenti spostati in `docs/` (`README`, `CHANGELOG`, `IMPLEMENTAZIONE`, `DEPLOY`) e le roadmap in
+  `docs/roadmap/`; lo screenshot in `media/photo/`. Sistemati tutti i link e i percorsi che li citavano.
 
 ### 2026-11-13 (b) — Il GitHub di ogni utente 🐙
 
@@ -861,19 +870,19 @@ peakClients:2`; dopo la disconnessione `clients:0` ma il picco resta.
 Le versioni storiche sono tracciate per intero, con lo stato di ogni item, nei
 file dedicati:
 
-- **Capitolo 3** — [`ROADMAP3.md`](./ROADMAP3.md): mondo reattivo (webhook in
+- **Capitolo 3** — [`ROADMAP3.md`](./roadmap/ROADMAP3.md): mondo reattivo (webhook in
   ingresso, MCP, reazioni a catena, routine), mondo raccontabile (replay,
   immagine OG, giardini di team, dashboard pubblica, diario del mondo),
   profondità simulativa (relazioni, obiettivi, economia del token, meta-agente
   proattivo). Frontiera "mondo condiviso" rimandata al capitolo 4.
-- **Capitolo 2** — [`ROADMAP2.md`](./ROADMAP2.md): persistenza SQLite, diff
+- **Capitolo 2** — [`ROADMAP2.md`](./roadmap/ROADMAP2.md): persistenza SQLite, diff
   preview + gate CI, Live Simulation, meta-agente, bisogni/energia, suoni,
   narrazione vocale, skill tree, marketplace di template.
-- **Capitolo 1** — [`ROADMAP.md`](./ROADMAP.md): stanza 3D viva, agenti autonomi
+- **Capitolo 1** — [`ROADMAP.md`](./roadmap/ROADMAP.md): stanza 3D viva, agenti autonomi
   multi-provider, Commit Garden, runtime Express con SSE.
 
 ## Prossimo
 
-Il capitolo 4 — [`ROADMAP4.md`](./ROADMAP4.md) — porta SAMS da demo personale a
+Il capitolo 4 — [`ROADMAP4.md`](./roadmap/ROADMAP4.md) — porta SAMS da demo personale a
 **prodotto condiviso**: presence realtime, ruoli/permessi, stato del mondo
 autorevole sul server, deploy & hosting, collaborazione fra agenti reali.

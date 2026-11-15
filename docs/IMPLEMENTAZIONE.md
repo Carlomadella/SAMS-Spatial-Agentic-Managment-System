@@ -1,7 +1,7 @@
 # 🛠️ Implementazione post-brainstorming
 
 Questo documento riassume **tutto ciò che è stato implementato dopo la sessione di
-brainstorming** (vedi [`ROADMAP.md`](./ROADMAP.md)). Le feature sono state spedite
+brainstorming** (vedi [`ROADMAP.md`](./roadmap/ROADMAP.md)). Le feature sono state spedite
 in ordine di priorità, scegliendo per prime quelle ad alto impatto **e** verificabili
 con build/test (dato che in questo ambiente non sono disponibili browser né chiave
 Gemini per provare il flusso live).
@@ -377,7 +377,7 @@ Prove manuali consigliate:
 
 ## 🔜 Cosa manca (prossimi passi)
 
-Tracciati in [`ROADMAP.md`](./ROADMAP.md). In cima:
+Tracciati in [`ROADMAP.md`](./roadmap/ROADMAP.md). In cima:
 - **Anteprima + approvazione del diff** prima del push (richiede modifiche a runtime +
   frontend e una verifica live).
 - **Output in streaming** dei token/passi nell'event log.

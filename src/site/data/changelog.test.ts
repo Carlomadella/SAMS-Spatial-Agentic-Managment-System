@@ -6,7 +6,7 @@ import { CHANGELOG_ENTRIES } from "./changelog";
 // Collaudo 2026-11-10: il changelog del sito era rimasto al 15/07 mentre CHANGELOG.md andava
 // avanti. Questo test lega le due cose: niente sezione nuova lì senza una voce qui.
 
-const md = readFileSync(path.resolve(__dirname, "../../../CHANGELOG.md"), "utf8");
+const md = readFileSync(path.resolve(__dirname, "../../../docs/CHANGELOG.md"), "utf8");
 
 describe("changelog del sito", () => {
   it("la prima voce ha la data della sezione più recente di CHANGELOG.md", () => {

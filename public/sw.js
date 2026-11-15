@@ -10,7 +10,7 @@
 // the cached shell as the offline fallback. Vite fingerprints asset filenames,
 // so runtime caching keeps us correct across deploys without a precache list.
 
-const CACHE = "sams-shell-v1";
+const CACHE = "sams-shell-v2";
 const SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

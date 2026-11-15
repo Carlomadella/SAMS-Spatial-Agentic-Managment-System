@@ -11,7 +11,7 @@ streaming its status, progress and logs into the 3D scene. Watch teammates'
 cursors, selections and edits in real time, chat next to the scene, and see
 **which person** started and finished every task.
 
-![SAMS — the 3D agent office with the IDE shell](docs/preview.png)
+![SAMS — the 3D agent office with the IDE shell](../media/photo/preview.png)
 
 ---
 
@@ -169,7 +169,7 @@ the **same room at the same time**.
 
 Keys and provisioned IDs are stored locally in `server/.sams-runtime.json`
 (git-ignored). The app talks to the runtime at `http://localhost:8787` by default
-(override with `VITE_SAMS_BACKEND_URL`). Full runtime guide: [`server/README.md`](./server/README.md).
+(override with `VITE_SAMS_BACKEND_URL`). Full runtime guide: [`server/README.md`](../server/README.md).
 
 ---
 
@@ -257,15 +257,15 @@ CI (`.github/workflows/ci.yml`) runs lint, build and both test suites on every p
 
 ## Deploy
 
-SAMS runs as a **single container** — the multi-stage [`Dockerfile`](./Dockerfile)
+SAMS runs as a **single container** — the multi-stage [`Dockerfile`](../Dockerfile)
 builds the frontend and the runtime serves **both** the API and the built SPA on
 one port (health check `GET /api/health`).
 
 - **Local / self-hosted:** `docker compose up --build` → `http://localhost:3000`.
-- **Render (one-click):** this repo ships a Blueprint ([`render.yaml`](./render.yaml)) — *New → Blueprint*, pick the repo, fill the secrets after the first deploy.
+- **Render (one-click):** this repo ships a Blueprint ([`render.yaml`](../render.yaml)) — *New → Blueprint*, pick the repo, fill the secrets after the first deploy.
 - **Fly.io / Railway / any Docker host:** build the `Dockerfile`, expose the port, set env vars.
 
-Full guide + all environment variables: **[`docs/DEPLOY.md`](./docs/DEPLOY.md)**.
+Full guide + all environment variables: **[`docs/DEPLOY.md`](./DEPLOY.md)**.
 
 ---
 
@@ -273,13 +273,13 @@ Full guide + all environment variables: **[`docs/DEPLOY.md`](./docs/DEPLOY.md)**
 
 The story so far, chapter by chapter (each with its own file):
 
-- [`ROADMAP.md`](./ROADMAP.md) — **chapter 1**: make it _work_ (live 3D room, autonomous multi-provider agents, Commit Garden, Express runtime with SSE).
-- [`ROADMAP2.md`](./ROADMAP2.md) — **chapter 2**: depth, trust & scale (SQLite persistence, diff preview + CI gate, Live Simulation, self-improving meta-agent, needs/energy, sounds, narration, skill tree, template marketplace).
-- [`ROADMAP3.md`](./ROADMAP3.md) — **chapter 3**: a reactive, shareable world — ✅ reactive (webhooks, MCP tools, chain reactions, routines), ✅ shareable (replay, OG image, team gardens, public dashboard, world diary), ✅ simulative depth (relationships, goals, token economy, proactive meta-agent).
-- [`ROADMAP4.md`](./ROADMAP4.md) — **chapter 4**: from a personal demo to a **shared product** — ✅ realtime presence with identity (cursors, selections, shared chat), ✅ **real accounts** + **roles/permissions** (owner/editor/viewer), ✅ an **authoritative server world** (versioned, CAS-reconciled over SSE, driver lease).
-- [`ROADMAP5.md`](./ROADMAP5.md) — **chapter 5** (in progress): the welcome site, polish (hitboxes, free furniture drag) and per-user task attribution — plus the **road to 1.0**.
+- [`ROADMAP.md`](./roadmap/ROADMAP.md) — **chapter 1**: make it _work_ (live 3D room, autonomous multi-provider agents, Commit Garden, Express runtime with SSE).
+- [`ROADMAP2.md`](./roadmap/ROADMAP2.md) — **chapter 2**: depth, trust & scale (SQLite persistence, diff preview + CI gate, Live Simulation, self-improving meta-agent, needs/energy, sounds, narration, skill tree, template marketplace).
+- [`ROADMAP3.md`](./roadmap/ROADMAP3.md) — **chapter 3**: a reactive, shareable world — ✅ reactive (webhooks, MCP tools, chain reactions, routines), ✅ shareable (replay, OG image, team gardens, public dashboard, world diary), ✅ simulative depth (relationships, goals, token economy, proactive meta-agent).
+- [`ROADMAP4.md`](./roadmap/ROADMAP4.md) — **chapter 4**: from a personal demo to a **shared product** — ✅ realtime presence with identity (cursors, selections, shared chat), ✅ **real accounts** + **roles/permissions** (owner/editor/viewer), ✅ an **authoritative server world** (versioned, CAS-reconciled over SSE, driver lease).
+- [`ROADMAP5.md`](./roadmap/ROADMAP5.md) — **chapter 5** (in progress): the welcome site, polish (hitboxes, free furniture drag) and per-user task attribution — plus the **road to 1.0**.
 
-> 🏁 **Target release date for SAMS 1.0: 31 December 2026.** Milestones (scope decisions → feature freeze → release candidate → release) are tracked in [`ROADMAP5.md`](./ROADMAP5.md).
+> 🏁 **Target release date for SAMS 1.0: 31 December 2026.** Milestones (scope decisions → feature freeze → release candidate → release) are tracked in [`ROADMAP5.md`](./roadmap/ROADMAP5.md).
 
 A per-session log of recent changes lives in [`CHANGELOG.md`](./CHANGELOG.md).
 

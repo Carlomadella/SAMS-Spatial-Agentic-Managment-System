@@ -8,7 +8,7 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#0b0e14",
+  "background_color": "#000000",
   "theme_color": "#0b0e14",
   "lang": "it",
   "categories": ["productivity", "developer", "utilities"],
