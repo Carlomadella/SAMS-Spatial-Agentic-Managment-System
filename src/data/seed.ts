@@ -1,4 +1,4 @@
-import type { Agent, FileNode, WorkflowDef } from "../types";
+import type { Agent, WorkflowDef } from "../types";
 
 // ---------------------------------------------------------------------------
 // Initial population of the workspace. This is a manual sandbox: these agents
@@ -136,54 +136,4 @@ export const WORKFLOW_DEFS: WorkflowDef[] = [
     defaultRole: "Generalist",
     icon: "Rocket",
   },
-];
-
-/**
- * The non-agent part of the Explorer tree (workflows / environments / assets /
- * configs / docs). The agents folder is generated live from the store.
- */
-export const STATIC_TREE: FileNode[] = [
-  {
-    id: "workflows",
-    name: "workflows",
-    kind: "folder",
-    children: [
-      { id: "wf-onboarding", name: "onboarding.flow", kind: "file", badge: "M", workflowId: "wf-onboarding" },
-      { id: "wf-codereview", name: "code-review.flow", kind: "file", badge: "M", workflowId: "wf-codereview" },
-      { id: "wf-deploy", name: "deploy.flow", kind: "file", workflowId: "wf-deploy" },
-    ],
-  },
-  {
-    id: "environments",
-    name: "environments",
-    kind: "folder",
-    children: [
-      { id: "env-dev", name: "dev.env", kind: "file" },
-      { id: "env-staging", name: "staging.env", kind: "file", badge: "M" },
-      { id: "env-prod", name: "prod.env", kind: "file" },
-    ],
-  },
-  {
-    id: "assets",
-    name: "assets",
-    kind: "folder",
-    children: [
-      { id: "as-arch", name: "architecture.spatial", kind: "file", badge: "M" },
-      { id: "as-office", name: "office-layout.spatial", kind: "file", badge: "M" },
-      { id: "as-furniture", name: "furniture.spatial", kind: "file", badge: "U" },
-    ],
-  },
-  {
-    id: "configs",
-    name: "configs",
-    kind: "folder",
-    children: [
-      { id: "cfg-sams", name: "sams.yaml", kind: "file", badge: "M" },
-      { id: "cfg-agents", name: "agents.yaml", kind: "file" },
-      { id: "cfg-perms", name: "permissions.yaml", kind: "file", badge: "U" },
-    ],
-  },
-  { id: "doc-readme", name: "README.md", kind: "file", badge: "M" },
-  { id: "doc-changelog", name: "CHANGELOG.md", kind: "file" },
-  { id: "doc-license", name: "LICENSE", kind: "file", badge: "U" },
 ];

@@ -4,28 +4,19 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  FileCode2,
   GitBranch,
   GitCommit,
   GitFork,
   X,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { STATIC_TREE } from "../data/seed";
 import { AGENT_HEX, type Agent, type EnvironmentName, type PendingFile } from "../types";
 import { approveChanges, rejectChanges } from "../lib/backend";
 import { gradeChanges, type QualityGrade } from "../lib/quality";
-import { flattenBadgedFiles } from "../lib/fileTree";
 import { canAssign } from "../lib/roleUi";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { GitGraph } from "./GitGraph";
 import { cn } from "../lib/utils";
-
-const BADGE_CLS: Record<string, string> = {
-  M: "text-slate-400",
-  U: "text-emerald-400",
-  A: "text-emerald-400",
-};
 
 const ENV_CHIP: Record<string, string> = {
   dev: "bg-slate-500/15 text-slate-300 border-slate-500/25",
@@ -171,11 +162,9 @@ export function ScmView() {
 
   const [showGraph, setShowGraph] = useState(false);
   const [showBranches, setShowBranches] = useState(true);
-  const [showChanges, setShowChanges] = useState(false);
 
   const pendingAgents = agents.filter((a) => (a.pendingFiles?.length ?? 0) > 0);
   const activeAgents = agents.filter((a) => !!a.task);
-  const workspaceChanges = flattenBadgedFiles(STATIC_TREE);
 
   return (
     <div className="flex h-full flex-col">
@@ -279,38 +268,6 @@ export function ScmView() {
                         {a.task!.progress}%
                       </span>
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Workspace changes ── */}
-        {workspaceChanges.length > 0 && (
-          <div className="mb-1 mt-1">
-            <SectionHeader
-              label="Modifiche workspace"
-              count={workspaceChanges.length}
-              open={showChanges}
-              onToggle={() => setShowChanges((o) => !o)}
-            />
-            {showChanges && (
-              <div className="space-y-0.5 px-1">
-                {workspaceChanges.map((f) => (
-                  <div
-                    key={f.path}
-                    className="flex items-center gap-2 rounded px-2 py-[3px] hover:bg-ink-700/50"
-                  >
-                    <FileCode2 size={12} className="shrink-0 text-slate-500" />
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-400">
-                      {f.path}
-                    </span>
-                    <span
-                      className={cn("shrink-0 font-mono text-[10px] font-semibold", BADGE_CLS[f.badge])}
-                    >
-                      {f.badge}
-                    </span>
                   </div>
                 ))}
               </div>

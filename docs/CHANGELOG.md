@@ -25,6 +25,11 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   l'approvazione e di quali agenti; un click porta in Controllo sorgente con l'agente selezionato. Tolti gli 8
   bottoni che scrivevano nel log eventi inventati ("Push effettuato su origin/prod", "Gate approvato") senza fare
   nulla, e il bottone morto "Altre azioni".
+- **Fixed** — **Ricerca sui file veri**: la vista Cerca trova i file del repo collegato (stessa fonte
+  dell'Explorer) e un click li apre nel visualizzatore. Prima cercava in un albero inventato
+  (`architecture.spatial`, `LICENSE`…) e i risultati non si aprivano.
+- **Removed** — In Controllo sorgente la sezione "Modifiche workspace", che elencava 11 file modificati inesistenti.
+  Le modifiche vere restano quelle degli agenti in attesa d'approvazione.
 
 ### 2026-11-13 (b) — Il GitHub di ogni utente 🐙
 

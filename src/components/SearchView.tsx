@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, FileCode2, Search, Workflow, X } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { STATIC_TREE, WORKFLOW_DEFS } from "../data/seed";
-import { flattenFiles } from "../lib/fileTree";
+import { WORKFLOW_DEFS } from "../data/seed";
+import { buildFileTree, flattenFiles, type FlatFile } from "../lib/fileTree";
+import { fetchRepoTree } from "../lib/backend";
 import { searchWorkspace, type SearchResult } from "../lib/search";
 import { AGENT_HEX } from "../types";
 import { cn } from "../lib/utils";
@@ -19,7 +20,18 @@ export function SearchView() {
   const setActivity = useStore((s) => s.setActivity);
   const [query, setQuery] = useState("");
 
-  const files = useMemo(() => flattenFiles(STATIC_TREE), []);
+  const openRepoFile = useStore((s) => s.openRepoFile);
+  // I file veri del repo di lavoro (stessa fonte dell'Explorer); vuoto se GitHub non è collegato.
+  const [files, setFiles] = useState<FlatFile[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetchRepoTree().then((res) => {
+      if (alive && res?.connected) setFiles(flattenFiles(buildFileTree(res.entries)));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const results = useMemo(
     () => searchWorkspace(query, agents, WORKFLOW_DEFS, files),
     [query, agents, files],
@@ -37,6 +49,8 @@ export function SearchView() {
       selectAgent(r.agentId);
     } else if (r.workflowId) {
       setActivity("explorer"); // workflows live in the Explorer runner
+    } else if (r.kind === "file" && r.sublabel) {
+      openRepoFile(r.sublabel);
     }
   }
 
@@ -73,7 +87,7 @@ export function SearchView() {
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {query.trim() === "" ? (
           <p className="px-1 pt-2 text-[12px] leading-relaxed text-mut">
-            Cerca tra agenti (nome, ruolo, task), workflow e file del workspace.
+            Cerca tra agenti (nome, ruolo, task), workflow e file del repo collegato.
           </p>
         ) : results.length === 0 ? (
           <p className="px-1 pt-2 text-[12px] text-mut">
@@ -98,7 +112,6 @@ export function SearchView() {
                         onClick={() => onPick(r)}
                         className={cn(
                           "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-ink-700/60",
-                          r.kind === "file" && "cursor-default",
                         )}
                       >
                         {agent ? (
