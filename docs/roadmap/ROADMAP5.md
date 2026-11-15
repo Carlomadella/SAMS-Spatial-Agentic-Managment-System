@@ -296,8 +296,9 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       **Chiuso il 2026-11-11:** `SAMS_TRUST_PROXY` (numero di hop o elenco IP/CIDR, `true` rifiutato), `1` in
       `render.yaml`; verifica con `GET /api/admin/client-ip` (owner). Da controllare sul deploy vero che `ip` sia
       il proprio IP pubblico.
-- [ ] **Non verificato:** il build dell'immagine Docker, perché qui Docker non è installato. Va provato nel
-      deploy di prova della RC.
+- [x] **Build dell'immagine Docker.** **Verificato il 2026-11-15** con Docker 29.9.3: `docker build` va a buon
+      fine, nell'immagine non finisce nessun `.env` e il container (porta interna 3000, SQLite) risponde 200 su
+      `/api/health`, `/` e `/app`. Resta da provarlo nel deploy di prova della RC.
 
 **✅ Verificato funzionante** — sito pubblico (home, docs con le 16 sezioni e le ancore giuste, changelog,
 404, tema chiaro/scuro). Account: registrazione (il primo account diventa owner), login, password errata,
