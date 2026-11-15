@@ -104,7 +104,9 @@ function PendingCard({ agent }: { agent: Agent }) {
   }
 
   function handleReject() {
-    rejectChanges(agent.id).catch(() => {});
+    rejectChanges(agent.id).catch((err: Error) =>
+      useStore.getState().pushToast("ERROR", `Rifiuto non riuscito: ${err.message}`),
+    );
   }
 
   return (

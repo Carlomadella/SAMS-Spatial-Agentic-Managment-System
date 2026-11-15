@@ -80,11 +80,15 @@ export function AgentInspector() {
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [memoriesOpen, setMemoriesOpen] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!agent?.id || !memoriesOpen) return;
-    fetchMemory(agent.id).then(setMemories).catch(() => {});
+    setMemoryError(null);
+    fetchMemory(agent.id)
+      .then(setMemories)
+      .catch((err: Error) => setMemoryError(`Impossibile caricare le memorie: ${err.message}`));
   }, [agent?.id, memoriesOpen]);
 
   function toggleStep(i: number) {
@@ -566,8 +570,15 @@ export function AgentInspector() {
             <span className="text-[10px] opacity-60">salvate con remember</span>
           </summary>
           <div className="px-2.5 pb-2.5">
+            {memoryError && (
+              <p role="alert" className="mb-1.5 text-[11px] text-rose-300">
+                {memoryError}
+              </p>
+            )}
             {memories.length === 0 ? (
+              memoryError ? null : (
               <p className="text-[11px] text-mut">Nessuna memoria salvata. L&apos;agente usa <code>remember</code> per salvare informazioni persistenti.</p>
+              )
             ) : (
               <div className="space-y-1.5">
                 {memories.map((m) => (
@@ -579,7 +590,9 @@ export function AgentInspector() {
                 <button
                   onClick={() => {
                     if (!agent) return;
-                    clearMemory(agent.id).then(() => setMemories([])).catch(() => {});
+                    clearMemory(agent.id)
+                      .then(() => setMemories([]))
+                      .catch((err: Error) => setMemoryError(`Cancellazione non riuscita: ${err.message}`));
                   }}
                   className="mt-1 text-[10px] text-mut hover:text-rose-300"
                 >

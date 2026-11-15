@@ -39,7 +39,21 @@ import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
 import { storageGet, storageRemove, storageSet } from "./lib/safeStorage";
-import type { Vec2 } from "./types";
+import type { Agent, Vec2 } from "./types";
+
+/** Un'assegnazione partita in automatico (handoff, sveglia, proposta) che il runtime rifiuta
+ *  non deve sparire: finisce nel log come errore, e quindi anche in un toast. */
+function reportAssignFailure(agent: { id: string; name: string; color: Agent["color"] }) {
+  return (err: Error) =>
+    useStore.getState().log({
+      agentId: agent.id,
+      agentName: agent.name,
+      color: agent.color,
+      level: "ERROR",
+      message: `Assegnazione non partita: ${err.message}`,
+    });
+}
+
 
 // The 3D scene (three.js + drei) is heavy — load it as its own chunk so the
 // IDE shell paints immediately.
@@ -163,7 +177,7 @@ function RelayBridge() {
             // target may have been removed during the 200ms delay — guard the lookup
             const fresh = useStore.getState().agents.find((a) => a.id === target.id);
             if (fresh) {
-              assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+              assignRemote(fresh.id, fresh.name, title, relay.branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(reportAssignFailure(fresh));
             }
           }
         }
@@ -206,7 +220,7 @@ function WakeBridge() {
         if (backendEnabled) {
           const fresh = useStore.getState().agents.find((a) => a.id === target.id);
           if (fresh) {
-            assignRemote(fresh.id, fresh.name, wake.title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+            assignRemote(fresh.id, fresh.name, wake.title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(reportAssignFailure(fresh));
           }
         }
       }
@@ -502,7 +516,7 @@ function ChainBridge() {
             if (backendEnabled) {
               const fresh = useStore.getState().agents.find((a) => a.id === target.id);
               if (fresh) {
-                assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+                assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(reportAssignFailure(fresh));
               }
             }
           }
@@ -595,7 +609,7 @@ function PlaybookBridge() {
           if (backendEnabled) {
             const fresh = useStore.getState().agents.find((a) => a.id === target.id);
             if (fresh) {
-              assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+              assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(reportAssignFailure(fresh));
             }
           }
         }
@@ -678,7 +692,7 @@ function MetaProactiveBridge() {
         if (backendEnabled) {
           const fresh = useStore.getState().agents.find((a) => a.id === agent.id);
           if (fresh) {
-            assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(() => {});
+            assignRemote(fresh.id, fresh.name, title, branch, fresh.role, fresh.instructions, metaRepo(fresh)).catch(reportAssignFailure(fresh));
           }
         }
       }

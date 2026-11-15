@@ -216,7 +216,9 @@ export function CommandPalette() {
       icon: ClipboardList,
       keywords: "",
       run: () => {
-        assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions, metaRepo(sel)).catch(() => {});
+        assignRemote(sel.id, sel.name, q, undefined, sel.role, sel.instructions, metaRepo(sel)).catch((err: Error) =>
+          useStore.getState().pushToast("ERROR", `Assegnazione a ${sel.name} non partita: ${err.message}`),
+        );
       },
     };
   }, [query, agents, selectedAgentId, canEdit]);
