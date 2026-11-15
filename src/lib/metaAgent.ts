@@ -74,7 +74,7 @@ export const META_IDEAS: MetaIdea[] = [
     id: "roadmap",
     label: "Proponi una miglioria dalla roadmap",
     brief:
-      "Leggi docs/roadmap/ROADMAP2.md, scegli un item ancora aperto (💡) di basso effort, implementane una fetta minima e testabile con i relativi test, poi apri una PR.",
+      "Leggi docs/roadmap/ROADMAP5.md, scegli un punto ancora aperto (- [ ]) di basso effort che non richieda una decisione dell'utente, implementane una fetta minima e testabile con i relativi test, poi apri una PR.",
   },
   {
     id: "refactor",
