@@ -173,7 +173,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => switchMode("forgot")}
-              className="mt-1 self-center text-xs text-slate-500 transition-colors hover:text-slate-300"
+              className="mt-1 self-center px-2 py-1.5 text-xs text-slate-500 transition-colors hover:text-slate-300"
             >
               Password dimenticata?
             </button>
@@ -184,7 +184,7 @@ export function Login() {
           {isForgot ? (
             <>
               Te la sei ricordata?{" "}
-              <button type="button" onClick={() => switchMode("login")} className="font-medium text-brand hover:underline">
+              <button type="button" onClick={() => switchMode("login")} className="inline-block py-1 font-medium text-brand hover:underline">
                 Torna all'accesso
               </button>
             </>

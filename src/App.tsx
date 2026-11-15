@@ -70,6 +70,8 @@ function SceneLoading() {
 
 function StageHint() {
   const [open, setOpen] = useState(() => storageGet("sams.hint") !== "off");
+  // Su un touch screen non si clicca né si scorre: si tocca e si pizzica.
+  const [touch] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true);
 
   if (!open) {
     return (
@@ -79,7 +81,8 @@ function StageHint() {
           storageRemove("sams.hint");
         }}
         title="Mostra suggerimenti"
-        className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
+        aria-label="Mostra suggerimenti"
+        className="absolute bottom-3 left-3 z-[90] flex h-7 w-7 items-center justify-center rounded-full border border-slate-300/60 bg-white/80 text-slate-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
       >
         <HelpCircle size={15} />
       </button>
@@ -87,25 +90,27 @@ function StageHint() {
   }
 
   return (
-    <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg border border-slate-300/60 bg-white/85 px-3 py-2 pr-8 text-[11px] text-slate-600 shadow-sm backdrop-blur">
+    // z-[90]: sopra le etichette 3D degli agenti (Html di drei, zIndexRange fino a 80).
+    <div className="absolute bottom-3 left-3 z-[90] flex flex-col gap-1 rounded-lg border border-slate-300/60 bg-white/85 px-3 py-2 pr-8 text-[11px] text-slate-600 shadow-sm backdrop-blur">
       <button
         onClick={() => {
           setOpen(false);
           storageSet("sams.hint", "off");
         }}
         title="Nascondi"
+        aria-label="Nascondi suggerimenti"
         className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700"
       >
         <X size={12} />
       </button>
       <span className="flex items-center gap-1.5">
-        <MousePointerClick size={13} /> Clicca un agente per selezionarlo e comandarlo
+        <MousePointerClick size={13} /> {touch ? "Tocca" : "Clicca"} un agente per selezionarlo e comandarlo
       </span>
       <span className="flex items-center gap-1.5">
-        <Hand size={13} /> Clicca sul pavimento per farlo camminare
+        <Hand size={13} /> {touch ? "Tocca il pavimento" : "Clicca sul pavimento"} per farlo camminare
       </span>
       <span className="flex items-center gap-1.5">
-        <Move3d size={13} /> Trascina per ruotare · scorri per lo zoom
+        <Move3d size={13} /> {touch ? "Trascina per ruotare · pizzica per lo zoom" : "Trascina per ruotare · scorri per lo zoom"}
       </span>
     </div>
   );

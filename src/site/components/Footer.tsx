@@ -43,7 +43,8 @@ const COLUMNS: Col[] = [
 ];
 
 function FooterLink({ label, to, external }: { label: string; to: string; external?: boolean }) {
-  const cls = "text-sm text-slate-400 transition-colors hover:text-slate-100";
+  // py-1 porta l'area toccabile a ~25px (WCAG 2.5.8); il gap della lista scende di pari passo.
+  const cls = "inline-block py-1 text-sm text-slate-400 transition-colors hover:text-slate-100";
   if (external || to.startsWith("mailto:")) {
     return (
       <a href={to} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className={cls}>
@@ -76,7 +77,7 @@ export function Footer() {
           {COLUMNS.map((col) => (
             <div key={col.title}>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{col.title}</h2>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col">
                 {col.links.map((l) => (
                   <li key={l.label}>
                     <FooterLink {...l} />

@@ -51,7 +51,7 @@ export function EventLog() {
         return (
           <div
             key={e.id}
-            className="flex items-baseline gap-2 whitespace-pre-wrap rounded px-1 py-0.5 transition-colors hover:bg-white/[0.035]"
+            className="flex flex-wrap items-baseline gap-x-2 whitespace-pre-wrap rounded px-1 py-0.5 transition-colors hover:bg-white/[0.035]"
           >
             <span className="shrink-0 tabular-nums text-mut/80">{clock(e.ts)}</span>
             <span className="shrink-0 font-semibold" style={{ color: e.color ? AGENT_HEX[e.color] : "#8f8f8f" }}>
@@ -62,7 +62,9 @@ export function EventLog() {
             >
               {lvl.label}
             </span>
-            <span className="text-slate-300">{e.message}</span>
+            {/* Sul telefono il messaggio va a capo sotto ora/agente/livello, a tutta larghezza:
+                accanto restava una colonna di una parola per riga (revisione mobile 15/11). */}
+            <span className="w-full min-w-0 break-words text-slate-300 sm:w-auto sm:flex-1">{e.message}</span>
           </div>
         );
       })}
