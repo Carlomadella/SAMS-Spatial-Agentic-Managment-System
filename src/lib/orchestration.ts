@@ -15,10 +15,13 @@ export interface RelayRequest {
  * agent whose name contains the target (case-insensitive). An empty/blank
  * target matches nobody (returning `undefined`) rather than the first agent.
  */
-export function findRelayTarget(agents: Agent[], target: string): Agent | undefined {
+export function findRelayTarget(agents: Agent[], target: string, fromId?: string): Agent | undefined {
   const t = target.trim().toLowerCase();
   if (!t) return undefined;
-  return agents.find((a) => a.role.toLowerCase() === t || a.name.toLowerCase().includes(t));
+  const others = fromId ? agents.filter((a) => a.id !== fromId) : agents;
+  const matches = others.filter((a) => a.role.toLowerCase() === t || a.name.toLowerCase().includes(t));
+  // A parità di ruolo, meglio un agente libero: il primo in elenco può essere occupato.
+  return matches.find(isIdleEligible) ?? matches[0];
 }
 
 /** Title shown to the relay target, folding in the sender's context (capped). */
