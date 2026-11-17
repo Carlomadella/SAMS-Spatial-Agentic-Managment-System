@@ -4,6 +4,7 @@ import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import { llmTimeoutMs, retryMessage, type RetryReason } from "./llmTimeout";
+import { buildEndpoints, chatWithFallback, fallbackMessage, type FallbackWhy } from "./llmFallback";
 import type { AssignBody, WireEvent } from "./types";
 import {
   concludeWithAnswer,
@@ -24,7 +25,7 @@ import {
 // resta sul piano gratuito con un comportamento prevedibile (a differenza del
 // router random `openrouter/free`, che cambia modello a ogni richiesta e rende
 // fragile il tool calling in un loop multi-step).
-const OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions";
+// L'URL dell'endpoint (e quelli dei provider di riserva) sta in llmFallback.ts.
 // I modelli free ruotano nel catalogo di OpenRouter: se questo sparisce, basta
 // cambiarlo dalle Impostazioni (o via SAMS_MODEL). Va bene qualunque id ":free"
 // che supporti i tool.
@@ -102,65 +103,48 @@ export function isRetryableError(err: unknown): boolean {
   return err instanceof TypeError && /fetch failed|network/i.test(err.message);
 }
 
-/** Una chiamata a OpenRouter con retry sui guasti transitori. Esportata per i test. */
+/**
+ * Una chiamata al modello: OpenRouter per primo, poi — se esaurisce la quota, rifiuta la
+ * chiave o resta giù dopo i tentativi — i provider di riserva con una chiave configurata
+ * (`SAMS_PROVIDER_FALLBACK`). Esportata per i test.
+ */
 export async function openrouterChat(
   messages: OpenRouterMessage[],
   tools: OpenRouterTool[],
   systemPrompt: string,
   onRetry?: (attempt: number, waitMs: number, reason: RetryReason) => void,
-): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number }> {
+  onFallback?: (from: string, to: string, why: FallbackWhy) => void,
+): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number; provider: string }> {
   const s = getSettings();
   const allMessages: OpenRouterMessage[] = [{ role: "system", content: systemPrompt }, ...messages];
+  const endpoints = buildEndpoints(s, "openrouter", openrouterModel());
+  const label = (id: string) => endpoints.find((e) => e.id === id)?.label ?? id;
 
-  let lastErr: Error | null = null;
-  let reason: RetryReason = "network";
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      const waitMs = Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS);
-      onRetry?.(attempt, waitMs, reason);
-      await new Promise((r) => setTimeout(r, waitMs));
-    }
-    try {
-      const res = await fetch(OPENROUTER_API, {
-        method: "POST",
-        signal: AbortSignal.timeout(llmTimeoutMs()),
-        headers: openrouterHeaders(s.openrouterApiKey),
-        body: JSON.stringify({
-          model: openrouterModel(),
-          messages: allMessages,
-          tools: tools.length > 0 ? tools : undefined,
-          tool_choice: tools.length > 0 ? "auto" : undefined,
-          temperature: 0.4,
-        }),
-      });
-      if (res.status === 429 || res.status >= 500) {
-        lastErr = new Error(`OpenRouter ${res.status}`);
-        reason = "busy";
-        continue;
-      }
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 200)}`);
-      }
-      const data = (await res.json()) as OpenRouterResponse;
-      const msg = data.choices[0]?.message;
-      const toolCalls = (msg?.tool_calls ?? []).map((tc) => {
-        let args: Record<string, unknown> = {};
-        try { args = JSON.parse(tc.function.arguments) as Record<string, unknown>; } catch { /* keep empty */ }
-        return { id: tc.id, name: tc.function.name, args };
-      });
-      return {
-        text: msg?.content ?? "",
-        toolCalls,
-        tokens: data.usage?.total_tokens ?? 0,
-      };
-    } catch (err) {
-      if (!isRetryableError(err) || attempt >= MAX_RETRIES - 1) throw err;
-      lastErr = err as Error;
-      reason = (err as Error).name === "TimeoutError" ? "timeout" : "network";
-    }
-  }
-  throw lastErr ?? new Error("OpenRouter: troppi tentativi falliti");
+  const { data, endpoint } = await chatWithFallback(endpoints, {
+    body: {
+      messages: allMessages,
+      tools: tools.length > 0 ? tools : undefined,
+      tool_choice: tools.length > 0 ? "auto" : undefined,
+      temperature: 0.4,
+    },
+    timeoutMs: llmTimeoutMs(),
+    maxRetries: MAX_RETRIES,
+    maxBackoffMs: MAX_BACKOFF_MS,
+    onRetry: (_p, attempt, waitMs, why) => onRetry?.(attempt, waitMs, why),
+    onFallback: (from, to, why) => onFallback?.(label(from), label(to), why),
+  });
+  const msg = (data as OpenRouterResponse).choices[0]?.message;
+  const toolCalls = (msg?.tool_calls ?? []).map((tc) => {
+    let args: Record<string, unknown> = {};
+    try { args = JSON.parse(tc.function.arguments) as Record<string, unknown>; } catch { /* keep empty */ }
+    return { id: tc.id, name: tc.function.name, args };
+  });
+  return {
+    text: msg?.content ?? "",
+    toolCalls,
+    tokens: data.usage?.total_tokens ?? 0,
+    provider: `${endpoint.label} · ${endpoint.model}`,
+  };
 }
 
 /** Self-hosted agent loop using OpenRouter (free ":free" models, OpenAI-compatible API). */
@@ -211,6 +195,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
       system,
       (n, waitMs, why) =>
         emit({ agentId, agentName, level: "WARN", message: retryMessage("OpenRouter", why, n, waitMs, llmTimeoutMs()) }),
+      (from, to, why) => emit({ agentId, agentName, level: "WARN", message: fallbackMessage(from, to, why) }),
     );
     totalTokens += resp.tokens;
 
