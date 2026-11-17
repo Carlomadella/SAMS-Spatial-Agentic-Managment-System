@@ -36,6 +36,7 @@ import {
   updateDatabaseRow,
 } from "./notion";
 import { setPending } from "./pendingBuffer";
+import { HttpError } from "./http";
 import { blockedUrlReason, guardedFetch } from "./netGuard";
 import { db, listMemory, logTask, setMemory } from "./db";
 import { emptyGarden, water } from "./garden/model";
@@ -505,6 +506,22 @@ async function fetchUrlText(url: string): Promise<string> {
 }
 
 /**
+ * Legge prima dal branch del task — dove l'agente stesso o il collega che gli ha passato
+ * il lavoro (relay) hanno appena scritto — e solo su 404 (file o branch assenti) dal
+ * branch base. Collaudo 2026-11-17: leggendo solo da `main` il destinatario di un relay
+ * non vedeva i file del collega e girava a vuoto fino al limite di passi.
+ */
+async function onTaskBranch<T>(ctx: ToolContext, read: (ref: string) => Promise<T>): Promise<T> {
+  if (!ctx.branch || ctx.branch === ctx.s.baseBranch) return read(ctx.s.baseBranch);
+  try {
+    return await read(ctx.branch);
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return read(ctx.s.baseBranch);
+    throw err;
+  }
+}
+
+/**
  * Execute a single tool call, mutating `ctx` and returning the result string to
  * feed back to the model. Errors are caught and returned as `ERRORE: …` (and
  * surfaced as a WARN) so a single failing tool never aborts the whole loop.
@@ -516,10 +533,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   let result = "ok";
   try {
     if (name === "gh_list_files") {
-      result = (await listFiles(str(args.path), s.baseBranch)).join("\n") || "(vuoto)";
+      result = (await onTaskBranch(ctx, (ref) => listFiles(str(args.path), ref))).join("\n") || "(vuoto)";
       emit({ agentId, agentName, progress, level: "INFO", message: `ls ${str(args.path) || "/"}` });
     } else if (name === "gh_read_file") {
-      result = truncate(await readFile(str(args.path), s.baseBranch), FILE_READ_LIMIT);
+      result = truncate(await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref)), FILE_READ_LIMIT);
       emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}` });
     } else if (name === "gh_write_file") {
       const filePath = str(args.path);
