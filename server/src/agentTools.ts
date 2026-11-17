@@ -764,6 +764,10 @@ export function taskOutcome(ctx: Pick<ToolContext, "wroteFiles" | "notionWrote" 
   completed: boolean;
 } {
   if (ctx.wroteFiles || ctx.notionWrote) {
+    if (!ctx.finished) {
+      // Ha scritto qualcosa ma non ha concluso (limite di passi): da rivedere, non riuscito.
+      return { status: "review", level: "WARN", message: "Interrotto prima della fine: modifiche parziali da controllare", completed: false };
+    }
     return { status: "review", level: "SUCCESS", message: "Lavoro completato", completed: true };
   }
   if (ctx.finished) {
