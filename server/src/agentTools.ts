@@ -817,7 +817,7 @@ export async function finalizeTask(
         title: ctx.title,
         body: `Automated by SAMS agent **${agentName}** (${opts.prProviderLabel}).\n\n**Task:** ${ctx.title}\n\n_Branch \`${ctx.branch}\` → \`${s.baseBranch}\`._`,
       });
-      emit({ agentId, agentName, level: "SUCCESS", message: `PR #${pr.number}: ${pr.html_url}` });
+      emit({ agentId, agentName, level: "SUCCESS", message: `${pr.existing ? "PR già aperta, aggiornata" : "PR"} #${pr.number}: ${pr.html_url}` });
     } catch (err) {
       emit({ agentId, agentName, level: "WARN", message: `PR non creata: ${(err as Error).message}` });
     }

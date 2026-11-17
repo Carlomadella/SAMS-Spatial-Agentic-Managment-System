@@ -212,11 +212,21 @@ export async function createPullRequest(args: {
   branch: string;
   title: string;
   body: string;
-}): Promise<PullRequest> {
-  return (await gh(`/pulls`, {
-    method: "POST",
-    body: JSON.stringify({ title: args.title, head: args.branch, base: githubContext().baseBranch, body: args.body }),
-  })) as PullRequest;
+}): Promise<PullRequest & { existing?: boolean }> {
+  try {
+    return (await gh(`/pulls`, {
+      method: "POST",
+      body: JSON.stringify({ title: args.title, head: args.branch, base: githubContext().baseBranch, body: args.body }),
+    })) as PullRequest;
+  } catch (err) {
+    // Chi continua il lavoro di un collega sullo stesso branch (relay) trova la PR già
+    // aperta: i nuovi commit ci sono finiti dentro, non è un errore.
+    if (!(err instanceof HttpError && err.status === 422 && /pull request already exists/i.test(err.message))) throw err;
+    const owner = currentRepo().split("/")[0]!;
+    const open = (await gh(`/pulls?state=open&head=${encodeURIComponent(`${owner}:${args.branch}`)}`)) as PullRequest[];
+    if (!open[0]) throw err;
+    return { ...open[0], existing: true };
+  }
 }
 
 /** Create a GitHub issue. Returns its number and URL. */
