@@ -166,7 +166,7 @@ function RelayBridge() {
       useStore.getState().shiftRelay();
       setTimeout(() => {
         const { agents } = useStore.getState();
-        const target = findRelayTarget(agents, relay.target);
+        const target = findRelayTarget(agents, relay.target, relay.fromId);
         if (!target) return;
         // draw the 3D handoff arc from sender → target and play a whoosh
         useStore.getState().addHandoff(relay.fromId, target.id);

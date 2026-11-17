@@ -131,7 +131,7 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     status,
     position: scatterPosition(r.id),
     target: null,
-    task: r.task
+    task: r.task && status !== "idle"
       ? { title: r.task, branch: "", progress, ...(r.assignedBy?.trim() ? { assignedBy: r.assignedBy.trim() } : {}) }
       : null,
     taskQueue: [],
@@ -198,7 +198,8 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     const withBy = (t: Agent["task"]): Agent["task"] =>
       t ? { ...t, ...(assignedBy ? { assignedBy } : {}) } : t;
     let task: Agent["task"];
-    if (r.task == null) {
+    // Inattivo = nessun lavoro in corso: un titolo nello snapshot è un residuo.
+    if (r.task == null || status === "idle") {
       task = null;
     } else if (a.task && a.task.title === r.task) {
       task =

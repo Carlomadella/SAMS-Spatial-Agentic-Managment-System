@@ -43,6 +43,31 @@ describe("findRelayTarget", () => {
   it("returns undefined when nothing matches", () => {
     expect(findRelayTarget(agents, "architetto")).toBeUndefined();
   });
+
+  // Collaudo 17/11: con due Generalist il relay andava sempre al primo in elenco,
+  // anche se occupato, invece che a quello libero.
+  it("prefers a free agent among those with the requested role", () => {
+    const team = [
+      mkAgent({ id: "busy", role: "Generalist", status: "working", task: { title: "t", branch: "b", progress: 10 } }),
+      mkAgent({ id: "queued", role: "Generalist", taskQueue: [{ title: "q", branch: "b" }] }),
+      mkAgent({ id: "free", role: "Generalist" }),
+    ];
+    expect(findRelayTarget(team, "Generalist")?.id).toBe("free");
+  });
+
+  it("falls back to the first role match when nobody with that role is free", () => {
+    const team = [
+      mkAgent({ id: "busy1", role: "Tester", status: "working", task: { title: "t", branch: "b", progress: 10 } }),
+      mkAgent({ id: "busy2", role: "Tester", status: "working", task: { title: "t", branch: "b", progress: 10 } }),
+    ];
+    expect(findRelayTarget(team, "tester")?.id).toBe("busy1");
+  });
+
+  it("never relays back to the sender", () => {
+    const team = [mkAgent({ id: "me", role: "Generalist" }), mkAgent({ id: "other", role: "Generalist", status: "working" })];
+    expect(findRelayTarget(team, "Generalist", "me")?.id).toBe("other");
+    expect(findRelayTarget([mkAgent({ id: "me", role: "Generalist" })], "Generalist", "me")).toBeUndefined();
+  });
 });
 
 describe("composeRelayTitle", () => {

@@ -72,6 +72,27 @@ describe("reconcileAgents", () => {
     expect(next[0].task).toEqual({ title: "Fix CI", branch: "", progress: 40 });
   });
 
+  // Un agente inattivo non ha lavoro in corso: un titolo rimasto nello snapshot è un
+  // residuo. Se lo si importa, l'agente sembra occupato e i relay finiscono in una coda
+  // che non riparte mai (collaudo 17/11: handoff dell'Architetto bloccato su red-agent).
+  it("non importa un task residuo su un agente che il server dà inattivo", () => {
+    const local = [mk("a")];
+    const next = reconcileAgents(local, [remote({ id: "a", status: "idle", task: "Sistema le hitbox degli agenti" })]);
+    expect(next[0].status).toBe("idle");
+    expect(next[0].task).toBeNull();
+  });
+
+  it("toglie il task residuo locale quando il server dà l'agente inattivo", () => {
+    const local = [mk("a", { status: "idle", task: { title: "Vecchio", branch: "", progress: 0 } })];
+    const next = reconcileAgents(local, [remote({ id: "a", status: "idle", task: "Vecchio" })]);
+    expect(next[0].task).toBeNull();
+  });
+
+  it("materializza senza task un agente remoto inattivo con un titolo residuo", () => {
+    const next = reconcileAgents([mk("a")], [remote({ id: "a" }), remote({ id: "z", status: "idle", task: "Vecchio" })]);
+    expect(next.find((x) => x.id === "z")?.task).toBeNull();
+  });
+
   it("preserva branch e plan locali quando il titolo del task coincide", () => {
     const local = [mk("a", { status: "working", task: { title: "Fix CI", branch: "ci-fix", progress: 10, plan: ["step"] } })];
     const next = reconcileAgents(local, [remote({ id: "a", status: "working", task: "Fix CI", progress: 55 })]);
