@@ -3,6 +3,7 @@ import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
+import { llmTimeoutMs } from "./llmTimeout";
 import type { AssignBody, WireEvent } from "./types";
 import {
   concludeWithAnswer,
@@ -84,7 +85,7 @@ async function openaiChat(
     try {
       const res = await fetch(OPENAI_API, {
         method: "POST",
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(llmTimeoutMs()),
         headers: {
           Authorization: `Bearer ${s.openaiApiKey}`,
           "Content-Type": "application/json",

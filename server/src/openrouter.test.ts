@@ -89,4 +89,21 @@ describe("openrouterChat — retry solo sui guasti transitori", () => {
     expect(f).toHaveBeenCalledTimes(3);
     expect(onRetry).toHaveBeenCalledTimes(2);
   });
+
+  it("dice a onRetry perché riprova: rete, occupato o timeout", async () => {
+    vi.useFakeTimers();
+    const ok = { choices: [{ message: { content: "ok" }, finish_reason: "stop" }] };
+    const f = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(new Response("", { status: 429 }))
+      .mockRejectedValueOnce(Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ok), { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    const onRetry = vi.fn();
+    const p = openrouterChat([], [], "sys", onRetry);
+    await vi.runAllTimersAsync();
+    await expect(p).resolves.toMatchObject({ text: "ok" });
+    expect(onRetry.mock.calls.map((c) => c[2])).toEqual(["network", "busy", "timeout"]);
+  });
 });

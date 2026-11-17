@@ -3,6 +3,7 @@ import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
 import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
+import { llmTimeoutMs, retryMessage, type RetryReason } from "./llmTimeout";
 import type { AssignBody, WireEvent } from "./types";
 import {
   concludeWithAnswer,
@@ -106,22 +107,23 @@ export async function openrouterChat(
   messages: OpenRouterMessage[],
   tools: OpenRouterTool[],
   systemPrompt: string,
-  onRetry?: (attempt: number, waitMs: number) => void,
+  onRetry?: (attempt: number, waitMs: number, reason: RetryReason) => void,
 ): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number }> {
   const s = getSettings();
   const allMessages: OpenRouterMessage[] = [{ role: "system", content: systemPrompt }, ...messages];
 
   let lastErr: Error | null = null;
+  let reason: RetryReason = "network";
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       const waitMs = Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS);
-      onRetry?.(attempt, waitMs);
+      onRetry?.(attempt, waitMs, reason);
       await new Promise((r) => setTimeout(r, waitMs));
     }
     try {
       const res = await fetch(OPENROUTER_API, {
         method: "POST",
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(llmTimeoutMs()),
         headers: openrouterHeaders(s.openrouterApiKey),
         body: JSON.stringify({
           model: openrouterModel(),
@@ -133,6 +135,7 @@ export async function openrouterChat(
       });
       if (res.status === 429 || res.status >= 500) {
         lastErr = new Error(`OpenRouter ${res.status}`);
+        reason = "busy";
         continue;
       }
       if (!res.ok) {
@@ -154,6 +157,7 @@ export async function openrouterChat(
     } catch (err) {
       if (!isRetryableError(err) || attempt >= MAX_RETRIES - 1) throw err;
       lastErr = err as Error;
+      reason = (err as Error).name === "TimeoutError" ? "timeout" : "network";
     }
   }
   throw lastErr ?? new Error("OpenRouter: troppi tentativi falliti");
@@ -205,8 +209,8 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
       messages,
       tools,
       system,
-      (n, waitMs) =>
-        emit({ agentId, agentName, level: "WARN", message: `OpenRouter occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
+      (n, waitMs, why) =>
+        emit({ agentId, agentName, level: "WARN", message: retryMessage("OpenRouter", why, n, waitMs, llmTimeoutMs()) }),
     );
     totalTokens += resp.tokens;
 
