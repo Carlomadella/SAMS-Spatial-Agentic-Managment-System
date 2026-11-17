@@ -11,8 +11,23 @@ describe("taskOutcome", () => {
   });
 
   it("con una scrittura su Notion → in revisione, completato", () => {
-    expect(taskOutcome({ wroteFiles: false, notionWrote: true, finished: false })).toMatchObject({
+    expect(taskOutcome({ wroteFiles: false, notionWrote: true, finished: true })).toMatchObject({
       status: "review", completed: true,
+    });
+  });
+
+  // Collaudo 2026-11-17: un agente ha scritto due file, poi ha girato a vuoto fino al
+  // limite di passi senza chiamare `done`; il log diceva comunque "Lavoro completato".
+  it("ha scritto ma si è fermato al limite di passi → in revisione, ma NON completato", () => {
+    const o = taskOutcome({ wroteFiles: true, notionWrote: false, finished: false });
+    expect(o).toMatchObject({ status: "review", level: "WARN", completed: false });
+    expect(o.message).not.toContain("completato");
+    expect(o.message).toMatch(/interrott/i);
+  });
+
+  it("vale anche per una scrittura su Notion senza conclusione", () => {
+    expect(taskOutcome({ wroteFiles: false, notionWrote: true, finished: false })).toMatchObject({
+      status: "review", level: "WARN", completed: false,
     });
   });
 
