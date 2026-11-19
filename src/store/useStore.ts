@@ -558,7 +558,10 @@ export const useStore = create<State>()(
       agents: s.agents.map((x) => {
         if (x.id !== id) return x;
         const energy = status === "idle" ? Math.min(100, x.energy + 15) : x.energy;
-        return { ...x, status, energy, mood: moodFor(status, energy, x.hunger, x.mood) };
+        // "Inattivo" vuol dire senza task (come dice il log): il task corrente si toglie,
+        // la coda resta e il prossimo task partirà come al solito.
+        const task = status === "idle" ? null : x.task;
+        return { ...x, status, task, energy, mood: moodFor(status, energy, x.hunger, x.mood) };
       }),
     }));
     if (a) {

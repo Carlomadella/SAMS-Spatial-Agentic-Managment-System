@@ -404,6 +404,27 @@ describe("energy & mood", () => {
     expect(useStore.getState().agents.find((x) => x.id === id)!.mood).toBe("proud");
   });
 
+  // Collaudo 2026-11-19: "Inattivo" scriveva "Ora inattivo · nessun task" ma il task
+  // restava sull'agente (bisognava usare "Annulla task"). Inattivo = nessun task.
+  it("idle status removes the current task (the queue stays)", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "T", "b");
+    useStore.getState().enqueueTask(id, { title: "Q", branch: "" });
+    useStore.getState().setStatus(id, "blocked");
+    useStore.getState().setStatus(id, "idle");
+    const a = useStore.getState().agents.find((x) => x.id === id)!;
+    expect(a.status).toBe("idle");
+    expect(a.task).toBeNull();
+    expect(a.taskQueue.map((q) => q.title)).toEqual(["Q"]);
+  });
+
+  it("other statuses keep the task", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "T", "b");
+    useStore.getState().setStatus(id, "blocked");
+    expect(useStore.getState().agents.find((x) => x.id === id)!.task?.title).toBe("T");
+  });
+
   it("idle status with high energy sets happy mood", () => {
     const id = firstId();
     // energy starts at 100 in test baseline
