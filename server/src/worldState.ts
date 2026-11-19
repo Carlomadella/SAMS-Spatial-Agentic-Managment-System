@@ -33,6 +33,8 @@ export interface WorldAgentSnapshot {
   /** nome dell'utente che ha assegnato il task corrente (attribuzione multi-utente);
    *  "" o assente se nessuno/sconosciuto. Viaggia con il task per-riga. */
   assignedBy?: string;
+  /** squadra dell'agente (testo libero); il relay preferisce i compagni di squadra */
+  squad?: string;
   /**
    * Tombstone (Roadmap 4, frontiera #1 — opzione 1): presente e `true` quando
    * l'agente è stato **cancellato** in modo autorevole. Viaggia in lettura
@@ -91,6 +93,7 @@ export function sanitizeWorldAgent(raw: unknown): WorldAgentSnapshot | null {
     repo: str(r.repo, 120),
     xp: nonNegInt(r.xp),
     assignedBy: str(r.assignedBy, 40).trim(),
+    squad: str(r.squad, 60).trim().slice(0, 40),
   };
 }
 

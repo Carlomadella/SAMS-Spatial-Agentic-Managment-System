@@ -141,6 +141,9 @@ export interface Agent {
   /** Override del repository target per questo agente (owner/repo). Vuoto =
    * usa il repo globale configurato nel runtime (o SAMS se meta). */
   repo?: string;
+  /** Squadra (testo libero, es. "Simulazione"): il relay preferisce i compagni di
+   *  squadra del mittente. Vuoto = nessuna squadra. */
+  squad?: string;
 }
 
 export interface LogEvent {

@@ -114,6 +114,7 @@ const agent = (over: Partial<WorldAgentSnapshot> = {}): WorldAgentSnapshot => ({
   repo: "",
   xp: 0,
   assignedBy: "",
+  squad: "",
   ...over,
 });
 

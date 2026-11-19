@@ -20,8 +20,22 @@ export function findRelayTarget(agents: Agent[], target: string, fromId?: string
   if (!t) return undefined;
   const others = fromId ? agents.filter((a) => a.id !== fromId) : agents;
   const matches = others.filter((a) => a.role.toLowerCase() === t || a.name.toLowerCase().includes(t));
-  // A parità di ruolo, meglio un agente libero: il primo in elenco può essere occupato.
-  return matches.find(isIdleEligible) ?? matches[0];
+  // Squadra del mittente (campo «Squadra»): a parità di ruolo si resta in squadra.
+  // Ordine: compagno di squadra libero → qualunque libero → compagno occupato (coda) →
+  // il primo. Senza squadra: il primo libero, come prima.
+  const squad = squadKey(agents.find((a) => a.id === fromId)?.squad);
+  const sameSquad = (a: Agent) => squad !== "" && squadKey(a.squad) === squad;
+  return (
+    matches.find((a) => sameSquad(a) && isIdleEligible(a)) ??
+    matches.find(isIdleEligible) ??
+    matches.find(sameSquad) ??
+    matches[0]
+  );
+}
+
+/** Chiave di confronto di una squadra: senza spazi ai lati e in minuscolo. */
+export function squadKey(squad: string | undefined): string {
+  return (squad ?? "").trim().toLowerCase();
 }
 
 /** Title shown to the relay target, folding in the sender's context (capped). */

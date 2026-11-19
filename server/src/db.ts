@@ -98,6 +98,7 @@ const SQLITE_SCHEMA = `
       repo         TEXT    NOT NULL DEFAULT '',
       xp           INTEGER NOT NULL DEFAULT 0,
       assigned_by  TEXT    NOT NULL DEFAULT '',
+      squad        TEXT    NOT NULL DEFAULT '',
       rev          INTEGER NOT NULL DEFAULT 1,
       updated_at   INTEGER NOT NULL DEFAULT 0,
       deleted_at   INTEGER
@@ -267,6 +268,7 @@ const MYSQL_SCHEMA = `
       repo         VARCHAR(255) NOT NULL DEFAULT '',
       xp           BIGINT       NOT NULL DEFAULT 0,
       assigned_by  VARCHAR(255) NOT NULL DEFAULT '',
+      squad        VARCHAR(64)  NOT NULL DEFAULT '',
       rev          BIGINT       NOT NULL DEFAULT 1,
       updated_at   BIGINT       NOT NULL DEFAULT 0,
       deleted_at   BIGINT       NULL,
@@ -414,6 +416,7 @@ async function ensureWorldAgentColumns(db: SqlDriver): Promise<void> {
   await add("repo", "repo TEXT NOT NULL DEFAULT ''", "repo VARCHAR(255) NOT NULL DEFAULT ''");
   await add("xp", "xp INTEGER NOT NULL DEFAULT 0", "xp BIGINT NOT NULL DEFAULT 0");
   await add("assigned_by", "assigned_by TEXT NOT NULL DEFAULT ''", "assigned_by VARCHAR(255) NOT NULL DEFAULT ''");
+  await add("squad", "squad TEXT NOT NULL DEFAULT ''", "squad VARCHAR(64) NOT NULL DEFAULT ''");
 }
 
 /**
@@ -575,12 +578,13 @@ interface WorldAgentRow {
   repo: string;
   xp: number;
   assigned_by: string;
+  squad: string;
   rev: number;
   deleted_at: number | null;
 }
 
 /** Colonne del roster lette in giro (senza rev/updated_at/deleted_at ove non servono). */
-const AGENT_COLS = "id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by";
+const AGENT_COLS = "id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by, squad";
 
 /** Ordine d'inserimento: il `rowid` implicito di SQLite, la colonna `seq` in MySQL. */
 const insertOrder = (d: Dialect): string => (d === "mysql" ? "seq" : "rowid");
@@ -618,6 +622,7 @@ const rowToAgent = (r: WorldAgentRow): WorldAgentSnapshot => ({
   repo: String(r.repo ?? ""),
   xp: Number(r.xp ?? 0),
   assignedBy: String(r.assigned_by ?? ""),
+  squad: String(r.squad ?? ""),
   ...(r.deleted_at != null ? { deleted: true } : {}),
 });
 
@@ -652,7 +657,8 @@ const agentUnchanged = (prev: WorldAgentRow, a: WorldAgentSnapshot): boolean =>
   String(prev.instructions ?? "") === (a.instructions ?? "") &&
   String(prev.repo ?? "") === (a.repo ?? "") &&
   Number(prev.xp ?? 0) === (a.xp ?? 0) &&
-  String(prev.assigned_by ?? "") === (a.assignedBy ?? "");
+  String(prev.assigned_by ?? "") === (a.assignedBy ?? "") &&
+  String(prev.squad ?? "") === (a.squad ?? "");
 
 /** Esito di una fusione: lo snapshot autorevole + se ha davvero cambiato qualcosa. */
 export interface WorldMergeResult extends WorldSnapshot {
@@ -680,12 +686,12 @@ export interface WorldMergeResult extends WorldSnapshot {
 export async function saveWorldAgents(db: SqlDriver, incoming: WorldAgentSnapshot[]): Promise<WorldMergeResult> {
   const now = Date.now();
   const incomingIds = new Set(incoming.map((a) => a.id));
-  const upsertSql = `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by, rev, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+  const upsertSql = `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by, squad, rev, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
      ${onConflictUpdate(
        db.dialect,
        ["id"],
-       ["name", "color", "role", "status", "task", "progress", "model", "instructions", "repo", "xp", "assigned_by", "rev", "updated_at"],
+       ["name", "color", "role", "status", "task", "progress", "model", "instructions", "repo", "xp", "assigned_by", "squad", "rev", "updated_at"],
        ["deleted_at = NULL"],
      )}`;
 
@@ -706,7 +712,7 @@ export async function saveWorldAgents(db: SqlDriver, incoming: WorldAgentSnapsho
       const rev = prev ? Number(prev.rev) + 1 : 1;
       await tx.run(upsertSql, [
         a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "",
-        a.xp ?? 0, a.assignedBy ?? "", rev, now,
+        a.xp ?? 0, a.assignedBy ?? "", a.squad ?? "", rev, now,
       ]);
       changed = true;
     }

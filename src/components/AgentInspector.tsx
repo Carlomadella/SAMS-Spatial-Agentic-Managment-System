@@ -56,6 +56,7 @@ export function AgentInspector() {
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
   const setRepo = useStore((s) => s.setRepo);
+  const setSquad = useStore((s) => s.setSquad);
   const setMeta = useStore((s) => s.setMeta);
   const applyTemplateAction = useStore((s) => s.applyTemplate);
   const agentPresets = useStore((s) => s.agentPresets);
@@ -529,6 +530,25 @@ export function AgentInspector() {
           </div>
         </div>
       </details>
+
+      {/* squadra: il relay preferisce i compagni di squadra del mittente */}
+      <label className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-ink-850/60 px-2.5 py-2">
+        <span className="shrink-0 text-[11px] font-medium text-mut">Squadra</span>
+        <input
+          value={agent.squad ?? ""}
+          onChange={(e) => setSquad(agent.id, e.target.value)}
+          list="sams-squads"
+          maxLength={40}
+          placeholder="nessuna"
+          title="Quando passa il lavoro a un ruolo, l'agente sceglie prima un compagno libero della stessa squadra."
+          className="min-w-0 flex-1 rounded-md border border-line bg-ink-800 px-2 py-1 text-[12px] text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50"
+        />
+        <datalist id="sams-squads">
+          {[...new Set(agents.map((a) => a.squad?.trim()).filter((s): s is string => !!s))].map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      </label>
 
       {/* per-agent target repository override (multi-repo) */}
       <details className="mt-2 rounded-lg border border-line bg-ink-850/60">

@@ -238,3 +238,17 @@ describe("scatterPosition", () => {
     }
   });
 });
+
+// Campo «Squadra» (scelta dell'utente 19/11): viaggia nello snapshot del mondo.
+describe("reconcileAgents e la squadra", () => {
+  const remote = (over: Partial<RemoteWorldAgent> & { id: string }): RemoteWorldAgent => ({ status: "idle", task: null, progress: 0, ...over });
+  it("adotta la squadra remota e la porta sugli agenti materializzati", () => {
+    const next = reconcileAgents([mk("a")], [remote({ id: "a", squad: "Simulazione" }), remote({ id: "b", squad: " Sim " })]);
+    expect(next.find((x) => x.id === "a")!.squad).toBe("Simulazione");
+    expect(next.find((x) => x.id === "b")!.squad).toBe("Sim");
+  });
+  it("una squadra remota vuota non cancella quella locale (regola B2)", () => {
+    const local = [{ ...mk("a"), squad: "Simulazione" }];
+    expect(reconcileAgents(local, [remote({ id: "a", squad: "" })])[0]!.squad).toBe("Simulazione");
+  });
+});
