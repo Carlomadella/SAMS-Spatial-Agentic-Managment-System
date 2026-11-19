@@ -1,4 +1,4 @@
-import type { Agent, QueuedTask } from "../types";
+import type { Agent, AgentStatus, QueuedTask } from "../types";
 
 /** A relay request emitted by an agent's `relay_task` tool, queued in the store. */
 export interface RelayRequest {
@@ -89,4 +89,15 @@ export function shouldAutoStartQueue(
   prev: Pick<Agent, "status"> | undefined,
 ): boolean {
   return canStartQueued(agent) && prev?.status !== "idle";
+}
+
+/**
+ * Passi del piano da mostrare come completati. Durante il lavoro valgono quelli
+ * spuntati a mano dall'utente; a task finito (in revisione, completato, in attesa
+ * di approvazione o avanzamento al 100%) sono tutti completati.
+ */
+export function planStepsDone(steps: number, checked: ReadonlySet<number>, status: AgentStatus, progress: number): Set<number> {
+  const finished = status === "review" || status === "done" || status === "awaiting_approval" || progress >= 100;
+  if (!finished) return new Set(checked);
+  return new Set(Array.from({ length: steps }, (_, i) => i));
 }

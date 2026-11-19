@@ -14,6 +14,7 @@ import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMet
 import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { canAssign } from "../lib/roleUi";
+import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 
@@ -130,6 +131,7 @@ export function AgentInspector() {
   }
 
   const meta = STATUS_META[agent.status];
+  const doneSteps = planStepsDone(agent.task?.plan?.length ?? 0, checkedSteps, agent.status, agent.task?.progress ?? 0);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3">
@@ -651,12 +653,12 @@ export function AgentInspector() {
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Piano</span>
                   <span className="text-[10px] text-mut">
-                    {checkedSteps.size}/{agent.task.plan!.length} completati
+                    {doneSteps.size}/{agent.task.plan!.length} completati
                   </span>
                 </div>
                 <ol className="space-y-1">
                   {agent.task.plan!.map((step, i) => {
-                    const done = checkedSteps.has(i);
+                    const done = doneSteps.has(i);
                     return (
                       <li
                         key={i}

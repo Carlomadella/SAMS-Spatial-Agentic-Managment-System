@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canStartQueued, composeRelayTitle, enqueueOrdered, findRelayTarget, isIdleEligible, pickFreeAgent, shouldAutoStartQueue } from "./orchestration";
+import { canStartQueued, composeRelayTitle, enqueueOrdered, findRelayTarget, isIdleEligible, pickFreeAgent, planStepsDone, shouldAutoStartQueue } from "./orchestration";
 import type { Agent } from "../types";
 
 function mkAgent(over: Partial<Agent> & { id: string }): Agent {
@@ -156,5 +156,21 @@ describe("enqueueOrdered", () => {
     const q = [t("a")];
     enqueueOrdered(q, t("u", true));
     expect(q.map((x) => x.title)).toEqual(["a"]);
+  });
+});
+
+// Collaudo 2026-11-19: a task finito (avanzamento 100%, stato "In revisione") il
+// piano diceva ancora "0/6 completati", perché i passi si spuntano solo a mano.
+describe("planStepsDone", () => {
+  it("a lavoro in corso conta solo i passi spuntati a mano", () => {
+    expect([...planStepsDone(4, new Set([1]), "working", 40)]).toEqual([1]);
+  });
+  it("a lavoro finito (review/done o 100%) tutti i passi sono completati", () => {
+    expect([...planStepsDone(3, new Set(), "review", 100)]).toEqual([0, 1, 2]);
+    expect([...planStepsDone(3, new Set(), "done", 90)]).toEqual([0, 1, 2]);
+    expect([...planStepsDone(2, new Set(), "awaiting_approval", 100)]).toEqual([0, 1]);
+  });
+  it("un task bloccato non segna i passi come fatti", () => {
+    expect(planStepsDone(3, new Set(), "blocked", 45).size).toBe(0);
   });
 });
