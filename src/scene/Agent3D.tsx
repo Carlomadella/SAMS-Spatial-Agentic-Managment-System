@@ -178,14 +178,20 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     for (let i = s.events.length - 1; i >= 0; i--) if (s.events[i].agentId === agent.id) return s.events[i];
     return undefined;
   });
+  // chiacchiere sociali: solo fumetto, non passano dal Log eventi
+  const lastSpeech = useStore((s) => s.speech[agent.id]);
   const [bubble, setBubble] = useState<string | null>(null);
   useEffect(() => {
-    if (!lastEvent || Date.now() - lastEvent.ts > 8000) return;
-    const msg = lastEvent.message;
+    // il più recente tra l'ultimo evento di lavoro e l'ultima frase detta
+    const latest = lastSpeech && (!lastEvent || lastSpeech.ts >= lastEvent.ts)
+      ? { ts: lastSpeech.ts, text: lastSpeech.text }
+      : lastEvent && { ts: lastEvent.ts, text: lastEvent.message };
+    if (!latest || Date.now() - latest.ts > 8000) return;
+    const msg = latest.text;
     setBubble(msg.length > 90 ? msg.slice(0, 89) + "…" : msg);
     const t = setTimeout(() => setBubble(null), 6000);
     return () => clearTimeout(t);
-  }, [lastEvent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lastEvent?.id, lastSpeech?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, delta) => {
     const g = groupRef.current;

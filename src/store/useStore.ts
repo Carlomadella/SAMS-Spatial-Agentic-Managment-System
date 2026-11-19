@@ -236,6 +236,10 @@ interface State {
 
   // --- actions: world / log ---
   log: (e: Omit<LogEvent, "id" | "ts">) => void;
+  /** Ultima frase "detta" da ogni agente (chiacchiere sociali): solo fumetto 3D,
+   *  non entra nel Log eventi né nello stato salvato. */
+  speech: Record<string, { id: string; text: string; ts: number }>;
+  say: (agentId: string, text: string) => void;
   clearEvents: () => void;
   clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
@@ -466,6 +470,10 @@ export const useStore = create<State>()(
     set((s) => ({
       events: [...s.events, { ...e, id: uid("evt"), ts: Date.now() }].slice(-300),
     })),
+
+  speech: {},
+  say: (agentId, text) =>
+    set((s) => ({ speech: { ...s.speech, [agentId]: { id: uid("say"), text, ts: Date.now() } } })),
 
   addAgent: (color) => {
     const { agents, log } = get();

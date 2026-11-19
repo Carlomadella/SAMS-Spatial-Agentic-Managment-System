@@ -542,3 +542,25 @@ describe("niente eventi finti", () => {
     expect(useStore.getState().events).toEqual([]);
   });
 });
+
+// Collaudo sim-prenota-sale (19/11): le chiacchiere finte tra agenti liberi ("Ti aiuto,
+// dividiamo il lavoro") finivano nel Log eventi e lo sporcavano. Ora sono solo fumetti.
+describe("say (chiacchiere solo come fumetto)", () => {
+  it("mostra la frase sopra l'agente senza scriverla nel Log eventi", () => {
+    const id = firstId();
+    const before = useStore.getState().events.length;
+    useStore.getState().say(id, "→ red-agent: Ti aiuto");
+    expect(useStore.getState().events.length).toBe(before);
+    expect(useStore.getState().speech[id]).toMatchObject({ text: "→ red-agent: Ti aiuto" });
+  });
+
+  it("una nuova frase sostituisce la precedente", () => {
+    const id = firstId();
+    useStore.getState().say(id, "uno");
+    const first = useStore.getState().speech[id]!.id;
+    useStore.getState().say(id, "due");
+    expect(useStore.getState().speech[id]).toMatchObject({ text: "due" });
+    expect(useStore.getState().speech[id]!.id).not.toBe(first);
+  });
+});
+

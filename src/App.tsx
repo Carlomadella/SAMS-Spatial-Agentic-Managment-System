@@ -937,7 +937,7 @@ const CHATTER: [string, string][] = [
 /**
  * Socialisation: now and then two nearby free agents turn to chat — a short
  * back-and-forth shown as speech bubbles (the agents "help each other"). Purely
- * visual; reuses the event log so the bubbles surface over each agent.
+ * visual: goes through `say` (bubble only), never into the event log.
  */
 function TalkBridge() {
   useEffect(() => {
@@ -973,11 +973,12 @@ function TalkBridge() {
       // the exchange itself deepens their bond
       st.bumpAffinity(a.id, b.id, 1);
       const [lineA, lineB] = CHATTER[Math.floor(Math.random() * CHATTER.length)];
-      const log = st.log;
-      log({ agentId: a.id, agentName: a.name, color: a.color, level: "INFO", message: `💬 ${a.name} → ${b.name}: ${lineA}` });
+      // Solo fumetti sopra gli agenti: le chiacchiere non sono lavoro e non vanno nel
+      // Log eventi (collaudo 19/11: lo riempivano di scambi finti).
+      st.say(a.id, `→ ${b.name}: ${lineA}`);
       setTimeout(() => {
         const fresh = useStore.getState().agents.find((x) => x.id === b.id);
-        if (fresh) log({ agentId: b.id, agentName: fresh.name, color: fresh.color, level: "INFO", message: `💬 ${fresh.name} → ${a.name}: ${lineB}` });
+        if (fresh) useStore.getState().say(b.id, `→ ${a.name}: ${lineB}`);
       }, 2600);
     };
     const id = setInterval(tick, 11000);
