@@ -153,7 +153,14 @@ interface State {
   toasts: Toast[];
 
   // --- actions: agents ---
-  addAgent: (color?: AgentColor) => string;
+  /** Crea subito un agente (usato dopo la conferma della finestra «Nuovo agente», dal
+   *  terminale e dai template). `opts` sceglie nome (reso unico) e ruolo. */
+  addAgent: (color?: AgentColor, opts?: { name?: string; role?: string }) => string;
+  /** Finestra «Nuovo agente» aperta (con l'eventuale colore chiesto) o null. */
+  newAgentOpen: { color?: AgentColor } | null;
+  /** Apre la finestra di conferma invece di creare subito l'agente. */
+  openNewAgent: (color?: AgentColor) => void;
+  closeNewAgent: () => void;
   removeAgent: (id: string) => void;
   selectAgent: (id: string | null) => void;
   setRole: (id: string, role: string) => void;
@@ -353,13 +360,19 @@ function nextColor(agents: Agent[]): AgentColor {
   return best;
 }
 
-function uniqueName(agents: Agent[], color: AgentColor): string {
-  const base = `${color}-agent`;
+function uniqueName(agents: Agent[], color: AgentColor, wanted?: string): string {
+  const base = wanted?.trim() || `${color}-agent`;
   const taken = new Set(agents.map((a) => a.name));
   if (!taken.has(base)) return base;
   let i = 2;
   while (taken.has(`${base}-${i}`)) i += 1;
   return `${base}-${i}`;
+}
+
+/** Colore e nome che un nuovo agente avrebbe (proposta della finestra «Nuovo agente»). */
+export function suggestNewAgent(agents: Agent[], color?: AgentColor): { color: AgentColor; name: string } {
+  const c = color ?? nextColor(agents);
+  return { color: c, name: uniqueName(agents, c) };
 }
 
 /** Identità dell'utente di *questa* vista per l'attribuzione (chi assegna/completa
@@ -467,17 +480,21 @@ export const useStore = create<State>()(
       events: [...s.events, { ...e, id: uid("evt"), ts: Date.now() }].slice(-300),
     })),
 
-  addAgent: (color) => {
+  newAgentOpen: null,
+  openNewAgent: (color) => set({ newAgentOpen: color ? { color } : {} }),
+  closeNewAgent: () => set({ newAgentOpen: null }),
+
+  addAgent: (color, opts) => {
     const { agents, log } = get();
     const c = color ?? nextColor(agents);
-    const name = uniqueName(agents, c);
+    const name = uniqueName(agents, c, opts?.name);
     const id = uid("agent");
     const agent: Agent = {
       id,
       name,
       color: c,
       model: "Claude Sonnet",
-      role: "Generalist",
+      role: opts?.role?.trim() || "Generalist",
       instructions: "",
       status: "idle",
       position: [...SPAWN_POINT] as Vec2,

@@ -49,7 +49,7 @@ export function TitleBar() {
   const setGardenOpen = useStore((s) => s.setGardenOpen);
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
-  const addAgent = useStore((s) => s.addAgent);
+  const openNewAgent = useStore((s) => s.openNewAgent);
   const canEdit = canAssign(useStore((s) => s.viewerRole));
   const leftOpen = useStore((s) => s.leftOpen);
   const rightOpen = useStore((s) => s.rightOpen);
@@ -92,7 +92,7 @@ export function TitleBar() {
       {/* right actions */}
       <div className="flex shrink-0 items-center gap-1">
         {canEdit && (
-          <button data-tour="add-agent" onClick={() => addAgent()} aria-label="Aggiungi agente" className="btn btn-primary mr-1 h-7">
+          <button data-tour="add-agent" onClick={() => openNewAgent()} aria-label="Aggiungi agente" className="btn btn-primary mr-1 h-7">
             <Plus size={14} /> <span className="hidden sm:inline">Agente</span>
           </button>
         )}
