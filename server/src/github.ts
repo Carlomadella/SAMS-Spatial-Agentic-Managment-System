@@ -208,6 +208,21 @@ export async function writeFile(
   });
 }
 
+const PR_TITLE_MAX = 72;
+
+/**
+ * Titolo breve per la PR a partire dal testo del task, che può essere lungo
+ * centinaia di caratteri: prima riga, senza il contesto del relay tra quadre,
+ * fino ai primi due punti o alla fine della prima frase, al massimo 72 caratteri.
+ * Il testo intero del task resta nel corpo della PR.
+ */
+export function prTitle(task: string): string {
+  const firstLine = task.split(/\r?\n/)[0] ?? "";
+  const noRelay = firstLine.replace(/\s*\[da [^\]]*\]?\s*$/, "").trim();
+  const head = noRelay.split(/:\s|\.\s|\.$/)[0]!.trim() || noRelay;
+  return head.length > PR_TITLE_MAX ? head.slice(0, PR_TITLE_MAX - 1).trimEnd() + "…" : head;
+}
+
 export async function createPullRequest(args: {
   branch: string;
   title: string;
@@ -216,7 +231,7 @@ export async function createPullRequest(args: {
   try {
     return (await gh(`/pulls`, {
       method: "POST",
-      body: JSON.stringify({ title: args.title, head: args.branch, base: githubContext().baseBranch, body: args.body }),
+      body: JSON.stringify({ title: prTitle(args.title), head: args.branch, base: githubContext().baseBranch, body: args.body }),
     })) as PullRequest;
   } catch (err) {
     // Chi continua il lavoro di un collega sullo stesso branch (relay) trova la PR già
