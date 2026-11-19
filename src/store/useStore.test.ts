@@ -318,6 +318,18 @@ describe("applyRemote", () => {
     expect(agent(id)!.task).toMatchObject({ progress: 25, title: "Booting" });
   });
 
+  // Collaudo 2026-11-19: il task assegnato senza branch mostrava "Branch main" anche
+  // quando il runtime lavorava su sams/<agente>/<slug>. Il runtime annuncia il branch
+  // vero all'avvio e il pannello lo adotta (anche nella cronologia del task).
+  it("adopts the real branch announced by the runtime", () => {
+    const id = firstId();
+    useStore.getState().assignTask(id, "T", "");
+    useStore.getState().applyRemote({ agentId: id, status: "working", progress: 6, branch: "sams/dev/t-abc" });
+    expect(agent(id)!.task!.branch).toBe("sams/dev/t-abc");
+    const rec = useStore.getState().tasks.find((t) => t.agentId === id);
+    expect(rec?.branch).toBe("sams/dev/t-abc");
+  });
+
   it("applies a plan onto the (synthesized) task", () => {
     const id = firstId();
     useStore.getState().applyRemote({ agentId: id, progress: 10, plan: ["a", "b", "c"] });

@@ -23,6 +23,8 @@ export interface WireEvent {
   relayTo?: { target: string; title: string; branch: string; context: string };
   /** step-by-step plan the agent announced before starting work */
   plan?: string[];
+  /** branch su cui il task lavora davvero (annunciato all'avvio, così la UI non mostra "main") */
+  branch?: string;
   /** "wake": a contextual task for the UI to assign to a free agent. `source`
    *  distinguishes a webhook wake (gated by the user's opt-in toggle) from a
    *  scheduled-routine wake (always assigned — the routine itself is the opt-in). */

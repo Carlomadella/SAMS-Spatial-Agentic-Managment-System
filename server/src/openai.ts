@@ -141,7 +141,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
-  emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · OpenAI (${openaiModel()})` });
+  emit({ agentId, agentName, status: "working", progress: 6, branch, level: "INFO", message: `Avvio · OpenAI (${openaiModel()})` });
 
   if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });
