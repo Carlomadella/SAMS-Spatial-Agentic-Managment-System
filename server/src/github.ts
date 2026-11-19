@@ -73,19 +73,23 @@ function repoBase(): string {
   return `${API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
 }
 
-/** Normalize a repo-relative path: strip leading slashes, reject `.`/`..`, encode each segment. */
+/** Segmenti di un percorso relativo al repo: toglie gli slash iniziali e i "." (radice /
+ *  cartella corrente, es. "." o "./docs"); ".." resta vietato (uscirebbe dal repo). */
+function pathParts(filePath: string): string[] {
+  const parts = filePath.replace(/^\/+/, "").split("/").filter((p) => p !== "" && p !== ".");
+  if (parts.some((p) => p === "..")) throw new Error(`Percorso non valido: "${filePath}"`);
+  return parts;
+}
+
+/** Normalize a repo-relative path and encode each segment ("." = root, ".." rejected). */
 function cleanPath(filePath: string): string {
-  const parts = filePath.replace(/^\/+/, "").split("/").filter(Boolean);
-  if (parts.some((p) => p === ".." || p === ".")) throw new Error(`Percorso non valido: "${filePath}"`);
-  return parts.map(encodeURIComponent).join("/");
+  return pathParts(filePath).map(encodeURIComponent).join("/");
 }
 
 /** Like cleanPath but for the Git Trees API, which takes a RAW (un-encoded) path
  *  in the JSON body. Still strips leading slashes and rejects `.`/`..` segments. */
 export function safeTreePath(filePath: string): string {
-  const parts = filePath.replace(/^\/+/, "").split("/").filter(Boolean);
-  if (parts.some((p) => p === ".." || p === ".")) throw new Error(`Percorso non valido: "${filePath}"`);
-  return parts.join("/");
+  return pathParts(filePath).join("/");
 }
 
 async function gh(pathSuffix: string, init?: RequestInit): Promise<unknown> {

@@ -78,3 +78,22 @@ describe("gh_read_file / gh_list_files leggono il branch del task", () => {
     expect(listFiles).toHaveBeenCalledWith("", "docs/architettura");
   });
 });
+
+// Collaudo 2026-11-19: un percorso inesistente produceva un WARN col JSON grezzo di
+// GitHub ('GitHub 404: {"message":"Not Found",…}'), poco utile al modello e al log.
+describe("percorso inesistente: messaggio chiaro", () => {
+  it("gh_list_files dice quale cartella non esiste e su quali branch ha cercato", async () => {
+    listFiles.mockImplementation(async () => { throw notFound(); });
+    const events: WireEvent[] = [];
+    const ctx = { ...mkCtx(), emit: (e: WireEvent) => { events.push(e); } };
+    const res = await executeTool("gh_list_files", { path: "src" }, ctx);
+    expect(res).toBe('ERRORE: "src" non esiste nel repository (cercato su docs/architettura e main)');
+    expect(events.find((e) => e.level === "WARN")?.message).not.toContain("{");
+  });
+
+  it("gh_read_file idem per un file", async () => {
+    readFile.mockImplementation(async () => { throw notFound(); });
+    const res = await executeTool("gh_read_file", { path: "package.json" }, mkCtx());
+    expect(res).toBe('ERRORE: "package.json" non esiste nel repository (cercato su docs/architettura e main)');
+  });
+});

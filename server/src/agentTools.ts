@@ -521,6 +521,17 @@ async function onTaskBranch<T>(ctx: ToolContext, read: (ref: string) => Promise<
   }
 }
 
+/** Per le letture dal repo, un 404 di GitHub diventa una frase chiara (quale percorso,
+ *  su quali branch si è cercato) invece del JSON grezzo dell'API. */
+function notFoundMessage(name: string, args: Record<string, unknown>, ctx: ToolContext, err: unknown): string | null {
+  if (!(err instanceof HttpError && err.status === 404)) return null;
+  if (name !== "gh_list_files" && name !== "gh_read_file") return null;
+  const path = str(args.path) || "/";
+  const base = ctx.s.baseBranch;
+  const where = ctx.branch && ctx.branch !== base ? `${ctx.branch} e ${base}` : base;
+  return `"${path}" non esiste nel repository (cercato su ${where})`;
+}
+
 /**
  * Execute a single tool call, mutating `ctx` and returning the result string to
  * feed back to the model. Errors are caught and returned as `ERRORE: …` (and
@@ -726,8 +737,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       result = `strumento sconosciuto: ${name}`;
     }
   } catch (err) {
-    result = `ERRORE: ${(err as Error).message}`;
-    emit({ agentId, agentName, level: "WARN", message: `${name}: ${(err as Error).message}` });
+    const msg = notFoundMessage(name, args, ctx, err) ?? (err as Error).message;
+    result = `ERRORE: ${msg}`;
+    emit({ agentId, agentName, level: "WARN", message: `${name}: ${msg}` });
   }
   return result;
 }
