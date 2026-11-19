@@ -59,6 +59,14 @@ describe("reconcileAgents", () => {
     ...over,
   });
 
+  // Collaudo sim-prenota-sale: il mondo salvato aveva agenti con ruoli vecchi
+  // (Backend, QA, Reviewer…) che l'inspector non sapeva mostrare.
+  it("traduce i ruoli vecchi dello snapshot nel ruolo attuale", () => {
+    const next = reconcileAgents([mk("a")], [remote({ id: "a", role: "QA" }), remote({ id: "b", name: "blue-agent", role: "Backend" })]);
+    expect(next.find((x) => x.id === "a")!.role).toBe("Tester");
+    expect(next.find((x) => x.id === "b")!.role).toBe("Generalist");
+  });
+
   it("ritorna lo stesso array quando lo snapshot remoto è vuoto", () => {
     const local = [mk("a")];
     expect(reconcileAgents(local, [])).toBe(local);

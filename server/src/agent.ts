@@ -5,6 +5,7 @@ import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import { db, listMemory } from "./db";
+import { canonicalRole } from "./agentRoles";
 import {
   concludeWithAnswer,
   GUIDE_LIMIT,
@@ -99,7 +100,7 @@ export function composeSystem(o: {
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
   const mem = o.memories?.trim();
   const userInstr = o.instructions?.trim();
-  const roleExtra = o.role ? (ROLE_PROMPTS[o.role] ?? "") : "";
+  const roleExtra = o.role ? (ROLE_PROMPTS[canonicalRole(o.role)] ?? "") : "";
   const g = o.guide?.trim();
   const parts = [base];
   if (mem) parts.push(`Memoria di progetto (informazioni che hai salvato nei task precedenti con "remember"):\n${mem}`);
