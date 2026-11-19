@@ -22,6 +22,10 @@ function targetRect(selector?: string): TourRect | null {
 export function Tour() {
   const open = useStore((s) => s.tourOpen);
   const setTourOpen = useStore((s) => s.setTourOpen);
+  // Con le Impostazioni aperte (es. al ritorno da "Collega GitHub") il tour si fa da
+  // parte invece di coprirle, e ricompare quando si chiudono.
+  const settingsOpen = useStore((s) => s.settingsOpen);
+  const visible = open && !settingsOpen;
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<TourRect | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -31,7 +35,7 @@ export function Tour() {
 
   // Re-measure the target + reposition the card on step change, resize and scroll.
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!visible) return;
     const reflow = () => {
       const r = targetRect(current.target);
       setRect(r);
@@ -50,7 +54,7 @@ export function Tour() {
       window.removeEventListener("resize", reflow);
       window.removeEventListener("scroll", reflow, true);
     };
-  }, [open, step, current.target]);
+  }, [visible, step, current.target]);
 
   useEffect(() => {
     if (open) setStep(0);
@@ -59,7 +63,7 @@ export function Tour() {
   // Esc chiude il tour come "Salta". In cattura e fermato, così non arriva anche
   // all'Esc globale della stanza (che deselezionerebbe l'agente).
   useEffect(() => {
-    if (!open) return;
+    if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
@@ -68,9 +72,9 @@ export function Tour() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, setTourOpen]);
+  }, [visible, setTourOpen]);
 
-  if (!open) return null;
+  if (!visible) return null;
 
   function finish() {
     try { localStorage.setItem("sams.tour", "1"); } catch { /* ignore */ }
