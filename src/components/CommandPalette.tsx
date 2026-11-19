@@ -76,14 +76,14 @@ export function CommandPalette() {
     const sel = agents.find((a) => a.id === selectedAgentId);
     const list: Command[] = [];
 
-    if (canEdit) list.push({ id: "add", label: "Crea nuovo agente", icon: Plus, keywords: "create add new crea aggiungi nuovo", run: () => s.addAgent() });
+    if (canEdit) list.push({ id: "add", label: "Crea nuovo agente", icon: Plus, keywords: "create add new crea aggiungi nuovo", run: () => s.openNewAgent() });
     if (canEdit) for (const c of AGENT_COLORS) {
       list.push({
         id: `add-${c}`,
         label: `Crea agente ${COLOR_IT[c] ?? c}`,
         icon: Plus,
         keywords: `create crea ${c} ${COLOR_IT[c] ?? ""}`,
-        run: () => s.addAgent(c),
+        run: () => s.openNewAgent(c),
       });
     }
 

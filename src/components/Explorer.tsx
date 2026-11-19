@@ -145,7 +145,7 @@ function AgentRow({ agent, isSelected }: { agent: Agent; isSelected: boolean }) 
 function AgentsSection() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
-  const addAgent = useStore((s) => s.addAgent);
+  const openNewAgent = useStore((s) => s.openNewAgent);
   const canEdit = canAssign(useStore((s) => s.viewerRole));
   const [open, setOpen] = useState(true);
 
@@ -167,7 +167,7 @@ function AgentsSection() {
         </span>
         {canEdit && (
           <button
-            onClick={(e) => { e.stopPropagation(); addAgent(); }}
+            onClick={(e) => { e.stopPropagation(); openNewAgent(); }}
             title="Crea nuovo agente"
             aria-label="Crea nuovo agente"
             className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ink-600 hover:text-white"
@@ -184,7 +184,7 @@ function AgentsSection() {
           ))}
           {canEdit && (
             <button
-              onClick={() => addAgent()}
+              onClick={() => openNewAgent()}
               className="mt-0.5 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-mut transition-colors hover:bg-ink-700/60 hover:text-slate-300"
             >
               <Plus size={12} />

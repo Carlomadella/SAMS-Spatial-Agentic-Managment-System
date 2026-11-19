@@ -30,7 +30,7 @@ const MOOD_LABEL: Record<string, string> = {
   frustrated: "frustrato",
 };
 
-const AGENT_ROLES = [ // stessi id di AGENT_ROLE_IDS in lib/agentRoles
+export const AGENT_ROLES = [ // stessi id di AGENT_ROLE_IDS in lib/agentRoles
   { id: "Generalist", label: "Generalista", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
   { id: "Revisore", label: "Revisore", desc: "Legge il codice e documenta osservazioni su Notion; non modifica file" },
   { id: "Tester", label: "Tester", desc: "Scrive file di test seguendo le convenzioni del repo" },
