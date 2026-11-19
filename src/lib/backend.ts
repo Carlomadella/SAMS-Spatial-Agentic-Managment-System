@@ -701,6 +701,8 @@ export interface WorldAgentSnapshot {
   xp?: number;
   /** Nome dell'utente che ha assegnato il task corrente (attribuzione multi-utente). */
   assignedBy?: string;
+  /** Squadra dell'agente: il relay preferisce i compagni di squadra. */
+  squad?: string;
   /** Tombstone autorevole (opzione 1): l'agente è stato cancellato sul server. */
   deleted?: boolean;
 }

@@ -313,6 +313,7 @@ function WorldSyncBridge() {
         // Chi ha assegnato il task corrente: viaggia col task così ogni vista vede
         // *quale utente* l'ha avviato e completato.
         assignedBy: a.task?.assignedBy ?? "",
+        squad: a.squad ?? "",
       }));
 
     const flush = () => {

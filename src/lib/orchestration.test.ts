@@ -174,3 +174,38 @@ describe("planStepsDone", () => {
     expect(planStepsDone(3, new Set(), "blocked", 45).size).toBe(0);
   });
 });
+
+// Collaudo sim-prenota-sale (17 e 19/11): Sim-Architetto chiedeva "un Generalist" e il
+// relay sceglieva red-agent (primo libero in elenco) invece di Sim-Dev. Scelta
+// dell'utente (19/11): un campo «Squadra»; il relay preferisce la squadra del mittente.
+describe("findRelayTarget e la squadra", () => {
+  const sender = mkAgent({ id: "arch", name: "Sim-Architetto", role: "Architetto", squad: "Simulazione" });
+  const red = mkAgent({ id: "red", name: "red-agent", role: "Generalist" });
+  const simDev = mkAgent({ id: "dev", name: "Sim-Dev", role: "Generalist", squad: "Simulazione" });
+
+  it("preferisce un agente libero della stessa squadra del mittente", () => {
+    expect(findRelayTarget([sender, red, simDev], "Generalist", "arch")?.id).toBe("dev");
+  });
+
+  it("la squadra si confronta senza badare a maiuscole e spazi", () => {
+    const dev2 = { ...simDev, squad: " simulazione " };
+    expect(findRelayTarget([sender, red, dev2], "Generalist", "arch")?.id).toBe("dev");
+  });
+
+  it("se il compagno di squadra è occupato, meglio un libero di un'altra squadra", () => {
+    const busy = { ...simDev, status: "working" as const, task: { title: "x", branch: "", progress: 10 } };
+    expect(findRelayTarget([sender, red, busy], "Generalist", "arch")?.id).toBe("red");
+  });
+
+  it("se sono tutti occupati, resta in squadra (andrà in coda al compagno)", () => {
+    const t = { title: "x", branch: "", progress: 10 };
+    const busyRed = { ...red, status: "working" as const, task: t };
+    const busyDev = { ...simDev, status: "working" as const, task: t };
+    expect(findRelayTarget([sender, busyRed, busyDev], "Generalist", "arch")?.id).toBe("dev");
+  });
+
+  it("un mittente senza squadra si comporta come prima (primo libero)", () => {
+    const noSquad = { ...sender, squad: undefined };
+    expect(findRelayTarget([noSquad, red, simDev], "Generalist", "arch")?.id).toBe("red");
+  });
+});

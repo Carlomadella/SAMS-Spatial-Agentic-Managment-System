@@ -267,6 +267,16 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     expect((await loadWorldAgents(db))[0].assignedBy).toBe("Giulia");
   });
 
+  // Collaudo sim-prenota-sale: campo «Squadra» per il relay (scelta dell'utente 19/11).
+  it("persiste e rilegge la squadra dell'agente", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent({ squad: "Simulazione" })]);
+    expect((await loadWorldAgents(db))[0]).toMatchObject({ squad: "Simulazione" });
+    const res = await saveWorldAgents(db, [agent({ squad: "" })]);
+    expect(res.changed).toBe(true);
+    expect((await loadWorldAgents(db))[0].squad).toBe("");
+  });
+
   it("aggiunge le colonne config a un world_agents preesistente (ALTER idempotente)", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
     tmpDirs.push(dir);
@@ -285,7 +295,7 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     // Riapertura → ensureWorldAgentColumns aggiunge model/instructions/repo/xp senza perdere la riga.
     const db = await openDb(file);
     const a = (await loadWorldAgents(db)).find((x) => x.id === "old");
-    expect(a).toMatchObject({ id: "old", name: "Old", model: "", instructions: "", repo: "", xp: 0 });
+    expect(a).toMatchObject({ id: "old", name: "Old", model: "", instructions: "", repo: "", xp: 0, squad: "" });
     // e ora una scrittura con config funziona
     await saveWorldAgents(db, [agent({ id: "old", name: "Old", model: "GPT-4", xp: 3 })]);
     expect((await loadWorldAgents(db)).find((x) => x.id === "old")).toMatchObject({ model: "GPT-4", xp: 3 });

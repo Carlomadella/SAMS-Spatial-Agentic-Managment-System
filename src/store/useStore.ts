@@ -168,6 +168,8 @@ interface State {
   setInstructions: (id: string, instructions: string) => void;
   setMeta: (id: string, meta: boolean) => void;
   setRepo: (id: string, repo: string) => void;
+  /** Squadra dell'agente (testo libero; vuoto = nessuna). */
+  setSquad: (id: string, squad: string) => void;
   applyTemplate: (id: string, t: AgentTemplate) => void;
   /** Preset ruolo/modello salvati dall'utente (persistiti), applicabili in un click. */
   agentPresets: AgentTemplate[];
@@ -544,6 +546,9 @@ export const useStore = create<State>()(
 
   setRepo: (id, repo) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, repo: repo.trim() } : a)) })),
+
+  setSquad: (id, squad) =>
+    set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, squad: squad.slice(0, 40) } : a)) })),
 
   applyTemplate: (id, t) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? applyTemplate(a, t) : a)) })),

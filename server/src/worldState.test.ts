@@ -20,8 +20,13 @@ describe("sanitizeWorldAgent", () => {
       sanitizeWorldAgent({ id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 250 }),
     ).toEqual({
       id: "a1", name: "Blue", color: "blue", role: "Dev", status: "working", task: "Fix", progress: 100,
-      model: "", instructions: "", repo: "", xp: 0, assignedBy: "",
+      model: "", instructions: "", repo: "", xp: 0, assignedBy: "", squad: "",
     });
+  });
+
+  it("porta la squadra dell'agente, ripulita e ritagliata", () => {
+    expect(sanitizeWorldAgent({ id: "a1", squad: "  Simulazione  " })).toMatchObject({ squad: "Simulazione" });
+    expect(sanitizeWorldAgent({ id: "a1", squad: "x".repeat(100) })!.squad).toHaveLength(40);
   });
 
   it("porta il nome di chi ha assegnato il task (attribuzione multi-utente)", () => {

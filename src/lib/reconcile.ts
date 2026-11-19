@@ -69,6 +69,8 @@ export interface RemoteWorldAgent {
   instructions?: string;
   repo?: string;
   xp?: number;
+  /** squadra dell'agente (il relay preferisce i compagni di squadra) */
+  squad?: string;
   /**
    * Tombstone autorevole (Roadmap 4, frontiera #1 — opzione 1): `true` se l'agente
    * è stato cancellato sul server. Il client rimuove un agente locale **solo** su
@@ -141,6 +143,7 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     mood: "happy",
     xp: r.xp && r.xp > 0 ? Math.floor(r.xp) : 0,
     ...(r.repo?.trim() ? { repo: r.repo.trim() } : {}),
+    ...(r.squad?.trim() ? { squad: r.squad.trim() } : {}),
   };
 }
 
@@ -191,6 +194,7 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     const model = r.model?.trim() || a.model;
     const instructions = r.instructions?.trim() ? r.instructions : a.instructions;
     const repo = r.repo?.trim() || a.repo;
+    const squad = r.squad?.trim() || a.squad;
     const xp = Math.max(a.xp, r.xp ?? 0);
     const progress = clampPct(r.progress);
     // Attribuzione: adotta il nome remoto di chi ha assegnato il task (se presente),
@@ -212,13 +216,13 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     }
     if (
       a.status === status && task === a.task && a.name === name && a.color === color && a.role === role &&
-      a.model === model && a.instructions === instructions && a.repo === repo && a.xp === xp
+      a.model === model && a.instructions === instructions && a.repo === repo && a.xp === xp && a.squad === squad
     ) {
       next.push(a);
       continue;
     }
     changed = true;
-    next.push({ ...a, status, task, name, color, role, model, instructions, repo, xp });
+    next.push({ ...a, status, task, name, color, role, model, instructions, repo, xp, ...(squad ? { squad } : {}) });
   }
   // Agenti presenti nel remoto ma non in locale (e non tombstoned) → materializzali.
   const created: Agent[] = [];
