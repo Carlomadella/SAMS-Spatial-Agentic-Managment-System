@@ -18,7 +18,7 @@ export async function runTask(body: AssignBody, emit: (e: WireEvent) => void): P
   const title = body.title;
   const branch = body.branch?.trim() || makeBranch(agentName, title);
 
-  emit({ agentId, agentName, status: "working", progress: 4, level: "INFO", message: `Avvio sessione · branch ${branch}` });
+  emit({ agentId, agentName, status: "working", progress: 4, branch, level: "INFO", message: `Avvio sessione · branch ${branch}` });
 
   const session = await client.beta.sessions.create({
     agent: s.agentId,

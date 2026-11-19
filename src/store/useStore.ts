@@ -305,6 +305,8 @@ interface State {
     pendingFiles?: PendingFile[];
     relayTo?: { target: string; title: string; branch: string; context: string };
     plan?: string[];
+    /** branch reale annunciato dal runtime all'avvio del task */
+    branch?: string;
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
     presence?: number;
     people?: string[];
@@ -978,7 +980,7 @@ export const useStore = create<State>()(
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
-        agent && (e.status || e.progress != null || e.pendingFiles || e.plan != null)
+        agent && (e.status || e.progress != null || e.pendingFiles || e.plan != null || e.branch)
           ? s.agents.map((a) => {
               if (a.id !== e.agentId) return a;
               const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
@@ -988,7 +990,8 @@ export const useStore = create<State>()(
                     ? { ...a.task, progress }
                     : { title: e.message ?? "Runtime task", branch: "", progress }
                   : a.task;
-              const taskWithPlan = e.plan != null && task ? { ...task, plan: e.plan } : task;
+              const withBranch = e.branch && task ? { ...task, branch: e.branch } : task;
+              const taskWithPlan = e.plan != null && withBranch ? { ...withBranch, plan: e.plan } : withBranch;
               const pendingFiles = e.pendingFiles ?? (e.status && e.status !== "awaiting_approval" ? undefined : a.pendingFiles);
               const newStatus = e.status ?? a.status;
               const energyDrain = progress != null ? Math.max(0, Math.floor((progress - (a.task?.progress ?? 0)) / 7)) : 0;
@@ -1021,6 +1024,7 @@ export const useStore = create<State>()(
         if (e.status) tp.status = e.status;
         if (e.progress != null) tp.progress = clamp(Math.round(e.progress), 0, 100);
         if (e.tokens != null) tp.tokens = e.tokens;
+        if (e.branch) tp.branch = e.branch;
         const url = e.message?.match(/https?:\/\/\S+/)?.[0];
         if (url) tp.url = url;
         if (Object.keys(tp).length > 0) tasks = patchLatestTask(s.tasks, e.agentId, tp);

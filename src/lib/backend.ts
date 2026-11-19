@@ -42,6 +42,8 @@ export interface RemoteUpdate {
   pendingFiles?: PendingFile[];
   relayTo?: { target: string; title: string; branch: string; context: string };
   plan?: string[];
+  /** Branch su cui il runtime lavora davvero (annunciato all'avvio del task). */
+  branch?: string;
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
   /** Presence: number of connected views, broadcast by the runtime on connect/disconnect. */
   presence?: number;

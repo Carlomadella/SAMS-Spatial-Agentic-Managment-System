@@ -162,7 +162,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
-  emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · OpenRouter (${openrouterModel()})` });
+  emit({ agentId, agentName, status: "working", progress: 6, branch, level: "INFO", message: `Avvio · OpenRouter (${openrouterModel()})` });
 
   if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });

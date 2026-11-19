@@ -135,7 +135,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
-  emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Groq (${groqModel()})` });
+  emit({ agentId, agentName, status: "working", progress: 6, branch, level: "INFO", message: `Avvio · Groq (${groqModel()})` });
 
   if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });

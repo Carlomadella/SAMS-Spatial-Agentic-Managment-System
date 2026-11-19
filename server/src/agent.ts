@@ -130,7 +130,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
-  emit({ agentId, agentName, status: "working", progress: 6, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
+  emit({ agentId, agentName, status: "working", progress: 6, branch, level: "INFO", message: `Avvio · Gemini (${geminiModel()})` });
 
   if (!repoEnabled && !notionEnabled && !mcpEnabled) {
     emit({ agentId, agentName, status: "blocked", level: "ERROR", message: "Nessuno strumento configurato: aggiungi un token GitHub e/o Notion in ⚙." });
