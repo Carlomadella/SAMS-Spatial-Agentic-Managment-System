@@ -90,13 +90,20 @@ export function buildToolSpecs(
     specs.push(
       {
         name: "gh_list_files",
-        description: `Elenca i file in una cartella del repository (legge da '${s.baseBranch}').`,
+        description: `Elenca i file in una cartella del repository (prima dal branch del task, poi da '${s.baseBranch}').`,
         schema: { type: "object", properties: { path: { type: "string", description: "cartella, vuoto = root" } } },
       },
       {
         name: "gh_read_file",
-        description: `Leggi un file del repository (legge da '${s.baseBranch}').`,
-        schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+        description: `Leggi un file del repository (prima dal branch del task, poi da '${s.baseBranch}'). I file lunghi arrivano a pezzi di ${FILE_READ_LIMIT} caratteri: la nota in fondo dice con quale offset leggere il resto.`,
+        schema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            offset: { type: "integer", description: "carattere da cui iniziare (per i file lunghi); 0 = dall'inizio" },
+          },
+          required: ["path"],
+        },
       },
       {
         name: "gh_write_file",
@@ -410,6 +417,23 @@ export interface ToolContext {
   finished: boolean;
   progress: number;
   stagedFiles: PendingFile[];
+  /** pezzi di file già letti in questo task ("path@offset"): una rilettura identica
+   *  lo segnala invece di far girare a vuoto il modello. */
+  reads?: Set<string>;
+}
+
+/**
+ * Un pezzo di un file lungo a partire da `offset` (in caratteri). Se il file continua,
+ * in fondo c'è una nota che dice quanto è lungo e con quale offset leggere il resto:
+ * prima il testo veniva tagliato con "…" e il modello lo rileggeva all'infinito.
+ */
+export function readChunk(content: string, offset: number, limit = FILE_READ_LIMIT): string {
+  const total = content.length;
+  if (offset >= total && total > 0) return `ERRORE: offset ${offset} oltre la fine del file (${total} caratteri).`;
+  const end = Math.min(total, offset + limit);
+  const chunk = content.slice(offset, end);
+  if (end >= total) return chunk;
+  return `${chunk}\n\n[File troncato: mostrati i caratteri ${offset}–${end} di ${total} caratteri. Per il resto richiama gh_read_file con offset=${end}.]`;
 }
 
 const WEB_FETCH_MAX_REDIRECTS = 4;
@@ -547,8 +571,16 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       result = (await onTaskBranch(ctx, (ref) => listFiles(str(args.path), ref))).join("\n") || "(vuoto)";
       emit({ agentId, agentName, progress, level: "INFO", message: `ls ${str(args.path) || "/"}` });
     } else if (name === "gh_read_file") {
-      result = truncate(await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref)), FILE_READ_LIMIT);
-      emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}` });
+      const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
+      const chunk = readChunk(await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref)), offset);
+      const key = `${str(args.path)}@${offset}`;
+      ctx.reads ??= new Set();
+      // Rilettura identica: lo si dice, così il modello va avanti invece di ripetere.
+      result = ctx.reads.has(key)
+        ? `Già letto in questo task (stesso file, stesso offset): il contenuto è più sopra. Non rileggerlo; prosegui col lavoro.\n\n${chunk}`
+        : chunk;
+      ctx.reads.add(key);
+      emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}${offset ? ` (da ${offset})` : ""}` });
     } else if (name === "gh_write_file") {
       const filePath = str(args.path);
       const fileContent = str(args.content);
