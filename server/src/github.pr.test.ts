@@ -46,3 +46,41 @@ describe("createPullRequest", () => {
     await expect(createPullRequest({ branch: "feat/x", title: "T", body: "B" })).rejects.toThrow(/No commits/);
   });
 });
+
+// Collaudo 2026-11-19: il titolo della PR era l'intero testo del task (oltre 900
+// caratteri per T1 di sim-prenota-sale). Il titolo va accorciato; il testo intero
+// resta nel corpo della PR.
+describe("prTitle", () => {
+  it("lascia invariato un titolo breve", async () => {
+    const { prTitle } = await import("./github");
+    expect(prTitle("Aggiungi i test del login")).toBe("Aggiungi i test del login");
+  });
+
+  it("tiene solo la prima frase / la parte prima dei due punti", async () => {
+    const { prTitle } = await import("./github");
+    expect(prTitle('Progetta l\'app "Prenota Sale" nella repo sim-prenota-sale: prenotazione di sale riunioni. Requisiti: …'))
+      .toBe('Progetta l\'app "Prenota Sale" nella repo sim-prenota-sale');
+    expect(prTitle("Correggi il bug del logout. Poi aggiorna il README.")).toBe("Correggi il bug del logout");
+  });
+
+  it("taglia a 72 caratteri con i puntini se la prima frase è lunga", async () => {
+    const { prTitle } = await import("./github");
+    const t = prTitle("parola ".repeat(30));
+    expect(t.length).toBeLessThanOrEqual(72);
+    expect(t.endsWith("…")).toBe(true);
+  });
+
+  it("toglie il contesto del relay tra quadre e gli a capo", async () => {
+    const { prTitle } = await import("./github");
+    expect(prTitle("Setup monorepo npm workspaces [da Sim-Architetto: Crea la struttura]")).toBe("Setup monorepo npm workspaces");
+    expect(prTitle("Prima riga\nseconda riga")).toBe("Prima riga");
+  });
+
+  it("createPullRequest invia il titolo corto e non quello intero", async () => {
+    const f = vi.fn(async () => json(201, { number: 9, html_url: "u" }));
+    vi.stubGlobal("fetch", f);
+    await createPullRequest({ branch: "b", title: "Scrivi i test: tutti quanti, con molta cura e attenzione", body: "B" });
+    const sent = JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(sent.title).toBe("Scrivi i test");
+  });
+});
