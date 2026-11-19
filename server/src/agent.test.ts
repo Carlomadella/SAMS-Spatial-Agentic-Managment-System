@@ -124,4 +124,11 @@ describe("composeSystem", () => {
     expect(s).toContain(instr);
     expect(s).toContain(guide);
   });
+
+  // Collaudo sim-prenota-sale: green-agent ha ruolo "QA" (mondo salvato con i ruoli
+  // vecchi) e non riceveva i vincoli del Tester.
+  it("applica i vincoli del ruolo anche ai nomi vecchi (QA → Tester, Reviewer → Revisore)", () => {
+    expect(composeSystem({ agentName: "green-agent", notionEnabled: false, repoEnabled: true, role: "QA" })).toContain("Ruolo TESTER");
+    expect(composeSystem({ agentName: "orange-agent", notionEnabled: false, repoEnabled: true, role: "Reviewer" })).toContain("Ruolo REVISORE");
+  });
 });

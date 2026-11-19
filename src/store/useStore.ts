@@ -23,6 +23,7 @@ import {
 import { SEED_AGENTS } from "../data/seed";
 import { clampToRoom, SPAWN_POINT, ZONE_BY_ID, zoneForTitle } from "../data/world";
 import { clamp, uid } from "../lib/utils";
+import { canonicalRole } from "../lib/agentRoles";
 import { countsAsUnread } from "../lib/chat";
 import { sanitizePeople } from "../lib/presence";
 import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursors";
@@ -1135,6 +1136,8 @@ export const useStore = create<State>()(
             if (typeof a.energy !== "number") a.energy = 100;
             if (typeof a.hunger !== "number") a.hunger = 0;
             if (typeof a.xp !== "number") a.xp = 0;
+            // ruoli vecchi (Backend, QA, Reviewer…) → ruolo attuale equivalente
+            if (typeof a.role === "string") a.role = canonicalRole(a.role);
             // pending files are transient — never restore across reloads
             a.pendingFiles = undefined;
             // if agent was awaiting_approval before reload, reset to idle

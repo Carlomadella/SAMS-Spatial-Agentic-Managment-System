@@ -12,6 +12,7 @@
 
 import { AGENT_COLORS, type Agent, type AgentColor, type AgentStatus, type Vec2 } from "../types";
 import { clampToRoom, SPAWN_POINT } from "../data/world";
+import { canonicalRole } from "./agentRoles";
 
 export type SyncDirection = "in-sync" | "behind" | "ahead";
 
@@ -126,7 +127,7 @@ export function materializeAgent(r: RemoteWorldAgent): Agent {
     name: r.name?.trim() || "Agente",
     color: asColor(r.color),
     model: r.model?.trim() || "Claude Sonnet",
-    role: r.role?.trim() || "Generalist",
+    role: canonicalRole(r.role?.trim() || "Generalist"),
     instructions: r.instructions ?? "",
     status,
     position: scatterPosition(r.id),
@@ -183,7 +184,7 @@ export function reconcileAgents(local: Agent[], remote: RemoteWorldAgent[]): Age
     // solo status/task) si mantiene il valore locale.
     const name = r.name?.trim() || a.name;
     const color = adoptColor(r.color, a.color);
-    const role = r.role?.trim() || a.role;
+    const role = canonicalRole(r.role?.trim() || a.role);
     // Config a bassa frequenza (opzione B2): si adotta solo un valore remoto **non
     // vuoto**, così i dati vuoti della migrazione non azzerano config locale buona.
     // `xp` è monotono → si prende il massimo (non torna mai indietro).
