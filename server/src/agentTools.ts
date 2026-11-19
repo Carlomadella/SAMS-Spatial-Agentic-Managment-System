@@ -433,9 +433,7 @@ export function readChunk(content: string, offset: number, limit = FILE_READ_LIM
   const end = Math.min(total, offset + limit);
   const chunk = content.slice(offset, end);
   if (end >= total) return chunk;
-  return `${chunk}
-
-[File troncato: mostrati i caratteri ${offset}–${end} di ${total} caratteri. Per il resto richiama gh_read_file con offset=${end}.]`;
+  return `${chunk}\n\n[File troncato: mostrati i caratteri ${offset}–${end} di ${total} caratteri. Per il resto richiama gh_read_file con offset=${end}.]`;
 }
 
 const WEB_FETCH_MAX_REDIRECTS = 4;
@@ -579,9 +577,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       ctx.reads ??= new Set();
       // Rilettura identica: lo si dice, così il modello va avanti invece di ripetere.
       result = ctx.reads.has(key)
-        ? `Già letto in questo task (stesso file, stesso offset): il contenuto è più sopra. Non rileggerlo; prosegui col lavoro.
-
-${chunk}`
+        ? `Già letto in questo task (stesso file, stesso offset): il contenuto è più sopra. Non rileggerlo; prosegui col lavoro.\n\n${chunk}`
         : chunk;
       ctx.reads.add(key);
       emit({ agentId, agentName, progress, level: "INFO", message: `read ${str(args.path)}${offset ? ` (da ${offset})` : ""}` });
