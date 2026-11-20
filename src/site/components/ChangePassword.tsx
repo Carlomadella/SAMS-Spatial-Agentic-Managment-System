@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { changePasswordRemote } from "../../lib/backend";
+import { MIN_PASSWORD, PasswordHint } from "./PasswordHint";
 
 /**
  * Cambio password del proprio account (auth reale, frontiera #3). Verifica la password
@@ -15,8 +16,8 @@ export function ChangePassword() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (newPassword.length < 8) {
-      setMsg({ ok: false, text: "La nuova password deve avere almeno 8 caratteri." });
+    if (newPassword.length < MIN_PASSWORD) {
+      setMsg({ ok: false, text: `La nuova password deve avere almeno ${MIN_PASSWORD} caratteri.` });
       return;
     }
     setBusy(true);
@@ -58,10 +59,12 @@ export function ChangePassword() {
             type="password"
             value={newPassword}
             onChange={(e) => setNew(e.target.value)}
-            placeholder="Nuova password (min 8)"
+            placeholder="Nuova password"
             autoComplete="new-password"
+            aria-describedby="pw-hint"
             className="rounded-lg border border-line bg-ink-950/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand/60"
           />
+          <PasswordHint id="pw-hint" value={newPassword} />
           <div className="mt-1 flex items-center gap-2">
             <button
               type="submit"
