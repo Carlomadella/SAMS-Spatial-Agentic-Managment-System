@@ -33,7 +33,7 @@ import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { isMobileWidth } from "./lib/layout";
 import { canAssign } from "./lib/roleUi";
-import { BEDS, ZONE_BY_ID, isNightNow, randomWalkPoint } from "./data/world";
+import { house, isNightNow, randomWalkPoint } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
 import { storageGet, storageRemove, storageSet } from "./lib/safeStorage";
@@ -905,15 +905,19 @@ function LifeBridge() {
         if (night) {
           // settle into a stable per-agent bed and sleep there
           const idx = st.agents.findIndex((x) => x.id === a.id);
-          const bed = BEDS[idx % BEDS.length];
+          const { beds } = house();
+          const bed = beds[idx % beds.length];
           if (!near(a.position, bed)) st.moveAgent(a.id, bed);
         } else if (Math.random() < 0.5) {
           // daytime: roam — sometimes for a coffee or to the whiteboard (where
           // Agent3D plays the matching micro-animation).
           const r = Math.random();
+          const zones = house().zoneById;
+          // la pausa a volte in terrazza, se la casa ce l'ha
+          const breakSpot = zones.terrace && Math.random() < 0.5 ? zones.terrace : zones.kitchen;
           const dest =
-            r < 0.22 ? ZONE_BY_ID.kitchen.position
-            : r < 0.4 ? ZONE_BY_ID.whiteboard.position
+            r < 0.22 ? breakSpot.position
+            : r < 0.4 ? zones.whiteboard.position
             : randomWalkPoint();
           st.moveAgent(a.id, dest);
         }

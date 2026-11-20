@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Download, FileText, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
-import { useSelectedAgent, useStore } from "../store/useStore";
+import { useHouse, useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
 import { hasEarnedXp, levelFromXp, XP_PER_TASK } from "../lib/skill";
 import { affinityTier, bestFriend } from "../lib/relationships";
 import { activeGoal, goalProgress } from "../lib/goals";
 import { balanceOf, formatCoins } from "../lib/economy";
-import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
@@ -71,6 +70,7 @@ export function AgentInspector() {
   const viewerRole = useStore((s) => s.viewerRole);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const block = useAssignBlock();
+  const zones = useHouse().zones;
   const runtimeModel = useStore((s) => s.runtimeModel);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const feedAgent = useStore((s) => s.feedAgent);
@@ -514,7 +514,7 @@ export function AgentInspector() {
           className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"
         >
           <option value="">Invia a…</option>
-          {ZONES.map((z) => (
+          {zones.map((z) => (
             <option key={z.id} value={z.id} className="bg-ink-800">
               {z.label} · {z.sublabel}
             </option>
