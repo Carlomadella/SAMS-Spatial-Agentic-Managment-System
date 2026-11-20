@@ -7,7 +7,8 @@ import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
 import { findPath, isPointClear } from "../lib/pathfind";
 import { hasEarnedXp, levelFromXp } from "../lib/skill";
-import { BEDS, OBSTACLES, ZONE_BY_ID, isNightNow, clampToRoom } from "../data/world";
+import { house, isNightNow, clampToRoom } from "../data/world";
+import { useHouse } from "../store/useStore";
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
@@ -57,6 +58,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const charRef = useRef<THREE.Group>(null); // upper body: bob + lean
   const ringRef = useRef<THREE.Mesh>(null);
   const auraRef = useRef<THREE.Mesh>(null); // remote-selection aura pulse
+  const layout = useHouse(); // la casa può crescere: letti, ostacoli e confini vengono da qui
   const armLRef = useRef<THREE.Group>(null);
   const armRRef = useRef<THREE.Group>(null);
   const legLRef = useRef<THREE.Group>(null);
@@ -90,7 +92,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   // Asleep when it's night and the agent has settled onto a bed (no matter its
   // task status — at night everyone sleeps). Position-based so working agents
   // that walked to bed also lie down.
-  const atBed = BEDS.some((b) => Math.hypot(agent.position[0] - b[0], agent.position[1] - b[1]) < 1.2);
+  const atBed = layout.beds.some((b) => Math.hypot(agent.position[0] - b[0], agent.position[1] - b[1]) < 1.2);
   const sleeping = nightTime && !agent.target && atBed;
 
   // Micro-activities for free agents: a coffee in the kitchen, a sketch at the
@@ -107,8 +109,9 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       }
       const [x, z] = agent.position;
       const near = (p: Vec2) => Math.hypot(x - p[0], z - p[1]) < 3;
-      if (near(ZONE_BY_ID.kitchen.position)) setActivity("coffee");
-      else if (near(ZONE_BY_ID.whiteboard.position)) setActivity("sketch");
+      const zones = house().zoneById;
+      if (near(zones.kitchen.position) || (zones.terrace && near(zones.terrace.position))) setActivity("coffee");
+      else if (near(zones.whiteboard.position) || (zones.library && near(zones.library.position))) setActivity("sketch");
       else setActivity((a) => (a === "stretch" ? null : Math.random() < 0.3 ? "stretch" : null));
     };
     pick();
@@ -129,8 +132,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   // Waypoints that steer around furniture; last entry is always the destination.
   // Recomputed only when a new target is set (position is committed, not per-frame).
   const path = useMemo(
-    () => (agent.target ? findPath(agent.position, agent.target, OBSTACLES) : []),
-    [agent.target, agent.position],
+    () => (agent.target ? findPath(agent.position, agent.target, layout.obstacles, { bounds: layout.bounds }) : []),
+    [agent.target, agent.position, layout],
   );
   useEffect(() => {
     wpIndex.current = 0;
@@ -273,7 +276,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         const [rx, rz] = resolveSeparation(
           [cur.current.x, cur.current.z],
           target,
-          (x, z) => isPointClear([x, z], OBSTACLES),
+          (x, z) => isPointClear([x, z], house().obstacles),
         );
         cur.current.x = rx;
         cur.current.z = rz;

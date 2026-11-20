@@ -427,22 +427,21 @@ Più agenti ci sono, più la casa diventa grande: si aggiungono **letti** e **ca
 - **Oggi:** la camera ha **6 letti fissi** (`BEDS` in `src/data/world.ts`, due file da tre), ma la stanza
   della simulazione ha già **11 agenti**: cinque non hanno un letto. Le zone sono cinque e fisse: Scrivania,
   Angolo lettura, Cucina, Salotto, Camera.
-- **Cosa fare:**
-  - [ ] i letti seguono il numero di agenti (uno a testa), sempre raggiungibili e senza sovrapposizioni con
-        mobili e muri (`OBSTACLES` e il pathfinder devono saperlo);
-  - [ ] oltre una soglia di agenti si aggiunge una **camera nuova**, e la casa si allarga (pianta, muri,
-        telecamera, minimappa e "Invia a una zona" la seguono);
-  - [ ] togliendo agenti la casa non deve "saltare": decidere se si restringe o resta com'è;
-  - [ ] la stessa pianta per tutti quelli che guardano il mondo condiviso (deriva dal roster autorevole).
-- **Doc di decisione** (20/11/2026, Drive): "SAMS · La casa cresce con gli agenti — Decisioni (ROADMAP5)" — pianta
-  (ali laterali / fila davanti / secondo piano / letti a castello), catalogo stanze, soglia, restringimento.
-  Raccomandazione: ali laterali + catalogo + nuova ala quando finiscono i letti + restringimento con margine.
-- **Da decidere:**
-  - quali **camere nuove** creare (es. una seconda camera da letto, una sala riunioni dove gli agenti fanno i
-    passaggi di lavoro, una biblioteca per chi fa ricerca, un laboratorio dei test, una terrazza per le
-    pause…);
-  - ogni quanti agenti nasce una camera nuova e in che ordine;
-  - come cresce la pianta (si allunga, si aggiunge un piano, ali laterali).
+- **Cosa fare:** _fatto il 2026-11-21 (branch `feat/casa-cresce`), con le scelte dell'utente del 20/11:_
+  - [x] **ali laterali**: ogni ala si aggiunge a destra (larga 13, mezza casa) con una porta per stanza; la
+        casa base non cambia. Pianta come funzione pura (`buildLayout(ali)` in `src/data/world.ts`);
+  - [x] **catalogo in ordine**: dietro la stanza di attività (Sala riunioni → Biblioteca → Laboratorio →
+        Terrazza), davanti una camera da 6 letti. Ogni stanza è una zona di «Invia a una zona»; ci va chi ha un
+        task di quel tipo (dal titolo: riunioni, ricerca/documenti, test/CI), mai per ruolo. Al massimo 4 ali;
+  - [x] **quando**: l'utente ha voluto vederla prima che finiscano i letti → la prima ala al **7° agente**, poi
+        una ogni 6 (`AGENTS_PER_WING`, una costante sola da cambiare);
+  - [x] **togliendo agenti**: si restringe con un margine di 3 agenti sotto la soglia (`SHRINK_MARGIN`);
+  - [x] un letto a testa (prima la camera base, poi quelle delle ali), raggiungibili dal pathfinder; scena,
+        muri, pavimento, meteo, telecamera, minimappa, palette e «Invia a una zona» seguono la pianta;
+  - [x] la pianta dipende dal numero di agenti del roster, quindi è la stessa per tutti. **Limite noto:** nella
+        fascia del margine chi entra dopo vede la casa senza l'ala che chi c'era ha ancora (es. 5 agenti dopo
+        averne avuti 7). Si chiude salvando le ali sul server col mondo, se serve.
+- **Doc di decisione** (20/11/2026, Drive): "SAMS · La casa cresce con gli agenti — Decisioni (ROADMAP5)".
 
 ### 🧑‍💼 Agenti preimpostati, ognuno con descrizione e regole
 

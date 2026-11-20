@@ -3,8 +3,7 @@ import { Explorer } from "./Explorer";
 import { ResizeHandle } from "./ResizeHandle";
 import { ScmView } from "./ScmView";
 import { SearchView } from "./SearchView";
-import { useStore } from "../store/useStore";
-import { ZONES } from "../data/world";
+import { useStore, useHouse } from "../store/useStore";
 
 function PanelHeader({ title }: { title: string }) {
   return (
@@ -17,12 +16,13 @@ function PanelHeader({ title }: { title: string }) {
 function CadView() {
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const sendToZone = useStore((s) => s.sendToZone);
+  const zones = useHouse().zones;
 
   return (
     <div className="flex h-full flex-col">
       <PanelHeader title="CAD spaziale · Zone" />
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
-        {ZONES.map((z) => (
+        {zones.map((z) => (
           <button
             key={z.id}
             disabled={!selectedAgentId}

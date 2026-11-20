@@ -46,13 +46,8 @@ import { getArrangement } from "../lib/officeLayout";
 import { clampPlacement } from "../lib/furnitureLayout";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
-import {
-  ROOM,
-  ROOM_DEPTH,
-  ROOM_WIDTH,
-  WALLS,
-  ZONES,
-} from "../data/world";
+import { ROOM, house, type Wing } from "../data/world";
+import { useHouse } from "../store/useStore";
 import type { Vec2, Zone } from "../types";
 import { configureRenderer } from "./glSetup";
 
@@ -66,13 +61,18 @@ function Floor() {
   const BASEBOARD = theme.baseboard;
 
   const downPos = useRef<{ x: number; y: number } | null>(null);
+  // La casa può avere ali a destra: pavimento e muri esterni seguono la sua larghezza.
+  const layout = useHouse();
+  const W = layout.width;
+  const D = layout.depth;
+  const CX = layout.centerX;
   const wood = useMemo(() => {
     const t = woodFloorTexture();
-    t.repeat.set(6.5, 4.5);
+    t.repeat.set(6.5 * (W / 26), 4.5);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.needsUpdate = true;
     return t;
-  }, []);
+  }, [W]);
 
   function onDown(e: ThreeEvent<PointerEvent>) {
     downPos.current = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
@@ -98,10 +98,10 @@ function Floor() {
     <group>
       {/* platform slab (its solid sides form the raised-diorama edge) */}
       <RoundedBox
-        args={[ROOM_WIDTH + 2, 0.5, ROOM_DEPTH + 2]}
+        args={[W + 2, 0.5, D + 2]}
         radius={0.12}
         smoothness={4}
-        position={[0, -0.25, 0]}
+        position={[CX, -0.25, 0]}
         receiveShadow
       >
         <meshStandardMaterial color={FLOOR} roughness={0.95} />
@@ -110,20 +110,20 @@ function Floor() {
       {/* wood parquet floor (also receives the move clicks) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.002, 0]}
+        position={[CX, 0.002, 0]}
         receiveShadow
         onPointerDown={onDown}
         onPointerUp={onUp}
         onPointerMove={(e) => sendCursor(e.point.x, e.point.z)}
       >
-        <planeGeometry args={[ROOM_WIDTH, ROOM_DEPTH]} />
+        <planeGeometry args={[W, D]} />
         <meshStandardMaterial map={wood} roughness={0.7} metalness={0.04} />
       </mesh>
 
       {/* a whisper of a grid to keep click-to-move legible */}
       <Grid
-        position={[0, 0.006, 0]}
-        args={[ROOM_WIDTH, ROOM_DEPTH]}
+        position={[CX, 0.006, 0]}
+        args={[W, D]}
         cellSize={1}
         cellThickness={0.4}
         cellColor="#a98a5e"
@@ -136,22 +136,22 @@ function Floor() {
       />
 
       {/* outer walls: back + left + right (front stays open for the iso view) */}
-      <mesh position={[0, ROOM.wallHeight / 2, ROOM.minZ - 0.15]} receiveShadow>
-        <boxGeometry args={[ROOM_WIDTH + 2, ROOM.wallHeight, 0.3]} />
+      <mesh position={[CX, ROOM.wallHeight / 2, ROOM.minZ - 0.15]} receiveShadow>
+        <boxGeometry args={[W + 2, ROOM.wallHeight, 0.3]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
       <mesh position={[ROOM.minX - 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 2]} />
+        <boxGeometry args={[0.3, ROOM.wallHeight, D + 2]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
-      <mesh position={[ROOM.maxX + 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, ROOM.wallHeight, ROOM_DEPTH + 2]} />
+      <mesh position={[layout.bounds.maxX + 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
+        <boxGeometry args={[0.3, ROOM.wallHeight, D + 2]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
 
       {/* internal walls — rendered straight from the WALLS data so what you see is
           exactly what the pathfinder treats as solid (gaps are doorways) */}
-      {WALLS.map((w, i) => {
+      {layout.walls.map((w, i) => {
         const cx = (w.minX + w.maxX) / 2;
         const cz = (w.minZ + w.maxZ) / 2;
         const sx = w.maxX - w.minX;
@@ -165,41 +165,41 @@ function Floor() {
       })}
 
       {/* wainscoting on the lower third of each inner wall face */}
-      <mesh position={[0, 0.55, ROOM.minZ + 0.03]}>
-        <boxGeometry args={[ROOM_WIDTH + 2, 1.1, 0.04]} />
+      <mesh position={[CX, 0.55, ROOM.minZ + 0.03]}>
+        <boxGeometry args={[W + 2, 1.1, 0.04]} />
         <meshStandardMaterial color={WALL_LOWER} roughness={0.85} />
       </mesh>
       <mesh position={[ROOM.minX + 0.03, 0.55, 0]}>
-        <boxGeometry args={[0.04, 1.1, ROOM_DEPTH + 2]} />
+        <boxGeometry args={[0.04, 1.1, D + 2]} />
         <meshStandardMaterial color={WALL_LOWER} roughness={0.85} />
       </mesh>
       {/* chair rail (top edge of the wainscoting) */}
-      <mesh position={[0, 1.12, ROOM.minZ + 0.06]}>
-        <boxGeometry args={[ROOM_WIDTH + 2, 0.06, 0.06]} />
+      <mesh position={[CX, 1.12, ROOM.minZ + 0.06]}>
+        <boxGeometry args={[W + 2, 0.06, 0.06]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
       <mesh position={[ROOM.minX + 0.06, 1.12, 0]}>
-        <boxGeometry args={[0.06, 0.06, ROOM_DEPTH + 2]} />
+        <boxGeometry args={[0.06, 0.06, D + 2]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
 
       {/* baseboards */}
-      <mesh position={[0, 0.09, ROOM.minZ + 0.05]}>
-        <boxGeometry args={[ROOM_WIDTH + 2, 0.18, 0.06]} />
+      <mesh position={[CX, 0.09, ROOM.minZ + 0.05]}>
+        <boxGeometry args={[W + 2, 0.18, 0.06]} />
         <meshStandardMaterial color={BASEBOARD} roughness={0.8} />
       </mesh>
       <mesh position={[ROOM.minX + 0.05, 0.09, 0]}>
-        <boxGeometry args={[0.06, 0.18, ROOM_DEPTH + 2]} />
+        <boxGeometry args={[0.06, 0.18, D + 2]} />
         <meshStandardMaterial color={BASEBOARD} roughness={0.8} />
       </mesh>
 
       {/* crown molding along the top */}
-      <mesh position={[0, ROOM.wallHeight - 0.08, ROOM.minZ + 0.04]}>
-        <boxGeometry args={[ROOM_WIDTH + 2, 0.16, 0.1]} />
+      <mesh position={[CX, ROOM.wallHeight - 0.08, ROOM.minZ + 0.04]}>
+        <boxGeometry args={[W + 2, 0.16, 0.1]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
       <mesh position={[ROOM.minX + 0.04, ROOM.wallHeight - 0.08, 0]}>
-        <boxGeometry args={[0.1, 0.16, ROOM_DEPTH + 2]} />
+        <boxGeometry args={[0.1, 0.16, D + 2]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
     </group>
@@ -528,6 +528,7 @@ function WeatherCurtain({
  */
 function Weather() {
   const weather = useMemo(() => getWeather(), []);
+  const layout = useHouse();
   if (weather.precipitation === "none") return null;
   const kind = weather.precipitation;
   const color = weather.particleColor;
@@ -537,17 +538,17 @@ function Weather() {
         kind={kind}
         color={color}
         count={kind === "rain" ? 70 : 44}
-        spanX={ROOM_WIDTH + 4}
+        spanX={layout.width + 4}
         spanZ={1.6}
-        center={[0, 0, ROOM.minZ - 1.4]}
+        center={[layout.centerX, 0, ROOM.minZ - 1.4]}
       />
       <WeatherCurtain
         kind={kind}
         color={color}
         count={kind === "rain" ? 40 : 26}
         spanX={1.6}
-        spanZ={ROOM_DEPTH}
-        center={[ROOM.maxX + 1.4, 0, 1]}
+        spanZ={layout.depth}
+        center={[layout.bounds.maxX + 1.4, 0, 1]}
       />
     </>
   );
@@ -734,6 +735,114 @@ function Movable({
   );
 }
 
+const WING_BED_COLORS = ["#6b8f8a", "#b07a5e", "#8a6f9e", "#5a8fb0", "#b0975a", "#8aae6a"];
+
+/** Una sedia semplice (sala riunioni): seduta + schienale, rivolta verso `ry`. */
+function MeetingChair({ position, ry }: { position: [number, number, number]; ry: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <RoundedBox args={[0.55, 0.08, 0.55]} radius={0.03} smoothness={3} position={[0, 0.46, 0]} castShadow>
+        <meshStandardMaterial color="#3a3f4b" roughness={0.7} />
+      </RoundedBox>
+      <RoundedBox args={[0.55, 0.5, 0.07]} radius={0.03} smoothness={3} position={[0, 0.74, -0.25]} castShadow>
+        <meshStandardMaterial color="#3a3f4b" roughness={0.7} />
+      </RoundedBox>
+      <mesh position={[0, 0.22, 0]}>
+        <cylinderGeometry args={[0.035, 0.035, 0.44, 10]} />
+        <meshStandardMaterial color="#8a8f99" metalness={0.5} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Un'ala della casa (ROADMAP5 «la casa cresce»): dietro la stanza di attività del
+ * catalogo, davanti una camera da 6 letti. Gli ingombri dei mobili ingombranti stanno
+ * in `world.ts` (`wingFurniture`), così ciò che si vede è ciò che il pathfinder evita.
+ */
+function WingRooms({ wing, last }: { wing: Wing; last: boolean }) {
+  const { cx, minX, maxX, kind } = wing;
+  return (
+    <group>
+      {/* ── stanza di attività (dietro) ── */}
+      {kind === "meeting" && (
+        <>
+          <RoundedBox args={[4.4, 0.1, 1.8]} radius={0.05} smoothness={4} position={[cx, 0.78, -4.5]} castShadow receiveShadow>
+            <meshStandardMaterial color="#7a5a3c" roughness={0.6} />
+          </RoundedBox>
+          {[-1.6, 1.6].map((dx) => (
+            <mesh key={dx} position={[cx + dx, 0.38, -4.5]} castShadow>
+              <boxGeometry args={[0.12, 0.76, 1.4]} />
+              <meshStandardMaterial color="#5c432d" roughness={0.7} />
+            </mesh>
+          ))}
+          {[-1.4, 0, 1.4].map((dx) => (
+            <MeetingChair key={`b${dx}`} position={[cx + dx, 0, -5.75]} ry={0} />
+          ))}
+          {[-1.4, 0, 1.4].map((dx) => (
+            <MeetingChair key={`f${dx}`} position={[cx + dx, 0, -3.25]} ry={Math.PI} />
+          ))}
+          {/* lavagna sulla parete di fondo */}
+          <mesh position={[cx, 1.7, ROOM.minZ + 0.05]}>
+            <boxGeometry args={[3.2, 1.5, 0.06]} />
+            <meshStandardMaterial color="#f4f4f2" roughness={0.4} />
+          </mesh>
+        </>
+      )}
+      {kind === "library" && (
+        <>
+          {[-4, 0, 4].map((dx) => (
+            <Bookshelf key={dx} position={[cx + dx, 0, -8.55]} />
+          ))}
+          <Rug position={[cx, 0, -4.6]} size={[4.6, 3.0]} />
+          <FloorLamp position={[maxX - 1.1, 0, -1.6]} />
+        </>
+      )}
+      {kind === "lab" && (
+        <>
+          <Desk position={[cx - 3, 0, -7.85]} />
+          <Desk position={[cx + 3, 0, -7.85]} />
+          <WallArt position={[cx, 1.9, ROOM.minZ + 0.06]} color="#5a8fb0" />
+          <Plant position={[maxX - 1.0, 0, -1.4]} />
+        </>
+      )}
+      {kind === "terrace" && (
+        <>
+          {/* pavimento a prato: la terrazza è la stanza "all'aperto" */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.01, -4.6]} receiveShadow>
+            <planeGeometry args={[maxX - minX - 0.4, 8.6]} />
+            <meshStandardMaterial color="#8fae6a" roughness={0.95} />
+          </mesh>
+          <Armchair position={[cx - 2, 0, -4.5]} rotation={[0, Math.PI / 2, 0]} />
+          <Armchair position={[cx + 2, 0, -4.5]} rotation={[0, -Math.PI / 2, 0]} />
+          <SideTable position={[cx, 0, -4.5]} />
+          <Plant position={[minX + 1.0, 0, -8.2]} />
+          <Plant position={[maxX - 1.0, 0, -8.2]} />
+          <Plant position={[maxX - 1.0, 0, -1.4]} />
+        </>
+      )}
+      <WallSconce position={[minX + 2.5, 2.15, ROOM.minZ + 0.16]} />
+
+      {/* ── camera (davanti): sei letti come quelli della casa base ── */}
+      {wing.beds.map(([x, z], i) => (
+        <group key={i} position={[x, 0, z]}>
+          <Bed color={WING_BED_COLORS[(i + wing.index) % WING_BED_COLORS.length]} />
+        </group>
+      ))}
+      <Plant position={[minX + 1.3, 0, 8.2]} />
+
+      {/* l'ultima ala ha le finestre sulla parete esterna */}
+      {last && (
+        <>
+          <Window position={[maxX - 0.16, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
+          <Window position={[maxX - 0.16, 1.5, -4.5]} rotation={[0, -Math.PI / 2, 0]} />
+          <WallSconce position={[maxX - 0.18, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
+        </>
+      )}
+    </group>
+  );
+}
+
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
@@ -743,6 +852,8 @@ function SceneContents() {
   // Personalizzazione dell'ufficio: il cluster salotto si sposta/ruota in blocco
   // secondo la disposizione scelta (persistita), senza toccare le pose base.
   const lounge = getArrangement(useStore((s) => s.officeLayout));
+  const layout = useHouse();
+  const hasWings = layout.wings.length > 0;
 
   return (
     <>
@@ -753,8 +864,8 @@ function SceneContents() {
           della stanza (puramente atmosferico, densità bassa per non distrarre). */}
       <Sparkles
         count={46}
-        scale={[ROOM_WIDTH - 2, 5.2, ROOM_DEPTH - 2]}
-        position={[0, 3.1, 0]}
+        scale={[layout.width - 2, 5.2, layout.depth - 2]}
+        position={[layout.centerX, 3.1, 0]}
         size={2.4}
         speed={0.28}
         opacity={0.32}
@@ -867,16 +978,22 @@ function SceneContents() {
           <Bed color={c} />
         </Movable>
       ))}
-      <Movable id="sideboard" position={[12.4, 0, 5]} rotation={[0, -Math.PI / 2, 0]}>
+      {/* Con un'ala la parete destra diventa interna, con una porta a z=5: la credenza
+          si sposta accanto alla porta e la finestra passa sulla parete esterna dell'ultima ala. */}
+      <Movable id="sideboard" position={[12.4, 0, hasWings ? 7.7 : 5]} rotation={[0, -Math.PI / 2, 0]}>
         <Sideboard />
       </Movable>
-      <Window position={[12.84, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
+      {!hasWings && <Window position={[12.84, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />}
       <WallSconce position={[12.82, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
       <Movable id="plant-bedroom" position={[1.3, 0, 8.2]}>
         <Plant />
       </Movable>
 
       <GardenDoor />
+
+      {layout.wings.map((w) => (
+        <WingRooms key={w.index} wing={w} last={w.index === layout.wings.length - 1} />
+      ))}
 
       {/* ── Oggetti interagibili dell'utente (micro-interazioni) ── */}
       {/* Tazza sul piano cucina → pausa caffè: sazia tutti gli agenti affamati */}
@@ -928,7 +1045,7 @@ function SceneContents() {
         </mesh>
       </Interactable>
 
-      {ZONES.map((z) => (
+      {layout.zones.map((z) => (
         <ZoneMarker key={z.id} zone={z} />
       ))}
 
@@ -987,7 +1104,8 @@ function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: 
       }
       controls.update();
     } else if (transition.current > 0) {
-      // Deselected: ease the camera target back to the room centre.
+      // Deselected: ease the camera target back to the house centre (moves right with the wings).
+      roomCenter.set(house().centerX, 0.8, 0);
       controls.target.lerp(roomCenter, 0.05);
       transition.current = Math.max(0, transition.current - d / 0.8);
       controls.update();
@@ -999,6 +1117,9 @@ function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: 
 export function OfficeScene() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
+  const layout = useHouse();
+  // Con le ali la casa si allunga: la telecamera può allontanarsi di più e la nebbia arriva più in là.
+  const extra = layout.width - 26;
   return (
     <Canvas
       shadows
@@ -1013,7 +1134,7 @@ export function OfficeScene() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <color attach="background" args={["#f3ece0"]} />
-      <fog attach="fog" args={["#f3ece0", 30, 58]} />
+      <fog attach="fog" args={["#f3ece0", 30 + extra * 0.5, 58 + extra]} />
       {/* Ombre morbide (PCSS): il contatto resta nitido, i bordi si sfumano con la
           distanza — molto più naturale delle ombre dure a mappa singola. */}
       <SoftShadows size={26} samples={12} focus={0.9} />
@@ -1023,11 +1144,11 @@ export function OfficeScene() {
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        target={[0, 0.8, 0]}
+        target={[layout.centerX, 0.8, 0]}
         enablePan={false}
         zoomToCursor
         minDistance={9}
-        maxDistance={34}
+        maxDistance={34 + extra * 0.8}
         maxPolarAngle={1.35}
         minPolarAngle={0.25}
         enableDamping

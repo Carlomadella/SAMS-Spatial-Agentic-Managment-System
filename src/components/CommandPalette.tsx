@@ -26,13 +26,12 @@ import {
   Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useStore } from "../store/useStore";
+import { useStore, useHouse } from "../store/useStore";
 import { AGENT_COLORS, type EnvironmentName } from "../types";
 import { ROOM_THEMES } from "../lib/roomThemes";
 import { OFFICE_ARRANGEMENTS } from "../lib/officeLayout";
 import { placedCount } from "../lib/furnitureLayout";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
-import { ZONES } from "../data/world";
 import { assignRemote } from "../lib/backend";
 import { metaRepo } from "../lib/metaAgent";
 import { hasUnfilledPlaceholders } from "../lib/validation";
@@ -72,6 +71,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const zones = useHouse().zones;
   const commands = useMemo<Command[]>(() => {
     const s = useStore.getState();
     const sel = agents.find((a) => a.id === selectedAgentId);
@@ -100,7 +100,7 @@ export function CommandPalette() {
     }
 
     if (sel && canEdit) {
-      for (const z of ZONES) {
+      for (const z of zones) {
         list.push({
           id: `zone-${z.id}`,
           label: `Invia ${sel.name} → ${z.label}`,
@@ -200,7 +200,7 @@ export function CommandPalette() {
     if (canEdit) list.push({ id: "reset", label: "Reimposta l'area di lavoro", icon: RotateCcw, keywords: "reset restore reimposta", run: () => s.resetWorld() });
 
     return list;
-  }, [agents, selectedAgentId, canEdit]);
+  }, [agents, selectedAgentId, canEdit, zones]);
 
   const block = useAssignBlock();
   const quickAssign = useMemo<Command | null>(() => {

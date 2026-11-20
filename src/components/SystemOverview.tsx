@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useStore } from "../store/useStore";
-import { ROOM, ROOM_DEPTH, ROOM_WIDTH, ZONES } from "../data/world";
+import { useHouse, useStore } from "../store/useStore";
+import type { HouseLayout } from "../data/world";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META, statusHex } from "../lib/meta";
 import { cn } from "../lib/utils";
@@ -8,10 +8,10 @@ import { fetchMetrics, type RuntimeMetrics } from "../lib/backend";
 
 const statusLabel = (s: string) => STATUS_META[s as AgentStatus]?.label ?? s;
 
-function toPct(x: number, z: number) {
+function toPct(L: HouseLayout, x: number, z: number) {
   return {
-    left: `${((x - ROOM.minX) / ROOM_WIDTH) * 100}%`,
-    top: `${((z - ROOM.minZ) / ROOM_DEPTH) * 100}%`,
+    left: `${((x - L.bounds.minX) / L.width) * 100}%`,
+    top: `${((z - L.bounds.minZ) / L.depth) * 100}%`,
   };
 }
 
@@ -26,6 +26,8 @@ export function SystemOverview() {
   const selectedAgentId = useStore((s) => s.selectedAgentId);
   const selectAgent = useStore((s) => s.selectAgent);
   const backendOnline = useStore((s) => s.backendOnline);
+  // La minimappa segue la casa: con le ali si allarga.
+  const layout = useHouse();
 
   const active = agents.filter((a) => a.status !== "idle").length;
 
@@ -65,11 +67,11 @@ export function SystemOverview() {
 
       <div
         className="relative w-full overflow-hidden rounded-lg border border-line bg-gradient-to-br from-ink-850 to-ink-900"
-        style={{ aspectRatio: `${ROOM_WIDTH} / ${ROOM_DEPTH}` }}
+        style={{ aspectRatio: `${layout.width} / ${layout.depth}` }}
       >
         {/* zones */}
-        {ZONES.map((z) => {
-          const p = toPct(z.position[0], z.position[1]);
+        {layout.zones.map((z) => {
+          const p = toPct(layout, z.position[0], z.position[1]);
           return (
             <div
               key={z.id}
@@ -83,7 +85,7 @@ export function SystemOverview() {
         {/* agents */}
         {agents.map((a) => {
           const [x, z] = a.target ?? a.position;
-          const p = toPct(x, z);
+          const p = toPct(layout, x, z);
           const selected = a.id === selectedAgentId;
           return (
             <button
