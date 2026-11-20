@@ -434,6 +434,40 @@ export async function listIssues(label?: string): Promise<GithubIssue[]> {
     }));
 }
 
+/** Testo massimo di ogni issue mostrata a un agente. */
+const ISSUE_BODY_MAX = 600;
+
+/**
+ * Issue aperte per lo strumento gh_list_issues (preimpostato "Smistatore", 20/11/2026).
+ * Come per i commenti delle PR, solo gli autori con accesso al repository: sui repo
+ * pubblici chiunque apre issue, e quel testo non deve arrivare a un agente che scrive
+ * e mergia. Delle altre si dice solo quante sono.
+ */
+export async function listIssuesForAgent(label?: string): Promise<string> {
+  const q = `?state=open&per_page=20${label ? `&labels=${encodeURIComponent(label)}` : ""}`;
+  const data = (await gh(`/issues${q}`)) as Array<{
+    number: number;
+    title: string;
+    body: string | null;
+    pull_request?: unknown;
+    user?: { login?: string };
+    author_association?: string;
+    labels: Array<{ name: string }>;
+  }>;
+  const issues = data.filter((i) => !i.pull_request);
+  if (!issues.length) return "nessuna issue aperta";
+  const trusted = issues.filter((i) => TRUSTED_ASSOCIATIONS.has(String(i.author_association ?? "")));
+  const hidden = issues.length - trusted.length;
+  const lines = trusted.map((i) => {
+    const labels = i.labels.map((l) => l.name).join(", ");
+    const body = (i.body ?? "").trim();
+    const text = body.length > ISSUE_BODY_MAX ? `${body.slice(0, ISSUE_BODY_MAX)}…` : body;
+    return `#${i.number} "${i.title}"${labels ? ` [${labels}]` : ""} — ${i.user?.login ?? "?"}${text ? `\n${text}` : ""}`;
+  });
+  if (hidden > 0) lines.push(`(${hidden} issue di autori esterni al repository non mostrate)`);
+  return lines.join("\n\n");
+}
+
 /** Atomically commit multiple files to an existing branch in one Git commit.
  *  Uses the Git Data API (tree + commit) so all files land together with no
  *  partial-commit risk and no per-file sha lookups. */

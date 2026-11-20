@@ -138,4 +138,20 @@ describe("preimpostati e migrazione dei vecchi vincoli di ruolo (20/11/2026)", (
     expect(a).toBe(mine);
     expect(b).toBe(gen);
   });
+
+  it("ci sono i preimpostati scelti il 20/11", () => {
+    for (const id of ["developer", "researcher", "security-guard", "ci-keeper", "triager", "a11y-reviewer"]) {
+      expect(findTemplate(id), id).toBeTruthy();
+    }
+  });
+
+  it("il Ricercatore usa Scrapling e, se manca, web_fetch (opzione A2)", () => {
+    const r = findTemplate("researcher")!.instructions;
+    expect(r).toContain("scrapling");
+    expect(r).toContain("web_fetch");
+  });
+
+  it("lo Smistatore legge le issue con gh_list_issues", () => {
+    expect(findTemplate("triager")!.instructions).toContain("gh_list_issues");
+  });
 });

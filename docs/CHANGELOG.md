@@ -16,6 +16,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   nasce vuoto come prima; scegliendo un preimpostato (Architetto, Revisore di PR, Autore di test, Documentatore,
   Cacciatore di bug, Rifattorizzatore) o un preset salvato si vedono descrizione e regole, modificabili prima di
   creare. L'Architetto scrive il piano in `docs/ARCHITETTURA.md` e passa il primo passo a un altro agente.
+- **Added** — Sei preimpostati nuovi scelti dall'utente: **🛠️ Sviluppatore** (implementa un passo del piano, CI verde,
+  passa la revisione), **🔎 Ricercatore** (legge il web con Scrapling se configurato, altrimenti `web_fetch`, e scrive un
+  riassunto con le fonti), **🛡️ Guardiano della sicurezza** (apre una issue per ogni vulnerabilità, non corregge da
+  solo), **🚦 Custode della CI** (trova la causa dei run falliti e ripara la build), **🗂️ Smistatore di issue**
+  (classifica le issue aperte e propone il prossimo task), **♿ Revisore di accessibilità** (WCAG 2.2 AA).
+- **Added** — Strumento degli agenti **`gh_list_issues`** (sola lettura) per lo Smistatore. Come per i commenti delle
+  PR, mostra solo le issue di chi ha accesso al repository: delle altre dice solo quante sono, così il testo di un
+  estraneo su un repo pubblico non arriva a un agente che può scrivere e mergiare.
 - **Added** — Nell'inspector, sotto le istruzioni permanenti, **«↺ Regole di …»** rimette le regole del preimpostato
   da cui è nato l'agente, se l'utente le ha cambiate.
 - **Changed** — **Il ruolo è solo un'etichetta.** Il server non aggiunge più i «VINCOLI ASSOLUTI» per Revisore,
