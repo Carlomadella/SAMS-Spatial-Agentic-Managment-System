@@ -189,3 +189,30 @@ describe("Team visibile a tutti", () => {
     expect((await call("GET", "/api/team")).status).toBe(401);
   });
 });
+
+describe("Ambienti Dev/Staging/Prod", () => {
+  it("l'owner imposta i branch degli ambienti e li ritrova nello stato", async () => {
+    const res = await call("POST", "/api/settings", session, { devBranch: "develop", prodBranch: "main" });
+    expect(res.status).toBe(200);
+    const st = (await (await call("GET", "/api/status", session)).json()) as { envBranches: Record<string, string> };
+    expect(st.envBranches).toEqual({ dev: "develop", staging: "", prod: "main" });
+  });
+
+  it("un branch non valido si rifiuta e non cambia niente", async () => {
+    const res = await call("POST", "/api/settings", session, { stagingBranch: "bad..name" });
+    expect(res.status).toBe(400);
+    const st = (await (await call("GET", "/api/status", session)).json()) as { envBranches: Record<string, string> };
+    expect(st.envBranches.staging).toBe("");
+  });
+
+  it("vuoto riporta l'ambiente al branch base solito", async () => {
+    expect((await call("POST", "/api/settings", session, { devBranch: "" })).status).toBe(200);
+    const st = (await (await call("GET", "/api/status", session)).json()) as { envBranches: Record<string, string> };
+    expect(st.envBranches.dev).toBe("");
+  });
+
+  it("un anonimo non vede i branch", async () => {
+    const st = (await (await call("GET", "/api/status")).json()) as { envBranches: Record<string, string> };
+    expect(st.envBranches).toEqual({ dev: "", staging: "", prod: "" });
+  });
+});

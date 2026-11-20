@@ -4,6 +4,7 @@ import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
 import { roleMeta } from "../lib/roleUi";
 import { Link } from "../site/router";
+import { effectiveBranch } from "../lib/environments";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -21,6 +22,9 @@ export function StatusBar() {
   const roleEnforced = useStore((s) => s.roleEnforced);
   const tokensUsed = useStore((s) => s.tokensUsed);
   const runtimeBranch = useStore((s) => s.runtimeBranch);
+  const envBranches = useStore((s) => s.envBranches);
+  // Il branch da cui partono i task nell'ambiente scelto (quello dell'ambiente, o il base).
+  const { branch, dedicated } = effectiveBranch(environment, envBranches, runtimeBranch);
   const blocked = useStore((s) => s.agents.filter((a) => a.status === "blocked").length);
 
   const runtime = !backendEnabled
@@ -36,9 +40,12 @@ export function StatusBar() {
       <div className="flex items-center gap-3">
         {/* Collaudo 20/11: qui c'erano valori fissi ("main", errori 0, UTF-8/LF/YAML) che non
             dicevano niente di vero. Ora solo dati reali, e niente se il dato non c'è. */}
-        {runtimeBranch && (
-          <span className="flex items-center gap-1" title="Branch base del repo su cui lavorano gli agenti">
-            <GitBranch size={12} /> {runtimeBranch}
+        {branch && (
+          <span
+            className="flex items-center gap-1"
+            title={dedicated ? `Branch dell'ambiente ${environment}: i task partono da qui` : "Branch base del repo su cui lavorano gli agenti"}
+          >
+            <GitBranch size={12} /> {branch}
           </span>
         )}
         <span className="hidden capitalize opacity-90 sm:inline">{environment}</span>

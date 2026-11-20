@@ -104,6 +104,8 @@ export interface QueuedTask {
   /** Task urgente: salta la coda inserendosi davanti a quelli normali (FIFO tra
    * gli urgenti). Vedi `enqueueOrdered` in lib/orchestration. */
   urgent?: boolean;
+  /** Ambiente scelto quando il task è stato accodato: parte lì anche se intanto l'ambiente cambia. */
+  environment?: EnvironmentName;
 }
 
 export interface Agent {

@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { AGENT_HEX, type EnvironmentName } from "../types";
 import { cn } from "../lib/utils";
+import { effectiveBranch } from "../lib/environments";
 
 const ENVS: EnvironmentName[] = ["dev", "staging", "prod"];
 
@@ -15,6 +16,9 @@ const ENVS: EnvironmentName[] = ["dev", "staging", "prod"];
 export function ActionsPanel() {
   const environment = useStore((s) => s.environment);
   const setEnvironment = useStore((s) => s.setEnvironment);
+  const envBranches = useStore((s) => s.envBranches);
+  const runtimeBranch = useStore((s) => s.runtimeBranch);
+  const current = effectiveBranch(environment, envBranches, runtimeBranch);
   const agents = useStore((s) => s.agents);
   const selectAgent = useStore((s) => s.selectAgent);
   const setActivity = useStore((s) => s.setActivity);
@@ -85,6 +89,7 @@ export function ActionsPanel() {
               type="button"
               aria-pressed={environment === e}
               onClick={() => setEnvironment(e)}
+              title={envBranches[e] ? `I task in ${e} partono da ${envBranches[e]}` : `Nessun branch dedicato a ${e}: vale il branch base`}
               className={cn(
                 "flex-1 rounded px-2 py-1 text-[11px] font-medium capitalize transition-colors",
                 environment === e ? "bg-brand text-white" : "text-mut hover:text-slate-200",
@@ -94,6 +99,12 @@ export function ActionsPanel() {
             </button>
           ))}
         </div>
+        {current.branch && (
+          <p className="mt-1.5 truncate text-[10px] text-mut" title={current.dedicated ? undefined : "L'owner può dare un branch a ogni ambiente in ⚙ → GitHub del server"}>
+            I task partono da <code className="rounded bg-ink-700 px-1 text-slate-300">{current.branch}</code>
+            {!current.dedicated && " (branch base)"}
+          </p>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">

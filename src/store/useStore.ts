@@ -31,6 +31,7 @@ import { pruneSelections as prunePureSelections, type RemoteSelection } from "..
 import { pruneSim as prunePureSim, ingestSim, iAmSimulator, liveAgentPositions, type SimAgent } from "../lib/worldsim";
 import type { ViewerRole } from "../lib/roleUi";
 import type { GithubAccountStatus } from "../lib/backend";
+import { NO_ENV_BRANCHES, type EnvBranches } from "../lib/environments";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, migrateLegacyRoleRules, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
@@ -147,6 +148,8 @@ interface State {
   runtimeBranch: string;
   /** il runtime ha strumenti per lavorare (GitHub/Notion/MCP); null finché non l'ha detto */
   toolsReady: boolean | null;
+  /** branch base di Dev/Staging/Prod impostati dall'owner ("" = branch base solito) */
+  envBranches: EnvBranches;
   /** collegamento GitHub di chi guarda ("Accedi con GitHub"); null se ignoto */
   githubAccount: GithubAccountStatus | null;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -306,6 +309,7 @@ interface State {
   setRuntimeReady: (ready: boolean) => void;
   setRuntimeModel: (model: string) => void;
   setToolsReady: (ready: boolean | null) => void;
+  setEnvBranches: (branches: EnvBranches) => void;
   setGithubAccount: (account: GithubAccountStatus | null) => void;
   setRuntimeBranch: (branch: string) => void;
   setSimMode: (on: boolean) => void;
@@ -481,6 +485,7 @@ export const useStore = create<State>()(
   runtimeModel: "",
   runtimeBranch: "",
   toolsReady: null,
+  envBranches: NO_ENV_BRANCHES,
   githubAccount: null,
   simMode: false,
   simLabel: "sams",
@@ -970,6 +975,7 @@ export const useStore = create<State>()(
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setRuntimeModel: (model) => set({ runtimeModel: model }),
   setToolsReady: (ready) => set({ toolsReady: ready }),
+  setEnvBranches: (branches) => set({ envBranches: branches }),
   setGithubAccount: (account) => set({ githubAccount: account }),
   setRuntimeBranch: (branch) => set({ runtimeBranch: branch }),
   setSimMode: (on) => set({ simMode: on }),
