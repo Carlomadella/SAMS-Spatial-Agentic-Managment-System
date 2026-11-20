@@ -40,3 +40,23 @@ describe("levelFromXp", () => {
     expect(levelFromXp(XP_PER_TASK * 2).level).toBe(2);
   });
 });
+
+describe("hasEarnedXp — il livello si mostra solo dopo il primo task", () => {
+  it("0 o assente: niente livello", async () => {
+    const { hasEarnedXp } = await import("./skill");
+    expect(hasEarnedXp(0)).toBe(false);
+    expect(hasEarnedXp(undefined)).toBe(false);
+    expect(hasEarnedXp(null)).toBe(false);
+  });
+  it("dopo un task sì", async () => {
+    const { hasEarnedXp, XP_PER_TASK } = await import("./skill");
+    expect(hasEarnedXp(XP_PER_TASK)).toBe(true);
+  });
+});
+
+describe("agenti di partenza", () => {
+  it("non hanno XP inventati: partono da zero", async () => {
+    const { SEED_AGENTS } = await import("../data/seed");
+    expect(SEED_AGENTS.every((a) => a.xp === 0)).toBe(true);
+  });
+});

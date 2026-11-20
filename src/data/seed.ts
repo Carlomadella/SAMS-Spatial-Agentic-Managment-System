@@ -24,7 +24,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 68,
     hunger: 30,
     mood: "focused",
-    xp: 80,
+    xp: 0,
   },
   {
     id: "agent-green",
@@ -41,7 +41,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 80,
     hunger: 52,
     mood: "happy",
-    xp: 170,
+    xp: 0,
   },
   {
     id: "agent-orange",
@@ -58,7 +58,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 55,
     hunger: 68,
     mood: "focused",
-    xp: 40,
+    xp: 0,
   },
   {
     id: "agent-purple",
@@ -75,7 +75,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 45,
     hunger: 40,
     mood: "focused",
-    xp: 320,
+    xp: 0,
   },
   {
     id: "agent-yellow",
@@ -92,7 +92,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 90,
     hunger: 18,
     mood: "happy",
-    xp: 600,
+    xp: 0,
   },
   {
     id: "agent-red",
@@ -109,7 +109,7 @@ export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
     energy: 100,
     hunger: 12,
     mood: "happy",
-    xp: 10,
+    xp: 0,
   },
 ]);
 

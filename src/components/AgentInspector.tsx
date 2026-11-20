@@ -3,7 +3,7 @@ import { Check, Download, FileText, ListOrdered, MousePointerClick, Plus, Send, 
 import { useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
-import { levelFromXp } from "../lib/skill";
+import { hasEarnedXp, levelFromXp, XP_PER_TASK } from "../lib/skill";
 import { affinityTier, bestFriend } from "../lib/relationships";
 import { activeGoal, goalProgress } from "../lib/goals";
 import { balanceOf, formatCoins } from "../lib/economy";
@@ -579,7 +579,13 @@ export function AgentInspector() {
           )}
 
           {/* level / rank — earned by completing tasks */}
-          {agent.xp != null && (() => {
+          {!hasEarnedXp(agent.xp) && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[10px] text-mut w-12 shrink-0">Livello</span>
+              <span className="text-[10px] text-mut">Nessun task completato: il primo vale {XP_PER_TASK} XP</span>
+            </div>
+          )}
+          {hasEarnedXp(agent.xp) && (() => {
             const lv = levelFromXp(agent.xp);
             return (
               <div className="mt-1.5 flex items-center gap-2" title={`${lv.xpForNext != null ? `${lv.xpIntoLevel}/${lv.xpForNext} XP al prossimo livello` : "Livello massimo"}`}>
