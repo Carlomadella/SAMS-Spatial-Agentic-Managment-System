@@ -16,6 +16,7 @@ import {
 import { metaRepo } from "../lib/metaAgent";
 import { findRelayTarget } from "../lib/orchestration";
 import { useStore } from "../store/useStore";
+import { currentAssignBlock } from "../lib/assignGate";
 import { cn } from "../lib/utils";
 
 /** Ogni riga "ruolo: titolo" diventa uno stadio; le righe vuote sono ignorate. */
@@ -107,6 +108,11 @@ export function Playbooks() {
     if (!target) {
       pushToast("WARN", `Nessun agente per lo stadio "${stage.role}"`);
       removePlaybookRun(run.id);
+      return;
+    }
+    const block = currentAssignBlock();
+    if (block) {
+      pushToast("WARN", block.message);
       return;
     }
     const title = expandStageTitle(stage, run.goal);

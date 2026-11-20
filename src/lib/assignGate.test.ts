@@ -56,3 +56,15 @@ describe("assignBlock", () => {
     expect(b?.message).toMatch(/proprietario/i);
   });
 });
+
+describe("currentAssignBlock — lo stesso blocco fuori da React", () => {
+  it("legge lo store: senza strumenti blocca, con strumenti no", async () => {
+    const { currentAssignBlock } = await import("./assignGate");
+    const { useStore } = await import("../store/useStore");
+    useStore.setState({ backendOnline: true, toolsReady: false, githubAccount: null, viewerRole: "owner" });
+    expect(currentAssignBlock()?.section).toBe("repository");
+    useStore.setState({ toolsReady: true });
+    expect(currentAssignBlock()).toBeNull();
+    useStore.setState({ backendOnline: false, toolsReady: null });
+  });
+});

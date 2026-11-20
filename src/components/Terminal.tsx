@@ -6,6 +6,7 @@ import { resolveAgentByToken } from "../lib/agentMatch";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import type { EnvironmentName } from "../types";
 import { canAssign } from "../lib/roleUi";
+import { currentAssignBlock } from "../lib/assignGate";
 
 /** Comandi che cambiano il mondo condiviso: a un viewer si risponde "sola lettura". */
 const WRITE_COMMANDS = new Set(["spawn", "clear-task", "free", "assign"]);
@@ -140,6 +141,12 @@ export function Terminal() {
         if (hasUnfilledPlaceholders(task)) { push({ kind: "err", text: "il task contiene segnaposto non compilati ({…}) — sostituiscili prima di assegnare" }); break; }
         const a = resolveAgentByToken(s.agents, who);
         if (!a) { push({ kind: "err", text: `agente non trovato: ${who}` }); break; }
+        const block = currentAssignBlock();
+        if (block) {
+          push({ kind: "err", text: block.message });
+          if (block.section) push({ kind: "info", text: block.section === "github" ? "  → ⚙ Impostazioni → Il tuo GitHub" : "  → ⚙ Impostazioni → GitHub del server" });
+          break;
+        }
         s.assignTask(a.id, task, "");
         push({ kind: "ok", text: `✓ ${a.name} ← ${task}` });
         if (backendEnabled && s.backendOnline && s.runtimeReady) {

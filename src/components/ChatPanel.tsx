@@ -6,6 +6,7 @@ import { watchingLabel } from "../lib/presence";
 import { parseTaskCommand, type TaskCommand } from "../lib/chatCommands";
 import { metaRepo } from "../lib/metaAgent";
 import { canAssign } from "../lib/roleUi";
+import { useAssignBlock } from "../lib/assignGate";
 import { clock } from "../lib/utils";
 
 /**
@@ -157,13 +158,14 @@ function TaskCommandCard({ cmd }: { cmd: TaskCommand }) {
   const log = useStore((s) => s.log);
   const canAct = canAssign(useStore((s) => s.viewerRole));
   const [done, setDone] = useState("");
+  const block = useAssignBlock();
 
   // Risoluzione dell'agente: per nome se indicato, altrimenti il primo libero.
   const target = cmd.agent
     ? agents.find((a) => a.name.toLowerCase() === cmd.agent!.toLowerCase())
     : agents.find((a) => !a.task);
 
-  const problem = cmd.agent
+  const problem = canAct && block ? block.message : cmd.agent
     ? !target
       ? `Nessun agente di nome «${cmd.agent}»`
       : target.task
