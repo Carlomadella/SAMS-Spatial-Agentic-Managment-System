@@ -34,6 +34,14 @@ export interface LevelInfo {
   progress: number;
 }
 
+/**
+ * Il livello si mostra solo dopo il primo task completato (collaudo 20/11: un agente appena
+ * creato aveva già «⭐1», come se l'avesse guadagnato).
+ */
+export function hasEarnedXp(xp: number | null | undefined): boolean {
+  return (xp ?? 0) > 0;
+}
+
 /** Resolve cumulative XP into a level, its name and progress to the next rank. */
 export function levelFromXp(xp: number): LevelInfo {
   const x = Math.max(0, Math.floor(xp));
