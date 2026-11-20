@@ -8,6 +8,9 @@ import type { AssignBody, WireEvent } from "./types";
 import {
   concludeWithAnswer,
   MAX_STEPS,
+  finalStepSpecs,
+  CLOSING_PROMPT,
+  recordPartial,
   PROGRESS_START,
   THOUGHT_LIMIT,
   buildToolSpecs,
@@ -148,7 +151,10 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     return;
   }
 
-  const tools = toGroqTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }));
+  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  const tools = toGroqTools(specs);
+  // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
+  const finalTools = toGroqTools(finalStepSpecs(specs));
 
   let guide = "";
   if (repoEnabled) {
@@ -172,7 +178,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     ctx.stepsLeft = MAX_STEPS - step - 1;
     const resp = await openaiChat(
       messages,
-      tools,
+      step === MAX_STEPS - 1 ? finalTools : tools,
       system,
       (n, waitMs) =>
         emit({ agentId, agentName, level: "WARN", message: `OpenAI occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
@@ -213,6 +219,15 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   if (truncated) {
     emit({ agentId, agentName, level: "WARN", message: `Task interrotto: raggiunto il limite di ${MAX_STEPS} passi senza chiamare done` });
+    // turno di chiusura senza strumenti: il testo diventa il risultato parziale del task
+    messages.push({ role: "user", content: CLOSING_PROMPT });
+    try {
+      const closing = await openaiChat(messages, [], system);
+      totalTokens += closing.tokens;
+      recordPartial(ctx, closing.text);
+    } catch {
+      /* best-effort: il task resta interrotto, senza riassunto */
+    }
   }
 
   await finalizeTask(ctx, { totalTokens, repoEnabled, notionEnabled, prProviderLabel: `OpenAI · ${openaiModel()}` });

@@ -858,13 +858,40 @@ export function concludeWithAnswer(ctx: Pick<ToolContext, "doneSummary" | "finis
 }
 
 /**
+ * Strumenti dell'ultimo passo: solo quelli che lasciano un risultato o chiudono (collaudo
+ * 20/11: avvisato di concludere, Sim-Revisore all'ultimo passo ha letto ancora ed è finito
+ * a mani vuote). Valgono per tutti gli agenti, qualunque ruolo abbiano.
+ */
+const FINAL_STEP_TOOLS = new Set([
+  "done", "relay_task", "remember",
+  "gh_write_file", "gh_write_files", "gh_comment_pr", "gh_create_issue",
+  "notion_write", "notion_create_page", "notion_replace_page", "notion_add_row", "notion_update_row",
+]);
+
+export function finalStepSpecs<T extends { name: string }>(specs: T[]): T[] {
+  return specs.filter((t) => FINAL_STEP_TOOLS.has(t.name));
+}
+
+/** Richiesta del turno di chiusura, senza strumenti, quando i passi sono finiti. */
+export const CLOSING_PROMPT =
+  "Hai esaurito i passi disponibili e non puoi più usare strumenti. Scrivi ora, in poche righe, " +
+  "il risultato parziale: cosa hai trovato o fatto finora e cosa resta da fare.";
+
+/** Il testo del turno di chiusura diventa il riassunto del task, marcato come parziale:
+ *  il task resta interrotto (non completato), ma non si chiude più a mani vuote. */
+export function recordPartial(ctx: Pick<ToolContext, "doneSummary">, text: string | undefined): void {
+  const t = text?.trim();
+  if (t) ctx.doneSummary = `Risultato parziale (passi esauriti): ${t}`;
+}
+
+/**
  * Esito di un task concluso (senza approvazione in sospeso). Ha scritto file o Notion →
  * "review" (c'è qualcosa da rivedere). Non ha scritto ma ha chiuso con `done` → "done": un
  * task di sola lettura riuscito è **completato** (collaudo 2026-11-10: finiva "idle", e
  * Cronologia, metriche e dashboard pubblica non lo contavano). Né l'uno né l'altro → "idle"
  * con avviso: l'agente si è fermato senza concludere.
  */
-export function taskOutcome(ctx: Pick<ToolContext, "wroteFiles" | "notionWrote" | "finished">): {
+export function taskOutcome(ctx: Pick<ToolContext, "wroteFiles" | "notionWrote" | "finished"> & { doneSummary?: string }): {
   status: "review" | "done" | "idle";
   level: "SUCCESS" | "WARN";
   message: string;
@@ -879,6 +906,9 @@ export function taskOutcome(ctx: Pick<ToolContext, "wroteFiles" | "notionWrote" 
   }
   if (ctx.finished) {
     return { status: "done", level: "SUCCESS", message: "Completato (sola lettura, nessuna modifica)", completed: true };
+  }
+  if (ctx.doneSummary?.trim()) {
+    return { status: "idle", level: "WARN", message: "Interrotto al limite di passi: risultato parziale nel riassunto", completed: false };
   }
   return { status: "idle", level: "WARN", message: "Concluso senza modifiche — controlla strumenti/istruzioni", completed: false };
 }
