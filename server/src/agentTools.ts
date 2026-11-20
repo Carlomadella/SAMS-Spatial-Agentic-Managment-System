@@ -49,6 +49,9 @@ export const PROGRESS_START = 10;
 export const PROGRESS_CAP = 92;
 export const PROGRESS_STEP = 7;
 export const FILE_READ_LIMIT = 8000;
+/** gh_read_files: quanti file per chiamata e quanto testo in tutto (circa 4 file pieni). */
+export const READ_FILES_MAX = 10;
+export const READ_FILES_BUDGET = FILE_READ_LIMIT * 4;
 export const GUIDE_LIMIT = 2000;
 export const WEB_FETCH_LIMIT = 6000;
 export const WEB_FETCH_TIMEOUT_MS = 8000;
@@ -103,6 +106,15 @@ export function buildToolSpecs(
             offset: { type: "integer", description: "carattere da cui iniziare (per i file lunghi); 0 = dall'inizio" },
           },
           required: ["path"],
+        },
+      },
+      {
+        name: "gh_read_files",
+        description: `Leggi PIÙ file del repository in un passo solo (massimo ${READ_FILES_MAX} per volta): preferiscilo a tante chiamate gh_read_file quando devi esaminare diversi file (es. una revisione). Ogni file arriva col suo titolo; i file lunghi sono troncati come in gh_read_file.`,
+        schema: {
+          type: "object",
+          properties: { paths: { type: "array", items: { type: "string" }, description: "percorsi dei file da leggere" } },
+          required: ["paths"],
         },
       },
       {
@@ -557,6 +569,38 @@ function notFoundMessage(name: string, args: Record<string, unknown>, ctx: ToolC
 }
 
 /**
+ * gh_read_files: più file in un passo (collaudo 20/11: una revisione file per file
+ * esauriva i passi). Al massimo READ_FILES_MAX file e READ_FILES_BUDGET caratteri;
+ * un file mancante non blocca gli altri; quelli rimasti fuori sono elencati.
+ */
+async function readManyFiles(paths: string[], ctx: ToolContext): Promise<string> {
+  if (paths.length === 0) return "ERRORE: indica almeno un percorso in paths";
+  const batch = paths.slice(0, READ_FILES_MAX);
+  const parts: string[] = [];
+  const skipped: string[] = [];
+  let used = 0;
+  for (const p of batch) {
+    let text: string;
+    try {
+      text = readChunk(await onTaskBranch(ctx, (ref) => readFile(p, ref)), 0);
+      ctx.reads ??= new Set();
+      ctx.reads.add(`${p}@0`);
+    } catch (err) {
+      text = `ERRORE: ${notFoundMessage("gh_read_file", { path: p }, ctx, err) ?? (err as Error).message}`;
+    }
+    if (parts.length > 0 && used + text.length > READ_FILES_BUDGET) {
+      skipped.push(p);
+      continue;
+    }
+    used += text.length;
+    parts.push(`=== ${p} ===\n${text}`);
+  }
+  if (skipped.length) parts.push(`Non letti (troppo testo in una volta): ${skipped.join(", ")} — richiedili con un'altra gh_read_files.`);
+  if (paths.length > READ_FILES_MAX) parts.push(`Non letti (massimo ${READ_FILES_MAX} per volta): ${paths.slice(READ_FILES_MAX).join(", ")}`);
+  return parts.join("\n\n");
+}
+
+/**
  * Execute a single tool call, mutating `ctx` and returning the result string to
  * feed back to the model. Errors are caught and returned as `ERRORE: …` (and
  * surfaced as a WARN) so a single failing tool never aborts the whole loop.
@@ -570,6 +614,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     if (name === "gh_list_files") {
       result = (await onTaskBranch(ctx, (ref) => listFiles(str(args.path), ref))).join("\n") || "(vuoto)";
       emit({ agentId, agentName, progress, level: "INFO", message: `ls ${str(args.path) || "/"}` });
+    } else if (name === "gh_read_files") {
+      result = await readManyFiles(Array.isArray(args.paths) ? args.paths.map(str).filter(Boolean) : [], ctx);
+      emit({ agentId, agentName, progress, level: "INFO", message: `read ${Array.isArray(args.paths) ? args.paths.length : 0} file` });
     } else if (name === "gh_read_file") {
       const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
       const chunk = readChunk(await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref)), offset);
