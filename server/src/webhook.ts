@@ -122,7 +122,7 @@ export function parseGithubEvent(event: string, body: Record<string, unknown>): 
         level: "WARN",
         message: `Review richiesta su PR #${num}: ${pr.title ?? ""} — ${pr.html_url ?? ""}`,
         wake: {
-          title: `Rivedi la PR #${num} ("${pr.title ?? ""}") sul branch ${head}: leggi i file modificati con gh_read_pr/gh_read_file e commenta bug, stile, sicurezza e performance con gh_comment_pr.`,
+          title: `Rivedi la PR #${num} ("${pr.title ?? ""}") sul branch ${head}: leggi i file modificati con gh_read_pr e gh_read_files e commenta bug, stile, sicurezza e performance con gh_comment_pr.`,
           branch: head,
           reason: `review richiesta su PR #${num}`,
         },
