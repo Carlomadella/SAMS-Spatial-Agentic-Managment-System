@@ -27,6 +27,9 @@ import {
   revokeInvite,
   pruneInvites,
   deleteAllUserSessions,
+  deleteUserAccount,
+  saveGithubLink,
+  getGithubLink,
   getToken,
   pruneTokens,
   setEmailVerified,
@@ -764,6 +767,43 @@ describe("inviti (D3-B)", () => {
     await createInvite(d, inv({ id: "i2", tokenHash: "h2", email: "b@example.test", usedAt: 2_000 }));
     await createInvite(d, inv({ id: "i3", tokenHash: "h3", email: "c@example.test" }));
     expect(await pruneInvites(d, 4_000)).toBe(2);
+    expect(await getInviteByHash(d, "h3")).not.toBeNull();
+  });
+});
+
+// Privacy (20/11/2026): l'utente può eliminare da solo il proprio account (GDPR, diritto
+// alla cancellazione). Spariscono account, sessioni, link monouso, GitHub collegato e
+// inviti in sospeso legati a lui; il resto del workspace resta.
+describe("deleteUserAccount", () => {
+  const mk = (id: string, email: string): import("./auth").User => ({
+    id, email, name: id, passHash: "s:h", role: "editor", createdAt: 1, emailVerified: true,
+  });
+
+  it("cancella account, sessioni, token, GitHub e inviti in sospeso, senza toccare gli altri", async () => {
+    const d = await openDb(":memory:");
+    await createUser(d, mk("u1", "ada@x.co"));
+    await createUser(d, mk("u2", "bob@x.co"));
+    await createAuthSession(d, "t1", "u1", Date.now() + 60_000);
+    await createAuthSession(d, "t2", "u2", Date.now() + 60_000);
+    await createToken(d, "password_resets", { tokenHash: "r1", userId: "u1", createdAt: 1, expiresAt: Date.now() + 60_000, usedAt: null });
+    await saveGithubLink(d, "u1", "ada-gh", "enc");
+    await saveGithubLink(d, "u2", "bob-gh", "enc");
+    const invite = { role: "viewer" as const, createdAt: 1, expiresAt: Date.now() + 60_000, usedAt: null };
+    await createInvite(d, { ...invite, id: "i1", tokenHash: "h1", email: "nuovo@x.co", invitedBy: "u1" });
+    await createInvite(d, { ...invite, id: "i2", tokenHash: "h2", email: "ada@x.co", invitedBy: "u2" });
+    await createInvite(d, { ...invite, id: "i3", tokenHash: "h3", email: "carla@x.co", invitedBy: "u2" });
+
+    await deleteUserAccount(d, "u1");
+
+    expect(await getUserById(d, "u1")).toBeNull();
+    expect(await getSessionUser(d, "t1")).toBeNull();
+    expect(await getToken(d, "password_resets", "r1")).toBeNull();
+    expect(await getGithubLink(d, "u1")).toBeNull();
+    expect(await getInviteByHash(d, "h1")).toBeNull();
+    expect(await getInviteByHash(d, "h2")).toBeNull();
+    // gli altri restano
+    expect((await getSessionUser(d, "t2"))?.id).toBe("u2");
+    expect(await getGithubLink(d, "u2")).not.toBeNull();
     expect(await getInviteByHash(d, "h3")).not.toBeNull();
   });
 });

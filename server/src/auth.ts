@@ -95,3 +95,16 @@ export function sanitizeName(raw: unknown, email = ""): string {
 export function publicUser(u: Pick<User, "email" | "name" | "role"> & { emailVerified?: boolean }): PublicUser {
   return { email: u.email, name: u.name, role: u.role, emailVerified: u.emailVerified === true };
 }
+
+/**
+ * Può questo utente eliminare il proprio account? L'unico owner no: il workspace resterebbe
+ * senza owner e, senza più account, tornerebbe aperto a tutti (stessa regola del
+ * declassamento dell'ultimo owner). Ritorna il messaggio d'errore o null.
+ */
+export function accountDeletionBlocked(role: Role, ownerCount: number): string | null {
+  if (role === "owner" && ownerCount <= 1) {
+    return "Sei l'unico owner: prima nomina owner un'altra persona, poi potrai eliminare il tuo account.";
+  }
+  return null;
+}
+

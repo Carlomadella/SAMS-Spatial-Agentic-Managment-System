@@ -21,8 +21,8 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
-import { hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
 import { describeSchedule, dueRoutines, sanitizeRoutine } from "./routines";
@@ -590,6 +590,31 @@ app.post("/api/auth/password", async (req: Request, res: Response) => {
   await deleteUserSessionsExcept(database, user.id, token);
   log.info("Password cambiata", { email: user.email });
   res.status(204).end();
+});
+
+/**
+ * Elimina il proprio account (pagina Privacy, 20/11/2026 — diritto alla cancellazione).
+ * Chiede la password attuale, come il cambio password: una sessione rubata da sola non
+ * basta a cancellare qualcuno. L'unico owner non può eliminarsi (vedi accountDeletionBlocked).
+ */
+app.post("/api/auth/delete-account", async (req: Request, res: Response) => {
+  const user = await getSessionUser(db(), bearerToken(req.headers.authorization));
+  if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  const body = (req.body ?? {}) as { password?: unknown };
+  if (!verifyPassword(typeof body.password === "string" ? body.password : "", user.passHash)) {
+    res.status(401).json({ error: "Password non corretta" });
+    return;
+  }
+  // In coda alle altre operazioni sugli account: due owner che si eliminano insieme non
+  // devono vedere entrambi "ci sono 2 owner" e lasciare il workspace senza nessuno.
+  await accountsLock.run(async () => {
+    const database = db();
+    const blocked = accountDeletionBlocked(user.role, await countOwners(database));
+    if (blocked) { res.status(409).json({ error: blocked }); return; }
+    await deleteUserAccount(database, user.id);
+    log.info("Account eliminato dall'utente", { role: user.role });
+    res.status(204).end();
+  });
 });
 
 // --- Gestione password: reset + verifica email -----------------------------

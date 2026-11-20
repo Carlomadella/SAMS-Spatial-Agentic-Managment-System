@@ -240,9 +240,11 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       **Fatto il 2026-11-11:** `checkWebhookAuth` in `webhook.ts`: senza secret in produzione → **503**
       ("imposta GITHUB_WEBHOOK_SECRET"), firma sbagliata → 401; in locale senza secret resta aperto.
       Test unitari + `server.webhook.test.ts` sul vero `server.ts` (con il codice di prima riceveva 200).
-- [ ] **Privacy e Termini non esistono.** Nel footer puntano a `/#site-footer`. Con registrazione ed email
-      servono due pagine vere. Va anche controllato che `contatti@sams.app` sia nostro: il dominio `sams.app` è
-      registrato e risolve.
+- [x] **Privacy e Termini non esistono** (nel footer puntavano a `/#site-footer`). _Fatto il 2026-11-20:_ pagine `/privacy` e `/termini` + «Elimina account»
+      nel Profilo (vedi CHANGELOG). Restano i segnaposto della voce qui sotto.
+- [ ] **Compilare i dati legali prima della RC** (`src/site/data/legal.ts`): titolare del trattamento, email di
+      contatto (anche `CONTACT_EMAIL` del footer, oggi `contatti@sams.app`, dominio non verificato) e **licenza** —
+      la repo è pubblica ma senza `LICENSE`, quindi legalmente non è open source. Far rileggere i testi a un esperto.
 - [x] **Commit Garden non persistente.** `DB_HOST` è vuoto, quindi lo store è in memoria e i giardini si
       azzerano a ogni riavvio. Per la 1.0 serve MySQL configurato, oppure va spostato sul SQLite che esiste già.
       **Fatto il 2026-11-15:** i giardini stanno nella tabella `gardens` del database di SAMS (SQLite in locale,

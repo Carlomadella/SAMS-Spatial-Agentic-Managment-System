@@ -3,6 +3,7 @@ import { Container } from "../components/Container";
 import { CTAButton } from "../components/CTAButton";
 import { UsersAdmin } from "../components/UsersAdmin";
 import { ChangePassword } from "../components/ChangePassword";
+import { DeleteAccount } from "../components/DeleteAccount";
 import { VerifyBanner } from "../components/VerifyBanner";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
@@ -63,6 +64,8 @@ export function Profile() {
         </div>
 
         {user.role === "owner" && <UsersAdmin selfEmail={user.email} />}
+
+        <DeleteAccount />
       </div>
     </Container>
   );
