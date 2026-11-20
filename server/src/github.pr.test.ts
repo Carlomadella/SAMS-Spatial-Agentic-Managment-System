@@ -84,3 +84,42 @@ describe("prTitle", () => {
     expect(sent.title).toBe("Scrivi i test");
   });
 });
+
+// Collaudo 2026-11-20 (simulazione sim-prenota-sale): Sim-Revisore ha scritto la revisione
+// come commento sulla PR #3, ma gh_read_pr non restituiva i commenti: Sim-Dev non la
+// vedeva e ha chiesto su GitHub "@Sim-Revisore Please show me your review comments".
+describe("readPullRequest e i commenti", () => {
+  const pr = { title: "T", body: "B", html_url: "u", user: { login: "me" }, head: { ref: "h" }, base: { ref: "main" }, comments: 2, review_comments: 0 };
+  const route = (comments: Array<{ user: { login: string }; created_at: string; body: string }>) =>
+    vi.fn(async (url: string) => {
+      if (url.includes("/issues/3/comments")) return json(200, comments);
+      if (url.includes("/files")) return json(200, []);
+      return json(200, pr);
+    });
+
+  it("include i commenti più recenti con autore e testo intero", async () => {
+    const { readPullRequest } = await import("./github");
+    const review = "# Revisione\n1. JWT a 7 giorni invece di 24 ore\n" + "dettaglio ".repeat(300);
+    vi.stubGlobal("fetch", route([
+      { user: { login: "MadKid8" }, created_at: "2026-11-20T00:36:51Z", body: review },
+      { user: { login: "MadKid8" }, created_at: "2026-11-20T00:51:29Z", body: "seconda nota" },
+    ]));
+    const out = await readPullRequest(3);
+    expect(out).toContain("Commenti (2)");
+    expect(out).toContain("MadKid8 · 2026-11-20T00:36:51Z");
+    expect(out).toContain(review);
+    expect(out).toContain("seconda nota");
+  });
+
+  it("senza commenti lo dice", async () => {
+    const { readPullRequest } = await import("./github");
+    vi.stubGlobal("fetch", route([]));
+    expect(await readPullRequest(3)).toContain("Commenti: nessuno");
+  });
+
+  it("taglia i commenti enormi per non riempire il contesto", async () => {
+    const { readPullRequest, PR_COMMENTS_BUDGET } = await import("./github");
+    vi.stubGlobal("fetch", route(Array.from({ length: 6 }, (_, i) => ({ user: { login: "u" }, created_at: `t${i}`, body: "x".repeat(10000) }))));
+    expect((await readPullRequest(3)).length).toBeLessThan(PR_COMMENTS_BUDGET + 2000);
+  });
+});
