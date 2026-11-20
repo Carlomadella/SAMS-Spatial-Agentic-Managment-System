@@ -270,9 +270,34 @@ export async function listPullRequests(): Promise<string> {
   return data.map((p) => `#${p.number} "${p.title}" — ${p.user.login} (${p.head.ref})`).join("\n");
 }
 
-/** Read a PR's title, body, and list of changed files. */
+/** Testo massimo dei commenti inclusi in readPullRequest (i più recenti per primi). */
+export const PR_COMMENTS_BUDGET = 16000;
+const PR_COMMENT_MAX = 8000;
+
+/**
+ * Commenti della PR (quelli che gh_comment_pr scrive), i più recenti che stanno nel
+ * budget, in ordine cronologico. Collaudo 20/11: senza, chi riceve il lavoro non vedeva
+ * la revisione del collega scritta come commento.
+ */
+function formatPrComments(raw: Array<{ user?: { login?: string }; created_at?: string; body?: string | null }>): string {
+  if (raw.length === 0) return "Commenti: nessuno";
+  const picked: string[] = [];
+  let used = 0;
+  for (let i = raw.length - 1; i >= 0; i--) {
+    const c = raw[i]!;
+    const body = (c.body ?? "").length > PR_COMMENT_MAX ? `${(c.body ?? "").slice(0, PR_COMMENT_MAX)}… [commento troncato]` : (c.body ?? "");
+    const block = `--- ${c.user?.login ?? "?"} · ${c.created_at ?? ""}\n${body}`;
+    if (picked.length > 0 && used + block.length > PR_COMMENTS_BUDGET) break;
+    picked.unshift(block);
+    used += block.length;
+  }
+  const omitted = raw.length - picked.length;
+  return [`Commenti (${raw.length})${omitted ? ` — mostrati gli ultimi ${picked.length}` : ""}:`, ...picked].join("\n");
+}
+
+/** Read a PR's title, body, list of changed files and its latest comments. */
 export async function readPullRequest(prNumber: number): Promise<string> {
-  const [pr, filesRaw] = await Promise.all([
+  const [pr, filesRaw, commentsRaw] = await Promise.all([
     gh(`/pulls/${prNumber}`) as Promise<{
       title: string; body: string | null; html_url: string;
       user: { login: string }; head: { ref: string }; base: { ref: string };
@@ -280,6 +305,9 @@ export async function readPullRequest(prNumber: number): Promise<string> {
     }>,
     gh(`/pulls/${prNumber}/files?per_page=30`) as Promise<Array<{
       filename: string; status: string; additions: number; deletions: number;
+    }>>,
+    gh(`/issues/${prNumber}/comments?per_page=100`) as Promise<Array<{
+      user?: { login?: string }; created_at?: string; body?: string | null;
     }>>,
   ]);
   const files = filesRaw
@@ -293,6 +321,7 @@ export async function readPullRequest(prNumber: number): Promise<string> {
     `URL: ${pr.html_url}`,
     `\nDescrizione:\n${body}`,
     `\nFile modificati (${filesRaw.length}):\n${files || "  (nessuno)"}`,
+    `\n${formatPrComments(Array.isArray(commentsRaw) ? commentsRaw : [])}`,
   ].join("\n");
 }
 
