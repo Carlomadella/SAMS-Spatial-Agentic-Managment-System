@@ -6,6 +6,7 @@ import {
   fetchGithubAccount,
   fetchGithubRepos,
   GITHUB_CHANGED_EVENT,
+  refreshGithubAccount,
   startGithubConnect,
   type GithubAccountStatus,
   type GithubRepoOption,
@@ -14,6 +15,7 @@ import {
 /** Avvisa il resto della workspace (es. l'albero dei file) che il GitHub dell'utente è cambiato. */
 function announceChange(): void {
   window.dispatchEvent(new Event(GITHUB_CHANGED_EVENT));
+  void refreshGithubAccount();
 }
 
 /**

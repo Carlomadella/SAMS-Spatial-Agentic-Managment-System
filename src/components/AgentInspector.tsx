@@ -14,6 +14,7 @@ import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMet
 import { AGENT_TEMPLATES, findTemplate, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { canAssign } from "../lib/roleUi";
+import { useAssignBlock } from "../lib/assignGate";
 import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
@@ -68,6 +69,8 @@ export function AgentInspector() {
   const renameAgent = useStore((s) => s.renameAgent);
   const enqueueTask = useStore((s) => s.enqueueTask);
   const viewerRole = useStore((s) => s.viewerRole);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const block = useAssignBlock();
   const runtimeModel = useStore((s) => s.runtimeModel);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const feedAgent = useStore((s) => s.feedAgent);
@@ -364,6 +367,17 @@ export function AgentInspector() {
           <div className="text-[11px] font-medium text-mut">
             {agent.task ? "Metti in coda il prossimo task" : "Assegna un task"}
           </div>
+          {canAssign(viewerRole) && block && (
+            <div role="status" className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] leading-snug text-rose-200">
+              {block.message}
+              {block.section && (
+                <button
+                  onClick={() => setSettingsOpen(true, block.section!)}
+                  className="mt-1 block font-semibold text-white underline underline-offset-2 hover:text-rose-100"
+                >
+                  {block.section === "github" ? "Apri ⚙ → Il tuo GitHub" : "Apri ⚙ → GitHub del server"}
+                </button>
+              )}
           <select
             value=""
             onChange={(e) => {
@@ -431,8 +445,10 @@ export function AgentInspector() {
               👁 Sei in <strong>sola lettura</strong>: puoi osservare il mondo ma non avviare lavoro.
             </p>
           )}
+            </div>
+          )}
           <button
-            disabled={!canAssign(viewerRole) || !title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
+            disabled={!canAssign(viewerRole) || !!block || !title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
             onClick={() => {
               const t = title.trim();
               const b = branch.trim();

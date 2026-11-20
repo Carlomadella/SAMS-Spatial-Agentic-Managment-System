@@ -13,7 +13,7 @@ function secondStep(): string {
 describe("<OnboardingWizard /> — passi giusti per chi entra", () => {
   beforeEach(() => {
     localStorage.clear();
-    useStore.setState({ viewerRole: "owner", backendOnline: true, runtimeReady: false, settingsOpen: false });
+    useStore.setState({ viewerRole: "owner", backendOnline: true, runtimeReady: false, settingsOpen: false, toolsReady: null, githubAccount: null });
   });
 
   it("non promette un provider gratuito né parla di porte", () => {
@@ -51,5 +51,24 @@ describe("<OnboardingWizard /> — passi giusti per chi entra", () => {
     useStore.setState({ backendOnline: false });
     const text = secondStep();
     expect(text).toMatch(/non risponde/);
+  });
+
+  it("motore pronto ma GitHub dell'utente da collegare: passo «Collega GitHub» e apre Il tuo GitHub", () => {
+    useStore.setState({
+      runtimeReady: true,
+      viewerRole: "editor",
+      githubAccount: { enabled: true, signedIn: true, connected: false, login: "", repo: "", baseBranch: "" },
+    });
+    const text = secondStep();
+    expect(text).toContain("Collega GitHub");
+    expect(text).toContain("Il tuo GitHub");
+    fireEvent.click(screen.getByText("Apri impostazioni"));
+    expect(useStore.getState().settingsOpen).toBe(true);
+    expect(useStore.getState().settingsSection).toBe("github");
+  });
+
+  it("strumenti pronti: nessun passo GitHub", () => {
+    useStore.setState({ runtimeReady: true, toolsReady: true });
+    expect(secondStep()).not.toContain("Collega GitHub");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHOICE_KEYS, SECRET_KEYS, decodeChoices, encodeChoices, envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, publicStatus, resolveSettings, scrubEnvCopies, secretChanges, secretEnvName, settingsToPersist } from "./config";
+import { CHOICE_KEYS, SECRET_KEYS, decodeChoices, encodeChoices, envLockedChanges, envManagedForUi, envManagedKeys, ephemeralDisk, ephemeralWithoutDb, publicStatus, resolveSettings, toolsReady, scrubEnvCopies, secretChanges, secretEnvName, settingsToPersist } from "./config";
 
 describe("resolveSettings — precedenza ambiente > file > default", () => {
   it("una variabile d'ambiente vince sul file salvato (anche se il file ha un valore vuoto)", () => {
@@ -96,6 +96,22 @@ describe("publicStatus — risposta pubblica", () => {
 
 // Ultrareview 2026-11-11: persist() scriveva nel file anche i valori presi dall'ambiente. Svuotata la
 // variabile (revoca), il vecchio token tornava dal file — che ora sta su un disco persistente.
+describe("toolsReady — gli agenti hanno con cosa lavorare", () => {
+  const none = { githubToken: "", githubRepo: "", notionToken: "", mcpServers: "" };
+  it("niente token né Notion né MCP → false", () => {
+    expect(toolsReady(none)).toBe(false);
+  });
+  it("token GitHub senza repo valida non basta", () => {
+    expect(toolsReady({ ...none, githubToken: "ghp_x", githubRepo: "solo-nome" })).toBe(false);
+  });
+  it("token GitHub con owner/repo → true", () => {
+    expect(toolsReady({ ...none, githubToken: "ghp_x", githubRepo: "me/repo" })).toBe(true);
+  });
+  it("basta Notion", () => {
+    expect(toolsReady({ ...none, notionToken: "secret_x" })).toBe(true);
+  });
+});
+
 describe("settingsToPersist — il file non riceve i valori dell'ambiente", () => {
   it("un token dall'ambiente non finisce nel file", () => {
     const env = { SAMS_TOKEN: "owner-env" };
