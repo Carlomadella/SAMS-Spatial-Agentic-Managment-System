@@ -10,6 +10,9 @@ import {
   concludeWithAnswer,
   GUIDE_LIMIT,
   MAX_STEPS,
+  finalStepSpecs,
+  CLOSING_PROMPT,
+  recordPartial,
   PROGRESS_START,
   THOUGHT_LIMIT,
   buildToolSpecs,
@@ -138,7 +141,10 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     return;
   }
 
-  const decls = toGeminiDecls(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled })) as FunctionDeclaration[];
+  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  const decls = toGeminiDecls(specs) as FunctionDeclaration[];
+  // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
+  const finalDecls = toGeminiDecls(finalStepSpecs(specs)) as FunctionDeclaration[];
 
   // load optional project guidelines (AGENTS.md / CONVENTIONS.md / …) so the
   // agent follows the repo's conventions — a no-op if no such file exists.
@@ -175,7 +181,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
       {
         model: geminiModel(),
         contents,
-        config: { systemInstruction: system, tools: [{ functionDeclarations: decls }], temperature: 0.4 },
+        config: { systemInstruction: system, tools: [{ functionDeclarations: step === MAX_STEPS - 1 ? finalDecls : decls }], temperature: 0.4 },
       },
       (chunk) => { thinking += chunk; },
       (n, waitMs) =>
@@ -213,6 +219,19 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   if (truncated) {
     emit({ agentId, agentName, level: "WARN", message: `Task interrotto: raggiunto il limite di ${MAX_STEPS} passi senza chiamare done` });
+    // turno di chiusura senza strumenti: il testo diventa il risultato parziale del task
+    contents.push({ role: "user", parts: [{ text: CLOSING_PROMPT }] });
+    try {
+      const closing = await generateWithRetryStream(
+        { model: geminiModel(), contents, config: { systemInstruction: system, temperature: 0.4 } },
+        () => {},
+        () => {},
+      );
+      totalTokens += closing.tokens;
+      recordPartial(ctx, closing.text);
+    } catch {
+      /* best-effort: il task resta interrotto, senza riassunto */
+    }
   }
 
   await finalizeTask(ctx, { totalTokens, repoEnabled, notionEnabled, prProviderLabel: "Gemini" });
