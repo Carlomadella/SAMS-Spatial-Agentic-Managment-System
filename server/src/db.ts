@@ -1227,6 +1227,25 @@ export async function setGithubRepo(
   return r.changes > 0;
 }
 
+/**
+ * Elimina un account e ciò che è legato solo a quella persona (GDPR, diritto alla
+ * cancellazione — pagina Privacy, 20/11/2026): sessioni, link monouso, GitHub collegato,
+ * inviti in sospeso mandati da lei o a lei. Agenti, task e chat sono del workspace e
+ * restano. Tutto in una transazione: o sparisce tutto o niente.
+ */
+export async function deleteUserAccount(db: SqlDriver, userId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const row = await tx.get<{ email: string }>(`SELECT email FROM users WHERE id = ?`, [userId]);
+    await tx.run(`DELETE FROM auth_sessions WHERE user_id = ?`, [userId]);
+    await tx.run(`DELETE FROM password_resets WHERE user_id = ?`, [userId]);
+    await tx.run(`DELETE FROM email_verifications WHERE user_id = ?`, [userId]);
+    await tx.run(`DELETE FROM github_links WHERE user_id = ?`, [userId]);
+    await tx.run(`DELETE FROM invites WHERE used_at IS NULL AND invited_by = ?`, [userId]);
+    if (row) await tx.run(`DELETE FROM invites WHERE used_at IS NULL AND email = ?`, [row.email]);
+    await tx.run(`DELETE FROM users WHERE id = ?`, [userId]);
+  });
+}
+
 /** Scollega GitHub per un utente. */
 export async function deleteGithubLink(db: SqlRunner, userId: string): Promise<void> {
   await db.run(`DELETE FROM github_links WHERE user_id = ?`, [userId]);

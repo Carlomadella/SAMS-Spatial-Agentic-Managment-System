@@ -13,6 +13,13 @@ export interface ChangelogEntry {
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: "2026-11-20",
+    title: "Privacy, Termini ed «Elimina account»",
+    summary:
+      "Le pagine Privacy e Termini spiegano quali dati tratta SAMS e a chi li affida. Dal Profilo puoi eliminare il tuo account quando vuoi.",
+    tag: "Added",
+  },
+  {
+    date: "2026-11-20",
     title: "Agenti preimpostati, regole tutte tue",
     summary:
       "Creando un agente puoi partire, se vuoi, da un preimpostato come l'Architetto o il Revisore: vedi descrizione e regole e le cambi prima di crearlo. Il ruolo non impone più vincoli nascosti: cosa fa un agente lo decidono solo le sue regole.",

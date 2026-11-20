@@ -10,6 +10,19 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./roadmap/ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-20 — Privacy, Termini ed «Elimina account» ⚖️
+
+- **Added** — Pagine **`/privacy`** e **`/termini`**, collegate dal footer (prima puntavano a `/#site-footer`).
+  Descrivono i dati che SAMS tratta davvero (account, sessioni, link monouso, GitHub cifrato, contenuti del
+  workspace, `localStorage`, nessun tracker), i fornitori esterni (AI, GitHub, hosting, database, email) e i
+  diritti GDPR. Partono dal fatto che SAMS è da installare: chi lo installa è titolare dei dati della propria
+  installazione. Titolare, email di contatto e licenza sono **segnaposto evidenziati** (`src/site/data/legal.ts`),
+  con un avviso di bozza finché non vengono compilati.
+- **Added** — **«Elimina account»** nel Profilo (`POST /api/auth/delete-account`): chiede la password e una conferma
+  esplicita, poi cancella in una transazione account, sessioni, link monouso, GitHub collegato e inviti in sospeso.
+  Agenti, task e chat restano al workspace. L'unico owner non può eliminarsi, come non può declassarsi: il
+  workspace resterebbe senza owner.
+
 ### 2026-11-20 — Agenti preimpostati, nessun vincolo nascosto sul ruolo 🧑‍💼
 
 - **Added** — La finestra **«Nuovo agente»** ha la voce facoltativa **«Parti da»**: di default «Nessuno» e l'agente

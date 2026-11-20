@@ -83,3 +83,18 @@ describe("publicUser", () => {
     expect(publicUser({ email: "a@b.co", name: "A", role: "viewer" }).emailVerified).toBe(false);
   });
 });
+
+describe("accountDeletionBlocked", () => {
+  it("l'unico owner non può eliminarsi, un owner tra tanti sì", async () => {
+    const { accountDeletionBlocked } = await import("./auth");
+    expect(accountDeletionBlocked("owner", 1)).toMatch(/unico owner/);
+    expect(accountDeletionBlocked("owner", 2)).toBeNull();
+  });
+
+  it("editor e viewer possono sempre eliminarsi", async () => {
+    const { accountDeletionBlocked } = await import("./auth");
+    expect(accountDeletionBlocked("editor", 1)).toBeNull();
+    expect(accountDeletionBlocked("viewer", 0)).toBeNull();
+  });
+});
+

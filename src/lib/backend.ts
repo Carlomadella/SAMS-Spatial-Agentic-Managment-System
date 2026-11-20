@@ -368,6 +368,24 @@ export async function lookupInviteRemote(
 }
 
 /** Cambia la password del proprio account (verifica la vecchia). Slogga gli altri dispositivi. */
+/** Elimina il proprio account (pagina Privacy, 20/11/2026). Chiede la password attuale. */
+export async function deleteAccountRemote(password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/delete-account`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? "Eliminazione non riuscita" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Runtime non raggiungibile" };
+  }
+}
+
 export async function changePasswordRemote(oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(`${BASE}/api/auth/password`, {
