@@ -242,7 +242,7 @@ I test automatici **non** vedono nessuno dei problemi qui sotto: vanno chiusi pr
       Test unitari + `server.webhook.test.ts` sul vero `server.ts` (con il codice di prima riceveva 200).
 - [x] **Privacy e Termini non esistono** (nel footer puntavano a `/#site-footer`). _Fatto il 2026-11-20:_ pagine `/privacy` e `/termini` + «Elimina account»
       nel Profilo (vedi CHANGELOG). Restano i segnaposto della voce qui sotto.
-- [ ] **Compilare i dati legali prima della RC** (`src/site/data/legal.ts`): titolare del trattamento, email di
+- [ ] **Compilare i dati legali a ridosso dell'uscita** (_scelta dell'utente del 20/11: si fa per ultima, prima del tag 1.0.0_) (`src/site/data/legal.ts`): titolare del trattamento, email di
       contatto (anche `CONTACT_EMAIL` del footer, oggi `contatti@sams.app`, dominio non verificato) e **licenza** —
       la repo è pubblica ma senza `LICENSE`, quindi legalmente non è open source. Far rileggere i testi a un esperto.
 - [x] **Commit Garden non persistente.** `DB_HOST` è vuoto, quindi lo store è in memoria e i giardini si
@@ -434,6 +434,9 @@ Più agenti ci sono, più la casa diventa grande: si aggiungono **letti** e **ca
         telecamera, minimappa e "Invia a una zona" la seguono);
   - [ ] togliendo agenti la casa non deve "saltare": decidere se si restringe o resta com'è;
   - [ ] la stessa pianta per tutti quelli che guardano il mondo condiviso (deriva dal roster autorevole).
+- **Doc di decisione** (20/11/2026, Drive): "SAMS · La casa cresce con gli agenti — Decisioni (ROADMAP5)" — pianta
+  (ali laterali / fila davanti / secondo piano / letti a castello), catalogo stanze, soglia, restringimento.
+  Raccomandazione: ali laterali + catalogo + nuova ala quando finiscono i letti + restringimento con margine.
 - **Da decidere:**
   - quali **camere nuove** creare (es. una seconda camera da letto, una sala riunioni dove gli agenti fanno i
     passaggi di lavoro, una biblioteca per chi fa ricerca, un laboratorio dei test, una terrazza per le
