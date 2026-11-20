@@ -378,6 +378,8 @@ export function AgentInspector() {
                   {block.section === "github" ? "Apri ⚙ → Il tuo GitHub" : "Apri ⚙ → GitHub del server"}
                 </button>
               )}
+            </div>
+          )}
           <select
             value=""
             onChange={(e) => {
@@ -444,8 +446,6 @@ export function AgentInspector() {
             <p className="text-[11px] leading-snug text-slate-400">
               👁 Sei in <strong>sola lettura</strong>: puoi osservare il mondo ma non avviare lavoro.
             </p>
-          )}
-            </div>
           )}
           <button
             disabled={!canAssign(viewerRole) || !!block || !title.trim() || hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch) || (!!taskRepo.trim() && !isValidRepo(taskRepo))}
