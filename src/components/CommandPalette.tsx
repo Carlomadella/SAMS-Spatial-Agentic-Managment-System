@@ -38,6 +38,7 @@ import { metaRepo } from "../lib/metaAgent";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { titleCase } from "../lib/utils";
 import { canAssign } from "../lib/roleUi";
+import { useAssignBlock } from "../lib/assignGate";
 
 interface Command {
   id: string;
@@ -201,6 +202,7 @@ export function CommandPalette() {
     return list;
   }, [agents, selectedAgentId, canEdit]);
 
+  const block = useAssignBlock();
   const quickAssign = useMemo<Command | null>(() => {
     const q = query.trim();
     if (!q) return null;
@@ -209,6 +211,20 @@ export function CommandPalette() {
     if (!sel || !canEdit) return null;
     const backendOnline = useStore.getState().backendOnline;
     if (!backendOnline) return null;
+    if (block) {
+      // Senza GitHub il task si fermerebbe subito: si spiega e si porta dove si sistema.
+      return {
+        id: "__quick_assign__",
+        label: `Non si può assegnare: ${block.message}`,
+        hint: block.section ? "apri ⚙" : "",
+        icon: ClipboardList,
+        keywords: "",
+        run: () => {
+          if (block.section) useStore.getState().setSettingsOpen(true, block.section);
+          else useStore.getState().pushToast("WARN", block.message);
+        },
+      };
+    }
     return {
       id: "__quick_assign__",
       label: `Assegna "${q}" → ${sel.name}`,
@@ -221,7 +237,7 @@ export function CommandPalette() {
         );
       },
     };
-  }, [query, agents, selectedAgentId, canEdit]);
+  }, [query, agents, selectedAgentId, canEdit, block]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

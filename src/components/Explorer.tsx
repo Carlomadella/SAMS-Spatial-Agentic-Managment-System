@@ -23,6 +23,7 @@ import { buildFileTree } from "../lib/fileTree";
 import { metaRepo } from "../lib/metaAgent";
 import { cn } from "../lib/utils";
 import { canAssign } from "../lib/roleUi";
+import { useAssignBlock } from "../lib/assignGate";
 
 function slugify(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40) || "task";
@@ -220,7 +221,8 @@ function WorkflowRunner({
 
   const Icon = WORKFLOW_ICON[wf.icon] ?? Rocket;
   const agent = agents.find((a) => a.id === selectedAgentId);
-  const canRun = !!agent && (agent.status === "idle" || !agent.task);
+  const block = useAssignBlock();
+  const canRun = !!agent && (agent.status === "idle" || !agent.task) && !block;
 
   async function run() {
     if (!agent) return;
@@ -279,6 +281,10 @@ function WorkflowRunner({
         </select>
       </div>
 
+      {block && (
+        <p role="status" className="mb-2 text-[11px] leading-snug text-rose-300">{block.message}</p>
+      )}
+
       {/* run button */}
       <button
         onClick={run}
@@ -289,7 +295,7 @@ function WorkflowRunner({
         {running ? "Avvio…" : "Esegui workflow"}
       </button>
 
-      {!canRun && agent && (
+      {!canRun && agent && !block && (
         <p className="mt-1.5 text-center text-[10px] text-slate-400">
           {agent.name} è occupato — scegli un agente idle
         </p>

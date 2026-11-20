@@ -40,6 +40,12 @@ export function assignBlock(i: {
   return null;
 }
 
+/** Il blocco di «Assegna» letto dallo store in questo momento (per i gestori di eventi, fuori da React). */
+export function currentAssignBlock(): AssignBlock | null {
+  const s = useStore.getState();
+  return assignBlock({ online: s.backendOnline, toolsReady: s.toolsReady, account: s.githubAccount, owner: canConfigure(s.viewerRole) });
+}
+
 /** Il blocco di «Assegna» per chi guarda, dallo stato del runtime nello store. */
 export function useAssignBlock(): AssignBlock | null {
   const online = useStore((s) => s.backendOnline);
