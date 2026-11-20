@@ -32,7 +32,7 @@ import { pruneSim as prunePureSim, ingestSim, iAmSimulator, liveAgentPositions, 
 import type { ViewerRole } from "../lib/roleUi";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
-import { applyTemplate, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
+import { applyTemplate, migrateLegacyRoleRules, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
 import { addPreset, removePreset } from "../lib/agentPresets";
 import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
 import { DEFAULT_OFFICE_ARRANGEMENT } from "../lib/officeLayout";
@@ -156,7 +156,10 @@ interface State {
   // --- actions: agents ---
   /** Crea subito un agente (usato dopo la conferma della finestra «Nuovo agente», dal
    *  terminale e dai template). `opts` sceglie nome (reso unico) e ruolo. */
-  addAgent: (color?: AgentColor, opts?: { name?: string; role?: string }) => string;
+  addAgent: (
+    color?: AgentColor,
+    opts?: { name?: string; role?: string; model?: string; instructions?: string; presetId?: string },
+  ) => string;
   /** Finestra «Nuovo agente» aperta (con l'eventuale colore chiesto) o null. */
   newAgentOpen: { color?: AgentColor } | null;
   /** Apre la finestra di conferma invece di creare subito l'agente. */
@@ -506,9 +509,10 @@ export const useStore = create<State>()(
       id,
       name,
       color: c,
-      model: "Claude Sonnet",
+      model: opts?.model?.trim() || "Claude Sonnet",
       role: opts?.role?.trim() || "Generalist",
-      instructions: "",
+      instructions: opts?.instructions ?? "",
+      ...(opts?.presetId ? { presetId: opts.presetId } : {}),
       status: "idle",
       position: [...SPAWN_POINT] as Vec2,
       target: null,
@@ -1110,7 +1114,14 @@ export const useStore = create<State>()(
     }),
     {
       name: "sams.store",
-      version: 1,
+      // v2 (20/11/2026): tolti i vincoli cablati sul ruolo nel server; agli agenti
+      // con quei ruoli e senza istruzioni si copiano una volta le regole equivalenti.
+      version: 2,
+      migrate: (persisted, version) => {
+        const st = persisted as { agents?: Agent[] } | null;
+        if (version < 2 && st && Array.isArray(st.agents)) st.agents = migrateLegacyRoleRules(st.agents);
+        return st as never;
+      },
       storage: createJSONStorage(() => localStorage),
       // Persist only durable slices — never transient UI/runtime flags.
       partialize: (s) => ({

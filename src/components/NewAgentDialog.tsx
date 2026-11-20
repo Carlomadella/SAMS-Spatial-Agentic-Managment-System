@@ -3,11 +3,18 @@ import { X } from "lucide-react";
 import { suggestNewAgent, useStore } from "../store/useStore";
 import { AGENT_HEX } from "../types";
 import { AGENT_ROLES } from "./AgentInspector";
+import { AGENT_TEMPLATES, findTemplate } from "../lib/agentTemplates";
+
+/** Stesso tetto dell'inspector per le istruzioni permanenti. */
+const RULES_MAX = 1200;
 
 /**
  * Finestra «Nuovo agente»: i pulsanti "+ Agente" e "Crea agente" non creano più
  * l'agente con un clic ma chiedono nome e ruolo, con Crea / Annulla (collaudo
  * sim-prenota-sale, scelta dell'utente del 19/11). Esc o clic fuori = Annulla.
+ * In più (ROADMAP5, 20/11) si può partire da un agente preimpostato: è facoltativo,
+ * di default «Nessuno» e l'agente nasce vuoto come prima. Scelto un preimpostato se
+ * ne vedono descrizione e regole, modificabili prima di creare.
  */
 export function NewAgentDialog() {
   const request = useStore((s) => s.newAgentOpen);
@@ -19,9 +26,20 @@ export function NewAgentDialog() {
 function NewAgentForm({ color }: { color?: Parameters<typeof suggestNewAgent>[1] }) {
   const close = useStore((s) => s.closeNewAgent);
   const addAgent = useStore((s) => s.addAgent);
+  const myPresets = useStore((s) => s.agentPresets);
   const [suggested] = useState(() => suggestNewAgent(useStore.getState().agents, color));
   const [name, setName] = useState(suggested.name);
   const [role, setRole] = useState("Generalist");
+  const [presetId, setPresetId] = useState("");
+  const [rules, setRules] = useState("");
+  const preset = findTemplate(presetId, myPresets);
+
+  function choosePreset(id: string) {
+    setPresetId(id);
+    const t = findTemplate(id, myPresets);
+    setRules(t ? t.instructions.slice(0, RULES_MAX) : "");
+    if (t) setRole(t.role);
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -34,7 +52,11 @@ function NewAgentForm({ color }: { color?: Parameters<typeof suggestNewAgent>[1]
   }, [close]);
 
   function create() {
-    addAgent(suggested.color, { name: name.trim() || suggested.name, role });
+    addAgent(suggested.color, {
+      name: name.trim() || suggested.name,
+      role,
+      ...(preset ? { model: preset.model, instructions: rules, presetId: preset.id } : {}),
+    });
     close();
   }
 
@@ -44,7 +66,7 @@ function NewAgentForm({ color }: { color?: Parameters<typeof suggestNewAgent>[1]
         role="dialog"
         aria-modal="true"
         aria-label="Nuovo agente"
-        className="w-full max-w-sm animate-fade-in rounded-xl border border-line bg-ink-850 p-4 shadow-panel"
+        className="w-full max-w-md animate-fade-in rounded-xl border border-line bg-ink-850 p-4 shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -63,6 +85,41 @@ function NewAgentForm({ color }: { color?: Parameters<typeof suggestNewAgent>[1]
           }}
           className="space-y-3"
         >
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-medium text-mut">Parti da</span>
+            <select value={presetId} onChange={(e) => choosePreset(e.target.value)} className="w-full rounded-md border border-line bg-ink-800 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50">
+              <option value="">Nessuno (agente vuoto)</option>
+              <optgroup label="Preimpostati">
+                {AGENT_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>
+                ))}
+              </optgroup>
+              {myPresets.length > 0 && (
+                <optgroup label="I miei preset">
+                  {myPresets.map((t) => (
+                    <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+          {preset && (
+            <div className="space-y-1.5 rounded-md border border-line bg-ink-800/60 p-2">
+              {preset.description && <p className="text-[11px] leading-snug text-slate-300">{preset.description}</p>}
+              <label className="block">
+                <span className="mb-1 flex items-center justify-between text-[11px] font-medium text-mut">
+                  <span>Regole (istruzioni permanenti, puoi cambiarle)</span>
+                  <span className="font-normal opacity-70">{rules.length}/{RULES_MAX}</span>
+                </span>
+                <textarea
+                  value={rules}
+                  onChange={(e) => setRules(e.target.value.slice(0, RULES_MAX))}
+                  rows={6}
+                  className="w-full resize-y rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[11px] leading-relaxed text-slate-200 outline-none focus:border-brand/50"
+                />
+              </label>
+            </div>
+          )}
           <label className="block">
             <span className="mb-1 block text-[11px] font-medium text-mut">Nome</span>
             <input

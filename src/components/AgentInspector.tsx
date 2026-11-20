@@ -11,7 +11,7 @@ import { ZONES } from "../data/world";
 import { cn } from "../lib/utils";
 import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
-import { AGENT_TEMPLATES, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
+import { AGENT_TEMPLATES, findTemplate, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
 import { canAssign } from "../lib/roleUi";
 import { planStepsDone } from "../lib/orchestration";
@@ -31,11 +31,13 @@ const MOOD_LABEL: Record<string, string> = {
 };
 
 export const AGENT_ROLES = [ // stessi id di AGENT_ROLE_IDS in lib/agentRoles
-  { id: "Generalist", label: "Generalista", desc: "Scrive codice e contenuti senza istruzioni aggiuntive" },
-  { id: "Revisore", label: "Revisore", desc: "Legge il codice e documenta osservazioni su Notion; non modifica file" },
-  { id: "Tester", label: "Tester", desc: "Scrive file di test seguendo le convenzioni del repo" },
-  { id: "Documentatore", label: "Documentatore", desc: "Aggiorna README, file .md e pagine Notion" },
-  { id: "Architetto", label: "Architetto", desc: "Analizza la struttura e scrive documenti di piano" },
+  // Il ruolo è un'etichetta (serve al passaggio di lavoro "al Tester…"): cosa fa
+  // davvero l'agente lo decidono le sue istruzioni permanenti.
+  { id: "Generalist", label: "Generalista", desc: "Etichetta: cosa fa l'agente lo decidono le sue regole" },
+  { id: "Revisore", label: "Revisore", desc: "Etichetta: gli altri agenti gli passano le revisioni; cosa fa lo decidono le sue regole" },
+  { id: "Tester", label: "Tester", desc: "Etichetta: gli altri agenti gli passano i test; cosa fa lo decidono le sue regole" },
+  { id: "Documentatore", label: "Documentatore", desc: "Etichetta: gli altri agenti gli passano la documentazione; cosa fa lo decidono le sue regole" },
+  { id: "Architetto", label: "Architetto", desc: "Etichetta: gli altri agenti gli passano i piani; cosa fa lo decidono le sue regole" },
 ];
 
 export function AgentInspector() {
@@ -527,8 +529,25 @@ export function AgentInspector() {
             maxLength={1200}
             className="w-full resize-y rounded-md border border-line bg-ink-800 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-slate-200 outline-none placeholder:text-mut/60 focus:border-brand/50"
           />
-          <div className="mt-1 text-right text-[10px] text-mut">
-            {agent.instructions.length}/1200
+          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-mut">
+            {(() => {
+              // torna alle regole del preimpostato da cui è nato l'agente (se le ha cambiate)
+              const origin = findTemplate(agent.presetId, agentPresets);
+              if (!origin || origin.instructions === agent.instructions) return <span />;
+              return (
+                <button
+                  onClick={() => {
+                    setInstructions(agent.id, origin.instructions);
+                    log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `Regole ripristinate: ${origin.emoji} ${origin.name}` });
+                  }}
+                  title="Rimetti le regole originali del preimpostato (le tue modifiche si perdono)"
+                  className="cursor-pointer text-slate-400 hover:text-slate-200"
+                >
+                  ↺ Regole di «{origin.name}»
+                </button>
+              );
+            })()}
+            <span>{agent.instructions.length}/1200</span>
           </div>
         </div>
       </details>

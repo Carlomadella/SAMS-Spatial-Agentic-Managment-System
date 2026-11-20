@@ -115,6 +115,9 @@ export interface Agent {
   role: string;
   /** Standing instructions injected into the system prompt on every task. */
   instructions: string;
+  /** Preimpostato da cui sono partite le istruzioni (per "torna alle regole del
+   * preimpostato"). Facoltativo: un agente può nascere vuoto. */
+  presetId?: string;
   status: AgentStatus;
   /** Committed floor position. */
   position: Vec2;

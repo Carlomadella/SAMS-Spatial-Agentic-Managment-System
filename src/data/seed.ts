@@ -1,11 +1,14 @@
 import type { Agent, WorkflowDef } from "../types";
+import { migrateLegacyRoleRules } from "../lib/agentTemplates";
 
 // ---------------------------------------------------------------------------
 // Initial population of the workspace. This is a manual sandbox: these agents
 // are just a starting point — the user adds / moves / commands them from here.
 // ---------------------------------------------------------------------------
 
-export const SEED_AGENTS: Agent[] = [
+// Gli agenti con un ruolo partono dalle regole del preimpostato corrispondente, visibili
+// e modificabili nelle istruzioni permanenti (nessun vincolo nascosto nel server).
+export const SEED_AGENTS: Agent[] = migrateLegacyRoleRules([
   {
     id: "agent-blue",
     name: "blue-agent",
@@ -108,7 +111,7 @@ export const SEED_AGENTS: Agent[] = [
     mood: "happy",
     xp: 10,
   },
-];
+]);
 
 /** Workflow definitions — what each .flow file does when triggered. */
 export const WORKFLOW_DEFS: WorkflowDef[] = [
