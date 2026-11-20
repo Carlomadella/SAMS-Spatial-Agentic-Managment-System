@@ -14,6 +14,8 @@ import { Verify } from "./pages/Verify";
 import { Invite } from "./pages/Invite";
 import { Docs } from "./pages/Docs";
 import { Changelog } from "./pages/Changelog";
+import { Privacy } from "./pages/Privacy";
+import { Terms } from "./pages/Terms";
 import { Profile } from "./pages/Profile";
 import { NotFound } from "./pages/NotFound";
 
@@ -28,6 +30,8 @@ function Page({ path }: { path: string }) {
   if (path === "/invito") return <Invite />;
   if (path === "/docs" || path.startsWith("/docs/")) return <Docs />;
   if (path === "/changelog") return <Changelog />;
+  if (path === "/privacy") return <Privacy />;
+  if (path === "/termini") return <Terms />;
   if (path === "/profilo")
     return (
       <ProtectedRoute>

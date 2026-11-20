@@ -36,8 +36,8 @@ const COLUMNS: Col[] = [
   {
     title: "Legale",
     links: [
-      { label: "Privacy", to: "/#site-footer" },
-      { label: "Termini", to: "/#site-footer" },
+      { label: "Privacy", to: "/privacy" },
+      { label: "Termini", to: "/termini" },
     ],
   },
 ];
