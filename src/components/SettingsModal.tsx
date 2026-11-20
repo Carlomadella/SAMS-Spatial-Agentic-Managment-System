@@ -102,7 +102,7 @@ export const SETTINGS_SECTIONS: SectionDef[] = [
   { id: "aspetto", label: "Aspetto", hint: "Tema dell'interfaccia e della stanza. Vale solo su questo browser.", icon: Palette, ownerOnly: false },
   { id: "stato", label: "Stato del sistema", hint: "Cosa è configurato sul server, in sola lettura.", icon: Activity, ownerOnly: false },
   { id: "motore", label: "Motore AI", hint: "Il fornitore del modello, la sua chiave e il modello usato dagli agenti.", icon: Sparkles, ownerOnly: true },
-  { id: "repository", label: "GitHub del server", hint: "Il token usato da routine, simulazione e webhook.", icon: KeyRound, ownerOnly: true },
+  { id: "repository", label: "GitHub del server", hint: "Il token per routine, simulazione, webhook e per i task senza un GitHub personale.", icon: KeyRound, ownerOnly: true },
   { id: "agenti", label: "Comportamento agenti", hint: "Cosa fanno gli agenti dopo aver scritto il codice.", icon: Bot, ownerOnly: true },
   { id: "integrazioni", label: "Integrazioni", hint: "Servizi esterni collegati agli agenti.", icon: Plug, ownerOnly: true },
   { id: "utenti", label: "Utenti e inviti", hint: "Ruoli degli account, inviti e link di reset password.", icon: UserRound, ownerOnly: true },
@@ -136,6 +136,8 @@ export function SettingsModal() {
   const setOpen = useStore((s) => s.setSettingsOpen);
   const online = useStore((s) => s.backendOnline);
   const viewerRole = useStore((s) => s.viewerRole);
+  // "Accedi con GitHub" attivo: ognuno usa il suo GitHub e il token del server serve solo ai lavori senza utente.
+  const perUserGithub = useStore((s) => !!s.githubAccount?.enabled);
   const isOwner = canConfigure(viewerRole);
 
   const section = useStore((s) => s.settingsSection);
@@ -462,10 +464,18 @@ export function SettingsModal() {
         return (
           <div className="space-y-3">
             {ephemeralNote}
-            <p className="text-[11px] leading-relaxed text-mut">
-              Ogni utente sceglie la repo dei suoi task da <b className="text-slate-300">Il tuo GitHub</b>.
-              Questo token serve solo ai lavori che girano senza un utente: routine, simulazione e webhook.
-            </p>
+            {perUserGithub ? (
+              <p className="text-[11px] leading-relaxed text-mut">
+                Ogni utente sceglie la repo dei suoi task da <b className="text-slate-300">Il tuo GitHub</b>.
+                Questo token serve solo ai lavori che girano senza un utente: routine, simulazione e webhook.
+              </p>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-mut">
+                Tutti i task lavorano con questo token
+                {status?.repo ? <> sulla repo <code className="rounded bg-ink-700 px-1 text-slate-300">{status.repo}</code></> : null}.
+                Senza token gli agenti non hanno strumenti e «Assegna» resta spento.
+              </p>
+            )}
             <Field label="GitHub token (fine-grained, Contents R/W)" icon={Github} locked={envLocked.has("githubToken")}>
               <input
                 type="password"

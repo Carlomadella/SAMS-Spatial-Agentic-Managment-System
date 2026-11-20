@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Bot, Check, GitBranch, Sprout, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { canAssign, canConfigure, type ViewerRole } from "../lib/roleUi";
+import { useAssignBlock, type AssignBlock } from "../lib/assignGate";
 
 const TOTAL = 2;
 
@@ -16,6 +17,9 @@ export function OnboardingWizard() {
   const ready = useStore((s) => s.runtimeReady);
   // Solo l'owner può configurare il motore: per lui, se manca, l'ultimo bottone apre lì.
   const goToEngine = canConfigure(role) && online && !ready;
+  // Motore a posto ma manca GitHub: l'ultimo bottone apre la sezione dove si collega.
+  const block = useAssignBlock();
+  const goToGithub = !goToEngine && canAssign(role) && block?.section ? block.section : null;
   const [open] = useState(() => {
     try { return !localStorage.getItem("sams.welcomed"); } catch { return false; }
   });
@@ -45,6 +49,7 @@ export function OnboardingWizard() {
       dismiss();
       setClosed(true);
       if (goToEngine) setSettingsOpen(true, "motore");
+      else if (goToGithub) setSettingsOpen(true, goToGithub);
     }
   }
 
@@ -97,7 +102,7 @@ export function OnboardingWizard() {
               <h2 className="text-[22px] font-bold text-white">Come iniziare</h2>
               <p className="mt-0.5 text-[12px] text-mut">Cosa ti serve per partire</p>
               <ol className="mt-4 space-y-4">
-                {startSteps(role, online, ready).map((st, i) => (
+                {startSteps(role, online, ready, block).map((st, i) => (
                   <StepRow key={st.label} n={i + 1} label={st.label}>
                     {st.body}
                   </StepRow>
@@ -113,7 +118,7 @@ export function OnboardingWizard() {
             <button onClick={next} className="btn btn-primary gap-1.5">
               {step < TOTAL - 1 ? (
                 <><ArrowRight size={14} /> Avanti</>
-              ) : goToEngine ? (
+              ) : goToEngine || goToGithub ? (
                 <><Check size={14} /> Apri impostazioni</>
               ) : (
                 <><Check size={14} /> Inizia</>
@@ -131,7 +136,7 @@ export function OnboardingWizard() {
  * da terminale né provider consigliati: chi usa la versione ospitata non ha un terminale,
  * e un viewer non può aprire il Motore AI.
  */
-function startSteps(role: ViewerRole, online: boolean, ready: boolean): { label: string; body: ReactNode }[] {
+function startSteps(role: ViewerRole, online: boolean, ready: boolean, block: AssignBlock | null): { label: string; body: ReactNode }[] {
   const steps: { label: string; body: ReactNode }[] = [];
   if (!online) {
     steps.push({
@@ -143,6 +148,15 @@ function startSteps(role: ViewerRole, online: boolean, ready: boolean): { label:
       canConfigure(role)
         ? { label: "Configura il motore", body: <>Apri ⚙ Impostazioni → <strong>Motore AI</strong>: scegli il fornitore del modello e incolla la sua chiave.</> }
         : { label: "Motore non ancora pronto", body: "Il motore AI lo configura il proprietario del workspace. Finché non lo fa, gli agenti non possono lavorare." },
+    );
+  }
+  if (canAssign(role) && block) {
+    steps.push(
+      block.section === "github"
+        ? { label: "Collega GitHub", body: <>Gli agenti lavorano sulle tue repo: apri ⚙ Impostazioni → <strong>Il tuo GitHub</strong>, collega l&apos;account e scegli la repo.</> }
+        : block.section === "repository"
+          ? { label: "Collega GitHub", body: <>Gli agenti non hanno ancora strumenti: apri ⚙ Impostazioni → <strong>GitHub del server</strong> e inserisci il token.</> }
+          : { label: "Aspetta GitHub", body: block.message },
     );
   }
   steps.push(

@@ -30,6 +30,7 @@ import { pruneCursors as prunePureCursors, type LiveCursor } from "../lib/cursor
 import { pruneSelections as prunePureSelections, type RemoteSelection } from "../lib/selections";
 import { pruneSim as prunePureSim, ingestSim, iAmSimulator, liveAgentPositions, type SimAgent } from "../lib/worldsim";
 import type { ViewerRole } from "../lib/roleUi";
+import type { GithubAccountStatus } from "../lib/backend";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, migrateLegacyRoleRules, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
@@ -144,6 +145,10 @@ interface State {
   runtimeModel: string;
   /** branch base del repo di lavoro secondo il runtime ("" se non lo ha detto o non c'è repo) */
   runtimeBranch: string;
+  /** il runtime ha strumenti per lavorare (GitHub/Notion/MCP); null finché non l'ha detto */
+  toolsReady: boolean | null;
+  /** collegamento GitHub di chi guarda ("Accedi con GitHub"); null se ignoto */
+  githubAccount: GithubAccountStatus | null;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
   simMode: boolean;
   /** GitHub label filter for Live Sim (default "sams") */
@@ -300,6 +305,8 @@ interface State {
   setStreamAuthRequired: (required: boolean) => void;
   setRuntimeReady: (ready: boolean) => void;
   setRuntimeModel: (model: string) => void;
+  setToolsReady: (ready: boolean | null) => void;
+  setGithubAccount: (account: GithubAccountStatus | null) => void;
   setRuntimeBranch: (branch: string) => void;
   setSimMode: (on: boolean) => void;
   setSimLabel: (label: string) => void;
@@ -473,6 +480,8 @@ export const useStore = create<State>()(
   runtimeReady: false,
   runtimeModel: "",
   runtimeBranch: "",
+  toolsReady: null,
+  githubAccount: null,
   simMode: false,
   simLabel: "sams",
   simIssues: [],
@@ -960,6 +969,8 @@ export const useStore = create<State>()(
   markChatRead: () => set((s) => (s.chatUnread === 0 ? s : { chatUnread: 0 })),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setRuntimeModel: (model) => set({ runtimeModel: model }),
+  setToolsReady: (ready) => set({ toolsReady: ready }),
+  setGithubAccount: (account) => set({ githubAccount: account }),
   setRuntimeBranch: (branch) => set({ runtimeBranch: branch }),
   setSimMode: (on) => set({ simMode: on }),
   setSimLabel: (label) => set({ simLabel: label }),

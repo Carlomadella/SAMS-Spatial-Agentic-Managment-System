@@ -86,6 +86,8 @@ export interface RuntimeStatus {
   hasNotionToken: boolean;
   notionPageId: string;
   notionReady: boolean;
+  /** Gli agenti hanno almeno uno strumento (GitHub con repo, Notion o MCP). Assente sui runtime vecchi. */
+  toolsReady?: boolean;
   /** Campi impostati da variabili d'ambiente sul server (solo i nomi): non si cambiano dalla UI. */
   envManaged?: string[];
   /** Solo per l'owner: il server non ha un disco persistente (SAMS_EPHEMERAL_DISK), quindi
@@ -520,13 +522,20 @@ export function applyRuntimeStatus(st: RuntimeStatus | null): void {
   s.setRuntimeReady(!!st?.ready);
   s.setRuntimeModel(st?.activeModel ?? "");
   s.setRuntimeBranch(st?.repo ? st.baseBranch ?? "" : "");
+  s.setToolsReady(typeof st?.toolsReady === "boolean" ? st.toolsReady : null);
 }
 
 /** Fetch status and reflect it into the store. */
 export async function refreshRuntimeStatus(): Promise<RuntimeStatus | null> {
   const st = await fetchStatus();
   applyRuntimeStatus(st);
+  void refreshGithubAccount();
   return st;
+}
+
+/** Rilegge il collegamento GitHub di chi guarda e lo mette nello store (guida il blocco di «Assegna»). */
+export async function refreshGithubAccount(): Promise<void> {
+  useStore.getState().setGithubAccount(await fetchGithubAccount());
 }
 
 /** Save settings (keys, repo, model…) entered in the app. */

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import "dotenv/config";
 import { dataFile } from "./dataDir";
+import { parseMcpServers } from "./mcp";
 import { loadSettingRows, saveSettingRows } from "./db";
 import { Mutex, type SqlDriver } from "./sql";
 
@@ -505,6 +506,15 @@ export function isReady(): boolean {
   return isConfigured() && isProvisioned();
 }
 
+/**
+ * Gli agenti hanno almeno uno strumento con cui lavorare (GitHub con una repo, Notion o un
+ * server MCP): è lo stesso controllo dei runner, che senza strumenti si fermano subito.
+ * La UI lo usa per spegnere «Assegna» prima, spiegando cosa manca.
+ */
+export function toolsReady(s: Pick<Settings, "githubToken" | "githubRepo" | "notionToken" | "mcpServers">): boolean {
+  return (s.githubToken.length > 0 && s.githubRepo.includes("/")) || s.notionToken.length > 0 || parseMcpServers(s.mcpServers).length > 0;
+}
+
 /** Safe snapshot for the UI — never leaks the secret values themselves. */
 export function publicStatus() {
   const s = getSettings();
@@ -526,6 +536,7 @@ export function publicStatus() {
     hasNotionToken: s.notionToken.length > 0,
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,
+    toolsReady: toolsReady(s),
     hasToken: s.runtimeToken.length > 0,
     hasEditorToken: s.editorToken.length > 0,
     hasReadonlyToken: s.readonlyToken.length > 0,
