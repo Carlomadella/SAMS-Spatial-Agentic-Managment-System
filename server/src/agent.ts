@@ -168,6 +168,8 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
 
   let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {
+    // turni rimasti dopo questo: agli ultimi i risultati degli strumenti avvisano di concludere
+    ctx.stepsLeft = MAX_STEPS - step - 1;
     let thinking = "";
     const resp = await generateWithRetryStream(
       {
