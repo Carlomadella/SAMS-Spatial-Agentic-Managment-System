@@ -420,6 +420,21 @@ export interface ToolContext {
   /** pezzi di file già letti in questo task ("path@offset"): una rilettura identica
    *  lo segnala invece di far girare a vuoto il modello. */
   reads?: Set<string>;
+  /** turni del modello rimasti dopo quello in corso (lo imposta il ciclo del provider):
+   *  agli ultimi passi i risultati degli strumenti portano l'avviso di concludere. */
+  stepsLeft?: number;
+}
+
+/**
+ * Avviso di fine passi (collaudo 20/11: Sim-Revisore ha esaurito i passi leggendo e
+ * si è chiuso senza lasciare nulla). Vuoto finché restano più di 2 passi.
+ */
+export function stepBudgetNote(stepsLeft: number | undefined): string {
+  if (stepsLeft == null || stepsLeft <= 0 || stepsLeft > 2) return "";
+  if (stepsLeft === 2) {
+    return "ATTENZIONE: ti restano 2 passi. Non aprire altro lavoro: al prossimo passo salva quanto trovato finora (commento, file o nota) e poi chiama done.";
+  }
+  return "ATTENZIONE: ti resta 1 solo passo. Adesso, in questo passo, lascia il risultato parziale (commento, file o nota con quanto trovato) e chiama done con un riassunto: dopo il task si interrompe.";
 }
 
 /**
@@ -773,7 +788,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     result = `ERRORE: ${msg}`;
     emit({ agentId, agentName, level: "WARN", message: `${name}: ${msg}` });
   }
-  return result;
+  const note = name === "done" ? "" : stepBudgetNote(ctx.stepsLeft);
+  return note ? `${result}\n\n${note}` : result;
 }
 
 /** Water the SAMS garden for a given agent (1 watering per completed task). Best-effort. */
