@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: "2026-11-20",
+    title: "Agenti preimpostati, regole tutte tue",
+    summary:
+      "Creando un agente puoi partire, se vuoi, da un preimpostato come l'Architetto o il Revisore: vedi descrizione e regole e le cambi prima di crearlo. Il ruolo non impone più vincoli nascosti: cosa fa un agente lo decidono solo le sue regole.",
+    tag: "Added",
+  },
+  {
     date: "2026-11-15",
     title: "Un logo nuovo, rossonero",
     summary:

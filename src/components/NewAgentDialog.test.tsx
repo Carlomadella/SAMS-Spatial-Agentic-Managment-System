@@ -70,4 +70,42 @@ describe("<NewAgentDialog />", () => {
     fireEvent.click(screen.getByRole("button", { name: "Crea" }));
     expect(useStore.getState().agents.filter((a) => a.name === taken)).toHaveLength(1);
   });
+
+  // ROADMAP5 (20/11): il preimpostato è un'opzione in più, mai obbligatorio.
+  it("di default parte da «Nessuno» e crea un agente vuoto come prima", () => {
+    useStore.getState().openNewAgent();
+    render(<NewAgentDialog />);
+    expect((screen.getByLabelText("Parti da") as HTMLSelectElement).value).toBe("");
+    expect(screen.queryByText(/Regole \(istruzioni permanenti/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Vuoto-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crea" }));
+    const created = useStore.getState().agents.find((a) => a.name === "Vuoto-1")!;
+    expect(created.instructions).toBe("");
+    expect(created.presetId).toBeUndefined();
+  });
+
+  it("scelto un preimpostato mostra descrizione e regole, modificabili prima di creare", () => {
+    useStore.getState().openNewAgent();
+    render(<NewAgentDialog />);
+    fireEvent.change(screen.getByLabelText("Parti da"), { target: { value: "reviewer" } });
+    expect(screen.getByText(/annota bug, stile e sicurezza/)).toBeTruthy();
+    expect((screen.getByLabelText("Ruolo") as HTMLSelectElement).value).toBe("Revisore");
+    const rules = screen.getByLabelText(/Regole/) as HTMLTextAreaElement;
+    expect(rules.value).toContain("gh_comment_pr");
+    fireEvent.change(rules, { target: { value: "Rivedi e correggi tu stesso." } });
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Rev-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crea" }));
+    const created = useStore.getState().agents.find((a) => a.name === "Rev-1")!;
+    expect(created).toMatchObject({ role: "Revisore", instructions: "Rivedi e correggi tu stesso.", presetId: "reviewer" });
+  });
+
+  it("tornando a «Nessuno» le regole spariscono", () => {
+    useStore.getState().openNewAgent();
+    render(<NewAgentDialog />);
+    fireEvent.change(screen.getByLabelText("Parti da"), { target: { value: "architect" } });
+    fireEvent.change(screen.getByLabelText("Parti da"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Vuoto-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crea" }));
+    expect(useStore.getState().agents.find((a) => a.name === "Vuoto-2")!.instructions).toBe("");
+  });
 });

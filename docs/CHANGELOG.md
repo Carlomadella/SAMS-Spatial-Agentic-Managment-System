@@ -10,6 +10,22 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./roadmap/ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-20 — Agenti preimpostati, nessun vincolo nascosto sul ruolo 🧑‍💼
+
+- **Added** — La finestra **«Nuovo agente»** ha la voce facoltativa **«Parti da»**: di default «Nessuno» e l'agente
+  nasce vuoto come prima; scegliendo un preimpostato (Architetto, Revisore di PR, Autore di test, Documentatore,
+  Cacciatore di bug, Rifattorizzatore) o un preset salvato si vedono descrizione e regole, modificabili prima di
+  creare. L'Architetto scrive il piano in `docs/ARCHITETTURA.md` e passa il primo passo a un altro agente.
+- **Added** — Nell'inspector, sotto le istruzioni permanenti, **«↺ Regole di …»** rimette le regole del preimpostato
+  da cui è nato l'agente, se l'utente le ha cambiate.
+- **Changed** — **Il ruolo è solo un'etichetta.** Il server non aggiunge più i «VINCOLI ASSOLUTI» per Revisore,
+  Tester, Documentatore e Architetto (`ROLE_PROMPTS` tolto da `server/src/agent.ts`, insieme alla copia server di
+  `agentRoles`): cosa fa un agente lo decidono solo le sue istruzioni, che l'utente vede e cambia. Il ruolo serve
+  ancora al passaggio di lavoro tra agenti.
+- **Changed** — Migrazione una tantum (store `v2`): agli agenti già esistenti con quei ruoli e **senza istruzioni**
+  vengono copiate le regole del preimpostato corrispondente, così non cambiano comportamento di colpo; chi aveva
+  istruzioni sue non viene toccato. Gli agenti iniziali partono con le stesse regole.
+
 ### 2026-11-15 — Logo rossonero e documenti in ordine 🗂️
 
 - **Changed** — Nuovo logo: il cubo-stanza con l'agente rossonero. È la favicon, l'icona della PWA (192/512,

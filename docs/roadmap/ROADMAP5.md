@@ -450,12 +450,18 @@ partenza, ogni utente decide cosa fa ogni agente.
   descrizione, ruolo, modello e istruzioni, applicabile dall'inspector; i preset salvati dall'utente
   ("Salva preset") e l'import/export JSON. La finestra «Nuovo agente» chiede solo nome e ruolo.
 - **Cosa fare:**
-  - [ ] scegliere il preimpostato **già nella finestra «Nuovo agente»**, con la descrizione in chiaro e le
+  - [x] scegliere il preimpostato **già nella finestra «Nuovo agente»**, con la descrizione in chiaro e le
         regole visibili prima di crearlo;
-  - [ ] regole **modificabili** dall'utente dopo la creazione (sono le istruzioni permanenti), senza perdere
+  - [x] regole **modificabili** dall'utente dopo la creazione (sono le istruzioni permanenti), senza perdere
         la possibilità di tornare a quelle del preimpostato;
-  - [ ] le regole dell'utente valgono più di quelle del preimpostato; nessun limite o comportamento cablato
+  - [x] le regole dell'utente valgono più di quelle del preimpostato; nessun limite o comportamento cablato
         sul ruolo;
+  - **Fatto il 20/11/2026** (branch `feat/agenti-preimpostati`): «Parti da» facoltativo nella finestra (default
+    «Nessuno»), descrizione e regole modificabili prima di creare, «↺ Regole di …» nell'inspector. Scelta
+    dell'utente (opzione A): tolti i vincoli cablati sul ruolo (`ROLE_PROMPTS`); i loro testi ora sono le regole dei
+    preimpostati, copiate una volta agli agenti esistenti senza istruzioni. Architetto, Revisore, Autore di test,
+    Documentatore, Cacciatore di bug e Rifattorizzatore sono pronti; **resta il Ricercatore**, che aspetta il branch
+    Scrapling.
   - [ ] preimpostati di partenza almeno:
     - **🏛️ Architetto** — analizza la repo e scrive il piano (`docs/ARCHITETTURA.md`), poi passa il primo passo;
     - **🔎 Ricercatore** — legge il web e riassume le fonti. Usa il prototipo sul branch

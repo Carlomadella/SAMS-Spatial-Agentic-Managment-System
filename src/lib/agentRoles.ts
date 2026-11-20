@@ -1,10 +1,10 @@
 /**
- * Ruoli degli agenti riconosciuti dal runtime (Generalist, Tester, Revisore,
- * Documentatore, Architetto). I mondi salvati prima dell'attuale elenco hanno
+ * Ruoli degli agenti mostrati dall'inspector (Generalist, Tester, Revisore,
+ * Documentatore, Architetto). Il ruolo è un'etichetta: serve al passaggio di lavoro
+ * tra agenti (relay "al Tester…") ma non aggiunge vincoli, che dal 20/11/2026 stanno
+ * solo nelle istruzioni dell'agente. I mondi salvati prima dell'attuale elenco hanno
  * agenti con ruoli vecchi (Backend, QA, Reviewer, DevOps, Workflows…): qui si
- * traducono nel ruolo equivalente, così il server applica i vincoli giusti e
- * l'inspector li mostra. Un ruolo sconosciuto resta com'è (nessun vincolo extra).
- * Tenere allineate le due copie: src/lib/agentRoles.ts e server/src/agentRoles.ts.
+ * traducono nel ruolo equivalente. Un ruolo sconosciuto resta com'è.
  */
 export const AGENT_ROLE_IDS = ["Generalist", "Tester", "Revisore", "Documentatore", "Architetto"] as const;
 

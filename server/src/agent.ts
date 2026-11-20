@@ -5,7 +5,6 @@ import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import type { AssignBody, WireEvent } from "./types";
 import { db, listMemory } from "./db";
-import { canonicalRole } from "./agentRoles";
 import {
   concludeWithAnswer,
   GUIDE_LIMIT,
@@ -41,47 +40,15 @@ export async function loadProjectGuide(baseBranch: string): Promise<string> {
 }
 
 /**
- * Extra instructions injected per role. These are HARD constraints that override
- * the generic instructions — the model must follow them exactly.
+ * Build the system instruction from the configured tools + user instructions and guide.
+ * Nessun vincolo legato al ruolo (tolti il 20/11/2026): il ruolo è un'etichetta, il
+ * comportamento lo decidono le istruzioni dell'agente, che l'utente vede e modifica.
  */
-const ROLE_PROMPTS: Record<string, string> = {
-  Revisore:
-    "Ruolo REVISORE — VINCOLI ASSOLUTI: (1) Non modificare MAI file di codice sorgente né file di test. " +
-    "Se il task chiede di scrivere codice, rifiuta con done spiegando che il tuo ruolo è solo la revisione. " +
-    "(2) Leggi ogni file rilevante con gh_read_files (più file per passo) o gh_read_file, individua problemi (bug logici, stile, sicurezza, performance, test mancanti) " +
-    "e documenta le osservazioni su Notion con notion_write oppure come commento su una PR con gh_comment_pr. " +
-    "(3) Alla fine del lavoro, usa relay_task per inviare il task a un agente Tester o Generalist se hai trovato bug da correggere.",
-
-  Tester:
-    "Ruolo TESTER — VINCOLI ASSOLUTI: (1) Scrivi SOLO file di test (*.test.ts, *.spec.ts, __tests__/**). " +
-    "Non modificare mai file di produzione o di configurazione al di fuori della cartella di test. " +
-    "Se un task richiede modifiche al codice di produzione, usa relay_task per passarlo a un Generalist e poi chiama done. " +
-    "(2) Prima di scrivere, leggi i test esistenti con gh_read_files o gh_read_file per rispettare le convenzioni del repository. " +
-    "(3) Dopo aver scritto i test, avvia la CI con gh_trigger_workflow (es. 'ci.yml') sul branch del task, " +
-    "poi usa gh_list_ci e gh_ci_jobs per verificare che i test passino. Correggi eventuali errori prima di chiamare done.",
-
-  Documentatore:
-    "Ruolo DOCUMENTATORE — VINCOLI ASSOLUTI: (1) Scrivi SOLO file di documentazione: README, file .md, pagine Notion, file di tipo docs/**. " +
-    "Non modificare mai file di codice sorgente (.ts, .tsx, .js, .py, ecc.). " +
-    "(2) Leggi il sorgente con gh_read_files o gh_read_file per capire il codice prima di documentarlo — non inventare comportamenti. " +
-    "(3) Usa notion_write per le pagine Notion e gh_write_files per i file .md nel repository. " +
-    "(4) La documentazione deve essere accurata, completa e nel linguaggio del progetto (italiano).",
-
-  Architetto:
-    "Ruolo ARCHITETTO — VINCOLI ASSOLUTI: (1) Produci SOLO documenti di analisi, design e pianificazione — non scrivere mai codice sorgente eseguibile. " +
-    "I documenti possono essere file .md nel repository o pagine Notion. " +
-    "(2) Usa gh_list_files e gh_read_files / gh_read_file per analizzare la struttura reale del progetto prima di proporre qualsiasi cambiamento. " +
-    "(3) Ogni documento deve includere: analisi dello stato attuale, problemi identificati, proposta di soluzione con trade-off, e passi di implementazione per gli altri agenti. " +
-    "(4) Se identifichi task di codice da fare, usa relay_task per delegarli a un Generalist o Tester con le istruzioni precise.",
-};
-
-/** Build the Gemini system instruction from the configured tools + optional role, user instructions and guide. */
 export function composeSystem(o: {
   agentName: string;
   notionEnabled: boolean;
   repoEnabled: boolean;
   relayEnabled?: boolean;
-  role?: string;
   instructions?: string;
   guide?: string;
   memories?: string;
@@ -103,12 +70,10 @@ export function composeSystem(o: {
     `Se non hai lo strumento adatto, spiega il problema e chiama done. Quando hai finito chiama done con un breve riassunto. Non chiedere conferme.`;
   const mem = o.memories?.trim();
   const userInstr = o.instructions?.trim();
-  const roleExtra = o.role ? (ROLE_PROMPTS[canonicalRole(o.role)] ?? "") : "";
   const g = o.guide?.trim();
   const parts = [base];
   if (mem) parts.push(`Memoria di progetto (informazioni che hai salvato nei task precedenti con "remember"):\n${mem}`);
   if (userInstr) parts.push(`Istruzioni specifiche per questo agente (hanno la priorità su tutto il resto):\n${userInstr}`);
-  if (roleExtra) parts.push(roleExtra);
   if (g) parts.push(`Linee guida del progetto (rispettale scrupolosamente):\n${g}`);
   return parts.join("\n\n");
 }
@@ -130,7 +95,6 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const notionEnabled = notionConfigured();
   const mcpEnabled = parseMcpServers(s.mcpServers).length > 0;
   const branch = body.branch?.trim() || makeBranch(agentName, title);
-  const role = body.role?.trim() || "";
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
@@ -161,7 +125,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     : "";
   if (savedMemories.length) emit({ agentId, agentName, level: "INFO", message: `Memoria: ${savedMemories.length} voci caricate` });
 
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide, memories });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, instructions, guide, memories });
 
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,

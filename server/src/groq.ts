@@ -134,7 +134,6 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
   const notionEnabled = notionConfigured();
   const mcpEnabled = parseMcpServers(s.mcpServers).length > 0;
   const branch = body.branch?.trim() || makeBranch(agentName, title);
-  const role = body.role?.trim() || "";
   const instructions = body.instructions?.trim() || "";
   const requireApproval = s.requireApproval;
 
@@ -155,7 +154,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
     guide = await loadProjectGuide(s.baseBranch);
     if (guide) emit({ agentId, agentName, level: "INFO", message: "Linee guida del progetto caricate" });
   }
-  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, role, instructions, guide });
+  const system = composeSystem({ agentName, notionEnabled, repoEnabled, relayEnabled: true, instructions, guide });
 
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,

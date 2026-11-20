@@ -40,27 +40,21 @@ describe("composeSystem", () => {
     expect(s).not.toContain("Linee guida del progetto");
   });
 
-  it("injects Revisore role instructions and discourages code edits", () => {
-    const s = composeSystem({ agentName: "r", notionEnabled: true, repoEnabled: true, role: "Revisore" });
-    expect(s).toContain("REVISORE");
-    expect(s).toContain("Non modificare MAI");
+  it("il ruolo non aggiunge vincoli: il prompt dipende solo dalle istruzioni", () => {
+    // 20/11/2026: tolti i vincoli cablati sul ruolo (ROLE_PROMPTS). Il ruolo resta
+    // un'etichetta; le regole stanno nelle istruzioni, che l'utente vede e cambia.
+    const base = composeSystem({ agentName: "a", notionEnabled: true, repoEnabled: true });
+    for (const role of ["Revisore", "Tester", "Documentatore", "Architetto", "Generalist"]) {
+      const s = composeSystem({ agentName: "a", notionEnabled: true, repoEnabled: true, ...({ role } as object) });
+      expect(s).toBe(base);
+      expect(s).not.toContain("VINCOLI ASSOLUTI");
+    }
   });
 
-  it("injects Tester role instructions about writing test files", () => {
-    const s = composeSystem({ agentName: "t", notionEnabled: true, repoEnabled: true, role: "Tester" });
-    expect(s).toContain("TESTER");
-    expect(s).toContain("file di test");
-  });
-
-  it("injects Documentatore role instructions", () => {
-    const s = composeSystem({ agentName: "d", notionEnabled: true, repoEnabled: true, role: "Documentatore" });
-    expect(s).toContain("DOCUMENTATORE");
-  });
-
-  it("injects Architetto role instructions about analysis", () => {
-    const s = composeSystem({ agentName: "a", notionEnabled: true, repoEnabled: true, role: "Architetto" });
-    expect(s).toContain("ARCHITETTO");
-    expect(s).toContain("analizza");
+  it("un Revisore con istruzioni sue può scrivere codice: nessun vincolo nascosto", () => {
+    const s = composeSystem({ agentName: "r", notionEnabled: true, repoEnabled: true, instructions: "Correggi tu i bug che trovi." });
+    expect(s).toContain("Correggi tu i bug che trovi.");
+    expect(s).not.toContain("Non modificare MAI");
   });
 
   it("injects memories block when memories are provided", () => {
@@ -76,17 +70,10 @@ describe("composeSystem", () => {
     expect(s2).not.toContain("Memoria di progetto");
   });
 
-  it("adds no role text for Generalist or unknown role", () => {
-    const g = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "Generalist" });
-    const u = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "UnknownRole" });
-    expect(g).not.toContain("Ruolo");
-    expect(u).not.toContain("Ruolo");
-  });
-
-  it("stacks role instructions and project guidelines together", () => {
+  it("stacks user instructions and project guidelines together", () => {
     const guide = "Segui le convenzioni.";
-    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, role: "Tester", guide });
-    expect(s).toContain("TESTER");
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: "Scrivi solo test.", guide });
+    expect(s).toContain("Scrivi solo test.");
     expect(s).toContain("Linee guida del progetto");
     expect(s).toContain(guide);
   });
@@ -105,30 +92,15 @@ describe("composeSystem", () => {
     expect(s2).not.toContain("Istruzioni specifiche");
   });
 
-  it("stacks user instructions, role, and project guide in that order", () => {
+  it("mette le istruzioni dell'agente prima delle linee guida del progetto", () => {
     const instr = "Evita le classi.";
     const guide = "Usa ESLint strict.";
-    const s = composeSystem({
-      agentName: "x",
-      notionEnabled: true,
-      repoEnabled: true,
-      instructions: instr,
-      role: "Tester",
-      guide,
-    });
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: instr, guide });
     const instrIdx = s.indexOf("Istruzioni specifiche");
-    const roleIdx = s.indexOf("TESTER");
     const guideIdx = s.indexOf("Linee guida");
-    expect(instrIdx).toBeLessThan(roleIdx);
-    expect(roleIdx).toBeLessThan(guideIdx);
+    expect(instrIdx).toBeGreaterThan(-1);
+    expect(instrIdx).toBeLessThan(guideIdx);
     expect(s).toContain(instr);
     expect(s).toContain(guide);
-  });
-
-  // Collaudo sim-prenota-sale: green-agent ha ruolo "QA" (mondo salvato con i ruoli
-  // vecchi) e non riceveva i vincoli del Tester.
-  it("applica i vincoli del ruolo anche ai nomi vecchi (QA → Tester, Reviewer → Revisore)", () => {
-    expect(composeSystem({ agentName: "green-agent", notionEnabled: false, repoEnabled: true, role: "QA" })).toContain("Ruolo TESTER");
-    expect(composeSystem({ agentName: "orange-agent", notionEnabled: false, repoEnabled: true, role: "Reviewer" })).toContain("Ruolo REVISORE");
   });
 });

@@ -6,6 +6,8 @@ import {
   serializeTemplate,
   parseTemplate,
   templateFromAgent,
+  findTemplate,
+  migrateLegacyRoleRules,
 } from "./agentTemplates";
 
 const baseAgent = (over: Partial<Agent> = {}): Agent => ({
@@ -93,5 +95,47 @@ describe("templateFromAgent", () => {
   });
   it("ripiega su un nome di default se vuoto", () => {
     expect(templateFromAgent(baseAgent(), "   ").name).toBe("Template senza nome");
+  });
+});
+
+describe("preimpostati e migrazione dei vecchi vincoli di ruolo (20/11/2026)", () => {
+  it("le regole stanno nel limite delle istruzioni permanenti (1200)", () => {
+    for (const t of AGENT_TEMPLATES) expect(t.instructions.length).toBeLessThanOrEqual(1200);
+  });
+
+  it("l'Architetto scrive il piano in docs/ARCHITETTURA.md e passa il primo passo", () => {
+    const a = findTemplate("architect")!;
+    expect(a.instructions).toContain("docs/ARCHITETTURA.md");
+    expect(a.instructions).toContain("relay_task");
+  });
+
+  it("applyTemplate ricorda da quale preimpostato è partito l'agente", () => {
+    expect(applyTemplate(baseAgent(), findTemplate("reviewer")!).presetId).toBe("reviewer");
+  });
+
+  it("findTemplate cerca anche tra i preset dell'utente", () => {
+    const mine = templateFromAgent(baseAgent(), "Mio");
+    expect(findTemplate(mine.id, [mine])).toBe(mine);
+    expect(findTemplate(undefined)).toBeUndefined();
+    expect(findTemplate("inesistente")).toBeUndefined();
+  });
+
+  it("copia le vecchie regole agli agenti con quei ruoli e senza istruzioni", () => {
+    const out = migrateLegacyRoleRules([
+      baseAgent({ role: "Revisore", instructions: "" }),
+      baseAgent({ role: "QA", instructions: "   " }),
+      baseAgent({ role: "Architetto", instructions: "" }),
+      baseAgent({ role: "Documentatore", instructions: "" }),
+    ]);
+    expect(out.map((a) => a.presetId)).toEqual(["reviewer", "test-writer", "architect", "doc-writer"]);
+    expect(out[0].instructions).toBe(findTemplate("reviewer")!.instructions);
+  });
+
+  it("non tocca chi ha già istruzioni sue né i Generalisti", () => {
+    const mine = baseAgent({ role: "Revisore", instructions: "Correggi tu i bug." });
+    const gen = baseAgent({ role: "Generalist", instructions: "" });
+    const [a, b] = migrateLegacyRoleRules([mine, gen]);
+    expect(a).toBe(mine);
+    expect(b).toBe(gen);
   });
 });
