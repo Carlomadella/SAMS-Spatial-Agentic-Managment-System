@@ -142,6 +142,8 @@ interface State {
   runtimeReady: boolean;
   /** modello usato davvero dal provider attivo ("" se il runtime non l'ha ancora detto) */
   runtimeModel: string;
+  /** branch base del repo di lavoro secondo il runtime ("" se non lo ha detto o non c'è repo) */
+  runtimeBranch: string;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
   simMode: boolean;
   /** GitHub label filter for Live Sim (default "sams") */
@@ -298,6 +300,7 @@ interface State {
   setStreamAuthRequired: (required: boolean) => void;
   setRuntimeReady: (ready: boolean) => void;
   setRuntimeModel: (model: string) => void;
+  setRuntimeBranch: (branch: string) => void;
   setSimMode: (on: boolean) => void;
   setSimLabel: (label: string) => void;
   setSimIssues: (issues: SimIssue[]) => void;
@@ -469,6 +472,7 @@ export const useStore = create<State>()(
   roleEnforced: false,
   runtimeReady: false,
   runtimeModel: "",
+  runtimeBranch: "",
   simMode: false,
   simLabel: "sams",
   simIssues: [],
@@ -956,6 +960,7 @@ export const useStore = create<State>()(
   markChatRead: () => set((s) => (s.chatUnread === 0 ? s : { chatUnread: 0 })),
   setRuntimeReady: (ready) => set({ runtimeReady: ready }),
   setRuntimeModel: (model) => set({ runtimeModel: model }),
+  setRuntimeBranch: (branch) => set({ runtimeBranch: branch }),
   setSimMode: (on) => set({ simMode: on }),
   setSimLabel: (label) => set({ simLabel: label }),
   setSimIssues: (issues) => set({ simIssues: issues }),
