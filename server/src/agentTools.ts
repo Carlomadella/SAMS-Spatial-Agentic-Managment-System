@@ -383,7 +383,7 @@ export function buildToolSpecs(
     specs.push({
       name: "mcp_call",
       description:
-        `Invoca un tool su un server MCP esterno (es. report su Drive, eventi su Calendar, grafiche su Canva). Server disponibili: ${describeMcpServers(servers)}.`,
+        `Invoca un tool su un server MCP esterno (es. leggere pagine web con Scrapling, report su Drive, eventi su Calendar). Per Scrapling: tool "make_request" con args { url, extraction_type: "markdown" } per pagine statiche, "browser_fetch_once" con gli stessi args per pagine che usano JavaScript. Server disponibili: ${describeMcpServers(servers)}.`,
       schema: {
         type: "object",
         properties: {

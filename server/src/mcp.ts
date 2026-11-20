@@ -118,6 +118,59 @@ export function parseJsonRpcResponse(rawText: string): JsonRpcResponse {
 
 const MCP_TIMEOUT_MS = 20000;
 const MCP_RESULT_LIMIT = 6000;
+// Versione del protocollo MCP che dichiariamo nell'handshake.
+const MCP_PROTOCOL_VERSION = "2025-06-18";
+
+/** Un POST JSON-RPC verso il server MCP, con token e sessione se presenti. */
+function postMcp(server: McpServerConfig, payload: object, sessionId?: string): Promise<Response> {
+  return fetch(server.url, {
+    // MCP Streamable HTTP: ogni messaggio è un POST all'unico endpoint.
+    method: "POST",
+    // Timeout per singola richiesta: un server bloccato non blocca l'agente.
+    signal: AbortSignal.timeout(MCP_TIMEOUT_MS),
+    headers: {
+      // Il corpo è sempre JSON-RPC.
+      "content-type": "application/json",
+      // Il server può rispondere sia con JSON puro sia con uno stream SSE.
+      accept: "application/json, text/event-stream",
+      // Token Bearer solo se configurato (Scrapling lo richiede in --http).
+      ...(server.token ? { authorization: `Bearer ${server.token}` } : {}),
+      // Id di sessione ricevuto da initialize, da rimandare a ogni chiamata.
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    // Serializzo il messaggio JSON-RPC.
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Handshake MCP: `initialize` e poi la notifica `notifications/initialized`.
+ * Ritorna l'id di sessione dato dal server, oppure undefined se il server è
+ * senza stato (in quel caso non manda l'header e le chiamate vanno senza).
+ * Lancia un errore se il server rifiuta l'handshake.
+ */
+export async function openMcpSession(server: McpServerConfig): Promise<string | undefined> {
+  // 1) initialize: mi presento al server dichiarando versione e nome client.
+  const init = await postMcp(server, {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: "sams", version: "0.1.0" } },
+  });
+  // Se il server dice di no (token sbagliato, URL errato) mi fermo subito.
+  if (!init.ok) throw new Error(`initialize HTTP ${init.status}`);
+  // L'id di sessione arriva nell'header, non nel corpo.
+  const sessionId = init.headers.get("mcp-session-id") ?? undefined;
+  // Consumo il corpo per liberare la connessione (il contenuto non mi serve).
+  await init.text();
+  // 2) Avviso il server che sono pronto: è una notifica, quindi senza id.
+  const ready = await postMcp(server, { jsonrpc: "2.0", method: "notifications/initialized" }, sessionId);
+  // Anche qui un rifiuto è un errore vero, non lo ignoro.
+  if (!ready.ok) throw new Error(`notifications/initialized HTTP ${ready.status}`);
+  // Svuoto il corpo (di solito vuoto, 202 Accepted).
+  await ready.text();
+  return sessionId;
+}
 
 /**
  * Invoca un tool su un server MCP configurato. Applica la allow-list (server e
@@ -142,16 +195,11 @@ export async function callMcpTool(
 
   let resp: Response;
   try {
-    resp = await fetch(server.url, {
-      method: "POST",
-      signal: AbortSignal.timeout(MCP_TIMEOUT_MS),
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json, text/event-stream",
-        ...(server.token ? { authorization: `Bearer ${server.token}` } : {}),
-      },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: toolName, arguments: args } }),
-    });
+    // Prima l'handshake: i server Streamable HTTP (es. Scrapling) rifiutano
+    // tools/call senza una sessione aperta.
+    const sessionId = await openMcpSession(server);
+    // Poi la vera chiamata al tool, dentro la sessione appena aperta.
+    resp = await postMcp(server, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: toolName, arguments: args } }, sessionId);
   } catch (err) {
     return `ERRORE: chiamata MCP fallita (${(err as Error).message})`;
   }

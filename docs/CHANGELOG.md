@@ -10,6 +10,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
 > 🏁 **Rilascio 1.0.0 previsto per il 31/12/2026** — tappe e decisioni aperte in
 > [`ROADMAP5.md`](./roadmap/ROADMAP5.md#-verso-il-rilascio-10--scadenza-31122026).
 
+### 2026-11-20 — Gli agenti leggono il web con Scrapling 🕷️
+
+- **Fixed** — `mcp_call` ora fa l'handshake MCP (`initialize` → `notifications/initialized` → `Mcp-Session-Id`)
+  prima di `tools/call`. Senza, i server Streamable HTTP come Scrapling rispondevano `400 Missing session ID`
+  e lo strumento non funzionava con nessuno di loro.
+- **Added** — Guida [`SCRAPLING.md`](./SCRAPLING.md): avvio del server MCP di Scrapling e configurazione di
+  `SAMS_MCP_SERVERS` perché gli agenti possano leggere pagine web come Markdown.
+
 ### 2026-11-15 — Logo rossonero e documenti in ordine 🗂️
 
 - **Changed** — Nuovo logo: il cubo-stanza con l'agente rossonero. È la favicon, l'icona della PWA (192/512,

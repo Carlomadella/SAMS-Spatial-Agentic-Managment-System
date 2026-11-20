@@ -96,7 +96,7 @@ the app (the only terminal command is a single `npm start`).
 - **Repo-agnostic** — change the **Repository** field to point agents at any repo; overridable per-agent.
 - **Diff preview + approval gate** — optionally stage changes for review before they're committed (`SAMS_REQUIRE_APPROVAL`).
 - **Notion** — with a Notion token, agents can write into a **page by title** (e.g. *"red-agent: add an async/await example to the JAVASCRIPT page"*).
-- **MCP tools** — through one generic `mcp_call(server, tool, args)` tool, agents can reach external **MCP servers** (Google Drive, Calendar, Canva, …). It's an **allow-list** configured via `SAMS_MCP_SERVERS`; nothing is exposed unless you enable it.
+- **MCP tools** — through one generic `mcp_call(server, tool, args)` tool, agents can reach external **MCP servers** (Google Drive, Calendar, Canva, …). It's an **allow-list** configured via `SAMS_MCP_SERVERS`; nothing is exposed unless you enable it. To let agents **read the web**, plug in Scrapling: see [`SCRAPLING.md`](./SCRAPLING.md).
 
 ### 4 · Automation & reactivity
 
