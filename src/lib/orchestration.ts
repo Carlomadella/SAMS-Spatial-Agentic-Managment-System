@@ -38,10 +38,14 @@ export function squadKey(squad: string | undefined): string {
   return (squad ?? "").trim().toLowerCase();
 }
 
+/** Tetto del contesto del mittente nel task del destinatario: prima erano 80 caratteri e
+ *  le istruzioni del collega si perdevano (collaudo 20/11). */
+export const RELAY_CONTEXT_MAX = 2000;
+
 /** Title shown to the relay target, folding in the sender's context (capped). */
 export function composeRelayTitle(relay: Pick<RelayRequest, "title" | "context" | "fromName">): string {
   return relay.context
-    ? `${relay.title} [da ${relay.fromName}: ${relay.context.slice(0, 80)}]`
+    ? `${relay.title} [da ${relay.fromName}: ${relay.context.slice(0, RELAY_CONTEXT_MAX)}]`
     : relay.title;
 }
 

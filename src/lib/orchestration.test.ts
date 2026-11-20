@@ -75,10 +75,19 @@ describe("composeRelayTitle", () => {
     expect(composeRelayTitle({ title: "Fix bug", context: "", fromName: "blue" })).toBe("Fix bug");
   });
 
-  it("folds in the sender and a capped context", () => {
-    const out = composeRelayTitle({ title: "Review", context: "x".repeat(200), fromName: "blue" });
+  // Collaudo 2026-11-20: Sim-Revisore passava a Sim-Dev l'elenco delle correzioni nel
+  // contesto, ma ne arrivavano solo 80 caratteri; Sim-Dev ha riletto tutta l'app per
+  // capire cosa fare e ha esaurito i passi. Il contesto arriva intero (fino a un tetto).
+  it("folds in the sender and the full context", () => {
+    const ctx = "Correggi: 1) JWT 24h; 2) rate limit su /auth; 3) niente prenotazioni nel passato.";
+    expect(composeRelayTitle({ title: "Correzioni", context: ctx, fromName: "Sim-Revisore" }))
+      .toBe(`Correzioni [da Sim-Revisore: ${ctx}]`);
+  });
+
+  it("caps a huge context", () => {
+    const out = composeRelayTitle({ title: "Review", context: "x".repeat(10000), fromName: "blue" });
     expect(out).toContain("Review [da blue:");
-    expect(out.length).toBeLessThan("Review [da blue: ".length + 90);
+    expect(out.length).toBeLessThan(2100);
   });
 });
 
