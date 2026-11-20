@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Tour } from "./Tour";
 import { OnboardingWizard } from "./OnboardingWizard";
+import { SettingsModal } from "./SettingsModal";
 import { useStore } from "../store/useStore";
 
 describe("Esc chiude le finestre modali di benvenuto", () => {
@@ -36,5 +37,13 @@ describe("Esc chiude le finestre modali di benvenuto", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     window.removeEventListener("keydown", later);
     expect(reached).toBe(false);
+  });
+
+  it("le Impostazioni si chiudono con Esc", () => {
+    useStore.setState({ settingsOpen: true });
+    render(<SettingsModal />);
+    expect(screen.getByText("Impostazioni")).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(useStore.getState().settingsOpen).toBe(false);
   });
 });
