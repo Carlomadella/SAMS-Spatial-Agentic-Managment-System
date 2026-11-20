@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   parseMcpServers,
   findMcpServer,
@@ -93,5 +93,67 @@ describe("callMcpTool — validazione allow-list (senza rete)", () => {
   });
   it("rifiuta un nome di tool vuoto", async () => {
     expect(await callMcpTool(servers, "drive", "  ", {})).toContain("nome del tool MCP mancante");
+  });
+});
+
+// Server MCP finto che si comporta come Scrapling (Streamable HTTP): pretende
+// l'handshake `initialize` e poi l'header `Mcp-Session-Id` su ogni chiamata.
+describe("callMcpTool — handshake di sessione (server locale finto)", () => {
+  // Elenco dei metodi JSON-RPC ricevuti, in ordine, per verificare la sequenza.
+  const received: string[] = [];
+  // Il server HTTP finto e la sua URL, creati prima dei test.
+  let server: import("node:http").Server;
+  let url = "";
+
+  beforeAll(async () => {
+    // Import dinamico: il modulo http serve solo a questo blocco di test.
+    const http = await import("node:http");
+    server = http.createServer((req, res) => {
+      // Accumulo il corpo della richiesta, che arriva a pezzi.
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        // Leggo il messaggio JSON-RPC e mi segno il metodo chiamato.
+        const msg = JSON.parse(body) as { id?: number; method: string; params?: { name?: string } };
+        received.push(msg.method);
+        // Primo passo: initialize → rispondo con l'id di sessione nell'header.
+        if (msg.method === "initialize") {
+          res.writeHead(200, { "content-type": "application/json", "mcp-session-id": "sess-42" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { capabilities: {} } }));
+          return;
+        }
+        // Da qui in poi senza la sessione giusta rispondo 400, come Scrapling.
+        if (req.headers["mcp-session-id"] !== "sess-42") {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: null, error: { message: "Missing session ID" } }));
+          return;
+        }
+        // La notifica di "pronto" non ha risposta: 202 Accepted, corpo vuoto.
+        if (msg.method === "notifications/initialized") {
+          res.writeHead(202);
+          res.end();
+          return;
+        }
+        // tools/call: rispondo in formato SSE, come fa il vero server.
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: `ok ${msg.params?.name}` }] } })}\n\n`);
+      });
+    });
+    // Porta 0 = il sistema sceglie una porta libera, niente conflitti in CI.
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    const addr = server.address() as import("node:net").AddressInfo;
+    url = `http://127.0.0.1:${addr.port}/mcp`;
+  });
+
+  // Spengo il server finto a fine blocco.
+  afterAll(() => new Promise<void>((r) => server.close(() => r())));
+
+  it("fa initialize → notifications/initialized → tools/call con la sessione", async () => {
+    // Configuro il server finto come lo configurerebbe l'utente per Scrapling.
+    const servers = parseMcpServers(JSON.stringify([{ name: "scrapling", url }]));
+    const out = await callMcpTool(servers, "scrapling", "make_request", { url: "https://example.com" });
+    // Il risultato arriva e la sequenza dei metodi è quella prevista dal protocollo.
+    expect(out).toBe("ok make_request");
+    expect(received).toEqual(["initialize", "notifications/initialized", "tools/call"]);
   });
 });

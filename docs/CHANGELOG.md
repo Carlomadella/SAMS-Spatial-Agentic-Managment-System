@@ -26,6 +26,14 @@ Registro delle modifiche di SAMS. Il formato si ispira a
   vengono copiate le regole del preimpostato corrispondente, così non cambiano comportamento di colpo; chi aveva
   istruzioni sue non viene toccato. Gli agenti iniziali partono con le stesse regole.
 
+### 2026-11-20 — Gli agenti leggono il web con Scrapling 🕷️
+
+- **Fixed** — `mcp_call` ora fa l'handshake MCP (`initialize` → `notifications/initialized` → `Mcp-Session-Id`)
+  prima di `tools/call`. Senza, i server Streamable HTTP come Scrapling rispondevano `400 Missing session ID`
+  e lo strumento non funzionava con nessuno di loro.
+- **Added** — Guida [`SCRAPLING.md`](./SCRAPLING.md): avvio del server MCP di Scrapling e configurazione di
+  `SAMS_MCP_SERVERS` perché gli agenti possano leggere pagine web come Markdown.
+
 ### 2026-11-15 — Logo rossonero e documenti in ordine 🗂️
 
 - **Changed** — Nuovo logo: il cubo-stanza con l'agente rossonero. È la favicon, l'icona della PWA (192/512,
