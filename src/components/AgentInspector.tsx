@@ -170,7 +170,7 @@ export function AgentInspector() {
         <select
           value={agent.role}
           onChange={(e) => setRole(agent.id, e.target.value)}
-          title="Ruolo agente — modella il system prompt"
+          title="Ruolo agente: è solo un'etichetta. Cosa fa l'agente lo decidono le Istruzioni permanenti"
           className="chip cursor-pointer border border-line bg-ink-700 text-slate-300 outline-none focus:border-brand/50"
         >
           {AGENT_ROLES.map((r) => (
