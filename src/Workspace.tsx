@@ -998,7 +998,7 @@ function TalkBridge() {
  * On small screens (< 768 px) automatically collapse left and right panels
  * so the 3D scene is visible. Re-runs on resize.
  */
-function ResponsiveBridge() {
+export function ResponsiveBridge() {
   const setLeftOpen = useStore((s) => s.setLeftOpen);
   const setRightOpen = useStore((s) => s.setRightOpen);
 
@@ -1006,16 +1006,31 @@ function ResponsiveBridge() {
     // Collassa i pannelli solo *entrando* in fascia mobile (o al primo mount se già
     // mobile), non a ogni resize: così un drawer aperto dal tocco non si richiude
     // da solo a ogni piccolo cambio di viewport (es. rotazione, barra URL mobile).
-    let wasMobile = isMobileWidth(window.innerWidth);
-    if (wasMobile) {
+    // Uscendo dalla fascia mobile si rimettono com'erano su desktop (collaudo 20/11:
+    // una finestra ristretta a metà schermo e poi riallargata restava senza pannelli,
+    // anche dopo un ricaricamento, perché lo stato chiuso viene salvato).
+    let saved: { left: boolean; right: boolean } | null = null;
+    const collapse = () => {
+      const { leftOpen, rightOpen } = useStore.getState();
+      saved = { left: leftOpen, right: rightOpen };
       setLeftOpen(false);
       setRightOpen(false);
+    };
+    let wasMobile = isMobileWidth(window.innerWidth);
+    if (wasMobile) {
+      // Già in mobile al mount: lo stato salvato potrebbe essere proprio la chiusura
+      // automatica di una volta precedente, quindi non lo si prende come "desktop".
+      collapse();
+      saved = null;
     }
     function apply() {
       const nowMobile = isMobileWidth(window.innerWidth);
-      if (nowMobile && !wasMobile) {
-        setLeftOpen(false);
-        setRightOpen(false);
+      if (nowMobile && !wasMobile) collapse();
+      if (!nowMobile && wasMobile) {
+        // Aperto al primo mount già in mobile: su desktop si parte coi pannelli aperti.
+        setLeftOpen(saved?.left ?? true);
+        setRightOpen(saved?.right ?? true);
+        saved = null;
       }
       wasMobile = nowMobile;
     }
