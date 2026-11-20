@@ -413,6 +413,64 @@ stata eseguita** in questa revisione.
 
 ---
 
+## 💡 Idee nuove — aggiunte il 2026-11-20
+
+> Richieste dall'utente il 20/11/2026. **Non ancora collocate**: da decidere se entrano nella 1.0 (prima del
+> feature freeze del 06/12) o nella 1.x. Ognuna va fatta sul suo branch.
+
+### 🏠 La casa cresce con gli agenti
+
+Più agenti ci sono, più la casa diventa grande: si aggiungono **letti** e **camere**.
+
+- **Oggi:** la camera ha **6 letti fissi** (`BEDS` in `src/data/world.ts`, due file da tre), ma la stanza
+  della simulazione ha già **11 agenti**: cinque non hanno un letto. Le zone sono cinque e fisse: Scrivania,
+  Angolo lettura, Cucina, Salotto, Camera.
+- **Cosa fare:**
+  - [ ] i letti seguono il numero di agenti (uno a testa), sempre raggiungibili e senza sovrapposizioni con
+        mobili e muri (`OBSTACLES` e il pathfinder devono saperlo);
+  - [ ] oltre una soglia di agenti si aggiunge una **camera nuova**, e la casa si allarga (pianta, muri,
+        telecamera, minimappa e "Invia a una zona" la seguono);
+  - [ ] togliendo agenti la casa non deve "saltare": decidere se si restringe o resta com'è;
+  - [ ] la stessa pianta per tutti quelli che guardano il mondo condiviso (deriva dal roster autorevole).
+- **Da decidere:**
+  - quali **camere nuove** creare (es. una seconda camera da letto, una sala riunioni dove gli agenti fanno i
+    passaggi di lavoro, una biblioteca per chi fa ricerca, un laboratorio dei test, una terrazza per le
+    pause…);
+  - ogni quanti agenti nasce una camera nuova e in che ordine;
+  - come cresce la pianta (si allunga, si aggiunge un piano, ali laterali).
+
+### 🧑‍💼 Agenti preimpostati, ognuno con descrizione e regole
+
+L'utente sceglie da un elenco di agenti **preimpostati**, ognuno con la sua **descrizione** e le sue **regole**,
+e poi li cambia a suo piacimento con regole sue. Nessun ruolo è fisso: il preimpostato è solo il punto di
+partenza, ogni utente decide cosa fa ogni agente.
+
+- **Oggi:** esiste già una libreria di 6 "template agente" (`AGENT_TEMPLATES` in `src/lib/agentTemplates.ts`:
+  Cacciatore di bug, Autore di test, Documentatore, Revisore di PR, Architetto, Rifattorizzatore) con nome,
+  descrizione, ruolo, modello e istruzioni, applicabile dall'inspector; i preset salvati dall'utente
+  ("Salva preset") e l'import/export JSON. La finestra «Nuovo agente» chiede solo nome e ruolo.
+- **Cosa fare:**
+  - [ ] scegliere il preimpostato **già nella finestra «Nuovo agente»**, con la descrizione in chiaro e le
+        regole visibili prima di crearlo;
+  - [ ] regole **modificabili** dall'utente dopo la creazione (sono le istruzioni permanenti), senza perdere
+        la possibilità di tornare a quelle del preimpostato;
+  - [ ] le regole dell'utente valgono più di quelle del preimpostato; nessun limite o comportamento cablato
+        sul ruolo;
+  - [ ] preimpostati di partenza almeno:
+    - **🏛️ Architetto** — analizza la repo e scrive il piano (`docs/ARCHITETTURA.md`), poi passa il primo passo;
+    - **🔎 Ricercatore** — legge il web e riassume le fonti. Usa il prototipo sul branch
+      `claude/inspiring-wozniak-8cm2rv`: **Scrapling** collegato come server MCP (`mcp_call` →
+      `make_request` / `browser_fetch_once`, pagine restituite come Markdown; guida in `docs/SCRAPLING.md`,
+      con l'handshake di sessione MCP corretto in `server/src/mcp.ts`). Il branch va prima unito.
+      Senza Scrapling configurato il Ricercatore lo dice invece di inventare;
+    - gli altri template già esistenti, riscritti come preimpostati.
+- **Da decidere:**
+  - l'elenco definitivo dei preimpostati e il testo delle loro regole;
+  - se il Ricercatore usa solo Scrapling o anche `web_fetch` quando Scrapling non c'è;
+  - se i preimpostati creati da un utente si possono condividere con il resto del team.
+
+---
+
 ## 🗒️ Stato (aggiornato 2026-07-15)
 
 **Fatto**
