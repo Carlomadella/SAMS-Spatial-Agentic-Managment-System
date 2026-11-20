@@ -86,6 +86,16 @@ describe("executeTool — control tools", () => {
     expect(ctx.stagedFiles[1].path).toBe("b.ts");
   });
 
+  it("gh_merge_pr is refused when requireApproval=true (no network)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { ctx, events } = mkCtx({ requireApproval: true });
+    const res = await executeTool("gh_merge_pr", { pr_number: 7 }, ctx);
+    expect(res).toMatch(/ERRORE: .*non possono mergiare/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(events.some((e) => e.level === "WARN" && /Merge PR #7 rifiutato/.test(e.message ?? ""))).toBe(true);
+    fetchSpy.mockRestore();
+  });
+
   it("gh_ci_jobs rejects invalid run_id without hitting the network", async () => {
     const { ctx } = mkCtx();
     expect(await executeTool("gh_ci_jobs", { run_id: "abc" }, ctx)).toMatch(/ERRORE/);

@@ -17,7 +17,21 @@
 // i ruoli valgono anche senza token statici (decisione 1A del collaudo 2026-11-10):
 // prima un deploy senza SAMS_TOKEN lasciava un anonimo owner accanto agli account.
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export type Role = "owner" | "editor" | "viewer";
+
+/**
+ * Confronto a tempo costante tra il token fornito e uno configurato: con `===` il tempo
+ * di risposta dice quanti caratteri iniziali sono giusti. Si confrontano gli hash, così
+ * anche lunghezze diverse costano uguale. Un token configurato vuoto non combacia mai.
+ */
+function sameToken(provided: string, configured: string): boolean {
+  if (!configured || !provided) return false;
+  const a = createHash("sha256").update(provided).digest();
+  const b = createHash("sha256").update(configured).digest();
+  return timingSafeEqual(a, b);
+}
 
 /** Rango numerico per confronti d'ordine (più alto = più potere). */
 const RANK: Record<Role, number> = { viewer: 0, editor: 1, owner: 2 };
@@ -58,9 +72,9 @@ export function rolesEnforced(tokens: RoleTokens, accountsExist: boolean): boole
 export function resolveRole(tokens: RoleTokens, provided: string, accountsExist = false): Role {
   if (!rolesEnforced(tokens, accountsExist)) return "owner";
   if (provided) {
-    if (tokens.owner && provided === tokens.owner) return "owner";
-    if (tokens.editor && provided === tokens.editor) return "editor";
-    if (tokens.viewer && provided === tokens.viewer) return "viewer";
+    if (sameToken(provided, tokens.owner)) return "owner";
+    if (sameToken(provided, tokens.editor)) return "editor";
+    if (sameToken(provided, tokens.viewer)) return "viewer";
   }
   return "viewer";
 }
@@ -90,5 +104,5 @@ export function isAnonymousWhenEnforced(
   if (!rolesEnforced(tokens, accountsExist) || hasValidSession) return false;
   if (!provided) return true;
   // Un tier vuoto non deve combaciare con nulla (provided qui non è mai vuoto).
-  return ![tokens.owner, tokens.editor, tokens.viewer].some((t) => t && provided === t);
+  return ![tokens.owner, tokens.editor, tokens.viewer].some((t) => sameToken(provided, t));
 }

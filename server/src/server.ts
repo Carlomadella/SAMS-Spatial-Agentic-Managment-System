@@ -130,6 +130,18 @@ function requireRole(min: Role): (req: Request, res: Response, next: NextFunctio
   };
 }
 
+// Intestazioni di sicurezza di base (revisione 20/11/2026): niente "indovina il tipo" sui
+// file, niente SAMS dentro un iframe altrui (clickjacking sui pulsanti di approvazione) e
+// l'indirizzo completo — che nei link di reset e d'invito porta il token — non esce verso
+// altri siti come Referer.
+app.use((_req: Request, res: Response, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
+
 // Explicit, permissive CORS for the local UI (covers SSE + preflight). DELETE is
 // listed because routines and agent memory are deleted with it: without it a UI on
 // another origin (VITE_SAMS_BACKEND_URL) would see those calls fail at preflight.
@@ -440,6 +452,8 @@ const authLimiter = createRateLimiter(12, 5 * 60_000); // 12 tentativi / 5 min p
 // Hash "civetta": mantiene la verifica a tempo (quasi) costante anche quando l'utente
 // non esiste, così un attaccante non distingue "email assente" da "password errata".
 const DUMMY_PASS_HASH = hashPassword("__sams_dummy_password__");
+/** Tentativi sulla password attuale (cambio password, elimina account): per account. */
+const passwordCheckLimiter = createRateLimiter(10, 15 * 60_000);
 
 app.post("/api/auth/register", async (req: Request, res: Response) => {
   if (!authLimiter.hit(identityKey("", req.ip))) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
@@ -578,6 +592,8 @@ app.post("/api/auth/password", async (req: Request, res: Response) => {
   const token = bearerToken(req.headers.authorization);
   const user = await getSessionUser(db(), token);
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  // Chi ha una sessione rubata non deve poter provare all'infinito la password attuale.
+  if (!passwordCheckLimiter.hit(`u:${user.id}`)) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const body = (req.body ?? {}) as { oldPassword?: unknown; newPassword?: unknown };
   if (!verifyPassword(typeof body.oldPassword === "string" ? body.oldPassword : "", user.passHash)) {
     res.status(401).json({ error: "Password attuale non corretta" });
@@ -600,6 +616,7 @@ app.post("/api/auth/password", async (req: Request, res: Response) => {
 app.post("/api/auth/delete-account", async (req: Request, res: Response) => {
   const user = await getSessionUser(db(), bearerToken(req.headers.authorization));
   if (!user) { res.status(401).json({ error: "Non autenticato" }); return; }
+  if (!passwordCheckLimiter.hit(`u:${user.id}`)) { res.status(429).json({ error: "Troppi tentativi, riprova tra qualche minuto" }); return; }
   const body = (req.body ?? {}) as { password?: unknown };
   if (!verifyPassword(typeof body.password === "string" ? body.password : "", user.passHash)) {
     res.status(401).json({ error: "Password non corretta" });
