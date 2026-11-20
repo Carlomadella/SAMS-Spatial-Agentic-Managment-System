@@ -147,7 +147,7 @@ function startSteps(role: ViewerRole, online: boolean, ready: boolean): { label:
   }
   steps.push(
     canAssign(role)
-      ? { label: "Assegna il primo task", body: <>Clicca un agente in scena, scrivi il task nel pannello a destra e premi <strong>Assegna</strong>.</> }
+      ? { label: "Assegna il primo task", body: <>Clicca un agente in scena: si apre l&apos;<strong>Inspector</strong> (in basso a destra; su telefono il bottone «Inspector»). Scrivi il task in cima e premi <strong>Assegna</strong>.</> }
       : { label: "Guarda il lavoro", body: "Hai la sola lettura: segui gli agenti in scena, la chat e la cronologia dei task. Per assegnare lavoro chiedi al proprietario il ruolo editor." },
   );
   return steps;
