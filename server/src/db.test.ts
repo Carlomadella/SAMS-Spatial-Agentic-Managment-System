@@ -445,6 +445,21 @@ describe("auth: utenti + sessioni", () => {
   });
 });
 
+describe("auth: sessioni salvate come hash", () => {
+  it("nel DB non c'è il token in chiaro, ma il token continua a funzionare", async () => {
+    const d = await openDb(":memory:");
+    await createUser(d, { id: "uh", email: "h@x.co", name: "H", passHash: "salt:hash", role: "viewer", createdAt: 1, emailVerified: true });
+    await createAuthSession(d, "segreto-di-sessione", "uh", 9999999999999);
+    const rows = await d.all<{ token: string }>(`SELECT token FROM auth_sessions`);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].token).not.toBe("segreto-di-sessione");
+    expect(rows[0].token).toMatch(/^[0-9a-f]{64}$/);
+    expect((await getSessionUser(d, "segreto-di-sessione"))?.id).toBe("uh");
+    // Chi trova l'hash nel DB non entra usandolo come token.
+    expect(await getSessionUser(d, rows[0].token)).toBeNull();
+  });
+});
+
 describe("auth: gestione utenti (owner)", () => {
   const freshDb = () => openDb(":memory:");
   const mk = (email: string, role: import("./roles").Role): import("./auth").User => ({

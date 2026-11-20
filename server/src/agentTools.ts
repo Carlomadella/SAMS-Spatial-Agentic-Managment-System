@@ -734,7 +734,14 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     } else if (name === "gh_merge_pr") {
       const prNum = Number(args.pr_number);
       if (!Number.isFinite(prNum)) return "ERRORE: pr_number non valido";
-      const method = ["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
+      // Con l'approvazione richiesta ogni modifica passa da una persona: un merge porterebbe
+      // codice sul branch base senza nessuno che lo guardi (anche su richiesta di un testo
+      // letto da un'issue o da una PR). Revisione di sicurezza 20/11/2026.
+      if (ctx.requireApproval) {
+        emit({ agentId, agentName, level: "WARN", message: `Merge PR #${prNum} rifiutato: serve l'approvazione di una persona` });
+        return `ERRORE: con "Richiedi approvazione" attivo gli agenti non possono mergiare. Lascia un commento sulla PR #${prNum} che dica che è pronta, e chiama done.`;
+      }
+      const method =["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
       result = await mergePullRequest(prNum, method);
       emit({ agentId, agentName, progress, level: "SUCCESS", message: `Merge PR #${prNum} (${method})` });
     } else if (name === "gh_list_ci") {

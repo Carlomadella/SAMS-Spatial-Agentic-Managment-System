@@ -3,10 +3,26 @@ import { emptyGarden, water, type GardenState } from "./model";
 import { fetchPushActivity } from "./events";
 import { getStore } from "./store";
 import { profileHtml } from "./svg";
+import { createRateLimiter } from "../rateLimit";
 
 const cleanUser = (raw: unknown): string =>
   String(raw ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 39);
 const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Queste pagine sono pubbliche e ogni aggiornamento interroga GitHub col token del server:
+ * senza un tetto chiunque potrebbe consumarne la quota (5000 richieste l'ora) e lasciare
+ * gli agenti senza GitHub. Oltre il tetto si risponde con l'ultimo stato salvato.
+ * Revisione di sicurezza 20/11/2026.
+ */
+const refreshLimiter = createRateLimiter(20, 60_000); // 20 aggiornamenti al minuto per IP
+
+async function refreshOrStored(user: string, ip: string | undefined): Promise<GardenState> {
+  if (refreshLimiter.hit(ip ?? "?")) return refresh(user);
+  const prev = await getStore().get(user);
+  if (prev) return prev;
+  throw new Error("Troppe richieste, riprova tra un minuto");
+}
 
 async function refresh(user: string): Promise<GardenState> {
   const store = getStore();
@@ -26,7 +42,7 @@ export function registerGardenRoutes(app: Express): void {
       return;
     }
     try {
-      res.json(await refresh(user));
+      res.json(await refreshOrStored(user, req.ip));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("non trovato")) {
@@ -51,7 +67,7 @@ export function registerGardenRoutes(app: Express): void {
     }
     const origin = `${req.protocol}://${req.get("host") ?? "localhost"}`;
     try {
-      res.type("html").send(profileHtml(await refresh(user), origin));
+      res.type("html").send(profileHtml(await refreshOrStored(user, req.ip), origin));
     } catch {
       res.type("html").send(profileHtml((await getStore().get(user)) ?? emptyGarden(user), origin));
     }

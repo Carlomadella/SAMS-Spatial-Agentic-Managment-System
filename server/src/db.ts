@@ -2,7 +2,7 @@ import type { Routine, RoutineInput } from "./routines";
 import { emptyWorld, type WorldAgentSnapshot, type WorldSnapshot } from "./worldState";
 import { MAX_CHAT_MESSAGES, type ChatMessage } from "./chat";
 import type { User } from "./auth";
-import type { TokenRecord } from "./tokens";
+import { hashToken, type TokenRecord } from "./tokens";
 import type { InvitableRole, InviteRecord, PendingInvite } from "./invites";
 import type { Role } from "./roles";
 import type { GardenState } from "./garden/model";
@@ -921,10 +921,14 @@ export async function setUserRole(db: SqlRunner, email: string, role: Role): Pro
   return (await db.run(`UPDATE users SET role = ? WHERE email = ?`, [role, email])).changes > 0;
 }
 
-/** Crea una sessione (token → utente) con scadenza. */
+/**
+ * Crea una sessione (token → utente) con scadenza. Nel DB finisce solo l'**hash** del
+ * token, come per i link di reset: chi legge una copia del database non può entrare
+ * con le sessioni che ci trova (revisione di sicurezza 20/11/2026).
+ */
 export async function createAuthSession(db: SqlRunner, token: string, userId: string, expiresAt: number): Promise<void> {
   await db.run(`INSERT INTO auth_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`, [
-    token,
+    hashToken(token),
     userId,
     Date.now(),
     expiresAt,
@@ -937,13 +941,13 @@ export async function getSessionUser(db: SqlRunner, token: string, now = Date.no
   const row = await db.get(
     `SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > ?`,
-    [token, now],
+    [hashToken(token), now],
   );
   return rowToUser(row);
 }
 
 export async function deleteAuthSession(db: SqlRunner, token: string): Promise<void> {
-  await db.run(`DELETE FROM auth_sessions WHERE token = ?`, [token]);
+  await db.run(`DELETE FROM auth_sessions WHERE token = ?`, [hashToken(token)]);
 }
 
 /** Aggiorna l'hash password di un utente. */
@@ -956,7 +960,7 @@ export async function updateUserPassword(db: SqlRunner, userId: string, passHash
  * password gli altri dispositivi vengono sloggati, quello che l'ha cambiata resta attivo.
  */
 export async function deleteUserSessionsExcept(db: SqlRunner, userId: string, keepToken: string): Promise<void> {
-  await db.run(`DELETE FROM auth_sessions WHERE user_id = ? AND token != ?`, [userId, keepToken]);
+  await db.run(`DELETE FROM auth_sessions WHERE user_id = ? AND token != ?`, [userId, hashToken(keepToken)]);
 }
 
 /** Rimuove le sessioni scadute (GC). Ritorna quante ne ha tolte. */
