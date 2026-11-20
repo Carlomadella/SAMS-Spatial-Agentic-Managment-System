@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Eye, GitBranch, Radio, TriangleAlert, Users, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, GitBranch, Radio, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
@@ -20,9 +20,8 @@ export function StatusBar() {
   const viewerRole = useStore((s) => s.viewerRole);
   const roleEnforced = useStore((s) => s.roleEnforced);
   const tokensUsed = useStore((s) => s.tokensUsed);
-  const warnings = useStore(
-    (s) => s.agents.filter((a) => a.status === "blocked" || a.status === "review").length,
-  );
+  const runtimeBranch = useStore((s) => s.runtimeBranch);
+  const blocked = useStore((s) => s.agents.filter((a) => a.status === "blocked").length);
 
   const runtime = !backendEnabled
     ? "Runtime: sandbox"
@@ -35,20 +34,21 @@ export function StatusBar() {
     // dallo schermo): sotto `sm` restano branch, presenze, ruolo, runtime e connessione.
     <footer className="flex h-6 shrink-0 items-center justify-between gap-3 overflow-hidden whitespace-nowrap bg-gradient-to-r from-brand to-[#7a0710] px-3 text-[11px] font-medium text-white/90 shadow-[0_-1px_3px_rgba(0,0,0,0.25)]">
       <div className="flex items-center gap-3">
-        <span className="flex items-center gap-1">
-          <GitBranch size={12} /> main
-        </span>
+        {/* Collaudo 20/11: qui c'erano valori fissi ("main", errori 0, UTF-8/LF/YAML) che non
+            dicevano niente di vero. Ora solo dati reali, e niente se il dato non c'è. */}
+        {runtimeBranch && (
+          <span className="flex items-center gap-1" title="Branch base del repo su cui lavorano gli agenti">
+            <GitBranch size={12} /> {runtimeBranch}
+          </span>
+        )}
         <span className="hidden capitalize opacity-90 sm:inline">{environment}</span>
-        <span className="hidden items-center gap-1 sm:flex">
-          <CircleAlert size={12} /> 0
-        </span>
-        <span className="hidden items-center gap-1 sm:flex">
-          <TriangleAlert size={12} /> {warnings}
+        <span className="hidden items-center gap-1 sm:flex" title="Agenti bloccati">
+          <CircleAlert size={12} /> {blocked}
         </span>
       </div>
       <div className="flex min-w-0 items-center gap-3">
         {tokensUsed > 0 && (
-          <span className="hidden items-center gap-1 sm:flex" title="Token Gemini usati (cumulativi)">
+          <span className="hidden items-center gap-1 sm:flex" title="Token usati dagli agenti in questa sessione">
             <Zap size={12} /> {fmtTokens(tokensUsed)} tok
           </span>
         )}
@@ -87,9 +87,6 @@ export function StatusBar() {
           />
           <Radio size={12} className="hidden sm:block" /> <span className="sr-only sm:not-sr-only">{runtime}</span>
         </span>
-        <span className="hidden sm:inline">UTF-8</span>
-        <span className="hidden sm:inline">LF</span>
-        <span className="hidden sm:inline">YAML</span>
         {/* Prima era scritto fisso "Connesso": restava anche con lo stream morto. */}
         <span
           className="flex items-center gap-1"

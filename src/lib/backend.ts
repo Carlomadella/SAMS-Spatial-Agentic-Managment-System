@@ -519,6 +519,7 @@ export function applyRuntimeStatus(st: RuntimeStatus | null): void {
   const s = useStore.getState();
   s.setRuntimeReady(!!st?.ready);
   s.setRuntimeModel(st?.activeModel ?? "");
+  s.setRuntimeBranch(st?.repo ? st.baseBranch ?? "" : "");
 }
 
 /** Fetch status and reflect it into the store. */
