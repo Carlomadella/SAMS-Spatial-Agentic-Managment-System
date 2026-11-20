@@ -622,6 +622,12 @@ async function readManyFiles(paths: string[], ctx: ToolContext): Promise<string>
  */
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   const { s, agentId, agentName, emit } = ctx;
+  // Ultimo passo: il modello riceve solo gli strumenti per concludere, ma può chiamarne
+  // altri lo stesso (collaudo 20/11: "read 0 file"). Qui il vincolo diventa effettivo.
+  if (ctx.stepsLeft === 0 && !FINAL_STEP_TOOLS.has(name)) {
+    emit({ agentId, agentName, level: "WARN", message: `${name} rifiutato: ultimo passo, solo strumenti per concludere` });
+    return `ERRORE: all'ultimo passo non puoi usare ${name}. Lascia il risultato (commento, file o nota) e chiama done.`;
+  }
   ctx.progress = Math.min(PROGRESS_CAP, ctx.progress + PROGRESS_STEP);
   const progress = ctx.progress;
   let result = "ok";

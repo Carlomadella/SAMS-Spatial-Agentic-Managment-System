@@ -43,3 +43,25 @@ describe("avviso di fine passi", () => {
     expect(stepBudgetNote(0)).toBe("");
   });
 });
+
+// Collaudo 2026-11-20: all'ultimo passo SAMS offre solo gli strumenti per concludere, ma il
+// modello (Nemotron :free) ha chiamato lo stesso gh_read_files ("read 0 file"). Il vincolo
+// va applicato anche all'esecuzione, non solo all'elenco offerto.
+describe("ultimo passo vincolante", () => {
+  it("all'ultimo passo rifiuta gli strumenti di lettura senza eseguirli", async () => {
+    readFile.mockClear();
+    const res = await executeTool("gh_read_file", { path: "a.ts" }, mkCtx(0));
+    expect(res).toMatch(/^ERRORE: all'ultimo passo/);
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it("all'ultimo passo done funziona", async () => {
+    const ctx = mkCtx(0);
+    await executeTool("done", { summary: "fatto" }, ctx);
+    expect(ctx.finished).toBe(true);
+  });
+
+  it("prima dell'ultimo passo la lettura è permessa", async () => {
+    expect(await executeTool("gh_read_file", { path: "a.ts" }, mkCtx(1))).toContain("contenuto");
+  });
+});
