@@ -18,6 +18,7 @@ import {
   listCIRuns,
   triggerWorkflow,
   listFiles,
+  listIssuesForAgent,
   listPullRequests,
   mergePullRequest,
   pullRequestStatus,
@@ -157,6 +158,14 @@ export function buildToolSpecs(
             labels: { type: "array", items: { type: "string" } },
           },
           required: ["title", "body"],
+        },
+      },
+      {
+        name: "gh_list_issues",
+        description: "Elenca le issue aperte del repository (numero, titolo, etichette, autore, inizio del testo). Facoltativo: filtra per etichetta.",
+        schema: {
+          type: "object",
+          properties: { label: { type: "string", description: "Etichetta da filtrare (facoltativa)" } },
         },
       },
       {
@@ -699,6 +708,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       );
       result = `Issue #${issue.number}: ${issue.html_url}`;
       emit({ agentId, agentName, progress, level: "SUCCESS", message: `Issue #${issue.number} aperta` });
+    } else if (name === "gh_list_issues") {
+      const label = str(args.label).trim();
+      result = await listIssuesForAgent(label || undefined);
+      emit({ agentId, agentName, progress, level: "INFO", message: "Issue elencate" });
     } else if (name === "gh_list_prs") {
       result = await listPullRequests();
       emit({ agentId, agentName, progress, level: "INFO", message: `PR elencate` });

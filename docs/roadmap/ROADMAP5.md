@@ -460,9 +460,11 @@ partenza, ogni utente decide cosa fa ogni agente.
     «Nessuno»), descrizione e regole modificabili prima di creare, «↺ Regole di …» nell'inspector. Scelta
     dell'utente (opzione A): tolti i vincoli cablati sul ruolo (`ROLE_PROMPTS`); i loro testi ora sono le regole dei
     preimpostati, copiate una volta agli agenti esistenti senza istruzioni. Architetto, Revisore, Autore di test,
-    Documentatore, Cacciatore di bug e Rifattorizzatore sono pronti; **resta il Ricercatore**, che aspetta il branch
-    Scrapling.
-  - [ ] preimpostati di partenza almeno:
+    Documentatore, Cacciatore di bug e Rifattorizzatore sono pronti. Poi (scelta dell'utente, stesso giorno) branch
+    Scrapling unito e aggiunti Sviluppatore, Ricercatore (opzione A2: Scrapling, altrimenti `web_fetch`), Guardiano della
+    sicurezza, Custode della CI, Smistatore di issue (con il nuovo strumento `gh_list_issues`) e Revisore di
+    accessibilità. Scartato il Segretario Notion.
+  - [x] preimpostati di partenza almeno:
     - **🏛️ Architetto** — analizza la repo e scrive il piano (`docs/ARCHITETTURA.md`), poi passa il primo passo;
     - **🔎 Ricercatore** — legge il web e riassume le fonti. Usa il prototipo sul branch
       `claude/inspiring-wozniak-8cm2rv`: **Scrapling** collegato come server MCP (`mcp_call` →
