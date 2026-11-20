@@ -200,6 +200,19 @@ export function SettingsModal() {
     };
   }, [open]);
 
+  // Esc chiude la finestra, come le altre (collaudo 20/11: restava aperta). In cattura e
+  // fermato lì: lo stesso Esc non deve arrivare alla scena e deselezionare l'agente.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, setOpen]);
+
   // La gestione utenti vuole l'email di chi guarda (per non togliersi da solo il ruolo).
   useEffect(() => {
     if (!open || !isOwner) return;
