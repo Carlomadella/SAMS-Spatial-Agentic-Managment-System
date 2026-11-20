@@ -5,6 +5,7 @@ import { Logo } from "../components/Logo";
 import { lookupInviteRemote, type InviteRole } from "../../lib/backend";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "../router";
+import { MIN_PASSWORD, PasswordHint } from "../components/PasswordHint";
 
 const ROLE_LABEL: Record<InviteRole, string> = { editor: "Editor", viewer: "Osservatore" };
 const ROLE_HINT: Record<InviteRole, string> = {
@@ -52,8 +53,8 @@ export function Invite() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!invite) return;
-    if (password.length < 8) {
-      setError("La password deve avere almeno 8 caratteri.");
+    if (password.length < MIN_PASSWORD) {
+      setError(`La password deve avere almeno ${MIN_PASSWORD} caratteri.`);
       return;
     }
     if (password !== confirm) {
@@ -134,8 +135,10 @@ export function Invite() {
               onChange={(e) => { setPassword(e.target.value); setError(null); }}
               placeholder="••••••••"
               autoComplete="new-password"
+              aria-describedby="pw-hint"
               className={INPUT}
             />
+            <PasswordHint id="pw-hint" value={password} />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-slate-400">Conferma password</span>

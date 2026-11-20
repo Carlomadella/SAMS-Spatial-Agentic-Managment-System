@@ -5,6 +5,7 @@ import { Logo } from "../components/Logo";
 import { forgotPasswordRemote } from "../../lib/backend";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
+import { MIN_PASSWORD, PasswordHint } from "../components/PasswordHint";
 
 /**
  * Pagina di accesso/registrazione — auth **reale** (Roadmap 4): account veri sul
@@ -68,8 +69,8 @@ export function Login() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("La password deve avere almeno 8 caratteri.");
+    if (password.length < MIN_PASSWORD) {
+      setError(`La password deve avere almeno ${MIN_PASSWORD} caratteri.`);
       return;
     }
     setBusy(true);
@@ -147,8 +148,10 @@ export function Login() {
                 }}
                 placeholder="••••••••"
                 autoComplete={isSignup ? "new-password" : "current-password"}
+                aria-describedby={isSignup ? "pw-hint" : undefined}
                 className="rounded-lg border border-line bg-ink-950/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand/60"
               />
+              {isSignup && <PasswordHint id="pw-hint" value={password} />}
             </label>
           )}
 
