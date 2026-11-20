@@ -69,6 +69,9 @@ export interface AssignBody {
   /** Per-task GitHub repo override (owner/repo). Used by the "meta-agente" to
    *  target SAMS itself instead of the globally configured repository. */
   repo?: string;
+  /** Ambiente scelto in UI ("dev" | "staging" | "prod"): il server lo traduce nel branch base
+   *  impostato per quell'ambiente. Valori ignoti o ambienti senza branch si ignorano. */
+  environment?: string;
   /** Nome della vista che ha avviato l'azione (attribuzione nel log; non fidato). */
   actor?: string;
 }

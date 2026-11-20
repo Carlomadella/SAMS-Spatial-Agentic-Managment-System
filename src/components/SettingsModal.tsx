@@ -6,6 +6,7 @@ import {
   Check,
   ExternalLink,
   FileText,
+  GitBranch,
   Github,
   KeyRound,
   Loader2,
@@ -68,6 +69,13 @@ const PROVIDER_LABEL: Record<Provider, string> = {
 };
 
 /** I campi segreti della finestra: su disco effimero si impostano solo sul server. */
+const ENV_FIELDS = [
+  { env: "dev", key: "devBranch", label: "Branch di Dev", ph: "es. develop" },
+  { env: "staging", key: "stagingBranch", label: "Branch di Staging", ph: "es. staging" },
+  { env: "prod", key: "prodBranch", label: "Branch di Prod", ph: "es. main" },
+] as const;
+const ENV_VAR = { dev: "SAMS_BRANCH_DEV", staging: "SAMS_BRANCH_STAGING", prod: "SAMS_BRANCH_PROD" } as const;
+
 const SECRET_UI_FIELDS = ["geminiApiKey", "anthropicApiKey", "groqApiKey", "openrouterApiKey", "openaiApiKey", "githubToken", "notionToken"];
 
 /**
@@ -102,7 +110,7 @@ export const SETTINGS_SECTIONS: SectionDef[] = [
   { id: "aspetto", label: "Aspetto", hint: "Tema dell'interfaccia e della stanza. Vale solo su questo browser.", icon: Palette, ownerOnly: false },
   { id: "stato", label: "Stato del sistema", hint: "Cosa è configurato sul server, in sola lettura.", icon: Activity, ownerOnly: false },
   { id: "motore", label: "Motore AI", hint: "Il fornitore del modello, la sua chiave e il modello usato dagli agenti.", icon: Sparkles, ownerOnly: true },
-  { id: "repository", label: "GitHub del server", hint: "Il token per routine, simulazione, webhook e per i task senza un GitHub personale.", icon: KeyRound, ownerOnly: true },
+  { id: "repository", label: "GitHub del server", hint: "Il token GitHub e i branch degli ambienti Dev/Staging/Prod.", icon: KeyRound, ownerOnly: true },
   { id: "agenti", label: "Comportamento agenti", hint: "Cosa fanno gli agenti dopo aver scritto il codice.", icon: Bot, ownerOnly: true },
   { id: "integrazioni", label: "Integrazioni", hint: "Servizi esterni collegati agli agenti.", icon: Plug, ownerOnly: true },
   { id: "utenti", label: "Utenti e inviti", hint: "Ruoli degli account, inviti e link di reset password.", icon: UserRound, ownerOnly: true },
@@ -156,6 +164,8 @@ export function SettingsModal() {
   const [requireApproval, setRequireApproval] = useState(false);
   const [notionToken, setNotionToken] = useState("");
   const [notionPageId, setNotionPageId] = useState("");
+  // Branch base di ogni ambiente ("" = branch base solito).
+  const [envBranchInput, setEnvBranchInput] = useState({ dev: "", staging: "", prod: "" });
   const [busy, setBusy] = useState<"" | "save" | "provision">("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -196,6 +206,7 @@ export function SettingsModal() {
       setOpenPRs(st.openPRs);
       setRequireApproval(st.requireApproval);
       setNotionPageId(st.notionPageId);
+      setEnvBranchInput(st.envBranches ?? { dev: "", staging: "", prod: "" });
     })();
     return () => {
       alive = false;
@@ -245,6 +256,12 @@ export function SettingsModal() {
     setMsg(null);
     try {
       const patch: SettingsInput = { provider, model, openPRs, requireApproval, notionPageId };
+      // I branch degli ambienti si mandano solo se il runtime li conosce (runtime vecchi: no).
+      if (status?.envBranches) {
+        patch.devBranch = envBranchInput.dev.trim();
+        patch.stagingBranch = envBranchInput.staging.trim();
+        patch.prodBranch = envBranchInput.prod.trim();
+      }
       if (provider === "gemini" && geminiApiKey.trim()) patch.geminiApiKey = geminiApiKey.trim();
       if (provider === "claude" && anthropicApiKey.trim()) patch.anthropicApiKey = anthropicApiKey.trim();
       if (provider === "groq" && groqApiKey.trim()) patch.groqApiKey = groqApiKey.trim();
@@ -486,6 +503,28 @@ export function SettingsModal() {
                 className="settings-input"
               />
             </Field>
+            {status?.envBranches && (
+              <div className="space-y-2 border-t border-line pt-3">
+                <h4 className="text-[12px] font-semibold text-white">Ambienti</h4>
+                <p className="text-[11px] leading-relaxed text-mut">
+                  Ogni ambiente è un branch della repo: i task assegnati in quell&apos;ambiente partono da lì e la PR punta lì.
+                  Vuoto = il branch base solito{status.baseBranch ? <> (<code className="rounded bg-ink-700 px-1 text-slate-300">{status.baseBranch}</code>)</> : null}.
+                  Non vale per i task indirizzati a un&apos;altra repo.
+                </p>
+                {ENV_FIELDS.map(({ env, key, label, ph }) => (
+                  <Field key={env} label={label} icon={GitBranch} locked={envLocked.has(key)}>
+                    <input
+                      value={envBranchInput[env]}
+                      onChange={(e) => setEnvBranchInput((cur) => ({ ...cur, [env]: e.target.value }))}
+                      disabled={envLocked.has(key)}
+                      placeholder={envLocked.has(key) ? `impostato da ${ENV_VAR[env]}` : ph}
+                      spellCheck={false}
+                      className="settings-input font-mono"
+                    />
+                  </Field>
+                ))}
+              </div>
+            )}
           </div>
         );
       case "agenti":

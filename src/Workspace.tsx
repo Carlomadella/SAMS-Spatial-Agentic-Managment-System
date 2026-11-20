@@ -136,7 +136,7 @@ function QueueBridge() {
               useStore.getState().shiftQueue(fresh.id);
               useStore.getState().assignTask(fresh.id, next.title, next.branch);
               if (backendEnabled) {
-                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions, resolveTaskRepo(fresh, next.repo)).catch(
+                assignRemote(fresh.id, fresh.name, next.title, next.branch, fresh.role, fresh.instructions, resolveTaskRepo(fresh, next.repo), next.environment).catch(
                   (err: Error) =>
                     useStore.getState().log({
                       agentId: fresh.id,

@@ -29,14 +29,18 @@ export function isValidRepoName(repo: unknown): repo is string {
 
 /** Un nome di branch ragionevole (niente spazi, `..`, caratteri di controllo). */
 export function isValidBranchName(branch: unknown): branch is string {
+  // Sottoinsieme sicuro di `git check-ref-format`: niente `..`, `//`, `/.`, niente `-`, `/` o `.`
+  // all'inizio, niente `/`, `.` o `.lock` in fondo.
   return (
     typeof branch === "string" &&
     branch.length > 0 &&
     branch.length <= 200 &&
     /^[\w./-]+$/.test(branch) &&
     !branch.includes("..") &&
-    !branch.startsWith("/") &&
-    !branch.endsWith("/")
+    !branch.includes("//") &&
+    !branch.includes("/.") &&
+    !/^[-/.]/.test(branch) &&
+    !/(\/|\.|\.lock)$/.test(branch)
   );
 }
 

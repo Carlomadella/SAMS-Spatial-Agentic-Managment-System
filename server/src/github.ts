@@ -103,9 +103,16 @@ interface PullRequest {
 
 /** Create `newBranch` from `fromBranch` (no-op if it already exists). */
 export async function createBranch(newBranch: string, fromBranch: string): Promise<void> {
-  const ref = (await gh(`/git/ref/heads/${encodeURIComponent(fromBranch)}`)) as {
-    object: { sha: string };
-  };
+  let ref: { object: { sha: string } };
+  try {
+    ref = (await gh(`/git/ref/heads/${encodeURIComponent(fromBranch)}`)) as { object: { sha: string } };
+  } catch (err) {
+    // Branch base inesistente (es. il branch di un ambiente non creato in questa repo): dirlo chiaro.
+    if (err instanceof HttpError && err.status === 404) {
+      throw new Error(`Il branch base «${fromBranch}» non esiste in ${currentRepo()}: crealo su GitHub o cambia il branch dell'ambiente in ⚙.`, { cause: err });
+    }
+    throw err;
+  }
   try {
     await gh(`/git/refs`, {
       method: "POST",

@@ -455,7 +455,7 @@ export function AgentInspector() {
               const repoOverride = taskRepo.trim() || undefined;
               if (agent.task) {
                 // agent busy → queue it (carrying the per-task repo + urgency)
-                enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride, urgent });
+                enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride, urgent, environment: useStore.getState().environment });
                 log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda${urgent ? " (urgente)" : ""}: ${t}` });
               } else {
                 // agent idle → start immediately

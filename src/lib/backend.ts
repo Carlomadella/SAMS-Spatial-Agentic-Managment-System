@@ -1,4 +1,5 @@
-import type { AgentStatus, LogLevel, PendingFile } from "../types";
+import type { AgentStatus, EnvironmentName, LogLevel, PendingFile } from "../types";
+import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
@@ -88,6 +89,8 @@ export interface RuntimeStatus {
   notionReady: boolean;
   /** Gli agenti hanno almeno uno strumento (GitHub con repo, Notion o MCP). Assente sui runtime vecchi. */
   toolsReady?: boolean;
+  /** Branch base degli ambienti ("" = branch base solito). Assente sui runtime vecchi. */
+  envBranches?: { dev: string; staging: string; prod: string };
   /** Campi impostati da variabili d'ambiente sul server (solo i nomi): non si cambiano dalla UI. */
   envManaged?: string[];
   /** Solo per l'owner: il server non ha un disco persistente (SAMS_EPHEMERAL_DISK), quindi
@@ -96,6 +99,9 @@ export interface RuntimeStatus {
 }
 
 export interface SettingsInput {
+  devBranch?: string;
+  stagingBranch?: string;
+  prodBranch?: string;
   provider?: Provider;
   geminiApiKey?: string;
   anthropicApiKey?: string;
@@ -523,6 +529,7 @@ export function applyRuntimeStatus(st: RuntimeStatus | null): void {
   s.setRuntimeModel(st?.activeModel ?? "");
   s.setRuntimeBranch(st?.repo ? st.baseBranch ?? "" : "");
   s.setToolsReady(typeof st?.toolsReady === "boolean" ? st.toolsReady : null);
+  s.setEnvBranches(readEnvBranches(st?.envBranches));
 }
 
 /** Fetch status and reflect it into the store. */
@@ -586,11 +593,13 @@ export async function assignRemote(
   role?: string,
   instructions?: string,
   repo?: string,
+  environment: EnvironmentName = useStore.getState().environment,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/assign`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, actor: viewerName() }),
+    // L'ambiente scelto (Dev/Staging/Prod) viaggia col task: il server lo traduce nel branch base.
+    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, environment, actor: viewerName() }),
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;

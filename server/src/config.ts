@@ -2,6 +2,7 @@ import fs from "node:fs";
 import "dotenv/config";
 import { dataFile } from "./dataDir";
 import { parseMcpServers } from "./mcp";
+import { envBranches } from "./environments";
 import { loadSettingRows, saveSettingRows } from "./db";
 import { Mutex, type SqlDriver } from "./sql";
 
@@ -24,6 +25,10 @@ export interface Settings {
   githubToken: string;
   githubRepo: string;
   baseBranch: string;
+  /** Branch base degli ambienti Dev/Staging/Prod ("" = usa il branch base solito). */
+  devBranch: string;
+  stagingBranch: string;
+  prodBranch: string;
   /** Secret HMAC per verificare i webhook GitHub in ingresso (vuoto = verifica off). */
   githubWebhookSecret: string;
   /** Server MCP esposti agli agenti come strumento `mcp_call`, come JSON array
@@ -60,6 +65,9 @@ const ENV_KEYS: ReadonlyArray<[string, keyof Settings]> = [
   ["GITHUB_TOKEN", "githubToken"],
   ["GITHUB_REPO", "githubRepo"],
   ["GITHUB_BASE_BRANCH", "baseBranch"],
+  ["SAMS_BRANCH_DEV", "devBranch"],
+  ["SAMS_BRANCH_STAGING", "stagingBranch"],
+  ["SAMS_BRANCH_PROD", "prodBranch"],
   ["GITHUB_WEBHOOK_SECRET", "githubWebhookSecret"],
   ["SAMS_MCP_SERVERS", "mcpServers"],
   ["SAMS_AGENT_ID", "agentId"],
@@ -84,6 +92,9 @@ function defaults(env: NodeJS.ProcessEnv): Settings {
     githubToken: "",
     githubRepo: "Carlomadella/Tutto-sulla-programmazione",
     baseBranch: "main",
+    devBranch: "",
+    stagingBranch: "",
+    prodBranch: "",
     githubWebhookSecret: "",
     mcpServers: "",
     agentId: "",
@@ -203,6 +214,9 @@ export function settingsToPersist(
     githubToken: s.githubToken,
     githubRepo: s.githubRepo,
     baseBranch: s.baseBranch,
+    devBranch: s.devBranch,
+    stagingBranch: s.stagingBranch,
+    prodBranch: s.prodBranch,
     githubWebhookSecret: s.githubWebhookSecret,
     mcpServers: s.mcpServers,
     agentId: s.agentId,
@@ -271,6 +285,9 @@ export const CHOICE_KEYS = [
   "model",
   "githubRepo",
   "baseBranch",
+  "devBranch",
+  "stagingBranch",
+  "prodBranch",
   "openPRs",
   "requireApproval",
   "notionPageId",
@@ -453,6 +470,9 @@ export type SettingsPatch = Partial<
     | "githubToken"
     | "githubRepo"
     | "baseBranch"
+    | "devBranch"
+    | "stagingBranch"
+    | "prodBranch"
     | "model"
     | "openPRs"
     | "requireApproval"
@@ -530,6 +550,7 @@ export function publicStatus() {
     ready: isReady(),
     repo: s.githubRepo,
     baseBranch: s.baseBranch,
+    envBranches: envBranches(s),
     model: s.model,
     openPRs: s.openPRs,
     requireApproval: s.requireApproval,
@@ -554,6 +575,9 @@ const UI_EDITABLE_KEYS: ReadonlyArray<keyof Settings> = [
   "githubToken",
   "githubRepo",
   "baseBranch",
+  "devBranch",
+  "stagingBranch",
+  "prodBranch",
   "model",
   "openPRs",
   "requireApproval",

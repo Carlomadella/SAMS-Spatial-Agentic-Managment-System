@@ -41,6 +41,7 @@ import { StreamTickets } from "./streamTickets";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
+import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 
@@ -404,7 +405,7 @@ app.get("/api/status", async (req: Request, res: Response) => {
   // Con i ruoli attivi un anonimo riceve la stessa forma (la UI non si rompe) ma senza
   // gli indirizzi del workspace. In dev aperto, senza ruoli, nessuno è anonimo.
   if (await isAnonymousRequest(req)) {
-    res.json({ ...publicStatus(), repo: "", baseBranch: "", notionPageId: "" });
+    res.json({ ...publicStatus(), repo: "", baseBranch: "", notionPageId: "", envBranches: { dev: "", staging: "", prod: "" } });
     return;
   }
   res.json(await ownerStatus(req));
@@ -1023,6 +1024,18 @@ app.post("/api/settings", requireRole("owner"), async (req: Request, res: Respon
   if (typeof body.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
   if (typeof body.notionToken === "string" && body.notionToken.trim()) patch.notionToken = body.notionToken.trim();
   if (typeof body.notionPageId === "string") patch.notionPageId = body.notionPageId.trim();
+  // Branch degli ambienti: vuoto = torna al branch base solito; un nome non valido si rifiuta.
+  for (const env of ENVIRONMENTS) {
+    const key = ENV_BRANCH_KEY[env];
+    const v = (body as Record<string, unknown>)[key];
+    if (typeof v !== "string") continue;
+    const b = v.trim();
+    if (b && !isValidBranchName(b)) {
+      res.status(400).json({ error: `Branch non valido per l'ambiente ${env}: «${b}».` });
+      return;
+    }
+    patch[key] = b;
+  }
   // I campi impostati da variabili d'ambiente non si cambiano dalla UI: l'ambiente
   // vince al riavvio, quindi il cambio non durerebbe (e un token "ruotato" qui
   // tornerebbe valido in silenzio). Si risponde 409 e non si salva niente.
@@ -1252,7 +1265,12 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // inside that repo context so every GitHub call targets it instead of the
   // global repository. Invalid overrides are ignored (fall back to global).
   const repo = typeof body.repo === "string" && /^[\w.-]+\/[\w.-]+$/.test(body.repo) ? body.repo : null;
-  const start = () => runner(body, broadcast);
+  // L'ambiente del task (Dev/Staging/Prod) sceglie il branch base, se l'owner l'ha impostato.
+  // Sta più dentro del GitHub dell'utente: vale anche per chi lavora sulla sua repo. Non vale
+  // per un task indirizzato a un'altra repo (es. il meta-agente su SAMS): lì quei branch non c'entrano.
+  const envBranch = repo ? null : envBaseBranch(body.environment, getSettings());
+  const run = () => runner(body, broadcast);
+  const start = () => (envBranch ? runWithGithub({ baseBranch: envBranch }, run) : run());
   const inRepo = () => (repo ? runWithRepo(repo, start) : start());
   const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
   work.catch((err: unknown) => {
