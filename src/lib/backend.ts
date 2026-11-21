@@ -636,6 +636,19 @@ export async function rejectChanges(agentId: string): Promise<void> {
   });
 }
 
+/**
+ * Ferma il task in corso dell'agente sul runtime (il ciclo si ferma al prossimo strumento).
+ * false se sul server non c'era nessun task in corso per quell'agente.
+ */
+export async function cancelRemote(agentId: string): Promise<boolean> {
+  const res = await fetch(`${BASE}/api/cancel/${encodeURIComponent(agentId)}`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ actor: viewerName() }),
+  });
+  return res.ok;
+}
+
 // --- Live Simulation mode ------------------------------------------------
 
 export interface SimIssueRemote {
