@@ -9,7 +9,7 @@ export interface PendingWork {
   /** il task scrive sul branch principale: i file vanno lì solo con la conferma di una persona */
   toMain?: boolean;
   /** merge di una PR chiesto dall'agente, da eseguire solo dopo la conferma */
-  merge?: { prNumber: number; method: "merge" | "squash" | "rebase" };
+  merge?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
   /** Repo, token e branch base del task: chi approva committa lì, non sulla repo del server. */
   github?: GithubContext;
   createdAt: number;

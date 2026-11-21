@@ -262,9 +262,18 @@ export function AgentInspector() {
             </>
           )}
           {agent.pendingMerge && (
-            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
-              <GitMerge size={12} />
-              Merge della PR #{agent.pendingMerge.prNumber} ({agent.pendingMerge.method})
+            <div className="mb-3 text-[11px] text-rose-300">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <GitMerge size={12} />
+                Merge della PR #{agent.pendingMerge.prNumber} ({agent.pendingMerge.method})
+              </div>
+              {agent.pendingMerge.title && <div className="mt-0.5 text-slate-300">{agent.pendingMerge.title}</div>}
+              {agent.pendingMerge.headRef && (
+                <div className="mt-0.5 font-mono text-[10px] text-mut">
+                  {agent.pendingMerge.headRef} → {agent.pendingMerge.baseRef} @ {agent.pendingMerge.headSha?.slice(0, 7)}
+                </div>
+              )}
+              <div className="mt-0.5 text-[10px] text-mut">Vale solo per questo commit: se la PR cambia, il merge viene annullato.</div>
             </div>
           )}
           <div className="flex gap-2">

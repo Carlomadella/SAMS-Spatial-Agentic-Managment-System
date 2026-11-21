@@ -4,7 +4,7 @@ vi.mock("./config", () => ({
   getSettings: () => ({ githubRepo: "o/r", githubToken: "t", baseBranch: "main" }),
 }));
 
-const { createPullRequest } = await import("./github");
+const { createPullRequest, mergePullRequest } = await import("./github");
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -147,3 +147,19 @@ describe("readPullRequest: solo commenti fidati", () => {
   });
 });
 
+
+// Revisione di sicurezza del 21/11: la conferma di un merge vale per il commit visto
+// dalla persona; se la PR cambia dopo, GitHub deve rifiutare (409).
+describe("mergePullRequest — legato al commit confermato", () => {
+  it("manda lo SHA confermato a GitHub", async () => {
+    const f = vi.fn(async (_url: string, _init?: RequestInit) => json(200, { merged: true, sha: "fff0000" }));
+    vi.stubGlobal("fetch", f);
+    await mergePullRequest(7, "squash", "abc1234def");
+    expect(JSON.parse(String(f.mock.calls[0]![1]!.body))).toEqual({ merge_method: "squash", sha: "abc1234def" });
+  });
+
+  it("se la PR è cambiata GitHub risponde 409 e il merge fallisce", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json(409, { message: "Head branch was modified. Review and try the merge again." })));
+    await expect(mergePullRequest(7, "squash", "abc1234def")).rejects.toMatchObject({ status: 409 });
+  });
+});

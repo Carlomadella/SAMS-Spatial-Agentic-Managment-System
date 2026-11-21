@@ -87,15 +87,33 @@ describe("executeTool — control tools", () => {
     expect(ctx.stagedFiles[1].path).toBe("b.ts");
   });
 
-  it.each([true, false])("gh_merge_pr non mergia mai da solo (requireApproval=%s): resta in attesa di una persona", async (requireApproval) => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  const prStub = (over: Record<string, unknown> = {}) => vi.fn((url: string, init?: RequestInit) => {
+    expect(init?.method ?? "GET").toBe("GET"); // nessun merge: solo la lettura della PR
+    expect(url).toContain("/pulls/7");
+    return Promise.resolve(new Response(JSON.stringify({
+      title: "Aggiunge X", state: "open",
+      head: { sha: "abc1234def", ref: "feat", repo: { full_name: "o/r" } },
+      base: { ref: "main", repo: { full_name: "o/r" } },
+      ...over,
+    }), { status: 200 }));
+  });
+
+  it.each([true, false])("gh_merge_pr non mergia mai da solo (requireApproval=%s): salva la richiesta legata al commit", async (requireApproval) => {
+    vi.stubGlobal("fetch", prStub());
     const { ctx, events } = mkCtx({ requireApproval });
     const res = await executeTool("gh_merge_pr", { pr_number: 7, method: "merge" }, ctx);
     expect(res).toMatch(/sala d'attesa/);
-    expect(ctx.mergeRequest).toEqual({ prNumber: 7, method: "merge" });
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(events.some((e) => /Merge PR #7 chiesto/.test(e.message ?? ""))).toBe(true);
-    fetchSpy.mockRestore();
+    expect(ctx.mergeRequest).toEqual({ prNumber: 7, method: "merge", headSha: "abc1234def", headRef: "feat", baseRef: "main", title: "Aggiunge X" });
+    expect(events.some((e) => /Merge PR #7 chiesto .*abc1234/.test(e.message ?? ""))).toBe(true);
+  });
+
+  it("gh_merge_pr rifiuta le PR da un fork e quelle chiuse", async () => {
+    vi.stubGlobal("fetch", prStub({ head: { sha: "s", ref: "x", repo: { full_name: "altro/r" } } }));
+    const { ctx } = mkCtx();
+    expect(await executeTool("gh_merge_pr", { pr_number: 7 }, ctx)).toMatch(/ERRORE: .*fork/);
+    vi.stubGlobal("fetch", prStub({ state: "closed" }));
+    expect(await executeTool("gh_merge_pr", { pr_number: 7 }, ctx)).toMatch(/ERRORE: .*non è aperta/);
+    expect(ctx.mergeRequest).toBeUndefined();
   });
 
   it("sul branch principale le scritture restano in attesa anche senza approvazione richiesta", async () => {
@@ -350,11 +368,11 @@ describe("finalizeTask — sala d'attesa per il branch principale (scelta del 21
   });
 
   it("merge chiesto: l'agente finisce in sala d'attesa con il merge in sospeso", async () => {
-    const { ctx, events } = mkCtx({ mergeRequest: { prNumber: 3, method: "squash" }, finished: true });
+    const { ctx, events } = mkCtx({ mergeRequest: { prNumber: 3, method: "squash", headSha: "abc1234def", headRef: "feat", baseRef: "main", title: "T" }, finished: true });
     await finalizeTask(ctx, opts);
     const last = events.filter((e) => e.status).pop();
     expect(last?.status).toBe("awaiting_approval");
-    expect(last?.pendingMerge).toEqual({ prNumber: 3, method: "squash" });
+    expect(last?.pendingMerge).toEqual({ prNumber: 3, method: "squash", headSha: "abc1234def", headRef: "feat", baseRef: "main", title: "T" });
     expect(getPending("a")?.merge?.prNumber).toBe(3);
   });
 

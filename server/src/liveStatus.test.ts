@@ -63,7 +63,7 @@ describe("overlayLiveStatus — sala d'attesa (push/merge sul branch principale)
   beforeEach(() => { resetLiveStatus(); resetRuns(); clearPending("a1"); });
 
   it("un merge in attesa tiene l'agente in attesa anche dopo un salvataggio più recente", () => {
-    setPending("a1", { branch: "b", title: "T", agentName: "Sim-Dev", files: [], merge: { prNumber: 3, method: "squash" } });
+    setPending("a1", { branch: "b", title: "T", agentName: "Sim-Dev", files: [], merge: { prNumber: 3, method: "squash", headSha: "abc1234def", headRef: "feat", baseRef: "main", title: "T" } });
     expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("awaiting_approval");
     clearPending("a1");
     expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("idle");
