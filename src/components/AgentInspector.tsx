@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Download, FileText, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
+import { Check, Download, FileText, GitMerge, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useHouse, useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
@@ -8,7 +8,7 @@ import { affinityTier, bestFriend } from "../lib/relationships";
 import { activeGoal, goalProgress } from "../lib/goals";
 import { balanceOf, formatCoins } from "../lib/economy";
 import { cn } from "../lib/utils";
-import { approveChanges, assignRemote, backendEnabled, cancelRemote, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
+import { approveChanges, assignRemote, backendEnabled, cancelRemote, clearMemory, fetchMemory, fetchPending, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, findTemplate, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
@@ -105,6 +105,20 @@ export function AgentInspector() {
       return next;
     });
   }
+
+  // In attesa ma senza i dettagli (pagina ricaricata): li si chiede al server, così chi
+  // guarda può sempre confermare o rifiutare e l'agente non resta bloccato in sala d'attesa.
+  const setPendingWork = useStore((s) => s.setPendingWork);
+  const missingPending =
+    agent?.status === "awaiting_approval" && !(agent.pendingFiles?.length) && !agent.pendingMerge;
+  useEffect(() => {
+    if (!agent?.id || !missingPending || !backendEnabled) return;
+    let alive = true;
+    void fetchPending(agent.id).then((w) => {
+      if (alive && w) setPendingWork(agent.id, { pendingFiles: w.pendingFiles, pendingMerge: w.pendingMerge ?? undefined, mainGate: w.mainGate });
+    });
+    return () => { alive = false; };
+  }, [agent?.id, missingPending, setPendingWork]);
 
   // Reset checked steps when the agent or task changes
   useEffect(() => { setCheckedSteps(new Set()); }, [agent?.id, agent?.task?.title]);
@@ -224,18 +238,35 @@ export function AgentInspector() {
         </div>
       )}
 
-      {/* diff approval panel */}
-      {agent.status === "awaiting_approval" && (agent.pendingFiles?.length ?? 0) > 0 && (
-        <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5">
-          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
-            <FileText size={12} />
-            {agent.pendingFiles!.length} {agent.pendingFiles!.length === 1 ? "file pronto" : "file pronti"} per il commit
-          </div>
-          <div className="mb-3 max-h-52 space-y-1.5 overflow-y-auto">
-            {agent.pendingFiles!.map((f, i) => (
-              <StagedFileDiff key={i} file={f} agentId={agent.id} />
-            ))}
-          </div>
+      {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
+      {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge) && (
+        <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5" data-testid="pending-panel">
+          {agent.mainGate && (
+            <p className="mb-2 text-[11px] leading-relaxed text-rose-200">
+              <strong>Sala d'attesa.</strong> Gli agenti non toccano mai il branch principale: {agent.name} aspetta
+              che una persona confermi. Finché non decidi non può ricevere altri task.
+            </p>
+          )}
+          {(agent.pendingFiles?.length ?? 0) > 0 && (
+            <>
+              <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
+                <FileText size={12} />
+                {agent.pendingFiles!.length} {agent.pendingFiles!.length === 1 ? "file pronto" : "file pronti"} per il commit
+                {agent.mainGate && agent.task?.branch ? ` su ${agent.task.branch}` : ""}
+              </div>
+              <div className="mb-3 max-h-52 space-y-1.5 overflow-y-auto">
+                {agent.pendingFiles!.map((f, i) => (
+                  <StagedFileDiff key={i} file={f} agentId={agent.id} />
+                ))}
+              </div>
+            </>
+          )}
+          {agent.pendingMerge && (
+            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
+              <GitMerge size={12} />
+              Merge della PR #{agent.pendingMerge.prNumber} ({agent.pendingMerge.method})
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -245,7 +276,7 @@ export function AgentInspector() {
               }}
               className="btn btn-primary flex-1"
             >
-              <Check size={13} /> Approva e committa
+              <Check size={13} /> {agent.mainGate ? "Conferma" : "Approva e committa"}
             </button>
             <button
               onClick={() => rejectChanges(agent.id)}

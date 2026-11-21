@@ -6,6 +6,10 @@ export interface PendingWork {
   title: string;
   agentName: string;
   files: PendingFile[];
+  /** il task scrive sul branch principale: i file vanno lì solo con la conferma di una persona */
+  toMain?: boolean;
+  /** merge di una PR chiesto dall'agente, da eseguire solo dopo la conferma */
+  merge?: { prNumber: number; method: "merge" | "squash" | "rebase" };
   /** Repo, token e branch base del task: chi approva committa lì, non sulla repo del server. */
   github?: GithubContext;
   createdAt: number;
@@ -14,12 +18,23 @@ export interface PendingWork {
 const buffer = new Map<string, PendingWork>();
 const MAX_ENTRIES = 50;
 const TTL_MS = 60 * 60 * 1000; // staged files expire after 1h if never approved/rejected
+/** Push o merge sul branch principale: l'agente resta in sala d'attesa più a lungo. */
+const GATE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function ttlOf(work: Pick<PendingWork, "toMain" | "merge">): number {
+  return work.toMain || work.merge ? GATE_TTL_MS : TTL_MS;
+}
+
+/** L'agente aspetta una conferma per il branch principale (push o merge). */
+export function isMainGate(work: PendingWork | undefined): boolean {
+  return !!work && (!!work.toMain || !!work.merge);
+}
 
 /** Drop entries older than the TTL so unapproved file contents don't pile up. */
 function sweep(): void {
   const now = Date.now();
   for (const [id, work] of buffer) {
-    if (now - work.createdAt > TTL_MS) buffer.delete(id);
+    if (now - work.createdAt > ttlOf(work)) buffer.delete(id);
   }
 }
 
@@ -39,7 +54,7 @@ export function setPending(agentId: string, work: Omit<PendingWork, "createdAt">
 
 export function getPending(agentId: string): PendingWork | undefined {
   const work = buffer.get(agentId);
-  if (work && Date.now() - work.createdAt > TTL_MS) {
+  if (work && Date.now() - work.createdAt > ttlOf(work)) {
     buffer.delete(agentId);
     return undefined;
   }

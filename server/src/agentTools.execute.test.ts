@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Settings } from "./config";
-import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, summaryWithCiNote, type ToolContext } from "./agentTools";
+import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, finalizeTask, summaryWithCiNote, type ToolContext } from "./agentTools";
+import { clearPending, getPending, isMainGate } from "./pendingBuffer";
 import type { WireEvent } from "./types";
 
 // web_fetch risolve il DNS per la guardia anti-SSRF: nei test l'host finto "x" risolve
@@ -86,13 +87,25 @@ describe("executeTool — control tools", () => {
     expect(ctx.stagedFiles[1].path).toBe("b.ts");
   });
 
-  it("gh_merge_pr is refused when requireApproval=true (no network)", async () => {
+  it.each([true, false])("gh_merge_pr non mergia mai da solo (requireApproval=%s): resta in attesa di una persona", async (requireApproval) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const { ctx, events } = mkCtx({ requireApproval: true });
-    const res = await executeTool("gh_merge_pr", { pr_number: 7 }, ctx);
-    expect(res).toMatch(/ERRORE: .*non possono mergiare/);
+    const { ctx, events } = mkCtx({ requireApproval });
+    const res = await executeTool("gh_merge_pr", { pr_number: 7, method: "merge" }, ctx);
+    expect(res).toMatch(/sala d'attesa/);
+    expect(ctx.mergeRequest).toEqual({ prNumber: 7, method: "merge" });
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(events.some((e) => e.level === "WARN" && /Merge PR #7 rifiutato/.test(e.message ?? ""))).toBe(true);
+    expect(events.some((e) => /Merge PR #7 chiesto/.test(e.message ?? ""))).toBe(true);
+    fetchSpy.mockRestore();
+  });
+
+  it("sul branch principale le scritture restano in attesa anche senza approvazione richiesta", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { ctx } = mkCtx({ branch: "main", requireApproval: false });
+    await executeTool("gh_write_file", { path: "a.txt", content: "x" }, ctx);
+    await executeTool("gh_write_files", { files: [{ path: "b.txt", content: "y" }] }, ctx);
+    expect(ctx.stagedFiles.map((f) => f.path)).toEqual(["a.txt", "b.txt"]);
+    expect(ctx.wroteFiles).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
 
@@ -320,5 +333,35 @@ describe("summaryWithCiNote — i test non girati finiscono nel riassunto (simul
   it("se un workflow è partito o la CI non è stata toccata, il riassunto resta com'è", () => {
     expect(summaryWithCiNote({ doneSummary: "ok", ciNotRun: "failed", ciStarted: true })).toBe("ok");
     expect(summaryWithCiNote({ doneSummary: "ok" })).toBe("ok");
+  });
+});
+
+describe("finalizeTask — sala d'attesa per il branch principale (scelta del 21/11)", () => {
+  afterEach(() => { clearPending("a"); });
+  const opts = { totalTokens: 0, repoEnabled: false, notionEnabled: false, prProviderLabel: "t" };
+
+  it("file per main: in attesa con mainGate, mai committati", async () => {
+    const { ctx, events } = mkCtx({ branch: "main", stagedFiles: [{ path: "a.txt", content: "x", message: "m" }], finished: true });
+    await finalizeTask(ctx, opts);
+    const ev = events.find((e) => e.status === "awaiting_approval");
+    expect(ev?.mainGate).toBe(true);
+    expect(ev?.message).toMatch(/sala d'attesa/);
+    expect(isMainGate(getPending("a"))).toBe(true);
+  });
+
+  it("merge chiesto: l'agente finisce in sala d'attesa con il merge in sospeso", async () => {
+    const { ctx, events } = mkCtx({ mergeRequest: { prNumber: 3, method: "squash" }, finished: true });
+    await finalizeTask(ctx, opts);
+    const last = events.filter((e) => e.status).pop();
+    expect(last?.status).toBe("awaiting_approval");
+    expect(last?.pendingMerge).toEqual({ prNumber: 3, method: "squash" });
+    expect(getPending("a")?.merge?.prNumber).toBe(3);
+  });
+
+  it("file su un branch di lavoro con approvazione: attesa normale, niente sala d'attesa", async () => {
+    const { ctx, events } = mkCtx({ requireApproval: true, stagedFiles: [{ path: "a.txt", content: "x", message: "m" }], finished: true });
+    await finalizeTask(ctx, opts);
+    expect(events.find((e) => e.status === "awaiting_approval")?.mainGate).toBeUndefined();
+    expect(isMainGate(getPending("a"))).toBe(false);
   });
 });

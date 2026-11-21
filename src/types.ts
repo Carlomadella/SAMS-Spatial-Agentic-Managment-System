@@ -130,6 +130,10 @@ export interface Agent {
   taskQueue: QueuedTask[];
   /** Files staged by the runtime, waiting for the user to approve before committing. */
   pendingFiles?: PendingFile[];
+  /** Merge di una PR chiesto dall'agente: lo esegue il server solo dopo la conferma. */
+  pendingMerge?: PendingMerge;
+  /** In sala d'attesa: push o merge sul branch principale da confermare (l'agente è bloccato). */
+  mainGate?: boolean;
   /** 0..100. Decreases during long tasks, recovers while idle. */
   energy: number;
   /** 0..100 hunger (0 = sazio, 100 = affamato). Grows over time; assigning a
@@ -238,4 +242,10 @@ export interface SimIssue {
   labels: string[];
   /** agentId that has claimed this issue, if any */
   claimedBy?: string;
+}
+
+/** Merge di una PR in attesa della conferma di una persona. */
+export interface PendingMerge {
+  prNumber: number;
+  method: "merge" | "squash" | "rebase";
 }

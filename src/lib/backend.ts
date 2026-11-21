@@ -1,4 +1,4 @@
-import type { AgentStatus, EnvironmentName, LogLevel, PendingFile } from "../types";
+import type { AgentStatus, EnvironmentName, LogLevel, PendingFile, PendingMerge } from "../types";
 import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
@@ -41,6 +41,10 @@ export interface RemoteUpdate {
   /** cumulative Gemini tokens for the task (sent once on completion) */
   tokens?: number;
   pendingFiles?: PendingFile[];
+  /** merge chiesto dall'agente, in attesa della conferma di una persona */
+  pendingMerge?: PendingMerge;
+  /** sala d'attesa: push o merge sul branch principale da confermare */
+  mainGate?: boolean;
   relayTo?: { target: string; title: string; branch: string; context: string };
   plan?: string[];
   /** Branch su cui il runtime lavora davvero (annunciato all'avvio del task). */
@@ -624,6 +628,17 @@ export async function approveChanges(agentId: string): Promise<void> {
   if (!res.ok) {
     const data = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as { error?: string };
     throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+}
+
+/** Cosa aspetta un agente sul server (file e/o merge); null se non aspetta nulla. */
+export async function fetchPending(agentId: string): Promise<{ pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; mainGate: boolean } | null> {
+  try {
+    const res = await fetch(`${BASE}/api/pending/${encodeURIComponent(agentId)}`, { headers: authHeaders(false) });
+    if (!res.ok) return null;
+    return (await res.json()) as { pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; mainGate: boolean };
+  } catch {
+    return null;
   }
 }
 

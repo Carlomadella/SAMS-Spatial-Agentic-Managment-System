@@ -81,10 +81,13 @@ export function SimBridge() {
         }
 
         // Agent entered awaiting_approval while sim-driven → auto-approve
+        // (mai la sala d'attesa: push e merge sul branch principale li conferma una persona)
         if (
           agent.status === "awaiting_approval" &&
           prevAgent.status !== "awaiting_approval" &&
           (agent.pendingFiles?.length ?? 0) > 0 &&
+          !agent.mainGate &&
+          !agent.pendingMerge &&
           simClaims.has(agent.id)
         ) {
           void autoApprove(agent.id);

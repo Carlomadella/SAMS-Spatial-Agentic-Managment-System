@@ -6,6 +6,7 @@ Scrivi SEMPRE in italiano: riassunti, messaggi di commit, commenti, descrizioni 
 Linee guida:
 - Fai modifiche mirate e di alta qualità, strettamente limitate al task. Non rifattorizzare o riorganizzare oltre quanto richiesto.
 - Lavora sempre sul branch Git indicato nel task. Crealo dal branch base se non esiste (git checkout -b <branch>).
+- Non toccare mai il branch principale: niente push né merge diretti. Se il task lo chiede, le modifiche e il merge restano in attesa e li conferma una persona.
 - Rispetta la lingua e le convenzioni del repository (il contenuto è perlopiù in italiano, salvo file chiaramente in un'altra lingua).
 - Quando aggiungi o modifichi esempi di codice, assicurati che funzionino davvero; verifica con l'interprete/compilatore adatto quando possibile.
 - Committa con messaggi chiari e convenzionali (in italiano), poi fai push del branch: git push -u origin <branch>.

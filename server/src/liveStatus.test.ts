@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { noteAgentEvent, overlayLiveStatus, resetLiveStatus } from "./liveStatus";
+import { clearPending, setPending } from "./pendingBuffer";
 import { beginRun, resetRuns } from "./taskRuns";
 import type { WorldSnapshot } from "./worldState";
 
@@ -55,5 +56,22 @@ describe("overlayLiveStatus — lo stato degli agenti anche senza nessuno nella 
     const s = snap("idle", null);
     s.agents[0].deleted = true;
     expect(overlayLiveStatus(s, 2500).agents[0]).toEqual(s.agents[0]);
+  });
+});
+
+describe("overlayLiveStatus — sala d'attesa (push/merge sul branch principale)", () => {
+  beforeEach(() => { resetLiveStatus(); resetRuns(); clearPending("a1"); });
+
+  it("un merge in attesa tiene l'agente in attesa anche dopo un salvataggio più recente", () => {
+    setPending("a1", { branch: "b", title: "T", agentName: "Sim-Dev", files: [], merge: { prNumber: 3, method: "squash" } });
+    expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("awaiting_approval");
+    clearPending("a1");
+    expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("idle");
+  });
+
+  it("file in attesa su un branch di lavoro non sono la sala d'attesa", () => {
+    setPending("a1", { branch: "b", title: "T", agentName: "Sim-Dev", files: [{ path: "x", content: "y", message: "m" }] });
+    expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("idle");
+    clearPending("a1");
   });
 });
