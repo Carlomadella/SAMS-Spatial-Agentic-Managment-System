@@ -24,6 +24,7 @@ import {
   Sprout,
   SunMoon,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, useHouse } from "../store/useStore";
@@ -134,6 +135,7 @@ export function CommandPalette() {
     list.push({ id: "chat", label: "Apri Chat di workspace", icon: MessageSquare, keywords: "chat messaggi workspace condiviso presence parla", run: () => s.setBottomTab("chat") });
     list.push({ id: "history", label: "Apri Cronologia task", icon: History, keywords: "history cronologia storico task", run: () => s.setBottomTab("history") });
     list.push({ id: "tasks", label: "Apri elenco Task", icon: ListTodo, keywords: "tasks task elenco lavori", run: () => s.setBottomTab("tasks") });
+    list.push({ id: "review", label: "Apri il Reparto revisioni", icon: ShieldCheck, keywords: "revisioni review merge push conferma pr branch principale main approva", run: () => s.openReview(null) });
     list.push({ id: "settings", label: "Apri Impostazioni", icon: Settings, keywords: "settings impostazioni chiavi keys runtime config account github aspetto tema utenti", run: () => s.setSettingsOpen(true) });
     list.push({ id: "theme", label: `Tema: passa a ${s.theme === "dark" ? "chiaro" : "scuro"}`, icon: SunMoon, keywords: "theme tema chiaro scuro dark light", run: () => s.toggleTheme() });
     for (const rt of ROOM_THEMES) {

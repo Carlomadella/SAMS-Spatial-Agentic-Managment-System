@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Download, FileText, GitMerge, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
+import { Check, Download, FileText, GitMerge, ShieldCheck, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useHouse, useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
@@ -109,6 +109,7 @@ export function AgentInspector() {
   // In attesa ma senza i dettagli (pagina ricaricata): li si chiede al server, così chi
   // guarda può sempre confermare o rifiutare e l'agente non resta bloccato in sala d'attesa.
   const setPendingWork = useStore((s) => s.setPendingWork);
+  const openReview = useStore((s) => s.openReview);
   const missingPending =
     agent?.status === "awaiting_approval" && !(agent.pendingFiles?.length) && !agent.pendingMerge;
   useEffect(() => {
@@ -276,6 +277,12 @@ export function AgentInspector() {
               <div className="mt-0.5 text-[10px] text-mut">Vale solo per questo commit: se la PR cambia, il merge viene annullato.</div>
             </div>
           )}
+          <button
+            onClick={() => openReview(agent.id)}
+            className="btn mb-2 w-full"
+          >
+            <ShieldCheck size={13} /> Rileggi tutto nel Reparto revisioni
+          </button>
           <div className="flex gap-2">
             <button
               onClick={() => {

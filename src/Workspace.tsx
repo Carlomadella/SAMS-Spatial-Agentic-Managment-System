@@ -10,6 +10,7 @@ import { MobileBar, MobileDrawer, useIsMobile } from "./components/MobileBar";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { ReviewDepartment } from "./components/ReviewDepartment";
 import { NewAgentDialog } from "./components/NewAgentDialog";
 import { FileViewer } from "./components/FileViewer";
 import { GardenView } from "./components/GardenView";
@@ -1195,6 +1196,7 @@ export default function Workspace() {
       <SettingsModal />
       <NewAgentDialog />
       <FileViewer />
+      <ReviewDepartment />
       <GardenView />
       <Toaster />
       <OnboardingWizard />
