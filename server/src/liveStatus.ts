@@ -8,6 +8,7 @@
 import type { WireEvent } from "./types";
 import { currentRun } from "./taskRuns";
 import type { WorldSnapshot } from "./worldState";
+import { getPending, isMainGate } from "./pendingBuffer";
 
 interface Live {
   status: NonNullable<WireEvent["status"]>;
@@ -31,6 +32,8 @@ export function overlayLiveStatus(s: WorldSnapshot, now = Date.now()): WorldSnap
       if (a.deleted) return a;
       const run = currentRun(a.id, now);
       if (run) return { ...a, status: "working", task: run.title };
+      // In sala d'attesa finché una persona non conferma o rifiuta (push/merge sul principale).
+      if (isMainGate(getPending(a.id))) return { ...a, status: "awaiting_approval" };
       const l = live.get(a.id);
       if (!l || l.at <= s.updatedAt) return a;
       if (l.status === "idle") return { ...a, status: "idle", task: null, progress: 0 };

@@ -10,13 +10,13 @@ import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
 import { runOpenaiTask } from "./openai";
-import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, readFile, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, mergePullRequest, readFile, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
 import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, oauthCookie, OAuthStates, readOauthCookie, revokeToken } from "./githubAccounts";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { checkWebhookAuth, parseGithubEvent, parsePushWatering } from "./webhook";
 import { emptyGarden, water } from "./garden/model";
-import { getPending, clearPending } from "./pendingBuffer";
+import { getPending, clearPending, isMainGate } from "./pendingBuffer";
 import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
@@ -1234,6 +1234,13 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // In sala d'attesa (push o merge sul branch principale): niente nuovi task finché una
+  // persona non conferma o rifiuta (scelta dell'utente del 21/11).
+  if (isMainGate(getPending(body.agentId))) {
+    res.status(409).json({ error: `${body.agentName || "L'agente"} è nella sala d'attesa: aspetta la conferma di un push o di un merge sul branch principale. Conferma o rifiuta prima di dargli un altro task.`, gated: true });
+    return;
+  }
+
   // Un task alla volta per agente: un secondo task in parallelo riscriverebbe gli stessi file.
   const running = currentRun(body.agentId);
   if (running) {
@@ -1325,6 +1332,25 @@ app.delete("/api/memory/:agentId", requireRole("editor"), async (req: Request, r
   res.json({ ok: true });
 });
 
+/**
+ * Cosa aspetta un agente (file e/o merge): dopo un ricaricamento la pagina non ha più gli
+ * eventi, ma l'agente in sala d'attesa resta bloccato finché qualcuno non decide.
+ */
+app.get("/api/pending/:agentId", requireRole("viewer"), (req: Request, res: Response) => {
+  const work = getPending(req.params.agentId as string);
+  if (!work) {
+    res.status(404).json({ error: "Nessun lavoro in attesa per questo agente" });
+    return;
+  }
+  res.json({
+    pendingFiles: work.files,
+    pendingMerge: work.merge ?? null,
+    mainGate: isMainGate(work),
+    branch: work.branch,
+    title: work.title,
+  });
+});
+
 /** Approve staged files: create branch, commit each file, optionally open a PR. */
 app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
@@ -1345,16 +1371,26 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
   // i file sono stati messi in attesa), non sulla repo del server.
   await runWithGithub(work.github ?? {}, async () => {
     const baseBranch = githubContext().baseBranch;
+    const toMain = work.branch === baseBranch;
     try {
-      await createBranch(work.branch, baseBranch);
-      broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
-      // Atomic commit: all staged files in a single tree+commit (no partial-commit risk)
-      const commitMsg = work.files.length === 1
-        ? work.files[0].message
-        : `SAMS(${agentName}): ${work.title} — ${work.files.length} file`;
-      await writeFilesAtomic(work.files.map((f) => ({ path: f.path, content: f.content })), work.branch, commitMsg);
-      broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}` });
-      if (s.openPRs) {
+      if (work.files.length > 0) {
+        // Sul branch principale scrive la persona che ha confermato, non l'agente.
+        if (!toMain) {
+          await createBranch(work.branch, baseBranch);
+          broadcast({ agentId, agentName, level: "INFO", message: `Branch ${work.branch} creato` });
+        }
+        // Atomic commit: all staged files in a single tree+commit (no partial-commit risk)
+        const commitMsg = work.files.length === 1
+          ? work.files[0].message
+          : `SAMS(${agentName}): ${work.title} — ${work.files.length} file`;
+        await writeFilesAtomic(work.files.map((f) => ({ path: f.path, content: f.content })), work.branch, commitMsg);
+        broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}${toMain ? " (confermato da una persona)" : ""}` });
+      }
+      if (work.merge) {
+        const merged = await mergePullRequest(work.merge.prNumber, work.merge.method);
+        broadcast({ agentId, agentName, level: /non mergiata/.test(merged) ? "WARN" : "SUCCESS", message: `${merged} (confermato da una persona)` });
+      }
+      if (s.openPRs && work.files.length > 0 && !toMain) {
         const pr = await createPullRequest({
           branch: work.branch,
           title: work.title,
@@ -1387,8 +1423,12 @@ app.post("/api/reject/:agentId", requireRole("editor"), async (req: Request, res
   const agentId = req.params.agentId as string;
   const actor = (req.body as { actor?: string } | undefined)?.actor;
   log.info("Modifiche rifiutate", { by: actorLabel(await roleOf(req), actor), agent: agentId });
+  const gated = isMainGate(getPending(agentId));
   clearPending(agentId);
-  broadcast({ agentId, agentName: "runtime", status: "idle", level: "WARN", message: "Diff rifiutato — nessuna modifica applicata" });
+  broadcast({
+    agentId, agentName: "runtime", status: "idle", level: "WARN",
+    message: gated ? "Rifiutato — niente push né merge sul branch principale; l'agente lascia la sala d'attesa" : "Diff rifiutato — nessuna modifica applicata",
+  });
   res.json({ ok: true });
 });
 

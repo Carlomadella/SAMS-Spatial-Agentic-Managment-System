@@ -19,6 +19,12 @@ export interface WireEvent {
   tokens?: number;
   /** file contents staged for approval (sent with status = awaiting_approval) */
   pendingFiles?: PendingFile[];
+  /** merge chiesto dall'agente: un agente non mergia mai da solo, aspetta la conferma
+   *  di una persona (sent with status = awaiting_approval). */
+  pendingMerge?: { prNumber: number; method: "merge" | "squash" | "rebase" };
+  /** l'attesa riguarda il branch principale (push o merge): l'agente è bloccato nella
+   *  sala d'attesa finché una persona non conferma o rifiuta. */
+  mainGate?: boolean;
   /** agent-to-agent handoff: ask a peer to continue the work */
   relayTo?: { target: string; title: string; branch: string; context: string };
   /** step-by-step plan the agent announced before starting work */

@@ -14,6 +14,7 @@ import {
   type LogEvent,
   type LogLevel,
   type PendingFile,
+  type PendingMerge,
   type QueuedTask,
   type SimIssue,
   type TaskRecord,
@@ -214,6 +215,8 @@ interface State {
   removeFromQueue: (id: string, index: number) => void;
   setPendingFiles: (id: string, files: PendingFile[]) => void;
   clearPendingFiles: (id: string) => void;
+  /** Cosa aspetta l'agente (ricaricato dal server dopo un refresh della pagina). */
+  setPendingWork: (id: string, work: { pendingFiles: PendingFile[]; pendingMerge?: PendingMerge; mainGate?: boolean }) => void;
   pendingRelays: Array<{ target: string; title: string; branch: string; context: string; fromName: string; fromId: string }>;
   pushRelay: (r: { target: string; title: string; branch: string; context: string; fromName: string; fromId: string }) => void;
   shiftRelay: () => void;
@@ -343,6 +346,8 @@ interface State {
     message?: string;
     tokens?: number;
     pendingFiles?: PendingFile[];
+    pendingMerge?: PendingMerge;
+    mainGate?: boolean;
     relayTo?: { target: string; title: string; branch: string; context: string };
     plan?: string[];
     /** branch reale annunciato dal runtime all'avvio del task */
@@ -783,7 +788,14 @@ export const useStore = create<State>()(
 
   clearPendingFiles: (id) =>
     set((s) => ({
-      agents: s.agents.map((a) => (a.id === id ? { ...a, pendingFiles: undefined } : a)),
+      agents: s.agents.map((a) => (a.id === id ? { ...a, pendingFiles: undefined, pendingMerge: undefined, mainGate: undefined } : a)),
+    })),
+
+  setPendingWork: (id, work) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id
+        ? { ...a, status: "awaiting_approval" as const, pendingFiles: work.pendingFiles, pendingMerge: work.pendingMerge, mainGate: work.mainGate }
+        : a)),
     })),
 
   pushRelay: (r) => set((s) => ({ pendingRelays: [...s.pendingRelays, r] })),
@@ -1057,7 +1069,7 @@ export const useStore = create<State>()(
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
-        agent && (e.status || e.progress != null || e.pendingFiles || e.plan != null || e.branch)
+        agent && (e.status || e.progress != null || e.pendingFiles || e.pendingMerge || e.plan != null || e.branch)
           ? s.agents.map((a) => {
               if (a.id !== e.agentId) return a;
               const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
@@ -1069,14 +1081,17 @@ export const useStore = create<State>()(
                   : a.task;
               const withBranch = e.branch && task ? { ...task, branch: e.branch } : task;
               const taskWithPlan = e.plan != null && withBranch ? { ...withBranch, plan: e.plan } : withBranch;
-              const pendingFiles = e.pendingFiles ?? (e.status && e.status !== "awaiting_approval" ? undefined : a.pendingFiles);
+              const leaving = !!e.status && e.status !== "awaiting_approval";
+              const pendingFiles = e.pendingFiles ?? (leaving ? undefined : a.pendingFiles);
+              const pendingMerge = e.pendingMerge ?? (leaving || e.pendingFiles ? undefined : a.pendingMerge);
+              const mainGate = e.mainGate ?? (leaving || e.pendingFiles ? undefined : a.mainGate);
               const newStatus = e.status ?? a.status;
               const energyDrain = progress != null ? Math.max(0, Math.floor((progress - (a.task?.progress ?? 0)) / 7)) : 0;
               const energy = e.status === "idle"
                 ? Math.min(100, a.energy + 15)
                 : Math.max(0, a.energy - energyDrain);
               const xp = newStatus === "done" && a.status !== "done" ? a.xp + XP_PER_TASK : a.xp;
-              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, energy, mood: moodFor(newStatus, energy, a.hunger, a.mood), xp };
+              return { ...a, status: newStatus, task: taskWithPlan, pendingFiles, pendingMerge, mainGate, energy, mood: moodFor(newStatus, energy, a.hunger, a.mood), xp };
             })
           : s.agents;
 
@@ -1220,7 +1235,10 @@ export const useStore = create<State>()(
             if (typeof a.role === "string") a.role = canonicalRole(a.role);
             // pending files are transient — never restore across reloads
             a.pendingFiles = undefined;
-            // if agent was awaiting_approval before reload, reset to idle
+            a.pendingMerge = undefined;
+            a.mainGate = undefined;
+            // if agent was awaiting_approval before reload, reset to idle (se è in sala
+            // d'attesa sul server, /api/world lo riporta in attesa e l'Inspector ricarica cosa aspetta)
             if (a.status === "awaiting_approval") a.status = "idle";
             // A persisted "working" status is always stale after a reload: no
             // local runtime loop survives the page refresh to drive it. Reset it

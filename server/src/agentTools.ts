@@ -20,7 +20,6 @@ import {
   listFiles,
   listIssuesForAgent,
   listPullRequests,
-  mergePullRequest,
   pullRequestStatus,
   readFile,
   readPullRequest,
@@ -216,7 +215,7 @@ export function buildToolSpecs(
       },
       {
         name: "gh_merge_pr",
-        description: "Mergia una pull request (usare con cautela; controlla prima gh_pr_status).",
+        description: "Chiede il merge di una pull request. Gli agenti non mergiano mai da soli: il merge resta in attesa e lo conferma una persona (a fine task aspetti nella sala d'attesa). Controlla prima gh_pr_status.",
         schema: {
           type: "object",
           properties: {
@@ -461,6 +460,21 @@ export interface ToolContext {
   ciNotRun?: "no-workflows" | "failed";
   /** almeno un workflow è stato avviato davvero in questo task */
   ciStarted?: boolean;
+  /** merge chiesto con gh_merge_pr: SAMS non lo esegue, lo mette in attesa di una persona */
+  mergeRequest?: { prNumber: number; method: "merge" | "squash" | "rebase" };
+}
+
+/**
+ * Un agente non tocca MAI il branch principale (scelta dell'utente del 21/11): se il task
+ * lavora proprio lì, le scritture restano in attesa e le porta su una persona.
+ */
+export function onMainBranch(ctx: Pick<ToolContext, "branch" | "s">): boolean {
+  return !ctx.branch || ctx.branch === ctx.s.baseBranch;
+}
+
+/** Le scritture vanno messe in attesa invece che committate. */
+function mustStage(ctx: ToolContext): boolean {
+  return ctx.requireApproval || onMainBranch(ctx);
 }
 
 /** Riga che SAMS aggiunge al riassunto quando la CI non è mai partita nel task. */
@@ -694,7 +708,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       const filePath = str(args.path);
       const fileContent = str(args.content);
       const fileMessage = str(args.message) || `SAMS: ${truncate(ctx.title, COMMIT_MSG_LIMIT)}`;
-      if (ctx.requireApproval) {
+      if (mustStage(ctx)) {
         ctx.stagedFiles.push({ path: filePath, content: fileContent, message: fileMessage });
         emit({ agentId, agentName, progress, level: "INFO", message: `staged ${filePath}` });
       } else {
@@ -716,7 +730,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         result = "ERRORE: nessun file valido nella lista";
       } else {
         const commitMsg = str(args.message) || `SAMS: ${truncate(ctx.title, COMMIT_MSG_LIMIT)}`;
-        if (ctx.requireApproval) {
+        if (mustStage(ctx)) {
           for (const f of files) ctx.stagedFiles.push({ path: f.path, content: f.content, message: commitMsg });
           emit({ agentId, agentName, progress, level: "INFO", message: `staged ${files.length} file (atomic)` });
           result = `${files.length} file staged per approvazione`;
@@ -766,16 +780,15 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     } else if (name === "gh_merge_pr") {
       const prNum = Number(args.pr_number);
       if (!Number.isFinite(prNum)) return "ERRORE: pr_number non valido";
-      // Con l'approvazione richiesta ogni modifica passa da una persona: un merge porterebbe
-      // codice sul branch base senza nessuno che lo guardi (anche su richiesta di un testo
-      // letto da un'issue o da una PR). Revisione di sicurezza 20/11/2026.
-      if (ctx.requireApproval) {
-        emit({ agentId, agentName, level: "WARN", message: `Merge PR #${prNum} rifiutato: serve l'approvazione di una persona` });
-        return `ERRORE: con "Richiedi approvazione" attivo gli agenti non possono mergiare. Lascia un commento sulla PR #${prNum} che dica che è pronta, e chiama done.`;
-      }
-      const method =["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
-      result = await mergePullRequest(prNum, method);
-      emit({ agentId, agentName, progress, level: "SUCCESS", message: `Merge PR #${prNum} (${method})` });
+      // Un agente non mergia MAI da solo (scelta dell'utente del 21/11; prima solo con
+      // "Richiedi approvazione", revisione di sicurezza 20/11): il merge resta in attesa e,
+      // a fine task, l'agente va nella sala d'attesa finché una persona non conferma.
+      const method = ["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
+      ctx.mergeRequest = { prNumber: prNum, method };
+      emit({ agentId, agentName, progress, level: "INFO", message: `Merge PR #${prNum} chiesto: serve la conferma di una persona` });
+      result =
+        `Richiesta di merge della PR #${prNum} registrata. Gli agenti non possono mergiare da soli: ` +
+        `a fine task aspetterai nella sala d'attesa che una persona confermi o rifiuti. Non riprovare; chiama done con un riassunto.`;
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });
@@ -999,17 +1012,10 @@ export async function finalizeTask(
   ctx.doneSummary = summaryWithCiNote(ctx);
   if (ctx.doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(ctx.doneSummary, THOUGHT_LIMIT) });
 
-  if (ctx.requireApproval && ctx.stagedFiles.length > 0) {
-    setPending(agentId, { branch: ctx.branch, title: ctx.title, agentName, files: ctx.stagedFiles, github: githubContext() });
-    emit({
-      agentId, agentName,
-      status: "awaiting_approval",
-      progress: 100,
-      level: "WARN",
-      message: `${ctx.stagedFiles.length} file${ctx.stagedFiles.length > 1 ? " pronti" : " pronto"} — approva o rifiuta nel pannello`,
-      pendingFiles: ctx.stagedFiles,
-      tokens: opts.totalTokens,
-    });
+  // File in attesa (approvazione o branch principale): l'agente si ferma qui, con
+  // l'eventuale merge chiesto, finché una persona non decide.
+  if (ctx.stagedFiles.length > 0) {
+    awaitPerson(ctx, opts.totalTokens);
     if (ctx.notionWrote && s.notionPageId) {
       try { await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: currentRepo() }); } catch { /* best-effort */ }
     }
@@ -1061,4 +1067,42 @@ export async function finalizeTask(
       /* logging is best-effort */
     }
   }
+
+  // Merge chiesto (senza file in attesa): il lavoro sul branch del task è fatto e la PR è
+  // aperta; l'agente va nella sala d'attesa finché una persona conferma o rifiuta il merge.
+  if (ctx.mergeRequest) awaitPerson(ctx, opts.totalTokens);
+}
+
+/**
+ * Mette il lavoro in attesa di una persona e lo annuncia. Push sul branch principale o
+ * merge → `mainGate`: l'agente è nella sala d'attesa e non riceve altri task.
+ */
+function awaitPerson(ctx: ToolContext, totalTokens: number): void {
+  const { s, agentId, agentName, emit } = ctx;
+  const toMain = onMainBranch(ctx) && ctx.stagedFiles.length > 0;
+  setPending(agentId, {
+    branch: ctx.branch, title: ctx.title, agentName, files: ctx.stagedFiles, github: githubContext(),
+    ...(toMain ? { toMain: true } : {}),
+    ...(ctx.mergeRequest ? { merge: ctx.mergeRequest } : {}),
+  });
+  const gate = toMain || !!ctx.mergeRequest;
+  const what = [
+    ctx.stagedFiles.length > 0
+      ? `${ctx.stagedFiles.length} file${ctx.stagedFiles.length > 1 ? " pronti" : " pronto"}${toMain ? ` per ${s.baseBranch}` : ""}`
+      : "",
+    ctx.mergeRequest ? `merge della PR #${ctx.mergeRequest.prNumber}` : "",
+  ].filter(Boolean).join(" + ");
+  emit({
+    agentId, agentName,
+    status: "awaiting_approval",
+    progress: 100,
+    level: "WARN",
+    message: gate
+      ? `In sala d'attesa: ${what} — conferma o rifiuta nel pannello`
+      : `${what} — approva o rifiuta nel pannello`,
+    pendingFiles: ctx.stagedFiles,
+    ...(ctx.mergeRequest ? { pendingMerge: ctx.mergeRequest } : {}),
+    ...(gate ? { mainGate: true } : {}),
+    tokens: totalTokens,
+  });
 }
