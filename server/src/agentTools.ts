@@ -46,7 +46,17 @@ import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
-export const MAX_STEPS = 14;
+/**
+ * Turni del ciclo dell'agente per un task. Simulazione del 21/11: con 14 fissi due
+ * esecuzioni di Sim-Dev (sei correzioni, ognuna leggi + scrivi) si sono fermate a metà
+ * con «modifiche parziali». Ora 24 di base, regolabile con `SAMS_MAX_STEPS` (4..60).
+ */
+export const DEFAULT_MAX_STEPS = 24;
+export function maxStepsFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.SAMS_MAX_STEPS);
+  return Number.isInteger(n) && n >= 4 && n <= 60 ? n : DEFAULT_MAX_STEPS;
+}
+export const MAX_STEPS = maxStepsFromEnv();
 export const PROGRESS_START = 10;
 export const PROGRESS_CAP = 92;
 export const PROGRESS_STEP = 7;
