@@ -455,6 +455,24 @@ export interface ToolContext {
   /** turni del modello rimasti dopo quello in corso (lo imposta il ciclo del provider):
    *  agli ultimi passi i risultati degli strumenti portano l'avviso di concludere. */
   stepsLeft?: number;
+  /** la CI non è partita in questo task (repo senza workflow, nome sbagliato, niente
+   *  workflow_dispatch). Simulazione 21/11: il modello riprovava con altri nomi e chiudeva
+   *  senza dire che i test non erano girati → SAMS blocca i tentativi e lo scrive lui. */
+  ciNotRun?: "no-workflows" | "failed";
+  /** almeno un workflow è stato avviato davvero in questo task */
+  ciStarted?: boolean;
+}
+
+/** Riga che SAMS aggiunge al riassunto quando la CI non è mai partita nel task. */
+export const CI_NOT_RUN_NOTE = "Nota di SAMS: i test non sono stati eseguiti (la CI non è partita).";
+export const CI_NONE_NOTE = "Nota di SAMS: i test non sono stati eseguiti (la repo non ha una CI).";
+
+/** Il riassunto del task con l'avviso sulla CI, se serve (una volta sola). */
+export function summaryWithCiNote(ctx: Pick<ToolContext, "doneSummary" | "ciNotRun" | "ciStarted">): string {
+  if (!ctx.ciNotRun || ctx.ciStarted) return ctx.doneSummary;
+  const note = ctx.ciNotRun === "no-workflows" ? CI_NONE_NOTE : CI_NOT_RUN_NOTE;
+  if (ctx.doneSummary.includes(note)) return ctx.doneSummary;
+  return ctx.doneSummary.trim() ? `${ctx.doneSummary.trim()}\n\n${note}` : note;
 }
 
 /**
@@ -769,11 +787,22 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         const inputs = args.inputs && typeof args.inputs === "object" && !Array.isArray(args.inputs)
           ? (args.inputs as Record<string, string>)
           : undefined;
-        const run = await triggerWorkflow(wf, ref, inputs);
-        result = run.text;
-        emit(run.started
-          ? { agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" avviato su ${ref}` }
-          : { agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: ${truncate(run.text, 120)}` });
+        if (ctx.ciNotRun === "no-workflows") {
+          // Già verificato: nessun nome può funzionare, non si interroga di nuovo GitHub.
+          result =
+            "GIÀ VERIFICATO in questo task: la repo non ha nessun workflow di GitHub Actions, quindi nessun nome di workflow può funzionare. " +
+            "Non riprovare. Se il task chiede di aggiungere la CI, scrivi il file .github/workflows/<nome>.yml; altrimenti prosegui senza CI " +
+            "e scrivi nel riassunto che i test non sono stati eseguiti.";
+          emit({ agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: la repo non ha CI (tentativo ripetuto bloccato)` });
+        } else {
+          const run = await triggerWorkflow(wf, ref, inputs);
+          result = run.text;
+          if (run.started) ctx.ciStarted = true;
+          else ctx.ciNotRun = run.noWorkflows ? "no-workflows" : (ctx.ciNotRun ?? "failed");
+          emit(run.started
+            ? { agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" avviato su ${ref}` }
+            : { agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: ${truncate(run.text, 120)}` });
+        }
       }
     } else if (name === "gh_ci_jobs") {
       const runId = Number(args.run_id);
@@ -967,6 +996,7 @@ export async function finalizeTask(
   opts: { totalTokens: number; repoEnabled: boolean; notionEnabled: boolean; prProviderLabel: string },
 ): Promise<void> {
   const { s, agentId, agentName, emit } = ctx;
+  ctx.doneSummary = summaryWithCiNote(ctx);
   if (ctx.doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(ctx.doneSummary, THOUGHT_LIMIT) });
 
   if (ctx.requireApproval && ctx.stagedFiles.length > 0) {
