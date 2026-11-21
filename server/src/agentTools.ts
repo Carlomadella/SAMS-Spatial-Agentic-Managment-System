@@ -769,8 +769,11 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         const inputs = args.inputs && typeof args.inputs === "object" && !Array.isArray(args.inputs)
           ? (args.inputs as Record<string, string>)
           : undefined;
-        result = await triggerWorkflow(wf, ref, inputs);
-        emit({ agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" avviato su ${ref}` });
+        const run = await triggerWorkflow(wf, ref, inputs);
+        result = run.text;
+        emit(run.started
+          ? { agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" avviato su ${ref}` }
+          : { agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: ${truncate(run.text, 120)}` });
       }
     } else if (name === "gh_ci_jobs") {
       const runId = Number(args.run_id);

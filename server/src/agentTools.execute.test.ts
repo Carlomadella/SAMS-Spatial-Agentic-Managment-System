@@ -157,6 +157,42 @@ describe("executeTool — gh_trigger_workflow", () => {
   });
 });
 
+describe("executeTool — gh_trigger_workflow senza CI (simulazione 21/11: 404 secco)", () => {
+  const stub = (workflows: Array<{ name: string; path: string }>, dispatchStatus = 404) =>
+    vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ message: "Not Found" }), { status: dispatchStatus }));
+      }
+      expect(url).toContain("/actions/workflows");
+      return Promise.resolve(new Response(JSON.stringify({ total_count: workflows.length, workflows }), { status: 200 }));
+    }));
+
+  it("repo senza workflow: lo dice e spiega cosa fare, senza errore", async () => {
+    stub([]);
+    const { ctx, events } = mkCtx();
+    const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(res).toMatch(/non ha nessun workflow/);
+    expect(res).toContain(".github/workflows/");
+    expect(res).toContain("workflow_dispatch");
+    expect(events.some((e) => e.level === "ERROR")).toBe(false);
+  });
+
+  it("nome sbagliato: elenca i workflow che esistono", async () => {
+    stub([{ name: "Test", path: ".github/workflows/test.yml" }]);
+    const { ctx } = mkCtx();
+    const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(res).toContain("«ci.yml» non esiste");
+    expect(res).toContain("test.yml");
+  });
+
+  it("workflow senza workflow_dispatch (422): lo spiega", async () => {
+    stub([{ name: "CI", path: ".github/workflows/ci.yml" }], 422);
+    const { ctx } = mkCtx();
+    const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(res).toMatch(/workflow_dispatch/);
+  });
+});
+
 describe("executeTool — web_fetch", () => {
   it("rejects a non-http(s) URL without fetching", async () => {
     const { ctx } = mkCtx();
