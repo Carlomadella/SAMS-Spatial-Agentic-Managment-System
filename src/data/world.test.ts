@@ -4,10 +4,13 @@ import {
   BASE_BEDS,
   MAX_WINGS,
   OBSTACLES,
+  REVIEW_WING,
   ROOM,
   buildLayout,
   clampToRoom,
   nextWingCount,
+  randomWalkPoint,
+  reviewSeat,
   wingsNeeded,
   zoneForTitle,
 } from "./world";
@@ -49,7 +52,8 @@ describe("clampToRoom", () => {
 
   it("clamps points beyond the walls to the padded bounds", () => {
     expect(clampToRoom([100, 100], BASE)).toEqual([12.4, 8.4]);
-    expect(clampToRoom([-100, -100], BASE)).toEqual([-12.4, -8.4]);
+    // a sinistra c'è sempre il Reparto revisioni (8 di larghezza)
+    expect(clampToRoom([-100, -100], BASE)).toEqual([-20.4, -8.4]);
   });
 
   it("con le ali il confine destro si sposta", () => {
@@ -59,10 +63,10 @@ describe("clampToRoom", () => {
 
 describe("buildLayout — la casa base non cambia", () => {
   const base = buildLayout(0);
-  it("stessi confini, 6 letti, 5 zone", () => {
-    expect(base.bounds).toEqual({ minX: ROOM.minX, maxX: ROOM.maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ });
+  it("stessi confini più il Reparto revisioni a sinistra, 6 letti, 5 zone + il reparto", () => {
+    expect(base.bounds).toEqual({ minX: REVIEW_WING.minX, maxX: ROOM.maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ });
     expect(base.beds).toHaveLength(BASE_BEDS);
-    expect(base.zones.map((z) => z.id)).toEqual(["desk", "whiteboard", "kitchen", "lounge", "bedroom"]);
+    expect(base.zones.map((z) => z.id)).toEqual(["desk", "whiteboard", "kitchen", "lounge", "bedroom", "review"]);
     expect(base.wings).toEqual([]);
   });
   it("OBSTACLES esportati = quelli della casa base", () => {
@@ -146,5 +150,28 @@ describe("zoneForTitle — il tipo di task sceglie la stanza", () => {
     expect(zoneForTitle("Ricerca sulle librerie", L)).toBe("library");
     expect(zoneForTitle("Scrivi i test del login", L)).toBe("lab");
     expect(zoneForTitle("Correggi il bug del form", L)).toBe("desk");
+  });
+});
+
+describe("Reparto revisioni — l'ala fissa a sinistra (21/11)", () => {
+  const base = buildLayout(0);
+  it("c'è con qualsiasi numero di ali", () => {
+    for (const n of [0, 1, 4]) expect(buildLayout(n).zoneById.review).toBeTruthy();
+  });
+  it("i posti d'attesa sono dentro il reparto e liberi da muri e mobili", () => {
+    for (let i = 0; i < 12; i++) {
+      const p = reviewSeat(i);
+      expect(p[0]).toBeGreaterThan(REVIEW_WING.minX);
+      expect(p[0]).toBeLessThan(REVIEW_WING.maxX);
+      expect(isPointClear(p, base.obstacles)).toBe(true);
+    }
+  });
+  it("si entra dallo studio e dal salotto (porte a z=±5)", () => {
+    expect(isPointClear([REVIEW_WING.maxX, -5], base.obstacles)).toBe(true);
+    expect(isPointClear([REVIEW_WING.maxX, 5], base.obstacles)).toBe(true);
+    expect(isPointClear([REVIEW_WING.maxX, 0], base.obstacles)).toBe(false);
+  });
+  it("chi passeggia non ci entra", () => {
+    for (let i = 0; i < 200; i++) expect(randomWalkPoint(base)[0]).toBeGreaterThan(REVIEW_WING.maxX - 0.5);
   });
 });

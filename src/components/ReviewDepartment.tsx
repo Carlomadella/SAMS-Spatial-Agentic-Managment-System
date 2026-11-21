@@ -199,7 +199,11 @@ export function ReviewDepartment() {
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* elenco delle richieste */}
           <aside className="max-h-48 shrink-0 overflow-y-auto border-b border-line md:max-h-none md:w-72 md:border-b-0 md:border-r">
-            {listError && <p className="p-3 text-[12px] text-rose-300">{listError}</p>}
+            {listError && (
+              <p className="p-3 text-[12px] text-rose-300">
+                Non riesco a leggere le richieste dal runtime ({listError}). Controlla che sia acceso, poi premi Aggiorna.
+              </p>
+            )}
             {items && items.length === 0 && (
               <p className="p-3 text-[12px] text-mut">Nessuna richiesta in attesa. Quando un agente chiede un push o un merge sul principale, arriva qui.</p>
             )}

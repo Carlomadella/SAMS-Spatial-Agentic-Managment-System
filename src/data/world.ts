@@ -137,6 +137,41 @@ const BASE_FURNITURE: Rect[] = [
   { minX: -4.7, maxX: -3.3, minZ: 3.6, maxZ: 5.0 }, // Armchair @ (-4,4.3)
 ];
 
+// --- Reparto revisioni (ala fissa a sinistra, scelta dell'utente del 21/11) -----------
+// Gli agenti non toccano mai il branch principale: chi chiede un push o un merge lì aspetta
+// in questa stanza finché una persona non rilegge e decide. C'è sempre, con qualsiasi
+// numero di agenti; è l'unica eccezione alla regola «la casa base non cambia».
+
+export const REVIEW_WING = { minX: ROOM.minX - 8, maxX: ROOM.minX } as const;
+const REVIEW_CX = (REVIEW_WING.minX + REVIEW_WING.maxX) / 2; // -17
+
+/** Parete tra la casa e il reparto: porte larghe ~2,6 verso studio (z≈-5) e salotto (z≈5). */
+const REVIEW_WALLS: Rect[] = [
+  { minX: ROOM.minX - WT, maxX: ROOM.minX + WT, minZ: -9, maxZ: -6.3 },
+  { minX: ROOM.minX - WT, maxX: ROOM.minX + WT, minZ: -3.7, maxZ: 3.7 },
+  { minX: ROOM.minX - WT, maxX: ROOM.minX + WT, minZ: 6.3, maxZ: 9 },
+];
+
+/** Banco delle revisioni (con lo schermo) in fondo e due panche contro la parete esterna. */
+export const REVIEW_FURNITURE: Rect[] = [
+  { minX: REVIEW_CX - 1.6, maxX: REVIEW_CX + 1.6, minZ: -8.6, maxZ: -7.3 },
+  { minX: REVIEW_WING.minX + 0.4, maxX: REVIEW_WING.minX + 1.4, minZ: -4, maxZ: -0.6 },
+  { minX: REVIEW_WING.minX + 0.4, maxX: REVIEW_WING.minX + 1.4, minZ: 0.6, maxZ: 4 },
+];
+
+/** Dove aspettano gli agenti (in ordine): otto posti liberi davanti alle panche. */
+export const REVIEW_SEATS: Vec2[] = [-18.7, -16.9].flatMap((x) => [-3.2, -1.6, 1.6, 3.2].map((z) => [x, z] as Vec2));
+
+/** Il posto dell'n-esimo agente in attesa; oltre gli otto si stringono un po'. */
+export function reviewSeat(n: number): Vec2 {
+  const base = REVIEW_SEATS[n % REVIEW_SEATS.length];
+  const round = Math.floor(n / REVIEW_SEATS.length);
+  return round === 0 ? base : [base[0] + 0.7 * round, base[1] + 0.5];
+}
+
+const REVIEW_ROOM: Rect = { minX: REVIEW_WING.minX + 0.7, maxX: REVIEW_WING.maxX - 0.9, minZ: -8.3, maxZ: 8.3 };
+const REVIEW_ZONE: Zone = { id: "review", label: "Reparto revisioni", sublabel: "Push e merge da confermare", position: [REVIEW_CX, -5.6] };
+
 // --- ali ----------------------------------------------------------------------
 
 /** Mobili ingombranti della stanza di attività, in coordinate relative al centro dell'ala. */
@@ -201,18 +236,19 @@ export function buildLayout(wingCount: number): HouseLayout {
   if (hit) return hit;
   const wings = Array.from({ length: n }, (_, i) => buildWing(i));
   const maxX = wings.length ? wings[wings.length - 1].maxX : ROOM.maxX;
-  const bounds: Rect = { minX: ROOM.minX, maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ };
-  const walls = [...BASE_WALLS, ...wings.flatMap(wingWalls)];
-  const rooms: Record<string, Rect> = { ...BASE_ROOMS };
+  const bounds: Rect = { minX: REVIEW_WING.minX, maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ };
+  const walls = [...BASE_WALLS, ...REVIEW_WALLS, ...wings.flatMap(wingWalls)];
+  const rooms: Record<string, Rect> = { ...BASE_ROOMS, revisioni: REVIEW_ROOM };
   for (const w of wings) {
     rooms[`${w.kind}`] = { minX: w.minX + 0.9, maxX: w.maxX - 0.7, minZ: -8.3, maxZ: -0.9 };
     rooms[`camera-${w.index + 1}`] = { minX: w.minX + 0.9, maxX: w.maxX - 0.7, minZ: 0.9, maxZ: 8.3 };
   }
-  const zones = [...BASE_ZONES, ...wings.map(wingZone)];
+  const zones = [...BASE_ZONES, REVIEW_ZONE, ...wings.map(wingZone)];
   const beds = [...BASE_BED_POS, ...wings.flatMap((w) => w.beds)];
   const obstacles = [
     ...walls,
     ...BASE_FURNITURE,
+    ...REVIEW_FURNITURE,
     ...BASE_BED_POS.map(bedRect),
     ...wings.flatMap((w) => [...w.furniture, ...w.beds.map(bedRect)]),
   ];
@@ -327,7 +363,8 @@ export function randomRoomPoint(room: string, layout: HouseLayout = house()): Ve
 
 /** A random walkable point anywhere in the house (used for idle wandering). */
 export function randomWalkPoint(layout: HouseLayout = house()): Vec2 {
-  const rooms = Object.keys(layout.rooms);
+  // nel Reparto revisioni ci va solo chi aspetta una conferma, non chi passeggia
+  const rooms = Object.keys(layout.rooms).filter((r) => r !== "revisioni");
   return randomRoomPoint(rooms[Math.floor(Math.random() * rooms.length)], layout);
 }
 
