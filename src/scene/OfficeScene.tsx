@@ -46,7 +46,7 @@ import { getArrangement } from "../lib/officeLayout";
 import { clampPlacement } from "../lib/furnitureLayout";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
-import { ROOM, house, type Wing } from "../data/world";
+import { REVIEW_WING, ROOM, house, type Wing } from "../data/world";
 import { useHouse } from "../store/useStore";
 import type { Vec2, Zone } from "../types";
 import { configureRenderer } from "./glSetup";
@@ -140,7 +140,7 @@ function Floor() {
         <boxGeometry args={[W + 2, ROOM.wallHeight, 0.3]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
-      <mesh position={[ROOM.minX - 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
+      <mesh position={[layout.bounds.minX - 0.15, ROOM.wallHeight / 2, 0]} receiveShadow>
         <boxGeometry args={[0.3, ROOM.wallHeight, D + 2]} />
         <meshStandardMaterial color={WALL} roughness={0.9} />
       </mesh>
@@ -169,7 +169,7 @@ function Floor() {
         <boxGeometry args={[W + 2, 1.1, 0.04]} />
         <meshStandardMaterial color={WALL_LOWER} roughness={0.85} />
       </mesh>
-      <mesh position={[ROOM.minX + 0.03, 0.55, 0]}>
+      <mesh position={[layout.bounds.minX + 0.03, 0.55, 0]}>
         <boxGeometry args={[0.04, 1.1, D + 2]} />
         <meshStandardMaterial color={WALL_LOWER} roughness={0.85} />
       </mesh>
@@ -178,7 +178,7 @@ function Floor() {
         <boxGeometry args={[W + 2, 0.06, 0.06]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
-      <mesh position={[ROOM.minX + 0.06, 1.12, 0]}>
+      <mesh position={[layout.bounds.minX + 0.06, 1.12, 0]}>
         <boxGeometry args={[0.06, 0.06, D + 2]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
@@ -188,7 +188,7 @@ function Floor() {
         <boxGeometry args={[W + 2, 0.18, 0.06]} />
         <meshStandardMaterial color={BASEBOARD} roughness={0.8} />
       </mesh>
-      <mesh position={[ROOM.minX + 0.05, 0.09, 0]}>
+      <mesh position={[layout.bounds.minX + 0.05, 0.09, 0]}>
         <boxGeometry args={[0.06, 0.18, D + 2]} />
         <meshStandardMaterial color={BASEBOARD} roughness={0.8} />
       </mesh>
@@ -198,7 +198,7 @@ function Floor() {
         <boxGeometry args={[W + 2, 0.16, 0.1]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
-      <mesh position={[ROOM.minX + 0.04, ROOM.wallHeight - 0.08, 0]}>
+      <mesh position={[layout.bounds.minX + 0.04, ROOM.wallHeight - 0.08, 0]}>
         <boxGeometry args={[0.1, 0.16, D + 2]} />
         <meshStandardMaterial color={TRIM} roughness={0.7} />
       </mesh>
@@ -756,6 +756,89 @@ function MeetingChair({ position, ry }: { position: [number, number, number]; ry
 }
 
 /**
+ * Reparto revisioni (ala fissa a sinistra, 21/11): qui aspettano gli agenti che chiedono
+ * un push o un merge sul branch principale. Banco con lo schermo in fondo, panche contro
+ * la parete, tappeto rosso; cliccando banco o cartello si apre la schermata del reparto.
+ * Gli ingombri stanno in `world.ts` (`REVIEW_FURNITURE`).
+ */
+function ReviewWingRoom() {
+  const waiting = useStore((s) => s.agents.filter((a) => a.status === "awaiting_approval" && (a.mainGate || a.pendingMerge)).length);
+  const openReview = useStore((s) => s.openReview);
+  const cx = (REVIEW_WING.minX + REVIEW_WING.maxX) / 2;
+  const benchX = REVIEW_WING.minX + 0.9;
+  const open = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    openReview(null);
+  };
+  const hover = {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); document.body.style.cursor = "pointer"; },
+    onPointerOut: () => { document.body.style.cursor = "default"; },
+  };
+  return (
+    <group>
+      {/* tappeto rosso: si capisce subito che è una stanza a parte */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.012, 0]} receiveShadow>
+        <planeGeometry args={[REVIEW_WING.maxX - REVIEW_WING.minX - 1.2, 16.4]} />
+        <meshStandardMaterial color="#8c1d24" roughness={0.95} />
+      </mesh>
+
+      {/* banco delle revisioni con lo schermo grande (cliccabile) */}
+      <group position={[cx, 0, -7.95]} onClick={open} {...hover}>
+        <RoundedBox args={[3.2, 0.12, 1.2]} radius={0.04} smoothness={4} position={[0, 0.92, 0]} castShadow receiveShadow>
+          <meshStandardMaterial color="#1c1c1e" roughness={0.5} />
+        </RoundedBox>
+        {[-1.4, 1.4].map((dx) => (
+          <mesh key={dx} position={[dx, 0.45, 0]} castShadow>
+            <boxGeometry args={[0.12, 0.9, 1.0]} />
+            <meshStandardMaterial color="#2a2a2d" roughness={0.6} />
+          </mesh>
+        ))}
+        <mesh position={[0, 1.75, -0.35]} castShadow>
+          <boxGeometry args={[2.4, 1.3, 0.08]} />
+          <meshStandardMaterial color="#111" roughness={0.3} />
+        </mesh>
+        <mesh position={[0, 1.75, -0.3]}>
+          <planeGeometry args={[2.2, 1.1]} />
+          <meshStandardMaterial color="#f2f2f2" emissive="#c8202b" emissiveIntensity={waiting > 0 ? 0.55 : 0.12} roughness={0.4} />
+        </mesh>
+      </group>
+
+      {/* due panche contro la parete esterna */}
+      {[-2.3, 2.3].map((z) => (
+        <group key={z} position={[benchX, 0, z]}>
+          <RoundedBox args={[0.9, 0.12, 3.2]} radius={0.04} smoothness={4} position={[0, 0.48, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color="#e9e6df" roughness={0.6} />
+          </RoundedBox>
+          {[-1.3, 1.3].map((dz) => (
+            <mesh key={dz} position={[0, 0.22, dz]} castShadow>
+              <boxGeometry args={[0.7, 0.44, 0.12]} />
+              <meshStandardMaterial color="#1c1c1e" roughness={0.6} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      <Plant position={[REVIEW_WING.maxX - 0.9, 0, 7.8]} />
+      <WallSconce position={[cx, 2.15, ROOM.minZ + 0.16]} />
+
+      {/* cartello: nome della stanza e quanti aspettano (cliccabile) */}
+      <Html position={[cx, 2.6, -6.4]} center distanceFactor={10} zIndexRange={[16, 0]}>
+        <button
+          type="button"
+          onClick={() => openReview(null)}
+          className="select-none whitespace-nowrap rounded-md border border-red-700/70 bg-black/85 px-2 py-1 text-center shadow-md"
+        >
+          <div className="text-[12px] font-semibold leading-tight text-white">Reparto revisioni</div>
+          <div className="text-[10px] leading-tight text-red-300">
+            {waiting > 0 ? `${waiting} in attesa di conferma` : "Nessuno in attesa"}
+          </div>
+        </button>
+      </Html>
+    </group>
+  );
+}
+
+/**
  * Un'ala della casa (ROADMAP5 «la casa cresce»): dietro la stanza di attività del
  * catalogo, davanti una camera da 6 letti. Gli ingombri dei mobili ingombranti stanno
  * in `world.ts` (`wingFurniture`), così ciò che si vede è ciò che il pathfinder evita.
@@ -990,6 +1073,8 @@ function SceneContents() {
       </Movable>
 
       <GardenDoor />
+
+      <ReviewWingRoom />
 
       {layout.wings.map((w) => (
         <WingRooms key={w.index} wing={w} last={w.index === layout.wings.length - 1} />

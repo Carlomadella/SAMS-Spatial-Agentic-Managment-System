@@ -10,6 +10,7 @@ import { MobileBar, MobileDrawer, useIsMobile } from "./components/MobileBar";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { ReviewDepartment } from "./components/ReviewDepartment";
 import { NewAgentDialog } from "./components/NewAgentDialog";
 import { FileViewer } from "./components/FileViewer";
 import { GardenView } from "./components/GardenView";
@@ -33,7 +34,7 @@ import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { isMobileWidth } from "./lib/layout";
 import { canAssign } from "./lib/roleUi";
-import { house, isNightNow, randomWalkPoint } from "./data/world";
+import { house, isNightNow, randomWalkPoint, reviewSeat } from "./data/world";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
 import { storageGet, storageRemove, storageSet } from "./lib/safeStorage";
@@ -897,6 +898,13 @@ function LifeBridge() {
       // del driver (opzione B3), non ne genera uno proprio con Math.random → niente
       // due mondi che vagano diversamente. Da solo → guida sé stesso, come prima.
       if (!iAmSimulator(st.worldDriver, self)) return;
+      // Chi aspetta una conferma per il branch principale va nel Reparto revisioni e resta
+      // lì, giorno e notte, finché una persona non decide (scelta dell'utente del 21/11).
+      const gated = st.agents.filter((a) => a.status === "awaiting_approval" && (a.mainGate || a.pendingMerge));
+      gated.forEach((a, i) => {
+        const seat = reviewSeat(i);
+        if (!near(a.position, seat) && !(a.target && near(a.target, seat))) st.moveAgent(a.id, seat);
+      });
       const night = isNightNow();
       // Only "free" agents live a life: an agent on a real task keeps working,
       // day or night — it doesn't get dragged to bed.
@@ -1195,6 +1203,7 @@ export default function Workspace() {
       <SettingsModal />
       <NewAgentDialog />
       <FileViewer />
+      <ReviewDepartment />
       <GardenView />
       <Toaster />
       <OnboardingWizard />

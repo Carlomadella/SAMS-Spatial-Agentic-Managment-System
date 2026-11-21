@@ -61,6 +61,14 @@ export function getPending(agentId: string): PendingWork | undefined {
   return work;
 }
 
+/** Tutto quello che aspetta una persona, dal più vecchio (Reparto revisioni). */
+export function listPending(): Array<PendingWork & { agentId: string }> {
+  sweep();
+  return [...buffer.entries()]
+    .map(([agentId, w]) => ({ ...w, agentId }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
 export function clearPending(agentId: string): void {
   buffer.delete(agentId);
 }

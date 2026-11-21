@@ -82,6 +82,11 @@ interface State {
   bottomTab: BottomTab;
   commandOpen: boolean;
   settingsOpen: boolean;
+  /** Reparto revisioni aperto (schermata grande); `reviewAgentId` = richiesta selezionata. */
+  reviewOpen: boolean;
+  reviewAgentId: string | null;
+  openReview: (agentId?: string | null) => void;
+  closeReview: () => void;
   /** Categoria aperta nella finestra Impostazioni (vedi `SETTINGS_SECTIONS`). */
   settingsSection: string;
   gardenOpen: boolean;
@@ -463,6 +468,10 @@ export const useStore = create<State>()(
   bottomTab: "eventlog",
   commandOpen: false,
   settingsOpen: false,
+  reviewOpen: false,
+  reviewAgentId: null,
+  openReview: (agentId = null) => set({ reviewOpen: true, reviewAgentId: agentId }),
+  closeReview: () => set({ reviewOpen: false }),
   settingsSection: "account",
   gardenOpen: false,
   openedFilePath: null,

@@ -50,6 +50,7 @@ import {
   setMemory,
   setRoutineEnabled,
   taskStats,
+  tasksOnBranches,
   TOMBSTONE_TTL_MS,
   type TaskLogEntry,
 } from "./db";
@@ -101,6 +102,36 @@ describe("db task_log", () => {
     await insertTask(db, entry({ status: "done", tokens: 20 }));
     await insertTask(db, entry({ status: "idle", tokens: 5 })); // not "completed"
     expect(await taskStats(db)).toEqual({ total: 3, completed: 2, tokens: 35 });
+  });
+});
+
+describe("db task_log — riassunti e storia di un branch (Reparto revisioni)", () => {
+  it("salva il riassunto e filtra per branch, dal più recente", async () => {
+    const db = await openDb(":memory:");
+    await insertTask(db, entry({ branch: "feat", title: "uno", ts: 1, summary: "fatto A" }));
+    await insertTask(db, entry({ branch: "altro", title: "due", ts: 2 }));
+    await insertTask(db, entry({ branch: "main", title: "tre", ts: 3, summary: "fatto C" }));
+    const rows = await tasksOnBranches(db, ["feat", "main", ""]);
+    expect(rows.map((r) => [r.title, r.summary])).toEqual([["tre", "fatto C"], ["uno", "fatto A"]]);
+    expect(await tasksOnBranches(db, [])).toEqual([]);
+  });
+
+  it("aggiunge la colonna summary a un task_log creato prima", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy-tasklog.db");
+    const legacy = await openDb(file);
+    await legacy.exec(`DROP TABLE task_log`);
+    await legacy.exec(`CREATE TABLE task_log (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT NOT NULL,
+      agent_name TEXT NOT NULL, title TEXT NOT NULL, branch TEXT NOT NULL, status TEXT NOT NULL,
+      tokens INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL)`);
+    await legacy.run(`INSERT INTO task_log (agent_id, agent_name, title, branch, status, tokens, ts) VALUES ('a','A','vecchio','feat','review',1,1)`);
+    await legacy.close();
+    const db = await openDb(file);
+    expect((await tasksOnBranches(db, ["feat"]))[0]).toMatchObject({ title: "vecchio", summary: "" });
+    await insertTask(db, entry({ branch: "feat", ts: 2, summary: "nuovo" }));
+    expect((await tasksOnBranches(db, ["feat"]))[0].summary).toBe("nuovo");
+    await db.close();
   });
 });
 

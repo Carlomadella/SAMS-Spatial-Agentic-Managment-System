@@ -347,6 +347,89 @@ export async function readPullRequest(prNumber: number): Promise<string> {
   ].join("\n");
 }
 
+// --- Reparto revisioni ---------------------------------------------------------
+
+export interface ReviewPr {
+  number: number; title: string; body: string; url: string; author: string; state: string;
+  headRef: string; baseRef: string; headSha: string; mergeable: boolean | null; mergeableState: string;
+  commits: Array<{ sha: string; message: string; author: string; date: string }>;
+  files: Array<{ path: string; status: string; additions: number; deletions: number; patch: string; truncated: boolean }>;
+  checks: Array<{ name: string; state: string }>;
+  comments: Array<{ author: string; date: string; body: string; kind: "commento" | "revisione" | "riga"; trusted: boolean; path?: string }>;
+}
+
+const REVIEW_PATCH_MAX = 20_000;
+
+/**
+ * Tutto quello che serve a una persona per decidere su una PR (Reparto revisioni, 21/11):
+ * commit, file con le righe cambiate, controlli/CI sul commit di testa, descrizione,
+ * commenti e revisioni. A differenza di gh_read_pr per gli agenti, qui si mostrano anche i
+ * commenti esterni (segnati): li legge una persona, non un modello con strumenti.
+ */
+export async function pullRequestReview(prNumber: number): Promise<ReviewPr> {
+  type Usr = { login?: string } | null;
+  const pr = (await gh(`/pulls/${prNumber}`)) as {
+    title: string; body: string | null; html_url: string; state: string; merged?: boolean; user: Usr;
+    head: { ref: string; sha: string }; base: { ref: string }; mergeable: boolean | null; mergeable_state: string;
+  };
+  const [commits, files, issueComments, reviews, lineComments, checks, combined] = (await Promise.all([
+    gh(`/pulls/${prNumber}/commits?per_page=100`),
+    gh(`/pulls/${prNumber}/files?per_page=100`),
+    gh(`/issues/${prNumber}/comments?per_page=100`),
+    gh(`/pulls/${prNumber}/reviews?per_page=100`),
+    gh(`/pulls/${prNumber}/comments?per_page=100`),
+    gh(`/commits/${encodeURIComponent(pr.head.sha)}/check-runs`).catch(() => ({})),
+    gh(`/commits/${encodeURIComponent(pr.head.sha)}/status`).catch(() => ({})),
+  ])) as [
+    Array<{ sha: string; commit: { message: string; author?: { name?: string; date?: string } }; author: Usr }>,
+    Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string }>,
+    Array<PrComment>,
+    Array<{ user: Usr; body: string | null; state: string; submitted_at?: string; author_association?: string }>,
+    Array<PrComment & { path?: string }>,
+    { check_runs?: Array<{ name: string; status: string; conclusion: string | null }> },
+    { statuses?: Array<{ context: string; state: string }> },
+  ];
+  const trusted = (a?: string) => TRUSTED_ASSOCIATIONS.has(a ?? "");
+  return {
+    number: prNumber,
+    title: pr.title,
+    body: pr.body ?? "",
+    url: pr.html_url,
+    author: pr.user?.login ?? "?",
+    state: pr.merged ? "merged" : pr.state,
+    headRef: pr.head.ref,
+    baseRef: pr.base.ref,
+    headSha: pr.head.sha,
+    mergeable: pr.mergeable,
+    mergeableState: pr.mergeable_state,
+    commits: (commits ?? []).map((c) => ({
+      sha: c.sha,
+      message: c.commit.message,
+      author: c.author?.login ?? c.commit.author?.name ?? "?",
+      date: c.commit.author?.date ?? "",
+    })),
+    files: (files ?? []).map((f) => ({
+      path: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: (f.patch ?? "").slice(0, REVIEW_PATCH_MAX),
+      truncated: !f.patch || f.patch.length > REVIEW_PATCH_MAX,
+    })),
+    checks: [
+      ...(checks.check_runs ?? []).map((c) => ({ name: c.name, state: c.conclusion ?? c.status })),
+      ...(combined.statuses ?? []).map((c) => ({ name: c.context, state: c.state })),
+    ],
+    comments: [
+      ...(issueComments ?? []).map((c) => ({ author: c.user?.login ?? "?", date: c.created_at ?? "", body: c.body ?? "", kind: "commento" as const, trusted: trusted(c.author_association) })),
+      ...(reviews ?? []).filter((r) => (r.body ?? "").trim() || r.state !== "COMMENTED").map((r) => ({
+        author: r.user?.login ?? "?", date: r.submitted_at ?? "", body: `[${r.state}] ${r.body ?? ""}`.trim(), kind: "revisione" as const, trusted: trusted(r.author_association),
+      })),
+      ...(lineComments ?? []).map((c) => ({ author: c.user?.login ?? "?", date: c.created_at ?? "", body: c.body ?? "", kind: "riga" as const, trusted: trusted(c.author_association), path: c.path })),
+    ].sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}
+
 /** Merge-readiness + CI check rollup for a PR (read-only — supports a "gate on green" flow). */
 /**
  * Testa, base e provenienza di una PR: una richiesta di merge vale per il commit che

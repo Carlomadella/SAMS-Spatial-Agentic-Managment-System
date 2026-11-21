@@ -642,6 +642,59 @@ export async function fetchPending(agentId: string): Promise<{ pendingFiles: Pen
   }
 }
 
+// --- Reparto revisioni ---------------------------------------------------------
+
+export interface ReviewItem {
+  agentId: string; agentName: string; title: string; branch: string; files: number;
+  merge: PendingMerge | null; mainGate: boolean; createdAt: number;
+}
+
+export interface ReviewPr {
+  number: number; title: string; body: string; url: string; author: string; state: string;
+  headRef: string; baseRef: string; headSha: string; mergeable: boolean | null; mergeableState: string;
+  commits: Array<{ sha: string; message: string; author: string; date: string }>;
+  files: Array<{ path: string; status: string; additions: number; deletions: number; patch: string; truncated: boolean }>;
+  checks: Array<{ name: string; state: string }>;
+  comments: Array<{ author: string; date: string; body: string; kind: "commento" | "revisione" | "riga"; trusted: boolean; path?: string }>;
+}
+
+export interface ReviewDetail {
+  agentId: string; agentName: string; title: string; branch: string; baseBranch: string; repo: string;
+  mainGate: boolean; files: PendingFile[]; merge: PendingMerge | null; prMoved: boolean;
+  pr: ReviewPr | null; prError: string | null; createdAt: number;
+  history: Array<{ agentId: string; agentName: string; title: string; branch: string; status: string; ts: number; summary?: string }>;
+}
+
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+/** Le richieste che aspettano una persona (Reparto revisioni). */
+export async function fetchReviewList(): Promise<ReviewItem[]> {
+  const res = await fetch(`${BASE}/api/review`, { headers: authHeaders(false) });
+  return (await jsonOrThrow<{ items: ReviewItem[] }>(res)).items;
+}
+
+/** Tutto su una richiesta: file, PR (commit, CI, commenti) e storia del branch. */
+export async function fetchReview(agentId: string): Promise<ReviewDetail> {
+  const res = await fetch(`${BASE}/api/review/${encodeURIComponent(agentId)}`, { headers: authHeaders(false) });
+  return jsonOrThrow<ReviewDetail>(res);
+}
+
+/** «Chiedi modifiche»: il server prepara il branch e restituisce il task da riassegnare. */
+export async function requestReviewChanges(agentId: string, note: string): Promise<{ title: string; branch: string }> {
+  const res = await fetch(`${BASE}/api/review/${encodeURIComponent(agentId)}/changes`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ note, actor: viewerName() }),
+  });
+  return (await jsonOrThrow<{ task: { title: string; branch: string } }>(res)).task;
+}
+
 /** Reject staged files — clears the buffer, agent goes idle. */
 export async function rejectChanges(agentId: string): Promise<void> {
   await fetch(`${BASE}/api/reject/${encodeURIComponent(agentId)}`, {
