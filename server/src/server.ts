@@ -42,6 +42,7 @@ import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
 import { beginRun, currentRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
+import { noteAgentEvent, overlayLiveStatus } from "./liveStatus";
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
@@ -201,6 +202,7 @@ function writeToClients(line: string): void {
 
 function broadcast(e: WireEvent): void {
   recordEvent(e);
+  noteAgentEvent(e);
   // Release the per-agent cooldown once a task reaches a terminal state.
   if (e.agentId && (e.status === "done" || e.status === "review" || e.status === "idle" || e.status === "blocked")) {
     lastAssign.delete(e.agentId);
@@ -929,7 +931,7 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   let world = { agents: 0, working: 0, idle: 0 };
   try {
-    world = summarizeWorld(await loadWorldSnapshot(db()));
+    world = summarizeWorld(overlayLiveStatus(await loadWorldSnapshot(db())));
   } catch {
     /* world snapshot unavailable — omit */
   }
@@ -1489,7 +1491,8 @@ app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), async (req
 
 app.get("/api/world", requireRole("viewer"), async (_req: Request, res: Response) => {
   try {
-    res.json(await loadWorldSnapshot(db()));
+    // Con sopra lo stato vivo dei task: lo snapshot lo salva solo una vista aperta.
+    res.json(overlayLiveStatus(await loadWorldSnapshot(db())));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
