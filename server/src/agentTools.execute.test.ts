@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Settings } from "./config";
-import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, type ToolContext } from "./agentTools";
+import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, summaryWithCiNote, type ToolContext } from "./agentTools";
 import type { WireEvent } from "./types";
 
 // web_fetch risolve il DNS per la guardia anti-SSRF: nei test l'host finto "x" risolve
@@ -185,6 +185,27 @@ describe("executeTool — gh_trigger_workflow senza CI (simulazione 21/11: 404 s
     expect(res).toContain("test.yml");
   });
 
+  it("repo senza workflow: il secondo tentativo con un altro nome non interroga GitHub", async () => {
+    stub([]);
+    const { ctx } = mkCtx();
+    await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(ctx.ciNotRun).toBe("no-workflows");
+    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    const res = await executeTool("gh_trigger_workflow", { workflow: "test.yml", ref: "b" }, ctx);
+    expect(res).toMatch(/GIÀ VERIFICATO/);
+    expect(res).toMatch(/Non riprovare/);
+    expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls);
+  });
+
+  it("nome sbagliato non blocca un secondo tentativo con il nome giusto", async () => {
+    stub([{ name: "Test", path: ".github/workflows/test.yml" }]);
+    const { ctx } = mkCtx();
+    await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(ctx.ciNotRun).toBe("failed");
+    const res = await executeTool("gh_trigger_workflow", { workflow: "test.yml", ref: "b" }, ctx);
+    expect(res).not.toMatch(/GIÀ VERIFICATO/);
+  });
+
   it("workflow senza workflow_dispatch (422): lo spiega", async () => {
     stub([{ name: "CI", path: ".github/workflows/ci.yml" }], 422);
     const { ctx } = mkCtx();
@@ -285,5 +306,19 @@ describe("executeTool — web_fetch annulla i body che non legge", () => {
     const { ctx } = mkCtx();
     expect(await executeTool("web_fetch", { url: "https://x" }, ctx)).toBe("fine");
     expect(hop.cancel).toHaveBeenCalled();
+  });
+});
+
+describe("summaryWithCiNote — i test non girati finiscono nel riassunto (simulazione 21/11)", () => {
+  it("repo senza CI: aggiunge la nota una volta sola", () => {
+    const ctx = { doneSummary: "Fatto il ripristino.", ciNotRun: "no-workflows" as const };
+    const once = summaryWithCiNote(ctx);
+    expect(once).toBe("Fatto il ripristino.\n\nNota di SAMS: i test non sono stati eseguiti (la repo non ha una CI).");
+    expect(summaryWithCiNote({ ...ctx, doneSummary: once })).toBe(once);
+  });
+
+  it("se un workflow è partito o la CI non è stata toccata, il riassunto resta com'è", () => {
+    expect(summaryWithCiNote({ doneSummary: "ok", ciNotRun: "failed", ciStarted: true })).toBe("ok");
+    expect(summaryWithCiNote({ doneSummary: "ok" })).toBe("ok");
   });
 });

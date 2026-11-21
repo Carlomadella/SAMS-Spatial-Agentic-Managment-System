@@ -560,7 +560,7 @@ export async function triggerWorkflow(
   workflow: string,
   ref: string,
   inputs?: Record<string, string>,
-): Promise<{ started: boolean; text: string }> {
+): Promise<{ started: boolean; text: string; noWorkflows?: boolean }> {
   try {
     await gh(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`, {
       method: "POST",
@@ -570,7 +570,12 @@ export async function triggerWorkflow(
     // Simulazione del 21/11: la repo di prova non aveva CI e l'agente riceveva un 404
     // secco. Gli si dice cosa c'è davvero e come andare avanti.
     if (err instanceof HttpError && (err.status === 404 || err.status === 422)) {
-      return { started: false, text: explainMissingWorkflow(workflow, err.status, await listWorkflowsSafe()) };
+      const workflows = err.status === 404 ? await listWorkflowsSafe() : [];
+      return {
+        started: false,
+        text: explainMissingWorkflow(workflow, err.status, workflows),
+        noWorkflows: err.status === 404 && workflows.length === 0,
+      };
     }
     throw err;
   }
