@@ -1027,7 +1027,7 @@ export async function finalizeTask(
   // File in attesa (approvazione o branch principale): l'agente si ferma qui, con
   // l'eventuale merge chiesto, finché una persona non decide.
   if (ctx.stagedFiles.length > 0) {
-    awaitPerson(ctx, opts.totalTokens);
+    await awaitPerson(ctx, opts.totalTokens);
     if (ctx.notionWrote && s.notionPageId) {
       try { await appendTaskLog({ agentName, title: ctx.title, branch: ctx.branch, repo: currentRepo() }); } catch { /* best-effort */ }
     }
@@ -1057,6 +1057,7 @@ export async function finalizeTask(
     status: outcome.status,
     tokens: opts.totalTokens,
     ts: Date.now(),
+    summary: ctx.doneSummary,
   });
 
   if (opts.repoEnabled && ctx.wroteFiles && s.openPRs) {
@@ -1082,14 +1083,14 @@ export async function finalizeTask(
 
   // Merge chiesto (senza file in attesa): il lavoro sul branch del task è fatto e la PR è
   // aperta; l'agente va nella sala d'attesa finché una persona conferma o rifiuta il merge.
-  if (ctx.mergeRequest) awaitPerson(ctx, opts.totalTokens);
+  if (ctx.mergeRequest) await awaitPerson(ctx, opts.totalTokens);
 }
 
 /**
  * Mette il lavoro in attesa di una persona e lo annuncia. Push sul branch principale o
  * merge → `mainGate`: l'agente è nella sala d'attesa e non riceve altri task.
  */
-function awaitPerson(ctx: ToolContext, totalTokens: number): void {
+async function awaitPerson(ctx: ToolContext, totalTokens: number): Promise<void> {
   const { s, agentId, agentName, emit } = ctx;
   const toMain = onMainBranch(ctx) && ctx.stagedFiles.length > 0;
   setPending(agentId, {
@@ -1117,4 +1118,8 @@ function awaitPerson(ctx: ToolContext, totalTokens: number): void {
     ...(gate ? { mainGate: true } : {}),
     tokens: totalTokens,
   });
+  // Nel registro anche i task in attesa: il Reparto revisioni ne mostra la storia.
+  if (ctx.stagedFiles.length > 0) {
+    await logTask({ agentId, agentName, title: ctx.title, branch: ctx.branch, status: "awaiting_approval", tokens: totalTokens, ts: Date.now(), summary: ctx.doneSummary });
+  }
 }

@@ -28,6 +28,8 @@ export interface TaskLogEntry {
   status: string;
   tokens: number;
   ts: number;
+  /** riassunto finale dell'agente (per il Reparto revisioni); "" per i task vecchi */
+  summary?: string;
 }
 
 export interface TaskStats {
@@ -47,7 +49,8 @@ const SQLITE_SCHEMA = `
       branch     TEXT    NOT NULL,
       status     TEXT    NOT NULL,
       tokens     INTEGER NOT NULL DEFAULT 0,
-      ts         INTEGER NOT NULL
+      ts         INTEGER NOT NULL,
+      summary    TEXT    NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_task_log_ts ON task_log (ts DESC);
 
@@ -222,6 +225,7 @@ const MYSQL_SCHEMA = `
       status     VARCHAR(32)  NOT NULL,
       tokens     BIGINT       NOT NULL DEFAULT 0,
       ts         BIGINT       NOT NULL,
+      summary    TEXT         NULL,
       INDEX idx_task_log_ts (ts)
     ) ${MYSQL_TABLE_OPTS};
 
@@ -362,6 +366,7 @@ const MYSQL_SCHEMA = `
 export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await db.exec(db.dialect === "mysql" ? MYSQL_SCHEMA : SQLITE_SCHEMA);
   await ensureWorldAgentColumns(db);
+  await ensureTaskLogColumns(db);
   await ensureUserColumns(db);
   await migrateWorldAgents(db);
   return db;
@@ -405,6 +410,18 @@ async function ensureUserColumns(db: SqlDriver): Promise<void> {
  * `world_agents` preesistente creato prima della loro introduzione. Su un DB nuovo
  * la `CREATE TABLE` le ha già → no-op; su uno vecchio le aggiunge via ALTER.
  */
+/** `task_log.summary` (Reparto revisioni, 21/11) su un DB creato prima: idempotente. */
+async function ensureTaskLogColumns(db: SqlDriver): Promise<void> {
+  const cols = await columnNames(db, "task_log");
+  if (cols.has("summary")) return;
+  // MySQL/TiDB non accettano DEFAULT su TEXT: la colonna resta nullable e si legge con COALESCE.
+  if (db.dialect === "mysql") {
+    await db.exec(`ALTER TABLE task_log ADD COLUMN summary TEXT NULL`);
+  } else {
+    await db.exec(`ALTER TABLE task_log ADD COLUMN summary TEXT NOT NULL DEFAULT ''`);
+  }
+}
+
 async function ensureWorldAgentColumns(db: SqlDriver): Promise<void> {
   const cols = await columnNames(db, "world_agents");
   const my = db.dialect === "mysql";
@@ -834,10 +851,22 @@ export async function clearMemory(db: SqlRunner, agentId: string): Promise<void>
 /** Append one finished task to the log. */
 export async function insertTask(db: SqlRunner, e: TaskLogEntry): Promise<void> {
   await db.run(
-    `INSERT INTO task_log (agent_id, agent_name, title, branch, status, tokens, ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [e.agentId, e.agentName, e.title, e.branch, e.status, e.tokens, e.ts],
+    `INSERT INTO task_log (agent_id, agent_name, title, branch, status, tokens, ts, summary)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [e.agentId, e.agentName, e.title, e.branch, e.status, e.tokens, e.ts, (e.summary ?? "").slice(0, 4000)],
   );
+}
+
+/** I task che hanno lavorato su questi branch, dal più recente (Reparto revisioni). */
+export async function tasksOnBranches(db: SqlRunner, branches: string[], limit = 30): Promise<TaskLogEntry[]> {
+  const list = [...new Set(branches.filter(Boolean))];
+  if (list.length === 0) return [];
+  const rows = await db.all<TaskLogEntry>(
+    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, status, tokens, ts, COALESCE(summary, '') AS summary
+     FROM task_log WHERE branch IN (${list.map(() => "?").join(", ")}) ORDER BY ts DESC LIMIT ?`,
+    [...list, limit],
+  );
+  return rows.map((r) => ({ ...r, tokens: Number(r.tokens), ts: Number(r.ts), summary: String(r.summary ?? "") }));
 }
 
 /** Most recent tasks, newest first. */

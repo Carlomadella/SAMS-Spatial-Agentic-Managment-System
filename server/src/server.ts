@@ -10,18 +10,19 @@ import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
 import { runOpenaiTask } from "./openai";
-import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, mergePullRequest, readFile, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, mergePullRequest, pullRequestReview, readFile, commentOnPullRequest, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
 import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, oauthCookie, OAuthStates, readOauthCookie, revokeToken } from "./githubAccounts";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
 import { checkWebhookAuth, parseGithubEvent, parsePushWatering } from "./webhook";
 import { emptyGarden, water } from "./garden/model";
-import { getPending, clearPending, isMainGate } from "./pendingBuffer";
+import { getPending, clearPending, isMainGate, listPending } from "./pendingBuffer";
+import { reviewTaskText, reviewBranchName } from "./reviewDesk";
 import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -1349,6 +1350,124 @@ app.get("/api/pending/:agentId", requireRole("viewer"), (req: Request, res: Resp
     branch: work.branch,
     title: work.title,
   });
+});
+
+// --- Reparto revisioni (21/11) --------------------------------------------------
+
+/** Le richieste che aspettano una persona: push e merge sul principale per primi. */
+app.get("/api/review", requireRole("viewer"), (_req: Request, res: Response) => {
+  const items = listPending().map((w) => ({
+    agentId: w.agentId,
+    agentName: w.agentName,
+    title: w.title,
+    branch: w.branch,
+    files: w.files.length,
+    merge: w.merge ?? null,
+    mainGate: isMainGate(w),
+    createdAt: w.createdAt,
+  }));
+  items.sort((a, b) => Number(b.mainGate) - Number(a.mainGate) || a.createdAt - b.createdAt);
+  res.json({ items });
+});
+
+/** Tutto su una richiesta: file in attesa, PR (commit, file, CI, commenti) e storia del branch. */
+app.get("/api/review/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  const work = getPending(agentId);
+  if (!work) {
+    res.status(404).json({ error: "Nessuna richiesta in attesa per questo agente" });
+    return;
+  }
+  const branches = [work.branch, work.merge?.headRef ?? ""];
+  let pr: Awaited<ReturnType<typeof pullRequestReview>> | null = null;
+  let prError: string | null = null;
+  if (work.merge) {
+    try {
+      pr = await runWithGithub(work.github ?? {}, () => pullRequestReview(work.merge!.prNumber));
+    } catch (err) {
+      prError = `PR #${work.merge.prNumber} non leggibile: ${(err as Error).message}`;
+    }
+  }
+  const history = await tasksOnBranches(db(), branches).catch(() => []);
+  res.json({
+    agentId,
+    agentName: work.agentName,
+    title: work.title,
+    branch: work.branch,
+    baseBranch: work.github?.baseBranch ?? githubContext().baseBranch,
+    repo: work.github?.repo ?? "",
+    mainGate: isMainGate(work),
+    files: work.files,
+    merge: work.merge ?? null,
+    // il commit confermato è quello salvato con la richiesta: se la PR è andata avanti lo si dice
+    prMoved: !!(pr && work.merge && pr.headSha !== work.merge.headSha),
+    pr,
+    prError,
+    history,
+    createdAt: work.createdAt,
+  });
+});
+
+/**
+ * «Chiedi modifiche»: niente sul branch principale; l'agente esce dal reparto e la UI gli
+ * assegna il task restituito, con le note, sul branch di lavoro. Push su main → i file
+ * proposti finiscono su un branch di revisione con la sua PR, così il lavoro non si perde
+ * e la prossima conferma passa da un merge. Merge → nota sulla PR, si lavora sul suo branch.
+ */
+app.post("/api/review/:agentId/changes", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  const note = String((req.body as { note?: unknown } | undefined)?.note ?? "").trim().slice(0, 4000);
+  if (!note) {
+    res.status(400).json({ error: "Scrivi cosa va cambiato" });
+    return;
+  }
+  const work = getPending(agentId);
+  if (!work) {
+    res.status(404).json({ error: "Nessuna richiesta in attesa per questo agente" });
+    return;
+  }
+  const actor = (req.body as { actor?: string } | undefined)?.actor;
+  const by = actorLabel(await roleOf(req), actor);
+  try {
+    const out = await runWithGithub(work.github ?? {}, async () => {
+      const baseBranch = githubContext().baseBranch;
+      let branch = work.merge?.headRef ?? work.branch;
+      let prNumber = work.merge?.prNumber;
+      if (work.files.length > 0) {
+        if (work.branch === baseBranch) branch = reviewBranchName(work.agentName);
+        await createBranch(branch, baseBranch);
+        await writeFilesAtomic(
+          work.files.map((f) => ({ path: f.path, content: f.content })),
+          branch,
+          `SAMS(${work.agentName}): ${work.title.slice(0, 60)} — proposta da rivedere`,
+        );
+        if (!prNumber) {
+          const pr = await createPullRequest({
+            branch,
+            title: work.title.slice(0, 120),
+            body: `Proposta di **${work.agentName}**, rivista nel Reparto revisioni di SAMS: modifiche chieste.
+
+**Task:** ${work.title}
+
+_Branch \`${branch}\` → \`${baseBranch}\`._`,
+          });
+          prNumber = pr.number;
+        }
+      }
+      if (prNumber) {
+        await commentOnPullRequest(prNumber, `**Modifiche chieste nel Reparto revisioni** (${by}):
+
+${note}`).catch(() => undefined);
+      }
+      return { branch, prNumber };
+    });
+    clearPending(agentId);
+    log.info("Modifiche chieste", { by, agent: work.agentName, branch: out.branch });
+    broadcast({ agentId, agentName: work.agentName, status: "idle", level: "WARN", message: `Modifiche chieste da ${by}: esce dal Reparto revisioni e torna al lavoro su ${out.branch}` });
+    res.json({ ok: true, task: { title: reviewTaskText(note, out.branch, out.prNumber), branch: out.branch } });
+  } catch (err) {
+    res.status(502).json({ error: `Non sono riuscito a preparare il branch: ${(err as Error).message}` });
+  }
 });
 
 /** Approve staged files: create branch, commit each file, optionally open a PR. */
