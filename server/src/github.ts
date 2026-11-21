@@ -553,18 +553,54 @@ export async function getWorkflowJobs(runId: number): Promise<string> {
 /**
  * Trigger a GitHub Actions workflow via workflow_dispatch on the given ref.
  * `workflow` can be a filename (e.g. "ci.yml") or a numeric workflow ID.
- * Returns a hint telling the agent where to find the run via gh_list_ci.
+ * Returns a hint telling the agent where to find the run via gh_list_ci, or — when the
+ * workflow is missing or not dispatchable — what exists and how to proceed (started: false).
  */
 export async function triggerWorkflow(
   workflow: string,
   ref: string,
   inputs?: Record<string, string>,
-): Promise<string> {
-  await gh(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`, {
-    method: "POST",
-    body: JSON.stringify({ ref, inputs: inputs ?? {} }),
-  });
-  return `Workflow "${workflow}" avviato sul branch "${ref}". Usa gh_list_ci branch="${ref}" per trovare il run_id, poi gh_ci_jobs per i dettagli.`;
+): Promise<{ started: boolean; text: string }> {
+  try {
+    await gh(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref, inputs: inputs ?? {} }),
+    });
+  } catch (err) {
+    // Simulazione del 21/11: la repo di prova non aveva CI e l'agente riceveva un 404
+    // secco. Gli si dice cosa c'è davvero e come andare avanti.
+    if (err instanceof HttpError && (err.status === 404 || err.status === 422)) {
+      return { started: false, text: explainMissingWorkflow(workflow, err.status, await listWorkflowsSafe()) };
+    }
+    throw err;
+  }
+  return { started: true, text: `Workflow "${workflow}" avviato sul branch "${ref}". Usa gh_list_ci branch="${ref}" per trovare il run_id, poi gh_ci_jobs per i dettagli.` };
+}
+
+/** I workflow di GitHub Actions della repo (sul branch principale); [] se non si riesce a leggerli. */
+async function listWorkflowsSafe(): Promise<Array<{ name: string; path: string }>> {
+  try {
+    const r = (await gh(`/actions/workflows?per_page=50`)) as { workflows?: Array<{ name: string; path: string }> };
+    return r.workflows ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Testo per l'agente quando un workflow non si può avviare (404 / 422 di GitHub). */
+export function explainMissingWorkflow(workflow: string, status: number, workflows: Array<{ name: string; path: string }>): string {
+  const how =
+    "Per eseguire i test serve un file .github/workflows/<nome>.yml con «on: workflow_dispatch» (e di solito push/pull_request). " +
+    "GitHub lo trova solo quando è sul branch principale; su un branch di lavoro parte da solo ai push se ha «on: push». " +
+    "Se il task non prevede di aggiungere la CI, dillo nel riassunto: i test non sono stati eseguiti.";
+  if (status === 422) {
+    return `Il workflow «${workflow}» esiste ma non si può avviare a mano: non ha il trigger «workflow_dispatch». ${how}`;
+  }
+  if (workflows.length === 0) {
+    return `La repo ${currentRepo()} non ha nessun workflow di GitHub Actions: non c'è una CI da avviare. ${how}`;
+  }
+  const list = workflows.map((w) => `${w.path.split("/").pop()} («${w.name}»)`).join(", ");
+  return `Il workflow «${workflow}» non esiste nella repo. Workflow disponibili: ${list}. Riprova con uno di questi nomi di file.`;
 }
 
 /** Add a label to an issue (best-effort). */
