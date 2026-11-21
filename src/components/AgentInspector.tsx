@@ -8,7 +8,7 @@ import { affinityTier, bestFriend } from "../lib/relationships";
 import { activeGoal, goalProgress } from "../lib/goals";
 import { balanceOf, formatCoins } from "../lib/economy";
 import { cn } from "../lib/utils";
-import { approveChanges, assignRemote, backendEnabled, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
+import { approveChanges, assignRemote, backendEnabled, cancelRemote, clearMemory, fetchMemory, rejectChanges, type MemoryEntry } from "../lib/backend";
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, findTemplate, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
@@ -326,7 +326,15 @@ export function AgentInspector() {
                 className="mt-2 w-full accent-brand"
               />
               <button
-                onClick={() => clearTask(agent.id)}
+                onClick={() => {
+                  // Sul runtime il task gira davvero: lo si ferma anche lì, non solo nella pagina.
+                  if (backendEnabled && agent.status === "working") {
+                    cancelRemote(agent.id).catch((err: Error) =>
+                      log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "ERROR", message: `Annullamento: ${err.message}` }),
+                    );
+                  }
+                  clearTask(agent.id);
+                }}
                 className="mt-1 text-[11px] text-mut hover:text-rose-300"
               >
                 Annulla task

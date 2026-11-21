@@ -41,6 +41,7 @@ import { StreamTickets } from "./streamTickets";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
+import { beginRun, currentRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
@@ -1231,6 +1232,13 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // Un task alla volta per agente: un secondo task in parallelo riscriverebbe gli stessi file.
+  const running = currentRun(body.agentId);
+  if (running) {
+    res.status(409).json({ error: `${body.agentName || "L'agente"} sta già lavorando a «${running.title.slice(0, 80)}». Aspetta che finisca o annulla quel task.`, busy: true });
+    return;
+  }
+
   const now = Date.now();
   const prev = lastAssign.get(body.agentId) ?? 0;
   const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
@@ -1248,6 +1256,10 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
   lastAssign.set(body.agentId, now);
+  if (!beginRun(body.agentId, body.title, now)) {
+    res.status(409).json({ error: "L'agente ha appena iniziato un altro task.", busy: true });
+    return;
+  }
 
   res.json({ ok: true });
 
@@ -1273,8 +1285,21 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   const start = () => (envBranch ? runWithGithub({ baseBranch: envBranch }, run) : run());
   const inRepo = () => (repo ? runWithRepo(repo, start) : start());
   const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
+  // A task finito (bene, male o annullato) l'agente torna libero. then a due rami: un
+  // finally() creerebbe una seconda promessa rifiutata, non gestita.
+  work.then(() => endRun(body.agentId), () => endRun(body.agentId));
   work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
+    if (err instanceof TaskCancelledError) {
+      broadcast({
+        agentId: body.agentId,
+        agentName: body.agentName || body.agentId,
+        status: "idle",
+        level: "WARN",
+        message: `${err.message}. Le modifiche già scritte sul branch restano lì.`,
+      });
+      return;
+    }
     broadcast({
       agentId: body.agentId,
       agentName: body.agentName || body.agentId,
@@ -1340,6 +1365,19 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
       broadcast({ agentId, agentName, status: "blocked", level: "ERROR", message: `Commit fallito: ${(err as Error).message}` });
     }
   });
+});
+
+/** Annulla il task in corso di un agente: il ciclo si ferma al prossimo strumento. */
+app.post("/api/cancel/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = req.params.agentId as string;
+  const actor = (req.body as { actor?: string } | undefined)?.actor;
+  const by = actorLabel(await roleOf(req), actor);
+  if (!requestCancel(agentId, typeof actor === "string" && actor.trim() ? actor.trim().slice(0, 40) : by)) {
+    res.status(404).json({ error: "Questo agente non ha un task in corso sul server." });
+    return;
+  }
+  log.info("Task annullato", { by, agent: agentId });
+  res.json({ ok: true });
 });
 
 /** Reject staged files: discard buffer, agent returns to idle. */

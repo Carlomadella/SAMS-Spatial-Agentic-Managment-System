@@ -43,6 +43,7 @@ import { db, listMemory, logTask, setMemory } from "./db";
 import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
+import { throwIfCancelled } from "./taskRuns";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
 export const MAX_STEPS = 14;
@@ -631,6 +632,9 @@ async function readManyFiles(paths: string[], ctx: ToolContext): Promise<string>
  */
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   const { s, agentId, agentName, emit } = ctx;
+  // Task annullato da un utente: ci si ferma qui, prima di eseguire altro (fuori dal try,
+  // così l'errore arriva fino a chi ha avviato il task invece di diventare un risultato).
+  throwIfCancelled(agentId);
   // Ultimo passo: il modello riceve solo gli strumenti per concludere, ma può chiamarne
   // altri lo stesso (collaudo 20/11: "read 0 file"). Qui il vincolo diventa effettivo.
   if (ctx.stepsLeft === 0 && !FINAL_STEP_TOOLS.has(name)) {
