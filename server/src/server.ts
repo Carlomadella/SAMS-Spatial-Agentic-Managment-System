@@ -1387,8 +1387,17 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
         broadcast({ agentId, agentName, level: "SUCCESS", message: `${work.files.length} file committati su ${work.branch}${toMain ? " (confermato da una persona)" : ""}` });
       }
       if (work.merge) {
-        const merged = await mergePullRequest(work.merge.prNumber, work.merge.method);
-        broadcast({ agentId, agentName, level: /non mergiata/.test(merged) ? "WARN" : "SUCCESS", message: `${merged} (confermato da una persona)` });
+        try {
+          const merged = await mergePullRequest(work.merge.prNumber, work.merge.method, work.merge.headSha);
+          broadcast({ agentId, agentName, level: /non mergiata/.test(merged) ? "WARN" : "SUCCESS", message: `${merged} (confermato da una persona)` });
+        } catch (err) {
+          // 409: la PR ha commit nuovi dopo la richiesta — la conferma non vale per quelli.
+          if (err instanceof HttpError && err.status === 409) {
+            broadcast({ agentId, agentName, status: "blocked", level: "WARN", message: `Merge PR #${work.merge.prNumber} annullato: la PR è cambiata dopo la richiesta (confermato era ${work.merge.headSha.slice(0, 7)}). Va chiesto di nuovo.` });
+            return;
+          }
+          throw err;
+        }
       }
       if (s.openPRs && work.files.length > 0 && !toMain) {
         const pr = await createPullRequest({

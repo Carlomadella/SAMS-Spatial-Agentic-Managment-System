@@ -16,6 +16,7 @@ import {
   githubContext,
   getWorkflowJobs,
   listCIRuns,
+  pullRequestHead,
   triggerWorkflow,
   listFiles,
   listIssuesForAgent,
@@ -461,7 +462,7 @@ export interface ToolContext {
   /** almeno un workflow è stato avviato davvero in questo task */
   ciStarted?: boolean;
   /** merge chiesto con gh_merge_pr: SAMS non lo esegue, lo mette in attesa di una persona */
-  mergeRequest?: { prNumber: number; method: "merge" | "squash" | "rebase" };
+  mergeRequest?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
 }
 
 /**
@@ -784,11 +785,22 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       // "Richiedi approvazione", revisione di sicurezza 20/11): il merge resta in attesa e,
       // a fine task, l'agente va nella sala d'attesa finché una persona non conferma.
       const method = ["merge", "squash", "rebase"].includes(str(args.method)) ? (str(args.method) as "merge" | "squash" | "rebase") : "squash";
-      ctx.mergeRequest = { prNumber: prNum, method };
-      emit({ agentId, agentName, progress, level: "INFO", message: `Merge PR #${prNum} chiesto: serve la conferma di una persona` });
-      result =
-        `Richiesta di merge della PR #${prNum} registrata. Gli agenti non possono mergiare da soli: ` +
-        `a fine task aspetterai nella sala d'attesa che una persona confermi o rifiuti. Non riprovare; chiama done con un riassunto.`;
+      // La conferma vale per il commit di adesso: si salva la testa della PR e il merge
+      // passa a GitHub quello SHA (se la PR cambia prima della conferma, GitHub rifiuta).
+      const head = await pullRequestHead(prNum);
+      if (!head.open) {
+        result = `ERRORE: la PR #${prNum} non è aperta: non c'è niente da mergiare.`;
+      } else if (head.fromFork) {
+        emit({ agentId, agentName, level: "WARN", message: `Merge PR #${prNum} non chiesto: viene da un fork` });
+        result = `ERRORE: la PR #${prNum} viene da un fork: gli agenti non chiedono il merge di codice esterno. Segnalalo nel riassunto e chiama done.`;
+      } else {
+        ctx.mergeRequest = { prNumber: prNum, method, headSha: head.headSha, headRef: head.headRef, baseRef: head.baseRef, title: head.title };
+        emit({ agentId, agentName, progress, level: "INFO", message: `Merge PR #${prNum} chiesto (${head.headRef} → ${head.baseRef} @ ${head.headSha.slice(0, 7)}): serve la conferma di una persona` });
+        result =
+          `Richiesta di merge della PR #${prNum} registrata (commit ${head.headSha.slice(0, 7)}). Gli agenti non possono mergiare da soli: ` +
+          `a fine task aspetterai nella sala d'attesa che una persona confermi o rifiuti. Non riprovare e non aggiungere commit alla PR ` +
+          `(la conferma vale solo per questo commit); chiama done con un riassunto.`;
+      }
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });

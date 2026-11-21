@@ -348,6 +348,28 @@ export async function readPullRequest(prNumber: number): Promise<string> {
 }
 
 /** Merge-readiness + CI check rollup for a PR (read-only — supports a "gate on green" flow). */
+/**
+ * Testa, base e provenienza di una PR: una richiesta di merge vale per il commit che
+ * c'era quando l'agente l'ha fatta, non per quello che c'è al momento della conferma.
+ */
+export async function pullRequestHead(prNumber: number): Promise<{
+  headSha: string; headRef: string; baseRef: string; title: string; open: boolean; fromFork: boolean;
+}> {
+  const pr = (await gh(`/pulls/${prNumber}`)) as {
+    title: string; state: string;
+    head: { sha: string; ref: string; repo: { full_name: string } | null };
+    base: { ref: string; repo: { full_name: string } };
+  };
+  return {
+    headSha: pr.head.sha,
+    headRef: pr.head.ref,
+    baseRef: pr.base.ref,
+    title: pr.title,
+    open: pr.state === "open",
+    fromFork: !pr.head.repo || pr.head.repo.full_name !== pr.base.repo.full_name,
+  };
+}
+
 export async function pullRequestStatus(prNumber: number): Promise<string> {
   const pr = (await gh(`/pulls/${prNumber}`)) as {
     state: string; mergeable: boolean | null; mergeable_state: string;
@@ -390,10 +412,12 @@ export async function pullRequestStatus(prNumber: number): Promise<string> {
 export async function mergePullRequest(
   prNumber: number,
   method: "merge" | "squash" | "rebase" = "squash",
+  /** commit di testa approvato: se la PR è cambiata nel frattempo GitHub rifiuta (409) */
+  sha?: string,
 ): Promise<string> {
   const data = (await gh(`/pulls/${prNumber}/merge`, {
     method: "PUT",
-    body: JSON.stringify({ merge_method: method }),
+    body: JSON.stringify(sha ? { merge_method: method, sha } : { merge_method: method }),
   })) as { merged?: boolean; message?: string; sha?: string };
   return data.merged
     ? `PR #${prNumber} mergiata (${method}) — ${data.sha?.slice(0, 7) ?? ""}`

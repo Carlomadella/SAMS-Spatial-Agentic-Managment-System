@@ -248,4 +248,9 @@ export interface SimIssue {
 export interface PendingMerge {
   prNumber: number;
   method: "merge" | "squash" | "rebase";
+  /** commit di testa approvato: il merge vale solo per questo */
+  headSha?: string;
+  headRef?: string;
+  baseRef?: string;
+  title?: string;
 }
