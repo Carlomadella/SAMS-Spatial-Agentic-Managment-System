@@ -171,7 +171,19 @@ async function callWithRetries(
       last = `${ep.label}: ${(err as Error).message}`;
       continue;
     }
-    if (res.ok) return (await res.json()) as ChatCompletion;
+    if (res.ok) {
+      // Il limite di tempo vale anche per il testo della risposta: OpenRouter può mandare
+      // le intestazioni subito e il corpo dopo. Un timeout qui è un tentativo fallito come
+      // gli altri (simulazione 22/11: bloccava l'agente senza riprove né riserva).
+      try {
+        return (await res.json()) as ChatCompletion;
+      } catch (err) {
+        if (!isRetryableError(err)) throw err;
+        why = (err as Error).name === "TimeoutError" ? "timeout" : "network";
+        last = `${ep.label}: risposta non arrivata entro ${Math.round(opts.timeoutMs / 1000)} s`;
+        continue;
+      }
+    }
     const text = (await res.text().catch(() => "")).slice(0, 200);
     last = `${ep.label} ${res.status}${text ? `: ${text}` : ""}`;
     if (res.status === 429 && DAILY_QUOTA.test(text)) throw new ProviderError(last, "quota");
