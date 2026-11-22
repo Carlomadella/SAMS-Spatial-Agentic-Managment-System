@@ -118,6 +118,32 @@ describe("chatWithFallback", () => {
     expect(onRetry.mock.calls.map((c) => c[3])).toEqual(["timeout", "network"]);
   });
 
+  // Simulazione 22/11: OpenRouter risponde 200 subito ma il testo arriva oltre il limite;
+  // il timeout scattava leggendo il corpo, fuori dal try, e l'agente si bloccava con
+  // «The operation was aborted due to timeout» senza riprove né riserva.
+  const slowBody = () => {
+    const res = new Response("{}", { status: 200 });
+    vi.spyOn(res, "json").mockRejectedValue(Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }));
+    return res;
+  };
+
+  it("timeout mentre arriva il testo della risposta: riprova", async () => {
+    routeFetch({ openrouter: [slowBody, () => ok("ok")] });
+    const onRetry = vi.fn();
+    const res = await run([ep("openrouter")], { onRetry });
+    expect(res.endpoint.id).toBe("openrouter");
+    expect(onRetry).toHaveBeenCalledWith("openrouter", 1, expect.any(Number), "timeout");
+  });
+
+  it("timeout del testo a ogni tentativo: passa al provider di riserva", async () => {
+    const calls = routeFetch({ openrouter: [slowBody, slowBody, slowBody], gemini: [() => ok("da gemini")] });
+    const onFallback = vi.fn();
+    const res = await run([ep("openrouter"), ep("gemini")], { onFallback });
+    expect(res.endpoint.id).toBe("gemini");
+    expect(calls).toEqual(["openrouter", "openrouter", "openrouter", "gemini"]);
+    expect(onFallback).toHaveBeenCalledWith("openrouter", "gemini", "exhausted");
+  });
+
   it("un 400 è un errore vero: niente riprove e niente fallback", async () => {
     const calls = routeFetch({ openrouter: [() => status(400, "bad request")], gemini: [() => ok("no")] });
     await expect(run([ep("openrouter"), ep("gemini")])).rejects.toThrow("openrouter 400: bad request");
