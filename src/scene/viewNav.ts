@@ -103,3 +103,11 @@ export function followTransition(prev: FollowState, next: FollowState): boolean 
   if (next.selected !== prev.selected) return next.selected !== null || prev.follow;
   return next.selected !== null && next.follow && !prev.follow;
 }
+
+/** Velocità del volo morbido: a 60 fps avanza del 12% a fotogramma. */
+const FLIGHT_RATE = -60 * Math.log(0.88);
+
+/** Quanto avanzare verso la meta in questo fotogramma, uguale a qualsiasi frequenza dello schermo. */
+export function smoothFactor(delta: number): number {
+  return 1 - Math.exp(-FLIGHT_RATE * delta);
+}

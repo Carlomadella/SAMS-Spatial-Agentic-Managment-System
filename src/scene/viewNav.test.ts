@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_WINGS, buildLayout } from "../data/world";
-import { clampTarget, followTransition, isSceneKeyTarget, isTypingTarget, keyToAction, movedBeyond, roomShortcuts } from "./viewNav";
+import { clampTarget, followTransition, smoothFactor, isSceneKeyTarget, isTypingTarget, keyToAction, movedBeyond, roomShortcuts } from "./viewNav";
 
 const B = { minX: -10, maxX: 10, minZ: -8, maxZ: 8 };
 
@@ -110,5 +110,15 @@ describe("followTransition", () => {
   });
   it("nessun cambio, nessun volo", () => {
     expect(followTransition({ selected: "a", follow: true }, { selected: "a", follow: true })).toBe(false);
+  });
+});
+
+describe("smoothFactor", () => {
+  it("a 60 fps vale circa 0,12 come prima", () => {
+    expect(smoothFactor(1 / 60)).toBeCloseTo(0.12, 2);
+  });
+  it("due fotogrammi a 120 fps avanzano quanto uno a 60 fps", () => {
+    const half = smoothFactor(1 / 120);
+    expect(1 - (1 - half) ** 2).toBeCloseTo(smoothFactor(1 / 60), 10);
   });
 });

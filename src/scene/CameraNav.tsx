@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Rect } from "../lib/pathfind";
-import { clampTarget, isSceneKeyTarget, keyToAction, movedBeyond, type NavAction, type RoomShortcut } from "./viewNav";
+import { clampTarget, isSceneKeyTarget, keyToAction, movedBeyond, smoothFactor, type NavAction, type RoomShortcut } from "./viewNav";
 
 /** Spostamento da tastiera: unità al secondo a distanza 20 (più lontano = più veloce). */
 const MOVE_SPEED = 12;
@@ -65,6 +65,8 @@ export function CameraNav({
     const heldKeys = held.current;
     const onKeyDown = (e: KeyboardEvent) => {
       const { enabled: on, home: h, rooms: rs, onManual: manual, onFollow: follow } = latest.current;
+      // Con Cmd premuto il Mac non manda il rilascio degli altri tasti: si azzera tutto.
+      if (e.metaKey) heldKeys.clear();
       if (!on || e.ctrlKey || e.metaKey || e.altKey || !isSceneKeyTarget(e.target)) return;
       const action = keyToAction(e.key);
       if (!action) return;
@@ -174,8 +176,13 @@ export function CameraNav({
       offset.copy(camera.position).sub(target);
       const dist = offset.length() || 1;
       const goal = THREE.MathUtils.clamp(f.distance, controls.minDistance, controls.maxDistance);
-      const nextDist = THREE.MathUtils.lerp(dist, goal, 0.12);
-      target.lerp(f.dest, 0.12);
+      // La meta resta dentro i confini anche se la casa si è ristretta durante il volo.
+      const [dx, dz] = clampTarget(f.dest.x, f.dest.z, bounds);
+      f.dest.x = dx;
+      f.dest.z = dz;
+      const k = smoothFactor(d);
+      const nextDist = THREE.MathUtils.lerp(dist, goal, k);
+      target.lerp(f.dest, k);
       offset.setLength(nextDist);
       camera.position.copy(target).add(offset);
       if (target.distanceTo(f.dest) < 0.05 && Math.abs(nextDist - goal) < 0.05) flight.current = null;
