@@ -455,6 +455,8 @@ export interface ToolContext {
   /** turni del modello rimasti dopo quello in corso (lo imposta il ciclo del provider):
    *  agli ultimi passi i risultati degli strumenti portano l'avviso di concludere. */
   stepsLeft?: number;
+  /** la nota dei file letti è già stata aggiunta al riassunto (solo il server la imposta) */
+  readsNoted?: boolean;
   /** la CI non è partita in questo task (repo senza workflow, nome sbagliato, niente
    *  workflow_dispatch). Simulazione 21/11: il modello riprovava con altri nomi e chiudeva
    *  senza dire che i test non erano girati → SAMS blocca i tentativi e lo scrive lui. */
@@ -500,9 +502,11 @@ const READS_NOTE_PREFIX = "Nota di SAMS: file letti davvero in questo task";
  * package.json sono validi, nessun duplicato» ed era falso; chi legge il riassunto deve
  * poter confrontare le verifiche dichiarate con quello che l'agente ha aperto.
  */
-export function summaryWithReadsNote(ctx: Pick<ToolContext, "doneSummary" | "reads">): string {
+export function summaryWithReadsNote(ctx: Pick<ToolContext, "doneSummary" | "reads" | "readsNoted">): string {
   if (!ctx.doneSummary.trim() || !ctx.reads?.size) return ctx.doneSummary;
-  if (ctx.doneSummary.includes(READS_NOTE_PREFIX)) return ctx.doneSummary;
+  // Una volta sola, decisa da un flag del server e non dal testo: il modello potrebbe
+  // scrivere lui una «Nota di SAMS» con un elenco inventato per far saltare quella vera.
+  if (ctx.readsNoted) return ctx.doneSummary;
   // le chiavi sono "path@offset": un file letto a pezzi conta una volta sola
   const paths = [...new Set([...ctx.reads].map((k) => k.slice(0, k.lastIndexOf("@"))))];
   const shown = paths.slice(0, READS_NOTE_MAX).join(", ");
@@ -1050,6 +1054,7 @@ export async function finalizeTask(
   if (withReads !== ctx.doneSummary) {
     emit({ agentId, agentName, level: "INFO", message: truncate(withReads.slice(withReads.lastIndexOf("Nota di SAMS: file letti")), THOUGHT_LIMIT) });
     ctx.doneSummary = withReads;
+    ctx.readsNoted = true;
   }
 
   // File in attesa (approvazione o branch principale): l'agente si ferma qui, con
