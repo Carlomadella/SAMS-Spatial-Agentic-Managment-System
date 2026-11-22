@@ -44,6 +44,7 @@ import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
+import { checkFile } from "./fileChecks";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
 /**
@@ -455,6 +456,11 @@ export interface ToolContext {
   /** turni del modello rimasti dopo quello in corso (lo imposta il ciclo del provider):
    *  agli ultimi passi i risultati degli strumenti portano l'avviso di concludere. */
   stepsLeft?: number;
+  /** problemi che SAMS ha trovato da sé nei file letti o scritti in questo task (path → frase);
+   *  un file corretto e riletto/riscritto esce dalla lista */
+  fileProblems?: Map<string, string>;
+  /** la nota dei problemi trovati da SAMS è già nel riassunto (solo il server la imposta) */
+  checksNoted?: boolean;
   /** la nota dei file letti è già stata aggiunta al riassunto (solo il server la imposta) */
   readsNoted?: boolean;
   /** la CI non è partita in questo task (repo senza workflow, nome sbagliato, niente
@@ -490,6 +496,40 @@ export function summaryWithCiNote(ctx: Pick<ToolContext, "doneSummary" | "ciNotR
   const note = ctx.ciNotRun === "no-workflows" ? CI_NONE_NOTE : CI_NOT_RUN_NOTE;
   if (ctx.doneSummary.includes(note)) return ctx.doneSummary;
   return ctx.doneSummary.trim() ? `${ctx.doneSummary.trim()}\n\n${note}` : note;
+}
+
+/**
+ * Controlla un file appena letto o scritto (fileChecks.ts) e aggiorna la lista dei
+ * problemi del task. Restituisce l'avviso da mettere davanti al risultato dello
+ * strumento, così l'agente lo vede subito; "" se il file è a posto.
+ */
+export function noteFileCheck(ctx: Pick<ToolContext, "fileProblems">, path: string, text: string): string {
+  const problem = checkFile(path, text);
+  ctx.fileProblems ??= new Map();
+  if (!problem) {
+    ctx.fileProblems.delete(path);
+    return "";
+  }
+  ctx.fileProblems.set(path, problem);
+  return `ATTENZIONE (controllo automatico di SAMS): ${path} ${problem}. Tienine conto nel lavoro e nel riassunto.`;
+}
+
+const CHECKS_NOTE_PREFIX = "Nota di SAMS: problemi trovati dal controllo automatico";
+
+/** Il riassunto con i problemi che SAMS ha trovato da sé, se ce ne sono (una volta sola). */
+export function checksNote(ctx: Pick<ToolContext, "fileProblems">): string {
+  if (!ctx.fileProblems?.size) return "";
+  return `${CHECKS_NOTE_PREFIX}: ${[...ctx.fileProblems].map(([p, problem]) => `${p} ${problem}`).join("; ")}`;
+}
+
+/**
+ * Il riassunto con i problemi che SAMS ha trovato da sé (una volta sola, decisa da un
+ * flag del server). Un riassunto vuoto resta vuoto: l'esito del task dipende da quello.
+ */
+export function summaryWithChecksNote(ctx: Pick<ToolContext, "doneSummary" | "fileProblems" | "checksNoted">): string {
+  const note = checksNote(ctx);
+  if (ctx.checksNoted || !note || !ctx.doneSummary.trim()) return ctx.doneSummary;
+  return `${ctx.doneSummary.trim()}\n\n${note}`;
 }
 
 /** Quanti file al massimo la nota dei file letti elenca per nome. */
@@ -675,7 +715,9 @@ async function readManyFiles(paths: string[], ctx: ToolContext): Promise<string>
   for (const p of batch) {
     let text: string;
     try {
-      text = readChunk(await onTaskBranch(ctx, (ref) => readFile(p, ref)), 0);
+      const full = await onTaskBranch(ctx, (ref) => readFile(p, ref));
+      const warn = noteFileCheck(ctx, p, full);
+      text = (warn ? `${warn}\n\n` : "") + readChunk(full, 0);
       ctx.reads ??= new Set();
       ctx.reads.add(`${p}@0`);
     } catch (err) {
@@ -721,7 +763,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       emit({ agentId, agentName, progress, level: "INFO", message: `read ${Array.isArray(args.paths) ? args.paths.length : 0} file` });
     } else if (name === "gh_read_file") {
       const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
-      const chunk = readChunk(await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref)), offset);
+      const full = await onTaskBranch(ctx, (ref) => readFile(str(args.path), ref));
+      const warn = noteFileCheck(ctx, str(args.path), full);
+      const chunk = (warn ? `${warn}\n\n` : "") + readChunk(full, offset);
       const key = `${str(args.path)}@${offset}`;
       ctx.reads ??= new Set();
       // Rilettura identica: lo si dice, così il modello va avanti invece di ripetere.
@@ -747,6 +791,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         ctx.wroteFiles = true;
         emit({ agentId, agentName, progress, level: "SUCCESS", message: `write ${filePath}` });
       }
+      const warn = noteFileCheck(ctx, filePath, fileContent);
+      if (warn) result = `ok\n\n${warn}`;
     } else if (name === "gh_write_files") {
       const rawFiles = Array.isArray(args.files) ? args.files as Array<Record<string, unknown>> : [];
       const files = rawFiles
@@ -771,6 +817,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
           emit({ agentId, agentName, progress, level: "SUCCESS", message: `write atomico: ${files.map((f) => f.path).join(", ")}` });
           result = `${files.length} file committati atomicamente su ${ctx.branch}`;
         }
+        const warns = files.map((f) => noteFileCheck(ctx, f.path, f.content)).filter(Boolean);
+        if (warns.length) result = `${result}\n\n${warns.join("\n")}`;
       }
     } else if (name === "gh_create_issue") {
       const issue = await createIssue(
@@ -1048,6 +1096,13 @@ export async function finalizeTask(
   const { s, agentId, agentName, emit } = ctx;
   ctx.doneSummary = summaryWithCiNote(ctx);
   if (ctx.doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(ctx.doneSummary, THOUGHT_LIMIT) });
+  // I problemi trovati da SAMS: nel riassunto completo e, a parte, nel registro (WARN).
+  const problems = checksNote(ctx);
+  if (problems && !ctx.checksNoted) {
+    emit({ agentId, agentName, level: "WARN", message: truncate(problems, THOUGHT_LIMIT) });
+    ctx.doneSummary = summaryWithChecksNote(ctx);
+    ctx.checksNoted = true;
+  }
   // La nota dei file letti va nel riassunto completo (storico, revisione) e, a parte,
   // nel registro: in coda al riassunto il taglio a THOUGHT_LIMIT la nasconderebbe.
   const withReads = summaryWithReadsNote(ctx);
