@@ -481,6 +481,21 @@ partenza, ogni utente decide cosa fa ogni agente.
   - se il Ricercatore usa solo Scrapling o anche `web_fetch` quando Scrapling non c'è;
   - se i preimpostati creati da un utente si possono condividere con il resto del team.
 
+### 🎥 Zoom e movimento della visuale, da migliorare di molto
+
+> Richiesta dell'utente del 22/11/2026. Non ancora collocata (1.0 o 1.x), da fare sul suo branch.
+
+- **Oggi** (`OfficeScene.tsx`, `OrbitControls` + `CameraFollow`): si ruota attorno al centro della casa e si
+  zooma verso il cursore, con distanza tra 9 e 34 (+0,8 per ogni ala), inclinazione bloccata tra 0,25 e 1,35 rad
+  e smorzamento 0,08. **Lo spostamento laterale è disattivato** (`enablePan={false}`): non si può portare la
+  visuale su una stanza o su un'ala lontana se non seguendo un agente. La scena del giardino
+  (`GardenScene.tsx`) ha controlli suoi, con distanza tra 6 e 28.
+- [ ] Zoom molto migliore: più fluido e preciso, anche da trackpad e touch.
+- [ ] Movimento della visuale molto migliore: potersi spostare liberamente nella casa, che ora cresce con le ali.
+- Da decidere prima di partire (doc di decisione sul Drive): come ci si sposta (trascinamento, tasti WASD/frecce,
+  doppio clic su un punto, scorciatoie verso le stanze), i limiti di zoom e di spostamento, cosa succede quando
+  si segue un agente, e se cambia anche la visuale del giardino.
+
 ---
 
 ## 🗒️ Stato (aggiornato 2026-07-15)
