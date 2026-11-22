@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Rect } from "../lib/pathfind";
+import { easeToward, wheelPixels, zoomGoal, zoomTowards } from "./zoomMath";
 import { clampTarget, isSceneKeyTarget, keyToAction, movedBeyond, smoothFactor, type NavAction, type RoomShortcut } from "./viewNav";
 
 /** Spostamento da tastiera: unità al secondo a distanza 20 (più lontano = più veloce). */
@@ -52,6 +53,11 @@ export function CameraNav({
   // Tasti tenuti premuti, per codice fisico: così il rilascio torna anche se Shift cambia `key`.
   const held = useRef(new Map<string, NavAction>());
   const flight = useRef<Flight | null>(null);
+  // Zoom morbido: distanza-meta e punto del pavimento sotto il cursore da tenere fermo.
+  const zoom = useRef<{ goal: number; point: [number, number] | null } | null>(null);
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const ndc = useMemo(() => new THREE.Vector2(), []);
+  const floorHit = useMemo(() => new THREE.Vector3(), []);
   const offset = useMemo(() => new THREE.Vector3(), []);
   const forward = useMemo(() => new THREE.Vector3(), []);
   const right = useMemo(() => new THREE.Vector3(), []);
@@ -81,12 +87,14 @@ export function CameraNav({
         const room = rs?.[action.index];
         if (!room) return;
         e.preventDefault();
+        zoom.current = null;
         flight.current = { dest: new THREE.Vector3(room.x, ROOM_Y, room.z), distance: ROOM_DISTANCE };
         manual?.();
         return;
       }
       if (action.kind === "home") {
         e.preventDefault();
+        zoom.current = null;
         flight.current = { dest: new THREE.Vector3(h.x, h.y, h.z), distance: h.distance };
         manual?.();
         return;
@@ -125,6 +133,7 @@ export function CameraNav({
     const onMove = (e: PointerEvent) => {
       if (down && movedBeyond(down.x, down.y, e.clientX, e.clientY)) {
         down = null;
+        zoom.current = null;
         manual();
       }
     };
@@ -134,14 +143,36 @@ export function CameraNav({
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    el.addEventListener("wheel", manual, { passive: true });
+    // La rotella (e il pizzico del trackpad, che arriva come rotella con Ctrl) la gestiamo noi:
+    // la intercettiamo sul contenitore prima che arrivi a OrbitControls, che zoomerebbe a scatti.
+    // Il pizzico a due dita su touch resta a OrbitControls.
+    const host = el.parentElement ?? el;
+    const onWheel = (e: WheelEvent) => {
+      const controls: Controls = controlsRef.current;
+      if (!controls || controls.enabled === false) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const px = wheelPixels(e.deltaY, e.deltaMode, e.ctrlKey);
+      if (px === 0) return;
+      const dist = camera.position.distanceTo(controls.target);
+      const goal = zoomGoal(zoom.current?.goal ?? dist, px, controls.minDistance, controls.maxDistance);
+      // Il punto del pavimento (alla quota del centro) sotto il cursore.
+      const rect = el.getBoundingClientRect();
+      ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -controls.target.y);
+      const hit = raycaster.ray.intersectPlane(plane, floorHit);
+      zoom.current = { goal, point: hit ? [hit.x, hit.z] : null };
+      manual();
+    };
+    host.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      el.removeEventListener("wheel", manual);
+      host.removeEventListener("wheel", onWheel, { capture: true });
     };
-  }, [gl, controlsRef]);
+  }, [gl, controlsRef, camera, ndc, raycaster, floorHit]);
 
   useFrame((_, delta) => {
     const controls: Controls = controlsRef.current;
@@ -152,6 +183,7 @@ export function CameraNav({
 
     if (held.current.size > 0) {
       flight.current = null;
+      zoom.current = null;
       offset.copy(camera.position).sub(target);
       let dist = offset.length() || 1;
       forward.set(-offset.x, 0, -offset.z).normalize();
@@ -171,6 +203,19 @@ export function CameraNav({
       }
       camera.position.copy(target).add(offset);
       latest.current.onManual?.();
+    } else if (zoom.current) {
+      const z = zoom.current;
+      offset.copy(camera.position).sub(target);
+      const dist = offset.length() || 1;
+      const next = easeToward(dist, z.goal, d);
+      if (z.point) {
+        const [tx, tz] = zoomTowards([target.x, target.z], z.point, dist, next);
+        target.x = tx;
+        target.z = tz;
+      }
+      offset.setLength(next);
+      camera.position.copy(target).add(offset);
+      if (Math.abs(next - z.goal) < 0.01) zoom.current = null;
     } else if (flight.current) {
       const f = flight.current;
       offset.copy(camera.position).sub(target);
