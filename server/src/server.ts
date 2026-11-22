@@ -22,7 +22,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, loadWorldSnapshot, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -43,7 +43,7 @@ import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
 import { beginRun, currentRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
-import { noteAgentEvent, overlayLiveStatus } from "./liveStatus";
+import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } from "./liveStatus";
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
@@ -932,7 +932,7 @@ app.get("/api/public", async (req: Request, res: Response) => {
   }
   let world = { agents: 0, working: 0, idle: 0 };
   try {
-    world = summarizeWorld(overlayLiveStatus(await loadWorldSnapshot(db())));
+    world = summarizeWorld(overlayLiveStatus(await loadWorldSnapshot(db()), Date.now(), await loggedTasks()));
   } catch {
     /* world snapshot unavailable — omit */
   }
@@ -1272,6 +1272,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   }
 
   res.json({ ok: true });
+  noteTaskStarted(body.agentId, body.title, now);
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
   log.info("Task assegnato", { by: actorLabel(await roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
@@ -1300,23 +1301,20 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   work.then(() => endRun(body.agentId), () => endRun(body.agentId));
   work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
+    const agentName = body.agentName || body.agentId;
+    // Anche un task finito male va nello storico (simulazione 22/11): dopo un riavvio è
+    // da lì che /api/world sa che l'agente è bloccato, e su quale task.
+    const record = (status: "idle" | "blocked", summary: string) =>
+      void logTask({ agentId: body.agentId, agentName, title: body.title, branch: body.branch ?? "", status, tokens: 0, ts: Date.now(), summary });
     if (err instanceof TaskCancelledError) {
-      broadcast({
-        agentId: body.agentId,
-        agentName: body.agentName || body.agentId,
-        status: "idle",
-        level: "WARN",
-        message: `${err.message}. Le modifiche già scritte sul branch restano lì.`,
-      });
+      const message = `${err.message}. Le modifiche già scritte sul branch restano lì.`;
+      broadcast({ agentId: body.agentId, agentName, status: "idle", level: "WARN", message });
+      record("idle", message);
       return;
     }
-    broadcast({
-      agentId: body.agentId,
-      agentName: body.agentName || body.agentId,
-      status: "blocked",
-      level: "ERROR",
-      message: `Errore: ${err instanceof Error ? err.message : String(err)}`,
-    });
+    const message = `Errore: ${err instanceof Error ? err.message : String(err)}`;
+    broadcast({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message });
+    record("blocked", message);
   });
 });
 
@@ -1657,10 +1655,19 @@ app.post("/api/sim/release-by-agent/:agentId", requireRole("editor"), async (req
 // toward an authoritative server state, without yet reconciling back to the
 // client. Survives runtime restarts.
 
+/** L'ultimo task di ogni agente nello storico; se la lettura fallisce, si fa senza. */
+async function loggedTasks(): Promise<Map<string, LoggedTask>> {
+  try {
+    return await latestTaskPerAgent(db());
+  } catch {
+    return new Map();
+  }
+}
+
 app.get("/api/world", requireRole("viewer"), async (_req: Request, res: Response) => {
   try {
     // Con sopra lo stato vivo dei task: lo snapshot lo salva solo una vista aperta.
-    res.json(overlayLiveStatus(await loadWorldSnapshot(db())));
+    res.json(overlayLiveStatus(await loadWorldSnapshot(db()), Date.now(), await loggedTasks()));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }

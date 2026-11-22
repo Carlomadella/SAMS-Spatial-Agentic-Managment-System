@@ -869,6 +869,18 @@ export async function tasksOnBranches(db: SqlRunner, branches: string[], limit =
   return rows.map((r) => ({ ...r, tokens: Number(r.tokens), ts: Number(r.ts), summary: String(r.summary ?? "") }));
 }
 
+/** L'ultimo task di ogni agente nello storico (per lo stato in /api/world dopo un riavvio). */
+export async function latestTaskPerAgent(db: SqlRunner): Promise<Map<string, { status: string; title: string; ts: number }>> {
+  const rows = await db.all<{ agentId: string; status: string; title: string; ts: number }>(
+    `SELECT t.agent_id AS agentId, t.status, t.title, t.ts
+     FROM task_log t JOIN (SELECT agent_id, MAX(ts) AS m FROM task_log GROUP BY agent_id) x
+       ON t.agent_id = x.agent_id AND t.ts = x.m`,
+  );
+  const out = new Map<string, { status: string; title: string; ts: number }>();
+  for (const r of rows) out.set(String(r.agentId), { status: String(r.status), title: String(r.title), ts: Number(r.ts) });
+  return out;
+}
+
 /** Most recent tasks, newest first. */
 export async function recentTasks(db: SqlRunner, limit = 20): Promise<TaskLogEntry[]> {
   const rows = await db.all<TaskLogEntry>(

@@ -37,6 +37,7 @@ import {
   insertChatMessage,
   insertRoutine,
   insertTask,
+  latestTaskPerAgent,
   listChatMessages,
   listMemory,
   listRoutines,
@@ -88,6 +89,17 @@ describe("db task_log", () => {
     const rows = await recentTasks(db);
     expect(rows.map((r) => r.title)).toEqual(["second", "first"]);
     expect(rows[0]).toMatchObject({ agentName: "Blue", tokens: 100 });
+  });
+
+  it("latestTaskPerAgent: l'ultimo task di ogni agente", async () => {
+    const db = await openDb(":memory:");
+    expect((await latestTaskPerAgent(db)).size).toBe(0);
+    await insertTask(db, entry({ agentId: "a", title: "vecchio", status: "done", ts: 1 }));
+    await insertTask(db, entry({ agentId: "a", title: "Rivedi la PR", status: "blocked", ts: 5 }));
+    await insertTask(db, entry({ agentId: "b", title: "altro", status: "review", ts: 3 }));
+    const m = await latestTaskPerAgent(db);
+    expect(m.get("a")).toEqual({ status: "blocked", title: "Rivedi la PR", ts: 5 });
+    expect(m.get("b")).toEqual({ status: "review", title: "altro", ts: 3 });
   });
 
   it("respects the limit", async () => {
