@@ -94,7 +94,7 @@ function topLevelValueNames(ts: TS, sf: import("typescript").SourceFile): Array<
       out.push({ name: st.name.text, line: lineOf(st), kind: "other" });
     } else if (ts.isClassDeclaration(st) && st.name) {
       out.push({ name: st.name.text, line: lineOf(st), kind: "other" });
-    } else if (ts.isImportDeclaration(st) && st.importClause && !st.importClause.isTypeOnly) {
+    } else if (ts.isImportDeclaration(st) && st.importClause && st.importClause.phaseModifier !== ts.SyntaxKind.TypeKeyword) {
       const c = st.importClause;
       if (c.name) out.push({ name: c.name.text, line: lineOf(st), kind: "other" });
       const b = c.namedBindings;
@@ -118,8 +118,9 @@ function checkScript(path: string, text: string): string | null {
   const syntax = ts.transpileModule(text, { fileName: path, reportDiagnostics: true, compilerOptions: { jsx: ts.JsxEmit.Preserve } }).diagnostics ?? [];
   for (const d of syntax) {
     const line = d.start != null ? sf.getLineAndCharacterOfPosition(d.start).line + 1 : null;
-    const msg = ts.flattenDiagnosticMessageText(d.messageText, " ");
-    problems.push(line ? `ha un errore di sintassi alla riga ${line}: ${msg}` : `ha un errore di sintassi: ${msg}`);
+    const msg = ts.flattenDiagnosticMessageText(d.messageText, " ").replace(/\.$/, "");
+    const problem = line ? `ha un errore di sintassi alla riga ${line}: ${msg}` : `ha un errore di sintassi: ${msg}`;
+    if (!problems.includes(problem)) problems.push(problem);
   }
 
   if (problems.length === 0) {
