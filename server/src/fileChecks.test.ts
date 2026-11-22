@@ -95,3 +95,11 @@ describe("checkFile — TypeScript e JavaScript (simulazione 22/11: getRoomById 
     expect(err).toContain("e altri 1");
   });
 });
+
+describe("checkFile — messaggi puliti", () => {
+  it("lo stesso errore sulla stessa riga una volta sola, senza punto finale", () => {
+    const err = checkFile("a.ts", "contenuto di a.ts") ?? "";
+    expect(err).toMatch(/^ha un errore di sintassi alla riga 1: [^;]+$/);
+    expect(err.endsWith(".")).toBe(false);
+  });
+});

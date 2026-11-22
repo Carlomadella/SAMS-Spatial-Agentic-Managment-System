@@ -68,10 +68,10 @@ describe("gh_read_file su un file lungo", () => {
 // Scelta dell'utente: gh_read_files legge più file in un passo solo.
 describe("gh_read_files", () => {
   it("legge più file in un passo, ognuno col suo titolo", async () => {
-    readFile.mockImplementation(async (p: string) => `contenuto di ${p}`);
+    readFile.mockImplementation(async (p: string) => `// contenuto di ${p}`);
     const res = await executeTool("gh_read_files", { paths: ["a.ts", "b.ts"] }, mkCtx());
-    expect(res).toContain("=== a.ts ===\ncontenuto di a.ts");
-    expect(res).toContain("=== b.ts ===\ncontenuto di b.ts");
+    expect(res).toContain("=== a.ts ===\n// contenuto di a.ts");
+    expect(res).toContain("=== b.ts ===\n// contenuto di b.ts");
     expect(readFile).toHaveBeenCalledTimes(2);
   });
 
