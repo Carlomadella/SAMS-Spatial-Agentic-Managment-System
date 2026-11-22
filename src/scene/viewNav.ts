@@ -1,7 +1,8 @@
 /**
  * Calcoli puri per muovere la visuale: confini, scorciatoie delle stanze e tasti.
- * Nessun riferimento a three o React: li usa `CameraNav` e si testano da soli.
+ * Niente React: li usa `CameraNav` e si testano da soli.
  */
+import { MOUSE, TOUCH } from "three";
 import type { HouseLayout } from "../data/world";
 import type { Rect } from "../lib/pathfind";
 
@@ -69,3 +70,14 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   const ce = el.getAttribute("contenteditable");
   return ce !== null && ce !== "false";
 }
+
+/**
+ * Mouse e touch stile mappe, per `<OrbitControls>`: il sinistro sposta sul pavimento,
+ * il destro ruota, la rotella zooma; un dito sposta, due dita zoomano e ruotano.
+ */
+export const NAV_MOUSE_PROPS = {
+  enablePan: true,
+  screenSpacePanning: false,
+  mouseButtons: { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE },
+  touches: { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE },
+};

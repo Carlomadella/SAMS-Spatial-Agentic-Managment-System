@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_WINGS, buildLayout } from "../data/world";
-import { clampTarget, isTypingTarget, keyToAction, roomShortcuts } from "./cameraNav";
+import { clampTarget, isTypingTarget, keyToAction, roomShortcuts } from "./viewNav";
 
 const B = { minX: -10, maxX: 10, minZ: -8, maxZ: 8 };
 
