@@ -490,6 +490,27 @@ export function summaryWithCiNote(ctx: Pick<ToolContext, "doneSummary" | "ciNotR
   return ctx.doneSummary.trim() ? `${ctx.doneSummary.trim()}\n\n${note}` : note;
 }
 
+/** Quanti file al massimo la nota dei file letti elenca per nome. */
+export const READS_NOTE_MAX = 40;
+const READS_NOTE_PREFIX = "Nota di SAMS: file letti davvero in questo task";
+
+/**
+ * Il riassunto con l'elenco dei file letti davvero, preso dal registro delle letture
+ * e non dalle parole del modello. Simulazione 22/11: Sim-Tester ha scritto «tutti i
+ * package.json sono validi, nessun duplicato» ed era falso; chi legge il riassunto deve
+ * poter confrontare le verifiche dichiarate con quello che l'agente ha aperto.
+ */
+export function summaryWithReadsNote(ctx: Pick<ToolContext, "doneSummary" | "reads">): string {
+  if (!ctx.doneSummary.trim() || !ctx.reads?.size) return ctx.doneSummary;
+  if (ctx.doneSummary.includes(READS_NOTE_PREFIX)) return ctx.doneSummary;
+  // le chiavi sono "path@offset": un file letto a pezzi conta una volta sola
+  const paths = [...new Set([...ctx.reads].map((k) => k.slice(0, k.lastIndexOf("@"))))];
+  const shown = paths.slice(0, READS_NOTE_MAX).join(", ");
+  const rest = paths.length - READS_NOTE_MAX;
+  const note = `${READS_NOTE_PREFIX} (${paths.length}): ${shown}${rest > 0 ? ` e altri ${rest}` : ""}`;
+  return `${ctx.doneSummary.trim()}\n\n${note}`;
+}
+
 /**
  * Avviso di fine passi (collaudo 20/11: Sim-Revisore ha esaurito i passi leggendo e
  * si è chiuso senza lasciare nulla). Vuoto finché restano più di 2 passi.
@@ -1023,6 +1044,13 @@ export async function finalizeTask(
   const { s, agentId, agentName, emit } = ctx;
   ctx.doneSummary = summaryWithCiNote(ctx);
   if (ctx.doneSummary) emit({ agentId, agentName, level: "INFO", message: truncate(ctx.doneSummary, THOUGHT_LIMIT) });
+  // La nota dei file letti va nel riassunto completo (storico, revisione) e, a parte,
+  // nel registro: in coda al riassunto il taglio a THOUGHT_LIMIT la nasconderebbe.
+  const withReads = summaryWithReadsNote(ctx);
+  if (withReads !== ctx.doneSummary) {
+    emit({ agentId, agentName, level: "INFO", message: truncate(withReads.slice(withReads.lastIndexOf("Nota di SAMS: file letti")), THOUGHT_LIMIT) });
+    ctx.doneSummary = withReads;
+  }
 
   // File in attesa (approvazione o branch principale): l'agente si ferma qui, con
   // l'eventuale merge chiesto, finché una persona non decide.
