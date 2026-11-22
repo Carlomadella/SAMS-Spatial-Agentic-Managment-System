@@ -21,6 +21,7 @@ import {
   insertChatMessage,
   insertRoutine,
   insertTask,
+  latestTaskPerAgent,
   listChatMessages,
   loadSettingRows,
   listMemory,
@@ -222,6 +223,7 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     await insertTask(db, { agentId: "a", agentName: "A", title: "y", branch: "b", status: "error", tokens: 5, ts: 2 });
     expect(await taskStats(db)).toEqual({ total: 2, completed: 1, tokens: 15 });
     expect((await recentTasks(db, 1)).map((t) => t.title)).toEqual(["y"]);
+    expect((await latestTaskPerAgent(db)).get("a")).toEqual({ status: "error", title: "y", ts: 2 });
   });
 
   it("impostazioni: upsert, rimozione e valori lunghi", async () => {

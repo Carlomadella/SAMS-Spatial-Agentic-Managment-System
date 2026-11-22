@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { noteAgentEvent, overlayLiveStatus, resetLiveStatus } from "./liveStatus";
+import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, resetLiveStatus } from "./liveStatus";
 import { clearPending, setPending } from "./pendingBuffer";
 import { beginRun, resetRuns } from "./taskRuns";
 import type { WorldSnapshot } from "./worldState";
@@ -73,5 +73,40 @@ describe("overlayLiveStatus — sala d'attesa (push/merge sul branch principale)
     setPending("a1", { branch: "b", title: "T", agentName: "Sim-Dev", files: [{ path: "x", content: "y", message: "m" }] });
     expect(overlayLiveStatus(snap("idle", null, 9e15)).agents[0].status).toBe("idle");
     clearPending("a1");
+  });
+});
+
+describe("overlayLiveStatus — dopo un riavvio del server (simulazione 22/11)", () => {
+  beforeEach(() => {
+    resetLiveStatus();
+    resetRuns();
+  });
+
+  it("senza memoria, l'ultimo task salvato nello storico vince sullo snapshot vecchio, col suo titolo", () => {
+    const logged = new Map([["a1", { status: "blocked", title: "Rivedi la PR #3", ts: 2000 }]]);
+    const a = overlayLiveStatus(snap("done", "task del 20/11"), 3000, logged).agents[0];
+    expect(a).toMatchObject({ status: "blocked", task: "Rivedi la PR #3" });
+  });
+
+  it("uno storico più vecchio dello snapshot non conta", () => {
+    const logged = new Map([["a1", { status: "blocked", title: "vecchio", ts: 500 }]]);
+    expect(overlayLiveStatus(snap("working", "T1"), 3000, logged).agents[0]).toMatchObject({ status: "working", task: "T1" });
+  });
+
+  it("lo stato in memoria più recente vince sullo storico", () => {
+    const logged = new Map([["a1", { status: "blocked", title: "Rivedi", ts: 2000 }]]);
+    noteAgentEvent({ agentId: "a1", agentName: "Sim-Dev", status: "idle" }, 2500);
+    expect(overlayLiveStatus(snap("done", "T1"), 3000, logged).agents[0]).toMatchObject({ status: "idle", task: null });
+  });
+
+  it("bloccato dopo un task nuovo: il titolo è quello del task nuovo, non quello dello snapshot", () => {
+    noteTaskStarted("a1", "Rivedi la PR #3", 1500);
+    noteAgentEvent({ agentId: "a1", agentName: "Sim-Dev", status: "blocked" }, 2000);
+    expect(overlayLiveStatus(snap("done", "task del 20/11"), 3000).agents[0]).toMatchObject({ status: "blocked", task: "Rivedi la PR #3" });
+  });
+
+  it("uno stato sconosciuto nello storico si ignora", () => {
+    const logged = new Map([["a1", { status: "boh", title: "x", ts: 2000 }]]);
+    expect(overlayLiveStatus(snap("done", "T1"), 3000, logged).agents[0]).toMatchObject({ status: "done", task: "T1" });
   });
 });
