@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Hand, HelpCircle, Loader2, Megaphone, MicOff, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
+import { Hand, HelpCircle, Keyboard, Loader2, LocateFixed, Megaphone, MicOff, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
 import { ActivityBar } from "./components/ActivityBar";
 import { LeftPanel } from "./components/LeftPanel";
@@ -71,6 +71,23 @@ function SceneLoading() {
   );
 }
 
+/** Ricompare quando la visuale è stata spostata a mano mentre un agente è selezionato. */
+function FollowButton() {
+  const show = useStore((s) => s.selectedAgentId !== null && !s.cameraFollow);
+  const setCameraFollow = useStore((s) => s.setCameraFollow);
+  if (!show) return null;
+  return (
+    <button
+      onClick={() => setCameraFollow(true)}
+      title="Torna a seguire l'agente (F)"
+      className="absolute left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-line bg-ink-800/90 px-3 py-1.5 text-[11px] font-medium text-slate-200 shadow-panel backdrop-blur transition-all hover:border-brand/50 hover:bg-ink-700 hover:text-white active:scale-[0.97]"
+    >
+      <LocateFixed size={14} className="text-brand-soft" />
+      Segui
+    </button>
+  );
+}
+
 function StageHint() {
   const [open, setOpen] = useState(() => storageGet("sams.hint") !== "off");
   // Su un touch screen non si clicca né si scorre: si tocca e si pizzica.
@@ -113,8 +130,16 @@ function StageHint() {
         <Hand size={13} /> {touch ? "Tocca il pavimento" : "Clicca sul pavimento"} per farlo camminare
       </span>
       <span className="flex items-center gap-1.5">
-        <Move3d size={13} /> {touch ? "Trascina per ruotare · pizzica per lo zoom" : "Trascina per ruotare · scorri per lo zoom"}
+        <Move3d size={13} />{" "}
+        {touch
+          ? "Trascina per spostarti · due dita per ruotare e zoomare"
+          : "Trascina per spostarti · tasto destro per ruotare · scorri per lo zoom"}
       </span>
+      {!touch && (
+        <span className="flex items-center gap-1.5">
+          <Keyboard size={13} /> WASD per muoverti · Q/E ruota · 1–9 stanze · H tutta la casa
+        </span>
+      )}
     </div>
   );
 }
@@ -1178,6 +1203,7 @@ export default function Workspace() {
               }}
             />
             <StageHint />
+            <FollowButton />
             <RoomEditBanner />
             <PresenceRoster />
             <SoundToggle />
