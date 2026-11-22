@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Settings } from "./config";
-import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, finalizeTask, summaryWithCiNote, type ToolContext } from "./agentTools";
+import { PROGRESS_CAP, PROGRESS_START, PROGRESS_STEP, executeTool, finalizeTask, summaryWithCiNote, summaryWithReadsNote, type ToolContext } from "./agentTools";
 import { clearPending, getPending, isMainGate } from "./pendingBuffer";
 import type { WireEvent } from "./types";
 
@@ -351,6 +351,29 @@ describe("summaryWithCiNote — i test non girati finiscono nel riassunto (simul
   it("se un workflow è partito o la CI non è stata toccata, il riassunto resta com'è", () => {
     expect(summaryWithCiNote({ doneSummary: "ok", ciNotRun: "failed", ciStarted: true })).toBe("ok");
     expect(summaryWithCiNote({ doneSummary: "ok" })).toBe("ok");
+  });
+});
+
+describe("summaryWithReadsNote — i file letti davvero finiscono nel riassunto (simulazione 22/11)", () => {
+  it("elenca ogni file una volta sola, anche se letto a pezzi, nell'ordine di lettura", () => {
+    const reads = new Set(["package.json@0", "server/src/a.ts@0", "server/src/a.ts@12000", "client/x.tsx@0"]);
+    const once = summaryWithReadsNote({ doneSummary: "Tutto valido.", reads });
+    expect(once).toBe("Tutto valido.\n\nNota di SAMS: file letti davvero in questo task (3): package.json, server/src/a.ts, client/x.tsx");
+    expect(summaryWithReadsNote({ doneSummary: once, reads })).toBe(once);
+  });
+
+  it("senza letture o senza riassunto non aggiunge niente", () => {
+    expect(summaryWithReadsNote({ doneSummary: "ok" })).toBe("ok");
+    expect(summaryWithReadsNote({ doneSummary: "ok", reads: new Set() })).toBe("ok");
+    expect(summaryWithReadsNote({ doneSummary: "  ", reads: new Set(["a@0"]) })).toBe("  ");
+  });
+
+  it("oltre il limite elenca i primi e conta gli altri", () => {
+    const reads = new Set(Array.from({ length: 45 }, (_, i) => `f${i}.ts@0`));
+    const out = summaryWithReadsNote({ doneSummary: "ok", reads });
+    expect(out).toContain("(45): f0.ts, ");
+    expect(out).toContain("f39.ts e altri 5");
+    expect(out).not.toContain("f40.ts");
   });
 });
 
