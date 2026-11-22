@@ -24,6 +24,26 @@ beforeEach(() => {
     pendingRelays: [],
     toasts: [],
     selectedAgentId: null,
+    cameraFollow: true,
+  });
+});
+
+describe("segui della telecamera", () => {
+  it("selezionare un agente riaggancia il segui", () => {
+    useStore.getState().selectAgent("a1");
+    expect(useStore.getState().cameraFollow).toBe(true);
+  });
+  it("setCameraFollow lo sgancia e una nuova selezione lo riaggancia", () => {
+    useStore.getState().selectAgent("a1");
+    useStore.getState().setCameraFollow(false);
+    expect(useStore.getState().cameraFollow).toBe(false);
+    useStore.getState().selectAgent("a2");
+    expect(useStore.getState().cameraFollow).toBe(true);
+  });
+  it("deselezionare lascia il segui spento", () => {
+    useStore.getState().selectAgent("a1");
+    useStore.getState().selectAgent(null);
+    expect(useStore.getState().cameraFollow).toBe(false);
   });
 });
 

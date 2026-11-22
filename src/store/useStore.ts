@@ -76,6 +76,8 @@ interface State {
   tasks: TaskRecord[];
   environment: EnvironmentName;
   selectedAgentId: string | null;
+  /** La telecamera segue l'agente selezionato; si spegne al primo movimento manuale della visuale. */
+  cameraFollow: boolean;
 
   // --- ui ---
   activity: ActivityView;
@@ -190,6 +192,7 @@ interface State {
   closeNewAgent: () => void;
   removeAgent: (id: string) => void;
   selectAgent: (id: string | null) => void;
+  setCameraFollow: (v: boolean) => void;
   setRole: (id: string, role: string) => void;
   setInstructions: (id: string, instructions: string) => void;
   setMeta: (id: string, meta: boolean) => void;
@@ -463,6 +466,7 @@ export const useStore = create<State>()(
   tasks: [],
   environment: "staging",
   selectedAgentId: null,
+  cameraFollow: true,
 
   activity: "explorer",
   bottomTab: "eventlog",
@@ -579,7 +583,8 @@ export const useStore = create<State>()(
     if (a) get().log({ agentId: null, agentName: a.name, color: a.color, level: "WARN", message: "Agente rimosso dall'area di lavoro" });
   },
 
-  selectAgent: (id) => set({ selectedAgentId: id }),
+  selectAgent: (id) => set({ selectedAgentId: id, cameraFollow: id !== null }),
+  setCameraFollow: (v) => set({ cameraFollow: v }),
 
   setRole: (id, role) =>
     set((s) => ({ agents: s.agents.map((a) => (a.id === id ? { ...a, role } : a)) })),
