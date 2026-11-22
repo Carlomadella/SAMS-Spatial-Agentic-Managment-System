@@ -569,7 +569,7 @@ export const useStore = create<State>()(
       mood: "happy",
       xp: 0,
     };
-    set((s) => ({ agents: [...s.agents, agent], selectedAgentId: id }));
+    set((s) => ({ agents: [...s.agents, agent], cameraFollow: true, selectedAgentId: id }));
     log({ agentId: id, agentName: name, color: c, level: "INFO", message: "Agente creato nell'area di lavoro" });
     return id;
   },

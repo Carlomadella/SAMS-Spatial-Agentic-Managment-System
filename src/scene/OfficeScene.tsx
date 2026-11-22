@@ -51,7 +51,7 @@ import { useHouse } from "../store/useStore";
 import type { Vec2, Zone } from "../types";
 import { configureRenderer } from "./glSetup";
 import { CameraNav } from "./CameraNav";
-import { NAV_MOUSE_PROPS, roomShortcuts } from "./viewNav";
+import { NAV_MOUSE_PROPS, followTransition, roomShortcuts } from "./viewNav";
 
 function Floor() {
   // Colori del guscio della stanza dal tema selezionato (persistito).
@@ -1182,8 +1182,15 @@ function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: 
 
     // A change of selection (including deselect) starts a smooth ~0.8 s move,
     // and so does re-attaching the follow (F or the «Segui» button).
-    if (selectedAgentId !== prevSelected.current || (cameraFollow && !prevFollow.current)) {
+    if (
+      followTransition(
+        { selected: prevSelected.current, follow: prevFollow.current },
+        { selected: selectedAgentId, follow: cameraFollow },
+      )
+    ) {
       transition.current = 1;
+    } else if (selectedAgentId !== prevSelected.current) {
+      transition.current = 0; // deselezionato dopo un movimento manuale: la visuale resta dov'è
     }
     prevSelected.current = selectedAgentId;
     prevFollow.current = cameraFollow;

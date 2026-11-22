@@ -81,3 +81,25 @@ export const NAV_MOUSE_PROPS = {
   mouseButtons: { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE },
   touches: { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE },
 };
+
+/** Vero se il puntatore si è mosso oltre `threshold` pixel: un trascinamento, non un clic. */
+export function movedBeyond(ax: number, ay: number, bx: number, by: number, threshold = 6): boolean {
+  return Math.hypot(bx - ax, by - ay) > threshold;
+}
+
+/** I tasti muovono la visuale solo se il focus è sulla pagina o sulla tela 3D (non su pannelli o finestre). */
+export function isSceneKeyTarget(el: EventTarget | null): boolean {
+  if (!el || !(el instanceof HTMLElement)) return true;
+  return el === document.body || el === document.documentElement || el.tagName === "CANVAS";
+}
+
+export interface FollowState {
+  selected: string | null;
+  follow: boolean;
+}
+
+/** Se parte il volo della telecamera: verso un agente selezionato o riagganciato, o al centro se si deselezionava mentre lo si seguiva. */
+export function followTransition(prev: FollowState, next: FollowState): boolean {
+  if (next.selected !== prev.selected) return next.selected !== null || prev.follow;
+  return next.selected !== null && next.follow && !prev.follow;
+}

@@ -40,6 +40,11 @@ describe("segui della telecamera", () => {
     useStore.getState().selectAgent("a2");
     expect(useStore.getState().cameraFollow).toBe(true);
   });
+  it("un agente appena creato viene seguito", () => {
+    useStore.getState().setCameraFollow(false);
+    useStore.getState().addAgent("blue");
+    expect(useStore.getState().cameraFollow).toBe(true);
+  });
   it("deselezionare lascia il segui spento", () => {
     useStore.getState().selectAgent("a1");
     useStore.getState().selectAgent(null);

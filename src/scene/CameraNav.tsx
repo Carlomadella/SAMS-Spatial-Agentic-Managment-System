@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Rect } from "../lib/pathfind";
-import { clampTarget, isTypingTarget, keyToAction, type NavAction, type RoomShortcut } from "./viewNav";
+import { clampTarget, isSceneKeyTarget, keyToAction, movedBeyond, type NavAction, type RoomShortcut } from "./viewNav";
 
 /** Spostamento da tastiera: unità al secondo a distanza 20 (più lontano = più veloce). */
 const MOVE_SPEED = 12;
@@ -65,7 +65,7 @@ export function CameraNav({
     const heldKeys = held.current;
     const onKeyDown = (e: KeyboardEvent) => {
       const { enabled: on, home: h, rooms: rs, onManual: manual, onFollow: follow } = latest.current;
-      if (!on || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
+      if (!on || e.ctrlKey || e.metaKey || e.altKey || !isSceneKeyTarget(e.target)) return;
       const action = keyToAction(e.key);
       if (!action) return;
       if (action.kind === "follow") {
@@ -107,25 +107,43 @@ export function CameraNav({
     };
   }, []);
 
-  // Mouse, touch e rotella: OrbitControls emette "start" all'inizio di ogni gesto.
-  const attached = useRef<Controls>(null);
-  const onStart = useRef(() => {
-    flight.current = null;
-    latest.current.onManual?.();
-  });
+  // Mouse, touch e rotella: conta come movimento manuale solo un vero trascinamento (oltre 6 px)
+  // o la rotella. Un clic fermo (selezionare un agente, mandarlo sul pavimento) non sgancia il segui.
+  const { gl } = useThree();
   useEffect(() => {
-    const handler = onStart.current;
-    return () => attached.current?.removeEventListener("start", handler);
-  }, []);
+    const el = gl.domElement;
+    let down: { x: number; y: number } | null = null;
+    const manual = () => {
+      flight.current = null;
+      latest.current.onManual?.();
+    };
+    const onDown = (e: PointerEvent) => {
+      down = controlsRef.current?.enabled === false ? null : { x: e.clientX, y: e.clientY };
+    };
+    const onMove = (e: PointerEvent) => {
+      if (down && movedBeyond(down.x, down.y, e.clientX, e.clientY)) {
+        down = null;
+        manual();
+      }
+    };
+    const onUp = () => {
+      down = null;
+    };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    el.addEventListener("wheel", manual, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      el.removeEventListener("wheel", manual);
+    };
+  }, [gl, controlsRef]);
 
   useFrame((_, delta) => {
     const controls: Controls = controlsRef.current;
     if (!controls) return;
-    if (attached.current !== controls) {
-      attached.current?.removeEventListener("start", onStart.current);
-      controls.addEventListener("start", onStart.current);
-      attached.current = controls;
-    }
     if (!latest.current.enabled) held.current.clear();
     const d = Math.min(delta, 0.05);
     const target: THREE.Vector3 = controls.target;
