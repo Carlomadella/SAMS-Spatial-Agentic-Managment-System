@@ -16,6 +16,7 @@ import { iAmSimulator, liveAgentPositions, movingAgents, separationPush, resolve
 import { getViewerId } from "../lib/backend";
 import { statusBubble } from "../lib/bubble";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
+import { canDeleteAgents } from "../lib/roleUi";
 
 // Colori-stato centralizzati in STATUS_META (lib/meta): unica fonte per scena e pannelli.
 const STATUS_HEX: Record<AgentStatus, string> = Object.fromEntries(
@@ -143,7 +144,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const setStatus = useStore((s) => s.setStatus);
   const updateProgress = useStore((s) => s.updateProgress);
   const sendToZone = useStore((s) => s.sendToZone);
-  const removeAgent = useStore((s) => s.removeAgent);
+  const askRemoveAgent = useStore((s) => s.askRemoveAgent);
+  const mayDelete = useStore((s) => canDeleteAgents(s.viewerRole));
   // Il garden è un overlay a schermo intero: le <Html> degli agenti sono portali
   // DOM che altrimenti "bucano" l'overlay (dialoghi e simboli restano visibili
   // sopra il giardino). Quando il garden è aperto le sopprimiamo tutte.
@@ -277,7 +279,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         const [rx, rz] = resolveSeparation(
           [cur.current.x, cur.current.z],
           target,
-          (x, z) => isPointClear([x, z], house().obstacles),
+          (x, z) => isPointClear([x, z], layout.obstacles),
         );
         cur.current.x = rx;
         cur.current.z = rz;
@@ -445,7 +447,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         setStatus(agent.id, "idle");
       },
     },
-    { id: "remove", label: "Rimuovi agente", icon: Trash2, danger: true, onClick: () => removeAgent(agent.id) },
+    // solo l'owner elimina agenti (24/11)
+    ...(mayDelete
+      ? [{ id: "remove", label: "Rimuovi agente", icon: Trash2, danger: true, onClick: () => askRemoveAgent(agent.id) }]
+      : []),
   ];
 
   return (

@@ -747,10 +747,20 @@ export interface WorldMergeResult extends WorldSnapshot {
  *   identico a quello salvato) non si bumpa la versione né si forza un broadcast —
  *   si evita il ping-pong (bump + echo) e i 409 a vuoto tra viste convergenti.
  *
+ * - una voce in arrivo marcata `deleted` (uno snapshot riletto e risalvato) **non**
+ *   resuscita l'agente: conta come assente.
+ * - `allowDelete: false` (push di chi non è owner, 24/11): niente tombstone per assenza,
+ *   gli agenti mancanti restano vivi. Cancellare è solo dell'owner.
+ *
  * Ritorna lo snapshot autorevole (agenti vivi **+ tombstone**) e il flag `changed`.
  */
-export async function saveWorldAgents(db: SqlDriver, incoming: WorldAgentSnapshot[]): Promise<WorldMergeResult> {
+export async function saveWorldAgents(
+  db: SqlDriver,
+  all: WorldAgentSnapshot[],
+  { allowDelete = true }: { allowDelete?: boolean } = {},
+): Promise<WorldMergeResult> {
   const now = Date.now();
+  const incoming = all.filter((a) => !a.deleted);
   const incomingIds = new Set(incoming.map((a) => a.id));
   const upsertSql = `INSERT INTO world_agents (id, name, color, role, status, task, progress, model, instructions, repo, xp, assigned_by, squad, rev, updated_at, deleted_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -783,7 +793,7 @@ export async function saveWorldAgents(db: SqlDriver, incoming: WorldAgentSnapsho
       changed = true;
     }
     for (const [id, r] of existing) {
-      if (!incomingIds.has(id) && r.deleted_at == null) {
+      if (allowDelete && !incomingIds.has(id) && r.deleted_at == null) {
         await tx.run(
           `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
           [now, now, id],
@@ -796,6 +806,24 @@ export async function saveWorldAgents(db: SqlDriver, incoming: WorldAgentSnapsho
     // morte che i client hanno da tempo processato → non deve forzare un broadcast).
     await pruneWorldTombstones(tx, TOMBSTONE_TTL_MS, now);
 
+    const { version, updatedAt } = changed ? await bumpWorldVersion(tx) : await loadWorldVersion(tx);
+    return { agents: await loadWorldAgents(tx), version, updatedAt, changed };
+  });
+}
+
+/**
+ * Cancella **subito** un agente dal roster (tombstone) e bumpa la versione, senza
+ * aspettare il prossimo push dell'intero mondo: chi cancella e ricarica la pagina non
+ * deve rivederlo. Idempotente: un agente già cancellato o sconosciuto → `changed: false`.
+ */
+export async function tombstoneWorldAgent(db: SqlDriver, id: string): Promise<WorldMergeResult> {
+  const now = Date.now();
+  return db.transaction(async (tx) => {
+    const res = await tx.run(
+      `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+      [now, now, id],
+    );
+    const changed = res.changes > 0;
     const { version, updatedAt } = changed ? await bumpWorldVersion(tx) : await loadWorldVersion(tx);
     return { agents: await loadWorldAgents(tx), version, updatedAt, changed };
   });

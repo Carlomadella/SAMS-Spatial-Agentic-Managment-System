@@ -888,6 +888,26 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
   }
 }
 
+/**
+ * Cancella subito un agente sul server (tombstone), senza aspettare il prossimo push
+ * del mondo: così un refresh subito dopo non lo fa ricomparire. `keepalive` fa arrivare
+ * la richiesta anche se la pagina si sta chiudendo. Ritorna la nuova versione, o null.
+ */
+export async function deleteWorldAgent(id: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${BASE}/api/world/agents/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: authHeaders(false),
+      keepalive: true,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { version?: number };
+    return typeof data.version === "number" ? data.version : null;
+  } catch {
+    return null;
+  }
+}
+
 // --- Chat di workspace (mondo condiviso) ---------------------------------
 
 export interface ChatMessageRemote {

@@ -27,9 +27,12 @@ import {
 import { SEED_AGENTS } from "../data/seed";
 import { clampToRoom, house, SPAWN_POINT, type HouseLayout } from "../data/world";
 
-/** La pianta della casa, da usare nei componenti (è fissa: stanze iconiche del 23/11). */
+/**
+ * La pianta della casa, da usare nei componenti: stanze fisse (23/11), con una
+ * postazione per agente in Biblioteca, Officina e Laboratorio (24/11).
+ */
 export function useHouse(): HouseLayout {
-  return house();
+  return house(useStore((s) => s.agents.length));
 }
 import { clamp, uid } from "../lib/utils";
 import { canonicalRole } from "../lib/agentRoles";
@@ -196,6 +199,11 @@ interface State {
   openNewAgent: (color?: AgentColor) => void;
   closeNewAgent: () => void;
   removeAgent: (id: string) => void;
+  /** Agente di cui si sta chiedendo conferma della cancellazione (finestra aperta), o null. */
+  agentToRemove: string | null;
+  /** Apre la finestra «Eliminare l'agente?»: i pulsanti del cestino passano da qui. */
+  askRemoveAgent: (id: string) => void;
+  cancelRemoveAgent: () => void;
   selectAgent: (id: string | null) => void;
   setCameraFollow: (v: boolean) => void;
   setRole: (id: string, role: string) => void;
@@ -622,6 +630,10 @@ export const useStore = create<State>()(
     }));
     if (a) get().log({ agentId: null, agentName: a.name, color: a.color, level: "WARN", message: "Agente rimosso dall'area di lavoro" });
   },
+
+  agentToRemove: null,
+  askRemoveAgent: (id) => set({ agentToRemove: id }),
+  cancelRemoveAgent: () => set({ agentToRemove: null }),
 
   selectAgent: (id) => set({ selectedAgentId: id, cameraFollow: id !== null }),
   setCameraFollow: (v) => set({ cameraFollow: v }),

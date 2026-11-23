@@ -3,6 +3,7 @@
 // `house().furniture` (world.ts), così quello che si vede è quello che il pathfinder evita.
 //
 //   Biblioteca (lampade accese)  | Officina (monitor con il file) | Laboratorio (semaforo)
+//   (in queste tre una postazione per agente: vedi `house(n)` in world.ts)
 //   Salotto (pausa, caffè)       | Reparto revisioni (schermo)    | Camera (6 letti)
 
 import { useEffect, useState } from "react";
@@ -32,8 +33,8 @@ import {
   WallSconce,
   Window,
 } from "./Furniture";
-import { house } from "../data/world";
-import { useStore } from "../store/useStore";
+import { house, type HouseLayout } from "../data/world";
+import { useHouse, useStore } from "../store/useStore";
 import type { RoomId } from "../lib/roomFor";
 import type { Rect } from "../lib/pathfind";
 import type { Agent } from "../types";
@@ -108,27 +109,31 @@ function RoomFloor({ id }: { id: RoomId }) {
 }
 
 const at = (r: Rect, y = 0): V3 => [(r.minX + r.maxX) / 2, y, (r.minZ + r.maxZ) / 2];
+/** Fattore di larghezza di un mobile ristretto: le postazioni si stringono quando sono tante. */
+const squeeze = (r: Rect, fullWidth: number): V3 => [Math.min(1, (r.maxX - r.minX) / fullWidth), 1, 1];
 
-/** Biblioteca: scaffali pieni e un tavolo da lettura le cui lampade si accendono quando qualcuno legge. */
-function Biblioteca({ agents }: { agents: Agent[] }) {
-  const L = house();
-  const [shelfA, shelfB, table] = L.furniture.biblioteca;
+/** Biblioteca: scaffali pieni e un tavolo da lettura per agente; le lampade si accendono quando qualcuno legge. */
+function Biblioteca({ agents, L }: { agents: Agent[]; L: HouseLayout }) {
+  const [shelfA, shelfB, ...tables] = L.furniture.biblioteca;
   const reading = agents.some((a) => a.status === "working" && inside(a, L.rooms.biblioteca));
   return (
     <group>
       <Bookshelf position={at(shelfA)} />
       <Bookshelf position={at(shelfB)} />
       <Bookshelf position={[-19.2, 0, -5]} rotation={[0, Math.PI / 2, 0]} />
-      <ReadingTable position={at(table)} lit={reading} />
+      {tables.map((t, i) => (
+        <group key={i} position={at(t)} scale={squeeze(t, 4)}>
+          <ReadingTable lit={reading} />
+        </group>
+      ))}
       <FloorLamp position={[-8.2, 0, -1.6]} />
       <Plant position={[-7.9, 0, -8.2]} />
     </group>
   );
 }
 
-/** Officina: quattro scrivanie; il monitor di chi scrive mostra il file appena scritto. */
-function Officina({ agents }: { agents: Agent[] }) {
-  const L = house();
+/** Officina: una scrivania per agente; il monitor di chi scrive mostra il file appena scritto. */
+function Officina({ agents, L }: { agents: Agent[]; L: HouseLayout }) {
   const lastWrite = useStore((s) => s.lastWrite);
   const seats = L.seats.officina;
   return (
@@ -141,7 +146,9 @@ function Officina({ agents }: { agents: Agent[] }) {
         const [x, , z] = at(desk);
         return (
           <group key={i}>
-            <Desk position={[x, 0, z]} />
+            <group position={[x, 0, z]} scale={squeeze(desk, 2.4)}>
+              <Desk />
+            </group>
             {who && (
               <Html position={[x, 1.75, z - 0.25]} center distanceFactor={7} zIndexRange={[9, 0]} pointerEvents="none">
                 <div className="pointer-events-none select-none whitespace-nowrap rounded-[3px] bg-[#0b0f17] px-1.5 py-0.5 font-mono text-[9px] text-emerald-300 ring-1 ring-sky-900/60">
@@ -159,18 +166,20 @@ function Officina({ agents }: { agents: Agent[] }) {
   );
 }
 
-/** Laboratorio: banconi, rack dei server e la grande lampada-semaforo dei test. */
-function Laboratorio({ agents }: { agents: Agent[] }) {
-  const L = house();
-  const [benchA, benchB, island, rack] = L.furniture.laboratorio;
+/** Laboratorio: un bancone per agente, rack dei server e la grande lampada-semaforo dei test. */
+function Laboratorio({ agents, L }: { agents: Agent[]; L: HouseLayout }) {
+  const benches = L.furniture.laboratorio.slice(0, -1);
+  const rack = L.furniture.laboratorio[L.furniture.laboratorio.length - 1];
   const labResult = useStore((s) => s.labResult);
   const now = useNow(1000);
   const working = agents.some((a) => a.status === "working" && inside(a, L.rooms.laboratorio));
   return (
     <group>
-      <LabBench position={at(benchA)} />
-      <LabBench position={at(benchB)} />
-      <LabBench position={at(island)} />
+      {benches.map((b, i) => (
+        <group key={i} position={at(b)} scale={squeeze(b, 2.4)}>
+          <LabBench />
+        </group>
+      ))}
       <ServerRack position={at(rack)} />
       <TrafficLamp position={[13, 2.15, -8.62]} color={labLamp(working, labResult, now)} />
       <Plant position={[7.9, 0, -8.2]} />
@@ -292,7 +301,8 @@ export function Rooms({
   queue: React.ReactNode;
 }) {
   const agents = useStore((s) => s.agents);
-  const ids = Object.keys(house().rooms) as RoomId[];
+  const L = useHouse();
+  const ids = Object.keys(L.rooms) as RoomId[];
   return (
     <group>
       {ids.map((id) => (
@@ -301,9 +311,9 @@ export function Rooms({
           <RoomSign id={id} />
         </group>
       ))}
-      <Biblioteca agents={agents} />
-      <Officina agents={agents} />
-      <Laboratorio agents={agents} />
+      <Biblioteca agents={agents} L={L} />
+      <Officina agents={agents} L={L} />
+      <Laboratorio agents={agents} L={L} />
       <Salotto queue={queue} movable={movable} />
       <Revisioni agents={agents} />
       <Camera movable={movable} />

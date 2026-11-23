@@ -33,6 +33,11 @@ export function canAssign(role: ViewerRole): boolean {
   return roleAtLeast(role, "editor");
 }
 
+/** Può eliminare agenti? Solo owner: gli altri membri del team no (24/11). */
+export function canDeleteAgents(role: ViewerRole): boolean {
+  return roleAtLeast(role, "owner");
+}
+
 /** Può toccare le impostazioni/segreti e il provisioning? Solo owner. */
 export function canConfigure(role: ViewerRole): boolean {
   return roleAtLeast(role, "owner");

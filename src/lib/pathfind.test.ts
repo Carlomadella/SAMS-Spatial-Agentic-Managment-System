@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findPath, type Rect } from "./pathfind";
 import type { Vec2 } from "../types";
-import { OBSTACLES } from "../data/world";
+import { OBSTACLES, house } from "../data/world";
 
 const bounds: Rect = { minX: -6, maxX: 6, minZ: -6, maxZ: 6 };
 
@@ -55,9 +55,10 @@ describe("findPath", () => {
   });
 
   it("steers through the doorways and around the real furniture", () => {
-    // from the living room (front-left) into the studio (back-left), crossing walls
+    // dal Salotto (davanti a sinistra) a un posto della Biblioteca (dietro a sinistra),
+    // attraverso i muri: il posto è libero per costruzione, i tavoli dipendono dagli agenti
     const start: Vec2 = [-6, 5];
-    const goal: Vec2 = [-9, -3];
+    const goal: Vec2 = house().seats.biblioteca[1];
     const path = findPath(start, goal, OBSTACLES);
     expect(path[path.length - 1]).toEqual(goal);
     for (const p of sampleRoute(start, path)) {

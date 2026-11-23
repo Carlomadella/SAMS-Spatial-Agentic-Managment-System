@@ -48,6 +48,7 @@ import {
   pruneWorldTombstones,
   recentTasks,
   saveWorldAgents,
+  tombstoneWorldAgent,
   setMemory,
   setRoutineEnabled,
   taskStats,
@@ -263,6 +264,47 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     task: "Fix",
     progress: 40,
     ...over,
+  });
+
+  // 24/11: la cancellazione arriva subito al server, non al prossimo salvataggio del mondo
+  // (che poteva arrivare dopo un refresh → l'agente cancellato tornava).
+  it("tombstoneWorldAgent segna subito cancellato l'agente e bumpa la versione", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    const res = await tombstoneWorldAgent(db, "a1");
+    expect(res.changed).toBe(true);
+    expect(res.version).toBe(2);
+    const loaded = await loadWorldAgents(db);
+    expect(loaded.find((a) => a.id === "a1")?.deleted).toBe(true);
+    expect(loaded.find((a) => a.id === "a2")?.deleted).toBeUndefined();
+    // una seconda cancellazione (o di un id sconosciuto) non cambia nulla
+    const again = await tombstoneWorldAgent(db, "a1");
+    expect(again.changed).toBe(false);
+    expect(again.version).toBe(2);
+    expect((await tombstoneWorldAgent(db, "nessuno")).changed).toBe(false);
+  });
+
+  // 24/11: solo l'owner cancella. Il push di un editor non può togliere agenti per assenza.
+  it("con allowDelete:false gli agenti assenti dal push restano vivi", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    const res = await saveWorldAgents(db, [agent({ id: "a1", status: "done" })], { allowDelete: false });
+    expect(res.changed).toBe(true);
+    const loaded = await loadWorldAgents(db);
+    expect(loaded.map((a) => a.id)).toEqual(["a1", "a2"]);
+    expect(loaded.find((a) => a.id === "a2")?.deleted).toBeUndefined();
+  });
+
+  // 24/11: all'avvio il server risalvava lo snapshot intero (tombstone compresi) e
+  // resuscitava gli agenti cancellati. Una voce `deleted` in arrivo non resuscita.
+  it("una voce marcata deleted nel push non resuscita l'agente", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    await tombstoneWorldAgent(db, "a2");
+    const snapshot = await loadWorldAgents(db);
+    const res = await saveWorldAgents(db, snapshot);
+    expect(res.changed).toBe(false);
+    expect((await loadWorldAgents(db)).find((a) => a.id === "a2")?.deleted).toBe(true);
   });
 
   it("returns an empty snapshot before anything is saved", async () => {
