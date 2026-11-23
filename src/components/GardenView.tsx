@@ -91,7 +91,7 @@ export function GardenView() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Giardino dei commit">
       {/* 3D garden fills the screen */}
       <div className="absolute inset-0">
         <Suspense

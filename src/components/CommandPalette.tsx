@@ -278,12 +278,17 @@ export function CommandPalette() {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm"
       onClick={() => setOpen(false)}
     >
+      {/* Collaudo 21/11, punto 6.9: anche la palette è una finestra per i lettori di schermo. */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Palette dei comandi"
         className="mt-[12vh] w-full max-w-xl animate-fade-in overflow-hidden rounded-xl border border-line bg-ink-850 shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
         <input
           ref={inputRef}
+          aria-label="Cerca un comando"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
