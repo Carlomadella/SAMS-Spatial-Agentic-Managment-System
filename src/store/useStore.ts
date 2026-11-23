@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { RoomId } from "../lib/roomFor";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
   AGENT_COLORS,
@@ -24,11 +25,11 @@ import {
   type Vec2,
 } from "../types";
 import { SEED_AGENTS } from "../data/seed";
-import { buildLayout, clampToRoom, house, nextWingCount, setCurrentWings, SPAWN_POINT, zoneForTitle, type HouseLayout } from "../data/world";
+import { clampToRoom, house, SPAWN_POINT, type HouseLayout } from "../data/world";
 
-/** La pianta per il numero di ali nello store: da usare nei componenti (si ridisegnano quando cambia). */
+/** La pianta della casa, da usare nei componenti (è fissa: stanze iconiche del 23/11). */
 export function useHouse(): HouseLayout {
-  return buildLayout(useStore((s) => s.houseWings));
+  return house();
 }
 import { clamp, uid } from "../lib/utils";
 import { canonicalRole } from "../lib/agentRoles";
@@ -169,8 +170,6 @@ interface State {
   toolsReady: boolean | null;
   /** branch base di Dev/Staging/Prod impostati dall'owner ("" = branch base solito) */
   envBranches: EnvBranches;
-  /** Ali della casa (0 = casa base): crescono con gli agenti, vedi `nextWingCount`. */
-  houseWings: number;
   /** collegamento GitHub di chi guarda ("Accedi con GitHub"); null se ignoto */
   githubAccount: GithubAccountStatus | null;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -214,7 +213,8 @@ interface State {
   removeAgentPreset: (id: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
-  sendToZone: (id: string, zoneId: string) => void;
+  /** Manda un agente in una stanza (il tipo impedisce nomi di stanze che non esistono). */
+  sendToZone: (id: string, zoneId: RoomId) => void;
   setStatus: (id: string, status: AgentStatus) => void;
   assignTask: (id: string, title: string, branch: string) => void;
   updateProgress: (id: string, progress: number) => void;
@@ -290,6 +290,12 @@ interface State {
   /** Ultimo risultato completo di ogni agente (riassunto finale del task), per l'Inspector.
    *  Collaudo 21/11, punto 1: resta anche quando il task si chiude o la pagina si ricarica. */
   results: Record<string, TaskResult>;
+  /** Stanze iconiche: che azione sta facendo ogni agente (dal runtime) e da quando. */
+  agentActivity: Record<string, { kind: ActivityKind; at: number }>;
+  /** Nome breve dell'ultimo file scritto da ogni agente (monitor dell'Officina). */
+  lastWrite: Record<string, string>;
+  /** Ultimo esito dei test letto dalla CI (lampada del Laboratorio). */
+  labResult: { result: "success" | "failure"; at: number } | null;
   clearEvents: () => void;
   clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
@@ -337,8 +343,6 @@ interface State {
   setRuntimeModel: (model: string) => void;
   setToolsReady: (ready: boolean | null) => void;
   setEnvBranches: (branches: EnvBranches) => void;
-  /** Ricalcola le ali dal numero di agenti (con il margine per restringere). */
-  syncHouseWings: () => void;
   setGithubAccount: (account: GithubAccountStatus | null) => void;
   setRuntimeBranch: (branch: string) => void;
   setSimMode: (on: boolean) => void;
@@ -365,6 +369,10 @@ interface State {
     detail?: string;
     /** risultato completo del task (riassunto finale) */
     result?: { title: string; summary: string };
+    /** Stanze iconiche: che azione sta facendo l'agente */
+    activity?: ActivityKind;
+    /** esito dei test letto dalla CI */
+    ci?: "success" | "failure";
     tokens?: number;
     pendingFiles?: PendingFile[];
     pendingMerge?: PendingMerge;
@@ -472,6 +480,19 @@ function patchLatestTask(
   return tasks;
 }
 
+export type ActivityKind = "read" | "write" | "test";
+
+/**
+ * Nome breve dell'ultimo file scritto, dai messaggi del runtime («write src/a.ts»,
+ * «staged src/a.ts», «write atomico: a.ts, b.ts»). `null` se il messaggio non è una scrittura.
+ */
+export function writtenFileName(message: string): string | null {
+  const m = message.match(/^(?:write|staged) (?:atomico: )?(.+)$/);
+  if (!m || /^\d+ file\b/.test(m[1])) return null;
+  const last = m[1].split(",").pop()!.trim();
+  return last.split("/").pop() || null;
+}
+
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
@@ -529,7 +550,6 @@ export const useStore = create<State>()(
   runtimeBranch: "",
   toolsReady: null,
   envBranches: NO_ENV_BRANCHES,
-  houseWings: 0,
   githubAccount: null,
   simMode: false,
   simLabel: "sams",
@@ -556,6 +576,9 @@ export const useStore = create<State>()(
 
   speech: {},
   results: {},
+  agentActivity: {},
+  lastWrite: {},
+  labResult: null,
   say: (agentId, text) =>
     set((s) => ({ speech: { ...s.speech, [agentId]: { id: uid("say"), text, ts: Date.now() } } })),
 
@@ -720,9 +743,6 @@ export const useStore = create<State>()(
       }),
       tasks: [...s.tasks, rec].slice(-100),
     }));
-    // walk to a fitting zone so work visibly "happens" somewhere
-    const zone = house().zoneById[zoneForTitle(title)];
-    if (zone) get().moveAgent(id, zone.position);
     get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Task avviato: ${title}` });
   },
 
@@ -1029,13 +1049,6 @@ export const useStore = create<State>()(
   setRuntimeModel: (model) => set({ runtimeModel: model }),
   setToolsReady: (ready) => set({ toolsReady: ready }),
   setEnvBranches: (branches) => set({ envBranches: branches }),
-  syncHouseWings: () => {
-    const { agents, houseWings } = get();
-    const next = nextWingCount(agents.length, houseWings);
-    if (next === houseWings) return;
-    setCurrentWings(next);
-    set({ houseWings: next });
-  },
   setGithubAccount: (account) => set({ githubAccount: account }),
   setRuntimeBranch: (branch) => set({ runtimeBranch: branch }),
   setSimMode: (on) => set({ simMode: on }),
@@ -1111,6 +1124,20 @@ export const useStore = create<State>()(
       }
       return;
     }
+    // Stanze iconiche: fase dell'agente ed esito dei test. Non sono passi da mostrare nel
+    // Log eventi; una fase per un agente che non c'è si ignora.
+    if (e.activity || e.ci) {
+      const now = Date.now();
+      set((s) => ({
+        agentActivity: e.activity && s.agents.some((a) => a.id === e.agentId)
+          ? { ...s.agentActivity, [e.agentId]: { kind: e.activity, at: now } }
+          : s.agentActivity,
+        labResult: e.ci ? { result: e.ci, at: now } : s.labResult,
+      }));
+      return;
+    }
+    const written = e.message ? writtenFileName(e.message) : null;
+    if (written) set((s) => ({ lastWrite: { ...s.lastWrite, [e.agentId]: written } }));
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
@@ -1313,9 +1340,3 @@ export const useSelectedAgent = (): Agent | null => {
   return useStore((s) => s.agents.find((a) => a.id === id) ?? null);
 };
 
-// La casa cresce con gli agenti: a ogni cambio del loro numero (anche dal roster del
-// server o dal ripristino del browser) si ricalcolano le ali.
-useStore.getState().syncHouseWings();
-useStore.subscribe((s, prev) => {
-  if (s.agents.length !== prev.agents.length) s.syncHouseWings();
-});

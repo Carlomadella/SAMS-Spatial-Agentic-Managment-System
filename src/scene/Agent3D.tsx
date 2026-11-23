@@ -96,8 +96,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   const atBed = layout.beds.some((b) => Math.hypot(agent.position[0] - b[0], agent.position[1] - b[1]) < 1.2);
   const sleeping = nightTime && !agent.target && atBed;
 
-  // Micro-activities for free agents: a coffee in the kitchen, a sketch at the
-  // whiteboard, or an occasional stretch elsewhere. Purely visual, re-evaluated
+  // Micro-activities for free agents: a coffee at the Salotto's coffee machine, or an
+  // occasional stretch elsewhere. Purely visual, re-evaluated
   // on a slow tick from the agent's committed position.
   const [activity, setActivity] = useState<Activity>(null);
   const activityRef = useRef<Activity>(null);
@@ -110,9 +110,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       }
       const [x, z] = agent.position;
       const near = (p: Vec2) => Math.hypot(x - p[0], z - p[1]) < 3;
-      const zones = house().zoneById;
-      if (near(zones.kitchen.position) || (zones.terrace && near(zones.terrace.position))) setActivity("coffee");
-      else if (near(zones.whiteboard.position) || (zones.library && near(zones.library.position))) setActivity("sketch");
+      // il primo posto del Salotto è davanti alla macchinetta del caffè
+      if (near(house().seats.salotto[0])) setActivity("coffee");
       else setActivity((a) => (a === "stretch" ? null : Math.random() < 0.3 ? "stretch" : null));
     };
     pick();
@@ -442,7 +441,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       label: "Manda nel salotto",
       icon: Moon,
       onClick: () => {
-        sendToZone(agent.id, "lounge");
+        sendToZone(agent.id, "salotto");
         setStatus(agent.id, "idle");
       },
     },

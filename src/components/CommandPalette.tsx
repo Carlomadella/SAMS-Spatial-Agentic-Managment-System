@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { knownPlacements } from "../scene/roomSigns";
 import {
   Bell,
   BookOpen,
@@ -167,7 +168,7 @@ export function CommandPalette() {
         s.pushToast("INFO", next ? "Modalità riordino: trascina i mobili con l'anello arancione" : "Riordino terminato");
       },
     });
-    if (placedCount(s.furniturePlacements) > 0) {
+    if (placedCount(knownPlacements(s.furniturePlacements)) > 0) {
       list.push({
         id: "room-reset",
         label: "Reset mobili: rimetti tutto a posto",

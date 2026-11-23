@@ -23,7 +23,7 @@ describe("<RoomEditBanner />", () => {
   });
 
   it("mostra Reset col conteggio quando ci sono mobili spostati", () => {
-    useStore.setState({ roomEditMode: true, furniturePlacements: { "bed-0": { dx: 2, dz: 0 }, sofa: { dx: 0, dz: 0 } } });
+    useStore.setState({ roomEditMode: true, furniturePlacements: { "camera-bed-0": { dx: 2, dz: 0 }, "salotto-tv": { dx: 0, dz: 0 }, "kitchen-island": { dx: 1, dz: 0 } } });
     render(<RoomEditBanner />);
     // solo bed-0 è davvero spostato (sofa dx/dz nulli non conta)
     expect(screen.getByRole("button", { name: /Reset \(1\)/ })).toBeTruthy();

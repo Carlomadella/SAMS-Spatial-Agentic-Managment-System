@@ -5,6 +5,7 @@
  * This module owns the single source of truth for: tool specs, the per-provider
  * spec adapters, the tool dispatcher (executeTool) and the post-loop finalize.
  */
+import { activityForTool, ciOutcome } from "./activity";
 import type { Settings } from "./config";
 import { callMcpTool, describeMcpServers, parseMcpServers } from "./mcp";
 import {
@@ -756,6 +757,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     emit({ agentId, agentName, level: "WARN", message: `${name} rifiutato: ultimo passo, solo strumenti per concludere` });
     return `ERRORE: all'ultimo passo non puoi usare ${name}. Lascia il risultato (commento, file o nota) e chiama done.`;
   }
+  // Stanze iconiche (23/11): che azione è, così la casa mette l'agente nella stanza giusta.
+  // Senza messaggio: non è un passo da mostrare nel Log eventi.
+  const activity = activityForTool(name);
+  if (activity) emit({ agentId, agentName, activity });
   ctx.progress = Math.min(PROGRESS_CAP, ctx.progress + PROGRESS_STEP);
   const progress = ctx.progress;
   let result = "ok";
@@ -882,6 +887,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     } else if (name === "gh_list_ci") {
       result = await listCIRuns(str(args.branch) || undefined);
       emit({ agentId, agentName, progress, level: "INFO", message: `CI run elencati` });
+      const ci = ciOutcome(result, "runs");
+      if (ci) emit({ agentId, agentName, ci });
     } else if (name === "gh_trigger_workflow") {
       const wf = str(args.workflow);
       const ref = str(args.ref);
@@ -928,6 +935,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       else {
         result = await getWorkflowJobs(runId);
         emit({ agentId, agentName, progress, level: "INFO", message: `Job CI del run #${runId}` });
+        const ci = ciOutcome(result, "jobs");
+        if (ci) emit({ agentId, agentName, ci });
       }
     } else if (name === "notion_read") {
       const { title: resolved, text } = await readPageByTitle(str(args.page_title));

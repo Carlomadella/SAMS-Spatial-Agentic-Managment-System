@@ -17,6 +17,10 @@ export interface WireEvent {
   status?: "idle" | "working" | "review" | "blocked" | "done" | "awaiting_approval";
   /** 0..100 */
   progress?: number;
+  /** Stanze iconiche: che azione sta facendo l'agente (read → Biblioteca, write → Officina, test → Laboratorio). */
+  activity?: "read" | "write" | "test";
+  /** esito dei test letto dalla CI (lampada del Laboratorio) */
+  ci?: "success" | "failure";
   /** cumulative tokens used by this task (sent once on completion) */
   tokens?: number;
   /** file contents staged for approval (sent with status = awaiting_approval) */

@@ -33,7 +33,8 @@ import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { isMobileWidth } from "./lib/layout";
 import { canAssign } from "./lib/roleUi";
-import { house, isNightNow, randomWalkPoint, reviewSeat } from "./data/world";
+import { isNightNow, randomRoomPoint } from "./data/world";
+import { planMoves, type RoomMemo } from "./lib/roomMoves";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
 import { storageGet, storageRemove, storageSet } from "./lib/safeStorage";
@@ -907,51 +908,26 @@ function isFreeAgent(a: { status: string; target: Vec2 | null }): boolean {
 }
 
 /**
- * Gives every free agent a life: by day they wander to a random spot in the
- * house every so often; after 23:00 they head to a bed and sleep until morning
- * (or until you give them a task). Runs on a slow tick so movement feels organic.
+ * Stanze iconiche (23/11): ogni agente sta nella stanza dell'azione che sta facendo —
+ * Biblioteca (legge), Officina (scrive), Laboratorio (test), Reparto revisioni (attende
+ * una conferma). Chi è libero sta in Salotto, di notte in Camera al suo letto. Decide
+ * `planMoves` (con la tenuta minima di 20 s); qui si fanno solo camminare gli agenti.
  */
 function LifeBridge() {
+  const memo = useRef<RoomMemo>(new Map());
   useEffect(() => {
-    const near = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.6;
-
     const self = getViewerId();
     const tick = () => {
       const st = useStore.getState();
-      // Solo il simulatore muove gli agenti liberi: un follower segue il movimento
-      // del driver (opzione B3), non ne genera uno proprio con Math.random → niente
-      // due mondi che vagano diversamente. Da solo → guida sé stesso, come prima.
+      // Solo il simulatore muove gli agenti: un follower segue il movimento del driver
+      // (opzione B3), non ne genera uno proprio → niente due mondi diversi.
       if (!iAmSimulator(st.worldDriver, self)) return;
-      // Chi aspetta una conferma per il branch principale va nel Reparto revisioni e resta
-      // lì, giorno e notte, finché una persona non decide (scelta dell'utente del 21/11).
-      const gated = st.agents.filter((a) => a.status === "awaiting_approval" && (a.mainGate || a.pendingMerge));
-      gated.forEach((a, i) => {
-        const seat = reviewSeat(i);
-        if (!near(a.position, seat) && !(a.target && near(a.target, seat))) st.moveAgent(a.id, seat);
-      });
       const night = isNightNow();
-      // Only "free" agents live a life: an agent on a real task keeps working,
-      // day or night — it doesn't get dragged to bed.
-      const free = st.agents.filter(isFreeAgent);
-      for (const a of free) {
-        if (night) {
-          // settle into a stable per-agent bed and sleep there
-          const idx = st.agents.findIndex((x) => x.id === a.id);
-          const { beds } = house();
-          const bed = beds[idx % beds.length];
-          if (!near(a.position, bed)) st.moveAgent(a.id, bed);
-        } else if (Math.random() < 0.5) {
-          // daytime: roam — sometimes for a coffee or to the whiteboard (where
-          // Agent3D plays the matching micro-animation).
-          const r = Math.random();
-          const zones = house().zoneById;
-          // la pausa a volte in terrazza, se la casa ce l'ha
-          const breakSpot = zones.terrace && Math.random() < 0.5 ? zones.terrace : zones.kitchen;
-          const dest =
-            r < 0.22 ? breakSpot.position
-            : r < 0.4 ? zones.whiteboard.position
-            : randomWalkPoint();
-          st.moveAgent(a.id, dest);
+      for (const m of planMoves(st.agents, st.agentActivity, memo.current, night, Date.now())) st.moveAgent(m.id, m.to);
+      // di giorno chi è libero ogni tanto cambia posto dentro il Salotto
+      if (!night) {
+        for (const a of st.agents.filter((x) => isFreeAgent(x) && x.status !== "blocked")) {
+          if (Math.random() < 0.15) st.moveAgent(a.id, randomRoomPoint("salotto"));
         }
       }
     };
