@@ -5,6 +5,7 @@ import { notionConfigured } from "./notion";
 import { parseMcpServers } from "./mcp";
 import { llmTimeoutMs, retryMessage, type RetryReason } from "./llmTimeout";
 import { buildEndpoints, chatWithFallback, fallbackMessage, type FallbackWhy } from "./llmFallback";
+import { isQuotaExhausted, noteEngineExhausted, noteEngineSuccess } from "./engineState";
 import type { AssignBody, WireEvent } from "./types";
 import {
   concludeWithAnswer,
@@ -123,7 +124,10 @@ export async function openrouterChat(
   const endpoints = buildEndpoints(s, "openrouter", openrouterModel());
   const label = (id: string) => endpoints.find((e) => e.id === id)?.label ?? id;
 
-  const { data, endpoint } = await chatWithFallback(endpoints, {
+  const primary = endpoints[0]?.label ?? "OpenRouter";
+  let outcome: Awaited<ReturnType<typeof chatWithFallback>>;
+  try {
+    outcome = await chatWithFallback(endpoints, {
     body: {
       messages: allMessages,
       tools: tools.length > 0 ? tools : undefined,
@@ -135,7 +139,14 @@ export async function openrouterChat(
     maxBackoffMs: MAX_BACKOFF_MS,
     onRetry: (_p, attempt, waitMs, why) => onRetry?.(attempt, waitMs, why),
     onFallback: (from, to, why) => onFallback?.(label(from), label(to), why),
-  });
+    });
+  } catch (err) {
+    // Barra in basso (collaudo 21/11, punto 2B): quote finite anche sulle riserve.
+    if (isQuotaExhausted(err)) noteEngineExhausted(primary);
+    throw err;
+  }
+  const { data, endpoint } = outcome;
+  noteEngineSuccess(primary, endpoint.label);
   const msg = (data as OpenRouterResponse).choices[0]?.message;
   const toolCalls = (msg?.tool_calls ?? []).map((tc) => {
     let args: Record<string, unknown> = {};

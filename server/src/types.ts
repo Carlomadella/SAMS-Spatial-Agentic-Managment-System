@@ -35,6 +35,8 @@ export interface WireEvent {
    *  distinguishes a webhook wake (gated by the user's opt-in toggle) from a
    *  scheduled-routine wake (always assigned — the routine itself is the opt-in). */
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
+  /** "engine": stato del motore AI (in uso, riserva o quote finite) per la barra in basso */
+  engine?: { provider: string; mode: "ok" | "fallback" | "exhausted"; since: number };
   /** "presence": number of connected views (SSE clients), broadcast on connect/
    *  disconnect. Carries no agent state — the UI only reads the count. */
   presence?: number;

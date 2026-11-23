@@ -5,6 +5,7 @@ import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
 import { roleMeta } from "../lib/roleUi";
 import { Link } from "../site/router";
 import { effectiveBranch } from "../lib/environments";
+import { engineLabel } from "../lib/engine";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -25,6 +26,7 @@ export function StatusBar() {
   const envBranches = useStore((s) => s.envBranches);
   // Il branch da cui partono i task nell'ambiente scelto (quello dell'ambiente, o il base).
   const { branch, dedicated } = effectiveBranch(environment, envBranches, runtimeBranch);
+  const engine = useStore((s) => s.engine);
   const blocked = useStore((s) => s.agents.filter((a) => a.status === "blocked").length);
 
   const runtime = !backendEnabled
@@ -78,6 +80,19 @@ export function StatusBar() {
             🕹️ {worldDriver.holderId === getViewerId() ? "guidi tu" : `guida ${worldDriver.name}`}
           </span>
         )}
+        {backendEnabled && backendOnline && engine && (() => {
+          const e = engineLabel(engine);
+          return (
+            <span
+              className={`flex items-center gap-1 ${e.tone === "bad" ? "text-rose-200" : e.tone === "warn" ? "text-amber-200" : ""}`}
+              title={e.title}
+              data-testid="engine-status"
+            >
+              {e.tone === "ok" ? null : <CircleAlert size={12} />}
+              <span className={e.tone === "ok" ? "hidden sm:inline" : ""}>{e.text}</span>
+            </span>
+          );
+        })()}
         {roleEnforced && (
           <span className="flex items-center gap-1" title={roleMeta(viewerRole).title}>
             <span>{roleMeta(viewerRole).icon}</span> {roleMeta(viewerRole).label}
