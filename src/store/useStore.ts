@@ -24,11 +24,11 @@ import {
   type Vec2,
 } from "../types";
 import { SEED_AGENTS } from "../data/seed";
-import { buildLayout, clampToRoom, house, nextWingCount, setCurrentWings, SPAWN_POINT, zoneForTitle, type HouseLayout } from "../data/world";
+import { clampToRoom, house, SPAWN_POINT, type HouseLayout } from "../data/world";
 
-/** La pianta per il numero di ali nello store: da usare nei componenti (si ridisegnano quando cambia). */
+/** La pianta della casa, da usare nei componenti (è fissa: stanze iconiche del 23/11). */
 export function useHouse(): HouseLayout {
-  return buildLayout(useStore((s) => s.houseWings));
+  return house();
 }
 import { clamp, uid } from "../lib/utils";
 import { canonicalRole } from "../lib/agentRoles";
@@ -169,8 +169,6 @@ interface State {
   toolsReady: boolean | null;
   /** branch base di Dev/Staging/Prod impostati dall'owner ("" = branch base solito) */
   envBranches: EnvBranches;
-  /** Ali della casa (0 = casa base): crescono con gli agenti, vedi `nextWingCount`. */
-  houseWings: number;
   /** collegamento GitHub di chi guarda ("Accedi con GitHub"); null se ignoto */
   githubAccount: GithubAccountStatus | null;
   /** Live Sim: agents pick GitHub issues automatically when enabled */
@@ -343,8 +341,6 @@ interface State {
   setRuntimeModel: (model: string) => void;
   setToolsReady: (ready: boolean | null) => void;
   setEnvBranches: (branches: EnvBranches) => void;
-  /** Ricalcola le ali dal numero di agenti (con il margine per restringere). */
-  syncHouseWings: () => void;
   setGithubAccount: (account: GithubAccountStatus | null) => void;
   setRuntimeBranch: (branch: string) => void;
   setSimMode: (on: boolean) => void;
@@ -552,7 +548,6 @@ export const useStore = create<State>()(
   runtimeBranch: "",
   toolsReady: null,
   envBranches: NO_ENV_BRANCHES,
-  houseWings: 0,
   githubAccount: null,
   simMode: false,
   simLabel: "sams",
@@ -746,9 +741,6 @@ export const useStore = create<State>()(
       }),
       tasks: [...s.tasks, rec].slice(-100),
     }));
-    // walk to a fitting zone so work visibly "happens" somewhere
-    const zone = house().zoneById[zoneForTitle(title)];
-    if (zone) get().moveAgent(id, zone.position);
     get().log({ agentId: id, agentName: a.name, color: a.color, level: "INFO", message: `Task avviato: ${title}` });
   },
 
@@ -1055,13 +1047,6 @@ export const useStore = create<State>()(
   setRuntimeModel: (model) => set({ runtimeModel: model }),
   setToolsReady: (ready) => set({ toolsReady: ready }),
   setEnvBranches: (branches) => set({ envBranches: branches }),
-  syncHouseWings: () => {
-    const { agents, houseWings } = get();
-    const next = nextWingCount(agents.length, houseWings);
-    if (next === houseWings) return;
-    setCurrentWings(next);
-    set({ houseWings: next });
-  },
   setGithubAccount: (account) => set({ githubAccount: account }),
   setRuntimeBranch: (branch) => set({ runtimeBranch: branch }),
   setSimMode: (on) => set({ simMode: on }),
@@ -1353,9 +1338,3 @@ export const useSelectedAgent = (): Agent | null => {
   return useStore((s) => s.agents.find((a) => a.id === id) ?? null);
 };
 
-// La casa cresce con gli agenti: a ogni cambio del loro numero (anche dal roster del
-// server o dal ripristino del browser) si ricalcolano le ali.
-useStore.getState().syncHouseWings();
-useStore.subscribe((s, prev) => {
-  if (s.agents.length !== prev.agents.length) s.syncHouseWings();
-});

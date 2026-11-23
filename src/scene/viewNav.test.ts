@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_WINGS, buildLayout } from "../data/world";
+import { house } from "../data/world";
 import { clampTarget, followTransition, smoothFactor, isSceneKeyTarget, isTypingTarget, keyToAction, movedBeyond, roomShortcuts } from "./viewNav";
 
 const B = { minX: -10, maxX: 10, minZ: -8, maxZ: 8 };
@@ -17,15 +17,12 @@ describe("clampTarget", () => {
 });
 
 describe("roomShortcuts", () => {
-  it("ordina le stanze della casa base da sinistra a destra, dietro prima", () => {
-    const rooms = roomShortcuts(buildLayout(0));
-    expect(rooms.map((r) => r.id)).toEqual(["revisioni", "studio", "salotto", "cucina", "camera"]);
-    const studio = rooms.find((r) => r.id === "studio")!;
-    expect(studio.x).toBeCloseTo(-6.6);
-    expect(studio.z).toBeCloseTo(-4.6);
-  });
-  it("non supera nove stanze anche con tutte le ali", () => {
-    expect(roomShortcuts(buildLayout(MAX_WINGS)).length).toBeLessThanOrEqual(9);
+  it("ordina le sei stanze da sinistra a destra, dietro prima", () => {
+    const rooms = roomShortcuts(house());
+    expect(rooms.map((r) => r.id)).toEqual(["biblioteca", "salotto", "officina", "revisioni", "laboratorio", "camera"]);
+    const biblioteca = rooms.find((r) => r.id === "biblioteca")!;
+    expect(biblioteca.x).toBeCloseTo(-13.1);
+    expect(biblioteca.z).toBeCloseTo(-4.6);
   });
 });
 
