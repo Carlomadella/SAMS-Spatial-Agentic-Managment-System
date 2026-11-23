@@ -14,7 +14,7 @@ import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
 import { iAmSimulator, liveAgentPositions, movingAgents, separationPush, resolveSeparation } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
-import { bubbleText } from "../lib/bubble";
+import { statusBubble } from "../lib/bubble";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
 // Colori-stato centralizzati in STATUS_META (lib/meta): unica fonte per scena e pannelli.
@@ -177,24 +177,26 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
     return (h / 997) * Math.PI * 2;
   }, [agent.id]);
 
-  // speech bubble: surface this agent's latest event for a few seconds
-  const lastEvent = useStore((s) => {
-    for (let i = s.events.length - 1; i >= 0; i--) if (s.events[i].agentId === agent.id) return s.events[i];
+  // Fumetto solo nei momenti che contano (23/11: un fumetto a ogni passo era troppo):
+  // si apre quando cambia lo stato dell'agente. I singoli passi restano nel Log eventi.
+  const lastError = useStore((s) => {
+    for (let i = s.events.length - 1; i >= 0; i--) {
+      const e = s.events[i];
+      if (e.agentId === agent.id && e.level === "ERROR") return e.message;
+    }
     return undefined;
   });
-  // chiacchiere sociali: solo fumetto, non passano dal Log eventi
-  const lastSpeech = useStore((s) => s.speech[agent.id]);
   const [bubble, setBubble] = useState<string | null>(null);
+  const bubbleStatus = useRef(agent.status);
   useEffect(() => {
-    // il più recente tra l'ultimo evento di lavoro e l'ultima frase detta
-    const latest = lastSpeech && (!lastEvent || lastSpeech.ts >= lastEvent.ts)
-      ? { ts: lastSpeech.ts, text: lastSpeech.text, level: undefined }
-      : lastEvent && { ts: lastEvent.ts, text: lastEvent.message, level: lastEvent.level };
-    if (!latest || Date.now() - latest.ts > 8000) return;
-    setBubble(bubbleText(latest.text, latest.level));
+    const prev = bubbleStatus.current;
+    bubbleStatus.current = agent.status;
+    const text = statusBubble(prev, agent.status, { task: agent.task?.title, error: lastError });
+    if (!text) return;
+    setBubble(text);
     const t = setTimeout(() => setBubble(null), 6000);
     return () => clearTimeout(t);
-  }, [lastEvent?.id, lastSpeech?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [agent.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, delta) => {
     const g = groupRef.current;

@@ -1,3 +1,4 @@
+import type { AgentStatus } from "../types";
 // Testo del fumetto sopra un agente nella scena 3D.
 //
 // Collaudo 21/11, punto 2C: un errore finiva nel fumetto per intero (fino a 90 caratteri di
@@ -14,4 +15,30 @@ export function bubbleText(text: string, level?: string): string {
     return `⚠ ${short}`;
   }
   return text.length > MAX ? `${text.slice(0, MAX - 1)}…` : text;
+}
+
+/**
+ * Fumetto per un cambio di stato (23/11: un fumetto a ogni passo era troppo). Si apre
+ * solo nei momenti che contano: inizio del lavoro, attesa di approvazione, blocco e fine.
+ * Il resto (file letti, strumenti usati…) resta nel Log eventi.
+ */
+export function statusBubble(
+  prev: AgentStatus,
+  next: AgentStatus,
+  ctx: { task?: string | null; error?: string },
+): string | null {
+  if (prev === next) return null;
+  switch (next) {
+    case "working":
+      return ctx.task ? bubbleText(`▶ ${ctx.task}`) : "▶ Al lavoro";
+    case "awaiting_approval":
+      return "⏸ Aspetto la tua approvazione";
+    case "blocked":
+      return ctx.error ? bubbleText(ctx.error, "ERROR") : "⚠ Bloccato";
+    case "done":
+    case "review":
+      return "✓ Fatto";
+    default:
+      return null;
+  }
 }

@@ -26,7 +26,6 @@ import { isShared } from "./lib/presence";
 import { RoomEditBanner } from "./components/RoomEditBanner";
 import { metaRepo, resolveTaskRepo, META_IDEAS, buildMetaTask, pickMetaIdea, shouldProposeMeta } from "./lib/metaAgent";
 import { canStartQueued, composeRelayTitle, findRelayTarget, pickFreeAgent, shouldAutoStartQueue } from "./lib/orchestration";
-import { affinityBetween } from "./lib/relationships";
 import { chainTitle, matchingChains } from "./lib/chains";
 import { currentStage, expandStageTitle, runMatching, runRetrospective } from "./lib/collaboration";
 import { notificationBody, notificationTitle, shouldNotify } from "./lib/notify";
@@ -964,69 +963,6 @@ function LifeBridge() {
   return null;
 }
 
-// Short collaborative exchanges shown as speech bubbles when two free agents meet.
-const CHATTER: [string, string][] = [
-  ["Come procede il tuo task?", "Sto sistemando un bug, mi dai una mano?"],
-  ["Hai visto quell'errore nei test?", "Sì, proviamo a risolverlo insieme."],
-  ["Mi serve un parere su questa funzione.", "Certo, guardiamola insieme."],
-  ["Questo refactor mi sta dando filo da torcere.", "Ti aiuto, dividiamo il lavoro."],
-  ["Secondo te qui conviene una PR?", "Sì, apriamola e la rivediamo a quattro occhi."],
-  ["Pausa caffè in cucina?", "Volentieri, poi torniamo al codice."],
-];
-
-/**
- * Socialisation: now and then two nearby free agents turn to chat — a short
- * back-and-forth shown as speech bubbles (the agents "help each other"). Purely
- * visual: goes through `say` (bubble only), never into the event log.
- */
-function TalkBridge() {
-  useEffect(() => {
-    const self = getViewerId();
-    const tick = () => {
-      if (isNightNow()) return; // everyone's asleep
-      const st = useStore.getState();
-      // Solo il simulatore anima la socialità (chiacchiere = Math.random locale, non
-      // condivise): un follower resta quieto e vede il mondo del driver. Da solo, come prima.
-      if (!iAmSimulator(st.worldDriver, self)) return;
-      const free = st.agents.filter(isFreeAgent);
-      if (free.length < 2 || Math.random() > 0.5) return;
-
-      // pick a nearby pair, biased toward friends: among agents close enough to
-      // talk, prefer the pair with the strongest affinity (friends seek friends).
-      let best: [typeof free[number], typeof free[number]] | null = null;
-      let bestScore = Infinity;
-      for (let i = 0; i < free.length; i++) {
-        for (let j = i + 1; j < free.length; j++) {
-          const d = Math.hypot(
-            free[i].position[0] - free[j].position[0],
-            free[i].position[1] - free[j].position[1],
-          );
-          if (d > 9) continue; // must be near enough to chat
-          const aff = affinityBetween(st.affinity, free[i].id, free[j].id);
-          const score = d - aff * 0.5; // affinità "avvicina": gli amici parlano più spesso
-          if (score < bestScore) { bestScore = score; best = [free[i], free[j]]; }
-        }
-      }
-      if (!best) return;
-
-      const [a, b] = best;
-      // the exchange itself deepens their bond
-      st.bumpAffinity(a.id, b.id, 1);
-      const [lineA, lineB] = CHATTER[Math.floor(Math.random() * CHATTER.length)];
-      // Solo fumetti sopra gli agenti: le chiacchiere non sono lavoro e non vanno nel
-      // Log eventi (collaudo 19/11: lo riempivano di scambi finti).
-      st.say(a.id, `→ ${b.name}: ${lineA}`);
-      setTimeout(() => {
-        const fresh = useStore.getState().agents.find((x) => x.id === b.id);
-        if (fresh) useStore.getState().say(b.id, `→ ${a.name}: ${lineB}`);
-      }, 2600);
-    };
-    const id = setInterval(tick, 11000);
-    return () => clearInterval(id);
-  }, []);
-  return null;
-}
-
 /**
  * Fires a browser Notification when an agent completes a task.
  * Requests permission lazily on the first completion event.
@@ -1248,7 +1184,6 @@ export default function Workspace() {
       <DriverBridge />
       <MetaProactiveBridge />
       <LifeBridge />
-      <TalkBridge />
       <HungerBridge />
       <AudioBridge />
       <NarrationBridge />
