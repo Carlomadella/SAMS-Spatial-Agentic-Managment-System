@@ -454,7 +454,7 @@ function Handoffs() {
 }
 
 /**
- * Una cortina di particelle che cadono oltre i vetri (neve/pioggia/petali).
+ * Una cortina di particelle che cadono oltre i vetri (neve/petali).
  * Puramente decorativa: ogni mota che tocca il pavimento viene riciclata in
  * alto. La geometria e la dinamica cambiano col tipo di precipitazione.
  */
@@ -483,8 +483,8 @@ function WeatherCurtain({
       })),
     [count, spanX, spanZ],
   );
-  const fall = kind === "rain" ? 7 : kind === "petals" ? 1.1 : 0.9;
-  const swayAmp = kind === "rain" ? 0 : kind === "petals" ? 0.5 : 0.35;
+  const fall = kind === "petals" ? 1.1 : 0.9;
+  const swayAmp = kind === "petals" ? 0.5 : 0.35;
 
   useFrame((state, delta) => {
     const g = ref.current;
@@ -504,9 +504,7 @@ function WeatherCurtain({
     <group ref={ref} position={center}>
       {seeds.map((s, i) => (
         <mesh key={i} position={[s.x, s.y, s.z]} rotation={[0, 0, s.spin]}>
-          {kind === "rain" ? (
-            <boxGeometry args={[0.015, 0.4, 0.015]} />
-          ) : kind === "petals" ? (
+          {kind === "petals" ? (
             <planeGeometry args={[0.12, 0.08]} />
           ) : (
             <sphereGeometry args={[0.05, 8, 8]} />
@@ -514,7 +512,7 @@ function WeatherCurtain({
           <meshBasicMaterial
             color={color}
             transparent
-            opacity={kind === "rain" ? 0.35 : kind === "petals" ? 0.8 : 0.85}
+            opacity={kind === "petals" ? 0.8 : 0.85}
             side={THREE.DoubleSide}
             toneMapped={false}
           />
@@ -539,7 +537,7 @@ function Weather() {
       <WeatherCurtain
         kind={kind}
         color={color}
-        count={kind === "rain" ? 70 : 44}
+        count={44}
         spanX={layout.width + 4}
         spanZ={1.6}
         center={[layout.centerX, 0, ROOM.minZ - 1.4]}
@@ -547,7 +545,7 @@ function Weather() {
       <WeatherCurtain
         kind={kind}
         color={color}
-        count={kind === "rain" ? 40 : 26}
+        count={26}
         spanX={1.6}
         spanZ={layout.depth}
         center={[layout.bounds.maxX + 1.4, 0, 1]}

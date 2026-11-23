@@ -9,7 +9,7 @@
 export type Season = "winter" | "spring" | "summer" | "autumn";
 
 /** Cosa cade oltre le finestre. `none` = cielo sereno (nessuna particella). */
-export type Precipitation = "snow" | "rain" | "petals" | "none";
+export type Precipitation = "snow" | "petals" | "none";
 
 export interface Weather {
   season: Season;
@@ -68,11 +68,11 @@ const AUTUMN: Weather = {
   season: "autumn",
   seasonName: "Autunno",
   emoji: "🍂",
-  precipitation: "rain",
+  precipitation: "none", // niente pioggia (scelta dell'utente del 23/11)
   particleColor: "#9db4c8",
   tint: "#f3e2cf",
   tintStrength: 0.16,
-  blurb: "Pioggia leggera sui vetri.",
+  blurb: "Luce calda d'autunno.",
 };
 
 /**
