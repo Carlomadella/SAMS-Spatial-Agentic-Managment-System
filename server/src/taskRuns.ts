@@ -45,6 +45,13 @@ export function beginRun(agentId: string, title: string, now = Date.now()): bool
   return true;
 }
 
+/** Quanti task sono in corso adesso (per tenere sveglio il servizio, vedi keepAwake.ts). */
+export function runningCount(now = Date.now()): number {
+  let n = 0;
+  for (const id of [...runs.keys()]) if (live(id, now)) n++;
+  return n;
+}
+
 /** Il task è finito (bene, male o annullato): l'agente è di nuovo libero. */
 export function endRun(agentId: string): void {
   runs.delete(agentId);

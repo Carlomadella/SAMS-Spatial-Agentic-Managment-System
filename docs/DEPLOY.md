@@ -48,7 +48,9 @@ so:
   are read-only, and the runtime answers `409` with the name of the variable to set.
 - The service **sleeps after ~15 minutes without traffic** and takes about a minute to
   wake up; Render may also restart it at any time. **Routines run only while it is
-  awake.** Free services share 750 instance hours per workspace per month.
+  awake.** While an agent is working the runtime calls its own `RENDER_EXTERNAL_URL/api/health`
+  every 10 minutes so a long task is not killed by the sleep (set `SAMS_KEEP_AWAKE_URL` for
+  other hosts); with no task running it sleeps as before. Free services share 750 instance hours per workspace per month.
 - **Outbound SMTP is blocked** on the free plan (ports 25/465/587): send email with
   `RESEND_API_KEY`.
 

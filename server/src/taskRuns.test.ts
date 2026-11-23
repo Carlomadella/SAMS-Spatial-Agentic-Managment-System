@@ -48,3 +48,17 @@ describe("executeTool si ferma su un task annullato", () => {
     expect(ctx.finished).toBe(false);
   });
 });
+
+describe("runningCount", () => {
+  it("conta i task in corso, non quelli finiti o scaduti", async () => {
+    const { beginRun, endRun, runningCount, resetRuns, RUN_STALE_MS } = await import("./taskRuns");
+    resetRuns();
+    beginRun("a", "t", 1000);
+    beginRun("b", "t", 1000);
+    expect(runningCount(1000)).toBe(2);
+    endRun("a");
+    expect(runningCount(1000)).toBe(1);
+    expect(runningCount(1000 + RUN_STALE_MS + 1)).toBe(0);
+    resetRuns();
+  });
+});

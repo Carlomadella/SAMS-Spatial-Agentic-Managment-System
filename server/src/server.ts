@@ -39,10 +39,11 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { createKeepAwake, keepAwakeUrl } from "./keepAwake";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
-import { beginRun, currentRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
+import { beginRun, currentRun, endRun, requestCancel, runningCount, TaskCancelledError } from "./taskRuns";
 import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } from "./liveStatus";
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
@@ -1207,6 +1208,15 @@ app.get("/api/events", async (req: Request, res: Response) => {
   req.on("close", cleanup);
 });
 
+// Render gratuito addormenta il servizio dopo ~15 minuti senza richieste: finché un agente
+// lavora il server si chiama da solo (simulazione 23/11, vedi keepAwake.ts).
+const keepAwake = createKeepAwake({
+  url: keepAwakeUrl(),
+  ping: (url) => fetch(url, { signal: AbortSignal.timeout(20_000) }),
+  setInterval: (fn, ms) => setInterval(fn, ms).unref(),
+  clearInterval: (h) => clearInterval(h as ReturnType<typeof setInterval>),
+});
+
 // Per-agent cooldown: prevent hammering an agent with rapid task submissions.
 const ASSIGN_COOLDOWN_MS = 20_000; // 20 s between task starts per agent
 const lastAssign = new Map<string, number>();
@@ -1273,6 +1283,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
 
   res.json({ ok: true });
   noteTaskStarted(body.agentId, body.title, now);
+  keepAwake.update(runningCount(now));
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
   log.info("Task assegnato", { by: actorLabel(await roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
@@ -1298,7 +1309,11 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
   // A task finito (bene, male o annullato) l'agente torna libero. then a due rami: un
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
-  work.then(() => endRun(body.agentId), () => endRun(body.agentId));
+  const finished = () => {
+    endRun(body.agentId);
+    keepAwake.update(runningCount());
+  };
+  work.then(finished, finished);
   work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
     const agentName = body.agentName || body.agentId;
