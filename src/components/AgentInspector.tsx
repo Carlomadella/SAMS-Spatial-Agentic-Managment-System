@@ -42,6 +42,7 @@ export const AGENT_ROLES = [ // stessi id di AGENT_ROLE_IDS in lib/agentRoles
 
 export function AgentInspector() {
   const agent = useSelectedAgent();
+  const simMode = useStore((s) => s.simMode);
   const agents = useStore((s) => s.agents);
   const addAgent = useStore((s) => s.addAgent);
   const affinity = useStore((s) => s.affinity);
@@ -536,9 +537,12 @@ export function AgentInspector() {
         </div>
       </div>
 
-      {/* status quick set */}
-      <div className="mt-3">
-        <div className="mb-1.5 text-[11px] font-medium text-mut">Stato</div>
+      {/* status quick set — collaudo 21/11, punto 6.3 (opzione C): solo con la Live Sim
+          attiva, dove serve. Con agenti veri confondeva: si poteva segnare «Completato» un
+          task non finito. Fuori dalla simulazione resta «Annulla task». */}
+      {simMode && (
+      <div className="mt-3" data-testid="status-quick-set">
+        <div className="mb-1.5 text-[11px] font-medium text-mut">Stato (simulazione)</div>
         <div className="flex flex-wrap gap-1">
           {STATUSES.map((s) => (
             <button
@@ -556,6 +560,7 @@ export function AgentInspector() {
           ))}
         </div>
       </div>
+      )}
 
       {/* dispatch */}
       <div className="mt-3">
