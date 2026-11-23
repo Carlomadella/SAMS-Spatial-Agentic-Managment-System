@@ -50,6 +50,27 @@ describe("executeTool — control tools", () => {
     expect(ctx.doneSummary).toBe("all good");
   });
 
+  // Stanze iconiche (23/11): prima di eseguire lo strumento si dice che azione è,
+  // senza messaggio (non deve finire nel Log eventi).
+  it("annuncia la fase prima di eseguire lo strumento, senza messaggio", async () => {
+    const { ctx, events } = mkCtx();
+    await executeTool("announce_plan", { steps: ["uno"] }, ctx);
+    expect(events[0]).toEqual({ agentId: "a", agentName: "Blue", activity: "read" });
+  });
+
+  it("done non annuncia nessuna fase", async () => {
+    const { ctx, events } = mkCtx();
+    await executeTool("done", { summary: "ok" }, ctx);
+    expect(events.some((e) => e.activity)).toBe(false);
+  });
+
+  it("gh_ci_jobs manda l'esito dei test quando è chiaro", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ jobs: [{ name: "test", status: "completed", conclusion: "failure", steps: [] }] }), { status: 200 })));
+    const { ctx, events } = mkCtx();
+    await executeTool("gh_ci_jobs", { run_id: 7 }, ctx);
+    expect(events.find((e) => e.ci)?.ci).toBe("failure");
+  });
+
   it("announce_plan emits the plan and coerces steps to strings", async () => {
     const { ctx, events } = mkCtx();
     const res = await executeTool("announce_plan", { steps: ["one", 2, "three"] }, ctx);
