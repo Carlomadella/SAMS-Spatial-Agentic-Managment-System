@@ -39,6 +39,7 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { dropFakeSeedXp } from "./fakeSeedXp";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
@@ -2101,6 +2102,14 @@ try {
   const { imported } = await initSettings(db());
   if (imported.length > 0) log.info("Impostazioni importate dal file nel database", { fields: imported });
   if (ephemeralDisk()) log.info("Disco effimero: le chiavi si leggono solo dalle variabili d'ambiente");
+  // XP inventati dei sei agenti di partenza rimasti nel mondo salvato (collaudo 21/11).
+  // Si salva l'elenco intero (saveWorldAgents toglie gli assenti), solo se c'è da cambiare.
+  const world = await loadWorldSnapshot(db());
+  const cleaned = dropFakeSeedXp(world.agents);
+  if (cleaned.changed > 0) {
+    await saveWorldAgents(db(), cleaned.agents);
+    log.info("XP inventati degli agenti di partenza azzerati", { agents: cleaned.changed });
+  }
 } catch (err) {
   log.error("Database non raggiungibile: il runtime non parte", { backend: dbBackend(), err: String(err) });
   process.exit(1);

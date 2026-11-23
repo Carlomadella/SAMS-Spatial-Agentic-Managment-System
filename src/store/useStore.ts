@@ -41,6 +41,7 @@ import { NO_ENV_BRANCHES, type EnvBranches } from "../lib/environments";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
 import { applyTemplate, migrateLegacyRoleRules, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
+import { dropFakeSeedXp } from "../lib/fakeSeedXp";
 import { addPreset, removePreset } from "../lib/agentPresets";
 import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
 import { DEFAULT_OFFICE_ARRANGEMENT } from "../lib/officeLayout";
@@ -1179,10 +1180,12 @@ export const useStore = create<State>()(
       name: "sams.store",
       // v2 (20/11/2026): tolti i vincoli cablati sul ruolo nel server; agli agenti
       // con quei ruoli e senza istruzioni si copiano una volta le regole equivalenti.
-      version: 2,
+      // v3 (23/11/2026): azzerati gli XP inventati dei sei agenti di partenza (collaudo 21/11).
+      version: 3,
       migrate: (persisted, version) => {
         const st = persisted as { agents?: Agent[] } | null;
         if (version < 2 && st && Array.isArray(st.agents)) st.agents = migrateLegacyRoleRules(st.agents);
+        if (version < 3 && st && Array.isArray(st.agents)) st.agents = dropFakeSeedXp(st.agents).agents;
         return st as never;
       },
       storage: createJSONStorage(() => localStorage),
