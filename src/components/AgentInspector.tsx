@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Download, FileText, GitMerge, ShieldCheck, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
+import { Check, Download, FileText, GitMerge, Play, ShieldCheck, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useHouse, useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
 import { STATUS_META } from "../lib/meta";
@@ -111,12 +111,12 @@ export function AgentInspector() {
   const setPendingWork = useStore((s) => s.setPendingWork);
   const openReview = useStore((s) => s.openReview);
   const missingPending =
-    agent?.status === "awaiting_approval" && !(agent.pendingFiles?.length) && !agent.pendingMerge;
+    agent?.status === "awaiting_approval" && !(agent.pendingFiles?.length) && !agent.pendingMerge && !agent.pendingWorkflow;
   useEffect(() => {
     if (!agent?.id || !missingPending || !backendEnabled) return;
     let alive = true;
     void fetchPending(agent.id).then((w) => {
-      if (alive && w) setPendingWork(agent.id, { pendingFiles: w.pendingFiles, pendingMerge: w.pendingMerge ?? undefined, mainGate: w.mainGate });
+      if (alive && w) setPendingWork(agent.id, { pendingFiles: w.pendingFiles, pendingMerge: w.pendingMerge ?? undefined, pendingWorkflow: w.pendingWorkflow ?? undefined, mainGate: w.mainGate });
     });
     return () => { alive = false; };
   }, [agent?.id, missingPending, setPendingWork]);
@@ -240,7 +240,7 @@ export function AgentInspector() {
       )}
 
       {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
-      {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge) && (
+      {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge || agent.pendingWorkflow) && (
         <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5" data-testid="pending-panel">
           {agent.mainGate && (
             <p className="mb-2 text-[11px] leading-relaxed text-rose-200">
@@ -275,6 +275,15 @@ export function AgentInspector() {
                 </div>
               )}
               <div className="mt-0.5 text-[10px] text-mut">Vale solo per questo commit: se la PR cambia, il merge viene annullato.</div>
+            </div>
+          )}
+          {agent.pendingWorkflow && (
+            <div className="mb-3 text-[11px] text-rose-300" data-testid="pending-workflow">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Play size={12} />
+                Workflow {agent.pendingWorkflow.workflow} su {agent.pendingWorkflow.ref}
+              </div>
+              <div className="mt-0.5 text-[10px] text-mut">Parte solo se approvi, dopo il commit dei file.</div>
             </div>
           )}
           <button

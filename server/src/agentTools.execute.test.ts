@@ -162,7 +162,7 @@ describe("executeTool — gh_trigger_workflow", () => {
 
   it("calls triggerWorkflow and emits INFO on success", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))));
-    const { ctx, events } = mkCtx();
+    const { ctx, events } = mkCtx({ branch: "sams/alice/fix" });
     const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "sams/alice/fix" }, ctx);
     expect(res).toContain("ci.yml");
     expect(res).toContain("sams/alice/fix");
@@ -181,10 +181,32 @@ describe("executeTool — gh_trigger_workflow", () => {
     const { ctx } = mkCtx();
     await executeTool("gh_trigger_workflow", {
       workflow: "test.yml",
-      ref: "main",
+      ref: "b",
       inputs: { env: "staging" },
     }, ctx);
     expect((capturedBody as { inputs: { env: string } }).inputs.env).toBe("staging");
+  });
+
+  // Collaudo 21/11, punto 4 (limite deciso il 20/11): niente workflow fuori dal branch del
+  // task, e con l'approvazione obbligatoria il workflow aspetta una persona.
+  it("rifiuta un ref diverso dal branch del task, senza chiamare GitHub", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx, events } = mkCtx();
+    const res = await executeTool("gh_trigger_workflow", { workflow: "deploy.yml", ref: "main" }, ctx);
+    expect(res).toMatch(/^NON AVVIATO/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(events.at(-1)?.level).toBe("WARN");
+  });
+
+  it("con l'approvazione obbligatoria non parte: resta in attesa con il lavoro", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx } = mkCtx({ requireApproval: true });
+    const res = await executeTool("gh_trigger_workflow", { workflow: "ci.yml", ref: "b" }, ctx);
+    expect(res).toMatch(/^IN ATTESA/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.workflowRequest).toEqual({ workflow: "ci.yml", ref: "b" });
   });
 });
 
@@ -380,6 +402,18 @@ describe("summaryWithReadsNote — i file letti davvero finiscono nel riassunto 
     expect(out).toContain("(45): f0.ts, ");
     expect(out).toContain("f39.ts e altri 5");
     expect(out).not.toContain("f40.ts");
+  });
+});
+
+describe("finalizeTask — workflow in attesa (collaudo 21/11, punto 4)", () => {
+  afterEach(() => { clearPending("a"); });
+  it("solo un workflow chiesto: l'agente aspetta l'approvazione con il workflow in sospeso", async () => {
+    const { ctx, events } = mkCtx({ requireApproval: true, workflowRequest: { workflow: "ci.yml", ref: "b" }, finished: true });
+    await finalizeTask(ctx, { totalTokens: 0, repoEnabled: false, notionEnabled: false, prProviderLabel: "t" });
+    const ev = events.find((e) => e.status === "awaiting_approval");
+    expect(ev?.pendingWorkflow).toEqual({ workflow: "ci.yml", ref: "b" });
+    expect(ev?.mainGate).toBeUndefined();
+    expect(getPending("a")?.workflow).toEqual({ workflow: "ci.yml", ref: "b" });
   });
 });
 

@@ -132,6 +132,8 @@ export interface Agent {
   pendingFiles?: PendingFile[];
   /** Merge di una PR chiesto dall'agente: lo esegue il server solo dopo la conferma. */
   pendingMerge?: PendingMerge;
+  /** workflow GitHub da avviare quando una persona approva (approvazione obbligatoria) */
+  pendingWorkflow?: PendingWorkflow;
   /** In sala d'attesa: push o merge sul branch principale da confermare (l'agente è bloccato). */
   mainGate?: boolean;
   /** 0..100. Decreases during long tasks, recovers while idle. */
@@ -153,6 +155,12 @@ export interface Agent {
   /** Squadra (testo libero, es. "Simulazione"): il relay preferisce i compagni di
    *  squadra del mittente. Vuoto = nessuna squadra. */
   squad?: string;
+}
+
+/** Workflow chiesto da un agente con l'approvazione obbligatoria: parte dopo la conferma. */
+export interface PendingWorkflow {
+  workflow: string;
+  ref: string;
 }
 
 export interface LogEvent {

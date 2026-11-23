@@ -10,6 +10,8 @@ export interface PendingWork {
   toMain?: boolean;
   /** merge di una PR chiesto dall'agente, da eseguire solo dopo la conferma */
   merge?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
+  /** workflow chiesto dall'agente con l'approvazione obbligatoria: parte dopo la conferma */
+  workflow?: { workflow: string; ref: string; inputs?: Record<string, string> };
   /** Repo, token e branch base del task: chi approva committa lì, non sulla repo del server. */
   github?: GithubContext;
   createdAt: number;
