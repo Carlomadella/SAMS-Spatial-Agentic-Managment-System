@@ -107,6 +107,16 @@ describe("<Login />", () => {
     expect(navigate).not.toHaveBeenCalled(); // niente sessione → niente stanza
   });
 
+  // Collaudo 21/11, punto 6.8: la registrazione rimanda a Termini e Privacy; l'accesso no.
+  it("solo in registrazione compaiono i link a Termini e Privacy", () => {
+    render(<Login />);
+    // (il mock del router rende <a to=…>, senza href)
+    expect(screen.queryByText("informativa Privacy")).toBeNull();
+    fireEvent.click(screen.getByText("Registrati"));
+    expect(screen.getByText("Termini").getAttribute("to")).toBe("/termini");
+    expect(screen.getByText("informativa Privacy").getAttribute("to")).toBe("/privacy");
+  });
+
   it("login rifiutato perché l'email non è confermata: mostra il motivo", async () => {
     login.mockResolvedValue({
       ok: false,
