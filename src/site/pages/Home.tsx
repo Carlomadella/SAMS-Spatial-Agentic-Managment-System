@@ -102,7 +102,7 @@ export function Home() {
             </ul>
             <div className="mt-8">
               <CTAButton to="/app" variant="primary" size="lg" icon={<ArrowRight size={18} />}>
-                Inizia ora
+                Inizia gratis
               </CTAButton>
             </div>
           </div>

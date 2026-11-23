@@ -6,8 +6,10 @@ import { expect, test } from "@playwright/test";
 test("home rende hero + navbar", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("agenti AI");
-  await expect(page.getByRole("link", { name: "Apri la stanza" }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Entra nella stanza" })).toBeVisible();
+  // Collaudo 21/11, punto 6.6: un solo nome per l'azione, «Inizia gratis» nei Prezzi.
+  await expect(page.getByRole("banner").getByRole("link", { name: "Entra nella stanza" }).first()).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Entra nella stanza" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Inizia gratis" })).toBeVisible();
 });
 
 test("navbar naviga a Docs senza reload", async ({ page }) => {
@@ -88,7 +90,7 @@ test("il testo sul bottone primario contrasta con l'accento, in entrambi i temi"
     await page.goto("/");
     await page.evaluate((t) => localStorage.setItem("sams.theme", t), theme);
     await page.reload();
-    const cta = page.getByRole("link", { name: "Entra nella stanza" });
+    const cta = page.getByRole("main").getByRole("link", { name: "Entra nella stanza" });
     const { color, bg } = await cta.evaluate((el) => {
       const cs = getComputedStyle(el);
       return { color: cs.color, bg: cs.backgroundColor };
