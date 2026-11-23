@@ -29,7 +29,12 @@ describe("getWeather", () => {
     expect(getWeather(day(1, 10)).precipitation).toBe("snow");
     expect(getWeather(day(4, 10)).precipitation).toBe("petals");
     expect(getWeather(day(7, 10)).precipitation).toBe("none");
-    expect(getWeather(day(10, 10)).precipitation).toBe("rain");
+    expect(getWeather(day(10, 10)).precipitation).toBe("none");
+  });
+
+  // 23/11: l'utente non vuole la pioggia oltre le finestre.
+  it("non fa mai piovere", () => {
+    for (let m = 1; m <= 12; m++) expect(getWeather(day(m, 15)).precipitation).not.toBe("rain");
   });
 
   it("espone i campi richiesti da UI e scena 3D, con hex validi", () => {
