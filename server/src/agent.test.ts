@@ -92,6 +92,22 @@ describe("composeSystem", () => {
     expect(s2).not.toContain("Istruzioni specifiche");
   });
 
+  // Collaudo 21/11, punto 3A: le regole in cima e un controllo prima di done.
+  it("le regole dell'agente vanno in cima, prima di tutto il resto, con il controllo finale", () => {
+    const instr = "Scrivi solo file di test.";
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true, instructions: instr });
+    expect(s.startsWith("REGOLE DI QUESTO AGENTE")).toBe(true);
+    expect(s.indexOf(instr)).toBeLessThan(s.indexOf('Sei "x"'));
+    expect(s.trimEnd().endsWith("con il motivo.")).toBe(true);
+    expect(s).toContain("Regole rispettate: sì");
+  });
+
+  it("senza regole niente controllo finale", () => {
+    const s = composeSystem({ agentName: "x", notionEnabled: true, repoEnabled: true });
+    expect(s.startsWith('Sei "x"')).toBe(true);
+    expect(s).not.toContain("Regole rispettate");
+  });
+
   it("mette le istruzioni dell'agente prima delle linee guida del progetto", () => {
     const instr = "Evita le classi.";
     const guide = "Usa ESLint strict.";

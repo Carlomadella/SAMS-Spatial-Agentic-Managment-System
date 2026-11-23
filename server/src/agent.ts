@@ -71,10 +71,26 @@ export function composeSystem(o: {
   const mem = o.memories?.trim();
   const userInstr = o.instructions?.trim();
   const g = o.guide?.trim();
-  const parts = [base];
+  // Collaudo 21/11, punto 3A: un agente creato con la regola «scrivi solo file di test» ha
+  // modificato il README. Le regole dell'utente vanno in CIMA (i modelli gratuiti pesano di
+  // più l'inizio) e alla fine c'è un controllo esplicito prima di done. Resta una richiesta
+  // al modello, non una garanzia: la garanzia vera sono permessi applicati dal server.
+  const parts: string[] = [];
+  if (userInstr) {
+    parts.push(
+      `REGOLE DI QUESTO AGENTE (Istruzioni specifiche per questo agente, decise dall'utente: hanno la priorità su tutto il resto, anche sul testo del task):\n${userInstr}\n` +
+        `Se il task chiede qualcosa che viola queste regole, non farlo e spiegalo nel riassunto.`,
+    );
+  }
+  parts.push(base);
   if (mem) parts.push(`Memoria di progetto (informazioni che hai salvato nei task precedenti con "remember"):\n${mem}`);
-  if (userInstr) parts.push(`Istruzioni specifiche per questo agente (hanno la priorità su tutto il resto):\n${userInstr}`);
   if (g) parts.push(`Linee guida del progetto (rispettale scrupolosamente):\n${g}`);
+  if (userInstr) {
+    parts.push(
+      `Prima di chiamare done ricontrolla le REGOLE DI QUESTO AGENTE scritte all'inizio: se un'azione fatta o prevista le viola, non farla (o dillo). ` +
+        `Nel riassunto scrivi una riga «Regole rispettate: sì» oppure «Regole rispettate: no» con il motivo.`,
+    );
+  }
   return parts.join("\n\n");
 }
 
