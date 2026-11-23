@@ -6,6 +6,7 @@ import { forgotPasswordRemote } from "../../lib/backend";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "../router";
 import { MIN_PASSWORD, PasswordHint } from "../components/PasswordHint";
+import { ConsentNote } from "../components/ConsentNote";
 
 /**
  * Pagina di accesso/registrazione — auth **reale** (Roadmap 4): account veri sul
@@ -171,6 +172,8 @@ export function Login() {
             {busy ? "Attendere…" : isForgot ? "Mandami il link" : isSignup ? "Registrati" : "Accedi"}
             <ArrowRight size={16} />
           </button>
+
+          {isSignup && <ConsentNote />}
 
           {mode === "login" && (
             <button

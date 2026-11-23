@@ -6,6 +6,7 @@ import { lookupInviteRemote, type InviteRole } from "../../lib/backend";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "../router";
 import { MIN_PASSWORD, PasswordHint } from "../components/PasswordHint";
+import { ConsentNote } from "../components/ConsentNote";
 
 const ROLE_LABEL: Record<InviteRole, string> = { editor: "Editor", viewer: "Osservatore" };
 const ROLE_HINT: Record<InviteRole, string> = {
@@ -158,6 +159,8 @@ export function Invite() {
             {busy ? "Attendere…" : "Crea l'account"}
             <ArrowRight size={16} />
           </button>
+
+          <ConsentNote />
         </form>
 
         <p className="mt-5 text-center text-xs text-slate-500">L'invito vale una volta sola e solo per questo indirizzo.</p>
