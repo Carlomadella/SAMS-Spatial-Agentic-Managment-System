@@ -40,10 +40,11 @@ import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEn
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
 import { recoverInterruptedRuns } from "./interruptedRuns";
+import { createKeepAwake, keepAwakeUrl } from "./keepAwake";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
-import { beginRun, currentRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
+import { beginRun, currentRun, endRun, requestCancel, runningCount, TaskCancelledError } from "./taskRuns";
 import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } from "./liveStatus";
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
@@ -1208,6 +1209,15 @@ app.get("/api/events", async (req: Request, res: Response) => {
   req.on("close", cleanup);
 });
 
+// Render gratuito addormenta il servizio dopo ~15 minuti senza richieste: finché un agente
+// lavora il server si chiama da solo (simulazione 23/11, vedi keepAwake.ts).
+const keepAwake = createKeepAwake({
+  url: keepAwakeUrl(),
+  ping: (url) => fetch(url, { signal: AbortSignal.timeout(20_000) }),
+  setInterval: (fn, ms) => setInterval(fn, ms).unref(),
+  clearInterval: (h) => clearInterval(h as ReturnType<typeof setInterval>),
+});
+
 // Per-agent cooldown: prevent hammering an agent with rapid task submissions.
 const ASSIGN_COOLDOWN_MS = 20_000; // 20 s between task starts per agent
 const lastAssign = new Map<string, number>();
@@ -1277,6 +1287,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // Anche nel database: se il server si riavvia a metà, all'avvio risulta interrotto.
   const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now })
     .catch((err) => log.warn("Task in corso non salvato", { err: String(err) }));
+  keepAwake.update(runningCount(now));
   // Lo si toglie solo dopo averlo salvato: con MySQL le due query potrebbero incrociarsi.
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
@@ -1308,6 +1319,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     void runSaved
       .then(() => deleteTaskRun(db(), body.agentId))
       .catch((err) => log.warn("Task in corso non tolto", { err: String(err) }));
+    keepAwake.update(runningCount());
   };
   work.then(finished, finished);
   work.catch((err: unknown) => {
