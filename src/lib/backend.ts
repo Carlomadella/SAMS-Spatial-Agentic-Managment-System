@@ -1,4 +1,4 @@
-import type { AgentStatus, EnvironmentName, LogLevel, PendingFile, PendingMerge } from "../types";
+import type { AgentStatus, EnvironmentName, LogLevel, PendingFile, PendingMerge, PendingWorkflow } from "../types";
 import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
@@ -43,6 +43,8 @@ export interface RemoteUpdate {
   pendingFiles?: PendingFile[];
   /** merge chiesto dall'agente, in attesa della conferma di una persona */
   pendingMerge?: PendingMerge;
+  /** workflow in attesa dell'approvazione */
+  pendingWorkflow?: PendingWorkflow;
   /** sala d'attesa: push o merge sul branch principale da confermare */
   mainGate?: boolean;
   relayTo?: { target: string; title: string; branch: string; context: string };
@@ -632,11 +634,11 @@ export async function approveChanges(agentId: string): Promise<void> {
 }
 
 /** Cosa aspetta un agente sul server (file e/o merge); null se non aspetta nulla. */
-export async function fetchPending(agentId: string): Promise<{ pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; mainGate: boolean } | null> {
+export async function fetchPending(agentId: string): Promise<{ pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; pendingWorkflow?: PendingWorkflow | null; mainGate: boolean } | null> {
   try {
     const res = await fetch(`${BASE}/api/pending/${encodeURIComponent(agentId)}`, { headers: authHeaders(false) });
     if (!res.ok) return null;
-    return (await res.json()) as { pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; mainGate: boolean };
+    return (await res.json()) as { pendingFiles: PendingFile[]; pendingMerge: PendingMerge | null; pendingWorkflow?: PendingWorkflow | null; mainGate: boolean };
   } catch {
     return null;
   }

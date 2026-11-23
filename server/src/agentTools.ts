@@ -45,6 +45,7 @@ import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
 import { checkFile } from "./fileChecks";
+import { decideWorkflow } from "./workflowGuard";
 
 // --- tunable limits (named, so both loops stay in sync) ---------------------
 /**
@@ -246,12 +247,12 @@ export function buildToolSpecs(
       },
       {
         name: "gh_trigger_workflow",
-        description: "Avvia manualmente un workflow CI (GitHub Actions workflow_dispatch) su un branch per eseguire i test o la build. Dopo l'avvio usa gh_list_ci per trovare il run_id e gh_ci_jobs per controllare i risultati.",
+        description: "Avvia manualmente un workflow CI (GitHub Actions workflow_dispatch) per eseguire i test o la build, SOLO sul branch del tuo task (mai sul branch principale). Con l'approvazione obbligatoria il workflow parte dopo la conferma di una persona. Dopo l'avvio usa gh_list_ci per trovare il run_id e gh_ci_jobs per controllare i risultati.",
         schema: {
           type: "object",
           properties: {
             workflow: { type: "string", description: "Nome del file workflow (es. ci.yml) o ID numerico" },
-            ref: { type: "string", description: "Branch su cui avviare il workflow" },
+            ref: { type: "string", description: "Il branch del task (altri branch vengono rifiutati)" },
             inputs: { type: "object", description: "Input opzionali per il workflow (se previsti)" },
           },
           required: ["workflow", "ref"],
@@ -471,6 +472,8 @@ export interface ToolContext {
   ciStarted?: boolean;
   /** merge chiesto con gh_merge_pr: SAMS non lo esegue, lo mette in attesa di una persona */
   mergeRequest?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
+  /** workflow chiesto con l'approvazione obbligatoria: parte solo quando una persona approva */
+  workflowRequest?: { workflow: string; ref: string; inputs?: Record<string, string> };
 }
 
 /**
@@ -885,7 +888,15 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         const inputs = args.inputs && typeof args.inputs === "object" && !Array.isArray(args.inputs)
           ? (args.inputs as Record<string, string>)
           : undefined;
-        if (ctx.ciNotRun === "no-workflows") {
+        const decision = decideWorkflow({ workflow: wf, ref }, { branch: ctx.branch, baseBranch: ctx.s.baseBranch, mustStage: mustStage(ctx) });
+        if (decision.kind === "refuse") {
+          result = `NON AVVIATO: ${decision.reason} Non riprovare con un altro ref; se servono i test, scrivilo nel riassunto.`;
+          emit({ agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: ${decision.reason}` });
+        } else if (decision.kind === "defer") {
+          ctx.workflowRequest = { workflow: wf, ref, ...(inputs ? { inputs } : {}) };
+          result = `IN ATTESA: con l'approvazione obbligatoria il workflow "${wf}" parte su "${ref}" solo quando una persona approva il lavoro. Non riprovare: prosegui e scrivi nel riassunto che i test girano dopo l'approvazione.`;
+          emit({ agentId, agentName, progress, level: "INFO", message: `Workflow "${wf}" in attesa di approvazione` });
+        } else if (ctx.ciNotRun === "no-workflows") {
           // Già verificato: nessun nome può funzionare, non si interroga di nuovo GitHub.
           result =
             "GIÀ VERIFICATO in questo task: la repo non ha nessun workflow di GitHub Actions, quindi nessun nome di workflow può funzionare. " +
@@ -1171,7 +1182,7 @@ export async function finalizeTask(
 
   // Merge chiesto (senza file in attesa): il lavoro sul branch del task è fatto e la PR è
   // aperta; l'agente va nella sala d'attesa finché una persona conferma o rifiuta il merge.
-  if (ctx.mergeRequest) await awaitPerson(ctx, opts.totalTokens);
+  if (ctx.mergeRequest || ctx.workflowRequest) await awaitPerson(ctx, opts.totalTokens);
 }
 
 /**
@@ -1185,6 +1196,7 @@ async function awaitPerson(ctx: ToolContext, totalTokens: number): Promise<void>
     branch: ctx.branch, title: ctx.title, agentName, files: ctx.stagedFiles, github: githubContext(),
     ...(toMain ? { toMain: true } : {}),
     ...(ctx.mergeRequest ? { merge: ctx.mergeRequest } : {}),
+    ...(ctx.workflowRequest ? { workflow: ctx.workflowRequest } : {}),
   });
   const gate = toMain || !!ctx.mergeRequest;
   const what = [
@@ -1192,6 +1204,7 @@ async function awaitPerson(ctx: ToolContext, totalTokens: number): Promise<void>
       ? `${ctx.stagedFiles.length} file${ctx.stagedFiles.length > 1 ? " pronti" : " pronto"}${toMain ? ` per ${s.baseBranch}` : ""}`
       : "",
     ctx.mergeRequest ? `merge della PR #${ctx.mergeRequest.prNumber}` : "",
+    ctx.workflowRequest ? `workflow ${ctx.workflowRequest.workflow}` : "",
   ].filter(Boolean).join(" + ");
   emit({
     agentId, agentName,
@@ -1203,6 +1216,7 @@ async function awaitPerson(ctx: ToolContext, totalTokens: number): Promise<void>
       : `${what} — approva o rifiuta nel pannello`,
     pendingFiles: ctx.stagedFiles,
     ...(ctx.mergeRequest ? { pendingMerge: ctx.mergeRequest } : {}),
+    ...(ctx.workflowRequest ? { pendingWorkflow: { workflow: ctx.workflowRequest.workflow, ref: ctx.workflowRequest.ref } } : {}),
     ...(gate ? { mainGate: true } : {}),
     tokens: totalTokens,
   });

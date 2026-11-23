@@ -10,7 +10,7 @@ import { runGeminiTask } from "./agent";
 import { runGroqTask } from "./groq";
 import { runOpenrouterTask } from "./openrouter";
 import { runOpenaiTask } from "./openai";
-import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, mergePullRequest, pullRequestReview, readFile, commentOnPullRequest, removeIssueLabel, runWithGithub, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
+import { addIssueLabel, createBranch, createPullRequest, getRepoTree, githubContext, listIssues, mergePullRequest, pullRequestReview, readFile, commentOnPullRequest, removeIssueLabel, runWithGithub, triggerWorkflow, runWithRepo, writeFilesAtomic, type GithubContext } from "./github";
 import { authorizeUrl, callbackUrl, decryptToken, encryptToken, exchangeCode, fetchLogin, fetchUserRepo, githubOAuthConfig, isValidBranchName, isValidRepoName, listUserRepos, oauthCookie, OAuthStates, readOauthCookie, revokeToken } from "./githubAccounts";
 import { claimIssue, getClaims, getSimLabel, releaseByAgent, releaseIssue, simEnabled, simStatus, startSim, stopSim } from "./simLoop";
 import { HttpError } from "./http";
@@ -1344,6 +1344,7 @@ app.get("/api/pending/:agentId", requireRole("viewer"), (req: Request, res: Resp
   res.json({
     pendingFiles: work.files,
     pendingMerge: work.merge ?? null,
+    pendingWorkflow: work.workflow ? { workflow: work.workflow.workflow, ref: work.workflow.ref } : null,
     mainGate: isMainGate(work),
     branch: work.branch,
     title: work.title,
@@ -1514,6 +1515,16 @@ app.post("/api/approve/:agentId", requireRole("editor"), async (req: Request, re
             return;
           }
           throw err;
+        }
+      }
+      // Workflow chiesto dall'agente con l'approvazione obbligatoria: parte ora, sul branch
+      // del task (la guardia l'ha già limitato lì quando l'agente l'ha chiesto).
+      if (work.workflow && !toMain) {
+        try {
+          const run = await triggerWorkflow(work.workflow.workflow, work.workflow.ref, work.workflow.inputs);
+          broadcast({ agentId, agentName, level: run.started ? "SUCCESS" : "WARN", message: run.started ? `Workflow "${work.workflow.workflow}" avviato su ${work.workflow.ref} (confermato da una persona)` : `Workflow "${work.workflow.workflow}" non avviato: ${run.text.slice(0, 160)}` });
+        } catch (err) {
+          broadcast({ agentId, agentName, level: "WARN", message: `Workflow "${work.workflow.workflow}" non avviato: ${(err as Error).message}` });
         }
       }
       if (s.openPRs && work.files.length > 0 && !toMain) {

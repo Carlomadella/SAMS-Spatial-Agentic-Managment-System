@@ -22,6 +22,8 @@ export interface WireEvent {
   /** merge chiesto dall'agente: un agente non mergia mai da solo, aspetta la conferma
    *  di una persona (sent with status = awaiting_approval). */
   pendingMerge?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
+  /** workflow da avviare quando una persona approva (approvazione obbligatoria) */
+  pendingWorkflow?: { workflow: string; ref: string };
   /** l'attesa riguarda il branch principale (push o merge): l'agente è bloccato nella
    *  sala d'attesa finché una persona non conferma o rifiuta. */
   mainGate?: boolean;

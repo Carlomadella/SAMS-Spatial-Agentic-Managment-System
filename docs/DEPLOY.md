@@ -85,6 +85,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `GITHUB_TOKEN` | fallback | — | the server's own token (fine-grained, **Contents: read & write**). With the OAuth App set it is used only by static-token scripts and server-side jobs (routines, sim, webhooks) |
 | `GITHUB_REPO` | fallback | — | `owner/repo` of the server's token. Setting it locks the field in ⚙ |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
+| `SAMS_WORKFLOWS` | no | — (all) | comma-separated GitHub Actions workflows an agent may start (`ci.yml,test.yml`). Agents can start a workflow only on their task branch, never on the base branch; with `SAMS_REQUIRE_APPROVAL` it waits for the person who approves |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
 | `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC). With `NODE_ENV=production` and no secret, the webhook answers 503 to every request |

@@ -27,3 +27,23 @@ describe("<AgentInspector /> — il modulo «Assegna un task»", () => {
     expect(status.contains(titleInput)).toBe(false);
   });
 });
+
+// Collaudo 21/11, punto 4: con l'approvazione obbligatoria un workflow chiesto dall'agente
+// aspetta la conferma, e il pannello lo mostra anche quando non ci sono file.
+describe("<AgentInspector /> — workflow in attesa", () => {
+  afterEach(() => useStore.setState({ selectedAgentId: null }));
+
+  it("mostra il workflow da avviare nel pannello di approvazione", () => {
+    const first = useStore.getState().agents[0];
+    useStore.setState({
+      selectedAgentId: first.id,
+      viewerRole: "owner",
+      agents: useStore.getState().agents.map((a) =>
+        a.id === first.id ? { ...a, status: "awaiting_approval", pendingFiles: [], pendingWorkflow: { workflow: "ci.yml", ref: "sams/x/fix" } } : a,
+      ),
+    });
+    render(<AgentInspector />);
+    expect(screen.getByTestId("pending-panel")).toBeTruthy();
+    expect(screen.getByTestId("pending-workflow").textContent).toContain("ci.yml su sams/x/fix");
+  });
+});
