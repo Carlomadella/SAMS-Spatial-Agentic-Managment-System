@@ -490,8 +490,10 @@ partenza, ogni utente decide cosa fa ogni agente.
   e smorzamento 0,08. **Lo spostamento laterale è disattivato** (`enablePan={false}`): non si può portare la
   visuale su una stanza o su un'ala lontana se non seguendo un agente. La scena del giardino
   (`GardenScene.tsx`) ha controlli suoi, con distanza tra 6 e 28.
-- [ ] Zoom molto migliore: più fluido e preciso, anche da trackpad e touch. *(Non ancora toccato: il 22/11 la
-  priorità è stata il movimento; si aggiungono solo +/− da tastiera.)*
+- [x] Zoom molto migliore (notte 22→23/11, branch `feat/zoom-fluido`, scelte di Claude da confermare): rotella e
+  pizzico del trackpad diventano una distanza-meta raggiunta con andatura morbida (uguale a ogni frequenza dello
+  schermo), passo proporzionale e con un tetto per le rotelle «a scatti», punto sotto il cursore tenuto fermo.
+  Calcoli in `src/scene/zoomMath.ts`. *Il pizzico a due dita su touch resta quello di OrbitControls (non smorzato).*
 - [x] Movimento della visuale molto migliore (22/11, branch `feat/visuale-zoom-movimento`, design in
   `docs/superpowers/specs/2026-11-22-visuale-zoom-movimento-design.md`): sinistro sposta, destro ruota, un dito
   sposta e due dita zoomano/ruotano; tastiera WASD/frecce, Q/E, +/−, 1–9 stanze, H vista intera; il centro resta
