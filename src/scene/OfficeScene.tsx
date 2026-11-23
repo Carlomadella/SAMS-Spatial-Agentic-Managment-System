@@ -50,6 +50,8 @@ import { REVIEW_WING, ROOM, house, type Wing } from "../data/world";
 import { useHouse } from "../store/useStore";
 import type { Vec2, Zone } from "../types";
 import { configureRenderer } from "./glSetup";
+import { CameraNav } from "./CameraNav";
+import { NAV_MOUSE_PROPS, followTransition, roomShortcuts } from "./viewNav";
 
 function Floor() {
   // Colori del guscio della stanza dal tema selezionato (persistito).
@@ -1144,6 +1146,18 @@ function SceneContents() {
   );
 }
 
+/** Movimento manuale della visuale: smette di seguire l'agente (che resta selezionato). */
+function unfollow() {
+  const s = useStore.getState();
+  if (s.cameraFollow) s.setCameraFollow(false);
+}
+
+/** Tasto F: torna a seguire l'agente selezionato, se ce n'è uno. */
+function refollow() {
+  const s = useStore.getState();
+  if (s.selectedAgentId) s.setCameraFollow(true);
+}
+
 /**
  * Cinematic follow camera. On selection it smoothly recenters on the agent and
  * dollies in to a framing distance; while the agent walks it gently tracks it;
@@ -1157,21 +1171,36 @@ function CameraFollow({ controlsRef }: { controlsRef: React.RefObject<{ target: 
   const offset = useMemo(() => new THREE.Vector3(), []);
   const roomCenter = useMemo(() => new THREE.Vector3(0, 0.8, 0), []);
   const prevSelected = useRef<string | null>(null);
+  const prevFollow = useRef(true);
   const transition = useRef(0); // 1 → 0 over the cinematic ease-in/out
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
     const d = Math.min(delta, 0.05);
-    const { selectedAgentId, agents } = useStore.getState();
+    const { selectedAgentId, agents, cameraFollow } = useStore.getState();
 
-    // A change of selection (including deselect) starts a smooth ~0.8 s move.
-    if (selectedAgentId !== prevSelected.current) {
-      prevSelected.current = selectedAgentId;
+    // A change of selection (including deselect) starts a smooth ~0.8 s move,
+    // and so does re-attaching the follow (F or the «Segui» button).
+    if (
+      followTransition(
+        { selected: prevSelected.current, follow: prevFollow.current },
+        { selected: selectedAgentId, follow: cameraFollow },
+      )
+    ) {
       transition.current = 1;
+    } else if (selectedAgentId !== prevSelected.current) {
+      transition.current = 0; // deselezionato dopo un movimento manuale: la visuale resta dov'è
     }
+    prevSelected.current = selectedAgentId;
+    prevFollow.current = cameraFollow;
 
     if (selectedAgentId) {
+      // Moved by hand: the user is looking elsewhere, don't pull the view back.
+      if (!cameraFollow) {
+        transition.current = 0;
+        return;
+      }
       const agent = agents.find((a) => a.id === selectedAgentId);
       if (!agent) return;
       const dest = agent.target ?? agent.position;
@@ -1203,6 +1232,8 @@ export function OfficeScene() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const layout = useHouse();
+  // Il giardino si apre sopra la casa: lì i tasti muovono il giardino, non la casa.
+  const gardenOpen = useStore((s) => s.gardenOpen);
   // Con le ali la casa si allunga: la telecamera può allontanarsi di più e la nebbia arriva più in là.
   const extra = layout.width - 26;
   return (
@@ -1230,7 +1261,7 @@ export function OfficeScene() {
         ref={controlsRef}
         makeDefault
         target={[layout.centerX, 0.8, 0]}
-        enablePan={false}
+        {...NAV_MOUSE_PROPS}
         zoomToCursor
         minDistance={9}
         maxDistance={34 + extra * 0.8}
@@ -1240,6 +1271,16 @@ export function OfficeScene() {
         dampingFactor={0.08}
       />
       <CameraFollow controlsRef={controlsRef} />
+      <CameraNav
+        controlsRef={controlsRef}
+        bounds={layout.bounds}
+        // Distanza iniziale (camera [13,11,14] sul centro della casa base ≈ 24,3), più spazio per le ali.
+        home={{ x: layout.centerX, y: 0.8, z: 0, distance: 24.3 + (layout.width - 34) * 0.8 }}
+        rooms={roomShortcuts(layout)}
+        enabled={!gardenOpen}
+        onManual={unfollow}
+        onFollow={refollow}
+      />
     </Canvas>
   );
 }

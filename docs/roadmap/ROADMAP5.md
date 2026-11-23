@@ -490,11 +490,13 @@ partenza, ogni utente decide cosa fa ogni agente.
   e smorzamento 0,08. **Lo spostamento laterale è disattivato** (`enablePan={false}`): non si può portare la
   visuale su una stanza o su un'ala lontana se non seguendo un agente. La scena del giardino
   (`GardenScene.tsx`) ha controlli suoi, con distanza tra 6 e 28.
-- [ ] Zoom molto migliore: più fluido e preciso, anche da trackpad e touch.
-- [ ] Movimento della visuale molto migliore: potersi spostare liberamente nella casa, che ora cresce con le ali.
-- Da decidere prima di partire (doc di decisione sul Drive): come ci si sposta (trascinamento, tasti WASD/frecce,
-  doppio clic su un punto, scorciatoie verso le stanze), i limiti di zoom e di spostamento, cosa succede quando
-  si segue un agente, e se cambia anche la visuale del giardino.
+- [ ] Zoom molto migliore: più fluido e preciso, anche da trackpad e touch. *(Non ancora toccato: il 22/11 la
+  priorità è stata il movimento; si aggiungono solo +/− da tastiera.)*
+- [x] Movimento della visuale molto migliore (22/11, branch `feat/visuale-zoom-movimento`, design in
+  `docs/superpowers/specs/2026-11-22-visuale-zoom-movimento-design.md`): sinistro sposta, destro ruota, un dito
+  sposta e due dita zoomano/ruotano; tastiera WASD/frecce, Q/E, +/−, 1–9 stanze, H vista intera; il centro resta
+  dentro la casa. Seguire un agente si sgancia al primo movimento manuale, F o il pulsante «Segui» lo riagganciano.
+  Stessi controlli nel giardino.
 
 ---
 

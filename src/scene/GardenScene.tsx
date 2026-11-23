@@ -7,6 +7,11 @@ import { STAGE_LABEL, type GardenState, type Stage } from "../lib/garden";
 import { getSeasonalEvent } from "../lib/seasonalEvents";
 import { forestSlots } from "../lib/forest";
 import { configureRenderer } from "./glSetup";
+import { CameraNav } from "./CameraNav";
+import { NAV_MOUSE_PROPS } from "./viewNav";
+
+/** Fin dove si può spostare il centro della visuale: il prato con il boschetto (anelli fino a r ≈ 14). */
+const GARDEN_BOUNDS = { minX: -14, maxX: 14, minZ: -14, maxZ: 14 };
 
 type Vec3 = [number, number, number];
 
@@ -671,6 +676,8 @@ export function GardenScene({
   const palette = useMemo(() => computePalette(season, biome), [season, biome]);
   const seasonSky = SEASON_SKY[season];
   const event = useMemo(() => getSeasonalEvent(), []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null);
 
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7, 14], fov: 38 }} gl={{ antialias: true }} onCreated={({ gl }) => configureRenderer(gl)}>
@@ -745,8 +752,9 @@ export function GardenScene({
       </Suspense>
 
       <OrbitControls
+        ref={controlsRef}
         target={[0, 1.4, 0]}
-        enablePan={false}
+        {...NAV_MOUSE_PROPS}
         zoomToCursor
         minDistance={6}
         maxDistance={28}
@@ -755,6 +763,8 @@ export function GardenScene({
         enableDamping
         dampingFactor={0.08}
       />
+      {/* Distanza iniziale: camera [0,7,14] sul centro [0,1.4,0] ≈ 15,1. */}
+      <CameraNav controlsRef={controlsRef} bounds={GARDEN_BOUNDS} home={{ x: 0, y: 1.4, z: 0, distance: 15.1 }} />
     </Canvas>
   );
 }
