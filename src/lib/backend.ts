@@ -58,6 +58,8 @@ export interface RemoteUpdate {
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
   /** Presence: number of connected views, broadcast by the runtime on connect/disconnect. */
   presence?: number;
+  /** Stato del motore AI (in uso, riserva, quote finite) per la barra in basso. */
+  engine?: { provider: string; mode: "ok" | "fallback" | "exhausted"; since: number };
   /** Presence: distinct names of who is watching (may be absent on old runtimes). */
   people?: string[];
   /** Chat: a workspace chat message broadcast by the runtime. */

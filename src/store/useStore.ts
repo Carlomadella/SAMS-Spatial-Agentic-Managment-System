@@ -42,6 +42,7 @@ import type { GithubAccountStatus } from "../lib/backend";
 import { NO_ENV_BRANCHES, type EnvBranches } from "../lib/environments";
 import { reconcileAgents, type RemoteWorldAgent } from "../lib/reconcile";
 import { XP_PER_TASK } from "../lib/skill";
+import type { EngineStatus } from "../lib/engine";
 import { applyTemplate, migrateLegacyRoleRules, templateFromAgent, type AgentTemplate } from "../lib/agentTemplates";
 import { addPreset, removePreset } from "../lib/agentPresets";
 import { DEFAULT_ROOM_THEME } from "../lib/roomThemes";
@@ -120,6 +121,8 @@ interface State {
   streamAuthRequired: boolean;
   /** how many views (SSE clients) are watching the world right now; 1 = just you */
   observers: number;
+  /** Stato del motore AI annunciato dal runtime (barra in basso); null finché non c'è. */
+  engine: EngineStatus | null;
   /** last-seen authoritative world version from the server (CAS base, monotonic). */
   serverWorldVersion: number;
   /** distinct names of who is watching right now (empty on old runtimes) */
@@ -369,6 +372,7 @@ interface State {
     branch?: string;
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
     presence?: number;
+    engine?: EngineStatus;
     people?: string[];
     chat?: { id: string; author: string; text: string; ts: number };
     world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
@@ -501,6 +505,7 @@ export const useStore = create<State>()(
   backendOnline: false,
   streamAuthRequired: false,
   observers: 1,
+  engine: null,
   serverWorldVersion: 0,
   people: [],
   cursors: {},
@@ -1041,6 +1046,11 @@ export const useStore = create<State>()(
   applyRemote: (e) => {
     // Presence: a count-only event (no agent state). Handle it and stop, so it
     // never touches agents/tasks/events or spawns a phantom "presence" agent.
+    // Motore AI: stato per la barra in basso, nessun agente coinvolto.
+    if (e.engine) {
+      set({ engine: e.engine });
+      return;
+    }
     if (e.presence != null) {
       set({ observers: Math.max(0, Math.floor(e.presence)), people: sanitizePeople(e.people) });
       return;

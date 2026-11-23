@@ -43,6 +43,7 @@ import { recoverInterruptedRuns } from "./interruptedRuns";
 import { createKeepAwake, keepAwakeUrl } from "./keepAwake";
 import { decideTaskRepo } from "./repoOverride";
 import { friendlyError } from "./friendlyError";
+import { engineState, onEngineChange, type EngineState } from "./engineState";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
@@ -243,6 +244,16 @@ function broadcastWorld(snapshot: { agents: unknown[]; version: number; updatedA
     `data: ${JSON.stringify({ agentId: "world", agentName: "world", world: snapshot })}\n\n`,
   );
 }
+
+/**
+ * Stato del motore AI (collaudo 21/11, punto 2B): come presence e mondo, non passa da
+ * `broadcast` (non è un evento di un agente). Arriva a tutti a ogni cambio e alla vista
+ * appena connessa, così la barra in basso lo mostra subito.
+ */
+const engineFrame = (e: EngineState) => `data: ${JSON.stringify({ agentId: "engine", agentName: "engine", engine: e })}
+
+`;
+onEngineChange((e) => writeToClients(engineFrame(e)));
 
 // Driver lease (opzione B3): quale vista è il simulatore autorevole. Vive in
 // memoria (effimero); un `holderId` vuoto significa "nessun driver".
@@ -1170,6 +1181,8 @@ app.get("/api/events", async (req: Request, res: Response) => {
   clientKeys.set(res, viewKey);
   log.info("Vista connessa", { views: clients.size, name: observer.name });
   broadcastPresence(); // tell everyone (incl. the new view) the updated count
+  const engine = engineState();
+  if (engine) res.write(engineFrame(engine));
 
   // Single cleanup path: a dead socket does NOT make res.write throw in Node, so
   // we must not rely on a throw — react to close/error and guard every write.

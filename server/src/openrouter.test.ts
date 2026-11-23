@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isRetryableError, openrouterChat, openrouterHeaders, openrouterModel } from "./openrouter";
+import { engineState, resetEngineState } from "./engineState";
 
 describe("openrouterModel", () => {
   it("falls back to a default :free model when the stored model is not an OpenRouter id", () => {
@@ -105,5 +106,26 @@ describe("openrouterChat — retry solo sui guasti transitori", () => {
     await vi.runAllTimersAsync();
     await expect(p).resolves.toMatchObject({ text: "ok" });
     expect(onRetry.mock.calls.map((c) => c[2])).toEqual(["network", "busy", "timeout"]);
+  });
+});
+
+// Collaudo 21/11, punto 2B: la barra in basso sa quale motore risponde e se le quote sono finite.
+describe("openrouterChat — stato del motore", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetEngineState();
+  });
+
+  it("una risposta del principale segna il motore «ok»", async () => {
+    const ok = { choices: [{ message: { content: "ciao" }, finish_reason: "stop" }] };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(ok), { status: 200 })));
+    await openrouterChat([], [], "sys");
+    expect(engineState()).toMatchObject({ provider: "OpenRouter", mode: "ok" });
+  });
+
+  it("quota giornaliera finita senza riserve: motore «exhausted»", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"error":{"message":"Rate limit exceeded: free-models-per-day"}}', { status: 429 })));
+    await expect(openrouterChat([], [], "sys")).rejects.toThrow();
+    expect(engineState()).toMatchObject({ mode: "exhausted" });
   });
 });
