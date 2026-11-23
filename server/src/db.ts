@@ -933,11 +933,12 @@ export async function latestTaskPerAgent(db: SqlRunner): Promise<Map<string, { s
 /** Most recent tasks, newest first. */
 export async function recentTasks(db: SqlRunner, limit = 20): Promise<TaskLogEntry[]> {
   const rows = await db.all<TaskLogEntry>(
-    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, status, tokens, ts
+    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, status, tokens, ts, COALESCE(summary, '') AS summary
      FROM task_log ORDER BY ts DESC LIMIT ?`,
     [limit],
   );
-  return rows.map((r) => ({ ...r, tokens: Number(r.tokens), ts: Number(r.ts) }));
+  // Il riassunto serve alla Cronologia, che apre la riga sul risultato (collaudo 21/11).
+  return rows.map((r) => ({ ...r, tokens: Number(r.tokens), ts: Number(r.ts), summary: String(r.summary ?? "") }));
 }
 
 /** Cumulative counts across the whole log. */

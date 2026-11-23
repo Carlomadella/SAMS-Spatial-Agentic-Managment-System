@@ -303,6 +303,15 @@ describe("relay queue", () => {
 });
 
 describe("applyRemote", () => {
+  // Collaudo 21/11, punto 1: il risultato completo va nell'Inspector, non nel Log eventi.
+  it("stores the full task result per agent without adding a log line", () => {
+    const id = firstId();
+    const before = useStore.getState().events.length;
+    useStore.getState().applyRemote({ agentId: id, result: { title: "T", summary: "Proposta intera" } });
+    expect(useStore.getState().results[id]).toMatchObject({ title: "T", summary: "Proposta intera" });
+    expect(useStore.getState().events.length).toBe(before);
+  });
+
   it("updates status and progress on the matching agent", () => {
     const id = firstId();
     useStore.getState().assignTask(id, "T", "b");

@@ -12,6 +12,7 @@ import {
   type EnvironmentName,
   type Handoff,
   type LogEvent,
+  type TaskResult,
   type LogLevel,
   type PendingFile,
   type PendingMerge,
@@ -279,6 +280,9 @@ interface State {
    *  non entra nel Log eventi né nello stato salvato. */
   speech: Record<string, { id: string; text: string; ts: number }>;
   say: (agentId: string, text: string) => void;
+  /** Ultimo risultato completo di ogni agente (riassunto finale del task), per l'Inspector.
+   *  Collaudo 21/11, punto 1: resta anche quando il task si chiude o la pagina si ricarica. */
+  results: Record<string, TaskResult>;
   clearEvents: () => void;
   clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
@@ -352,6 +356,8 @@ interface State {
     message?: string;
     /** testo tecnico dietro a un errore tradotto dal server */
     detail?: string;
+    /** risultato completo del task (riassunto finale) */
+    result?: { title: string; summary: string };
     tokens?: number;
     pendingFiles?: PendingFile[];
     pendingMerge?: PendingMerge;
@@ -539,6 +545,7 @@ export const useStore = create<State>()(
     })),
 
   speech: {},
+  results: {},
   say: (agentId, text) =>
     set((s) => ({ speech: { ...s.speech, [agentId]: { id: uid("say"), text, ts: Date.now() } } })),
 
@@ -1038,6 +1045,15 @@ export const useStore = create<State>()(
       set({ observers: Math.max(0, Math.floor(e.presence)), people: sanitizePeople(e.people) });
       return;
     }
+    // Risultato completo del task: va nell'Inspector, non nel Log eventi (lì c'è già la
+    // riga tagliata). Un avviso dice dove trovarlo.
+    if (e.result) {
+      const res = { title: e.result.title, summary: e.result.summary, ts: Date.now() };
+      set((s) => ({ results: { ...s.results, [e.agentId]: res } }));
+      const name = e.agentName ?? get().agents.find((a) => a.id === e.agentId)?.name ?? e.agentId;
+      get().pushToast("SUCCESS", `📄 Risultato di ${name} pronto: lo trovi nell'Inspector`);
+      return;
+    }
     // World: the authoritative snapshot broadcast live after another view saved.
     // Adopt it (server is the truth) and remember its version as our CAS base, so
     // our next push is fresh instead of conflicting. Not an agent-log event.
@@ -1210,6 +1226,7 @@ export const useStore = create<State>()(
         playbooks: s.playbooks,
         playbookRuns: s.playbookRuns,
         agentPresets: s.agentPresets,
+        results: s.results,
         theme: s.theme,
         roomTheme: s.roomTheme,
         officeLayout: s.officeLayout,

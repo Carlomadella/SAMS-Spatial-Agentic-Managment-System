@@ -31,6 +31,8 @@ export interface WireEvent {
   mainGate?: boolean;
   /** agent-to-agent handoff: ask a peer to continue the work */
   relayTo?: { target: string; title: string; branch: string; context: string };
+  /** risultato completo del task (riassunto finale), mostrato nell'Inspector */
+  result?: { title: string; summary: string };
   /** step-by-step plan the agent announced before starting work */
   plan?: string[];
   /** branch su cui il task lavora davvero (annunciato all'avvio, così la UI non mostra "main") */

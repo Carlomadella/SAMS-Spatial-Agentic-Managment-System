@@ -163,6 +163,14 @@ export interface PendingWorkflow {
   ref: string;
 }
 
+/** Risultato completo dell'ultimo task di un agente (riassunto finale). */
+export interface TaskResult {
+  title: string;
+  summary: string;
+  /** epoch ms */
+  ts: number;
+}
+
 export interface LogEvent {
   id: string;
   /** epoch ms */

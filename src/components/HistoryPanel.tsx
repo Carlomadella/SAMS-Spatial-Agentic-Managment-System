@@ -32,6 +32,8 @@ export function HistoryPanel() {
   const [query, setQuery] = useState("");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Riga aperta (collaudo 21/11, punto 1): mostra il risultato completo del task.
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -134,10 +136,19 @@ export function HistoryPanel() {
           {filtered.map((r, i) => {
             const color = colorFromAgentId(r.agentId);
             const chipCls = STATUS_CHIP[r.status] ?? STATUS_CHIP.idle;
+            const rowKey = `${r.agentId}-${r.ts}-${i}`;
+            const hasSummary = !!r.summary?.trim();
+            const isOpen = hasSummary && openKey === rowKey;
             return (
+              <div key={rowKey} className="border-b border-line/30">
               <div
-                key={i}
-                className="group flex items-start gap-2 border-b border-line/30 px-2 py-2 hover:bg-ink-700/40"
+                role={hasSummary ? "button" : undefined}
+                tabIndex={hasSummary ? 0 : undefined}
+                aria-expanded={hasSummary ? isOpen : undefined}
+                title={hasSummary ? (isOpen ? "Chiudi il risultato" : "Apri il risultato") : undefined}
+                onClick={hasSummary ? () => setOpenKey(isOpen ? null : rowKey) : undefined}
+                onKeyDown={hasSummary ? (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setOpenKey(isOpen ? null : rowKey); } } : undefined}
+                className={cn("group flex items-start gap-2 px-2 py-2 hover:bg-ink-700/40", hasSummary && "cursor-pointer")}
               >
                 {/* agent color dot */}
                 <span
@@ -177,7 +188,14 @@ export function HistoryPanel() {
                     )}
                     <span>{fmtTime(r.ts)}</span>
                   </div>
+                  {hasSummary && <span className="text-[9px] text-brand-soft">{isOpen ? "▾ risultato" : "▸ risultato"}</span>}
                 </div>
+              </div>
+              {isOpen && (
+                <p className="whitespace-pre-wrap break-words bg-ink-850/60 px-3 py-2 text-[11px] leading-relaxed text-slate-200">
+                  {r.summary}
+                </p>
+              )}
               </div>
             );
           })}

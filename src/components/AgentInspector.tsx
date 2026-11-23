@@ -17,6 +17,7 @@ import { useAssignBlock } from "../lib/assignGate";
 import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
+import { TaskResultBox } from "./TaskResultBox";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -42,6 +43,7 @@ export const AGENT_ROLES = [ // stessi id di AGENT_ROLE_IDS in lib/agentRoles
 
 export function AgentInspector() {
   const agent = useSelectedAgent();
+  const lastResult = useStore((s) => (agent ? s.results[agent.id] : undefined));
   const agents = useStore((s) => s.agents);
   const addAgent = useStore((s) => s.addAgent);
   const affinity = useStore((s) => s.affinity);
@@ -312,6 +314,9 @@ export function AgentInspector() {
           </div>
         </div>
       )}
+
+      {/* risultato completo dell'ultimo task (collaudo 21/11, punto 1) */}
+      {lastResult && <TaskResultBox result={lastResult} />}
 
       {/* task + queue */}
       <div className="mt-3 rounded-lg border border-line bg-ink-850/60 p-2.5">
