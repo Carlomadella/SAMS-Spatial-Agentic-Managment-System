@@ -91,6 +91,14 @@ describe("db task_log", () => {
     expect(rows[0]).toMatchObject({ agentName: "Blue", tokens: 100 });
   });
 
+  it("recentTasks restituisce anche il riassunto (Cronologia, collaudo 21/11)", async () => {
+    const db = await openDb(":memory:");
+    await insertTask(db, entry({ title: "con riassunto", ts: 1, summary: "Proposta completa" }));
+    await insertTask(db, entry({ title: "senza", ts: 2 }));
+    const rows = await recentTasks(db);
+    expect(rows.map((r) => r.summary)).toEqual(["", "Proposta completa"]);
+  });
+
   it("latestTaskPerAgent: l'ultimo task di ogni agente", async () => {
     const db = await openDb(":memory:");
     expect((await latestTaskPerAgent(db)).size).toBe(0);
