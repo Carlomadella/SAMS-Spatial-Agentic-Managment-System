@@ -888,7 +888,14 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         const inputs = args.inputs && typeof args.inputs === "object" && !Array.isArray(args.inputs)
           ? (args.inputs as Record<string, string>)
           : undefined;
-        const decision = decideWorkflow({ workflow: wf, ref }, { branch: ctx.branch, baseBranch: ctx.s.baseBranch, mustStage: mustStage(ctx) });
+        // Il base vero è quello del contesto GitHub del task (repo dell'utente o ambiente),
+        // non solo quello delle impostazioni; i branch degli ambienti sono comunque esclusi.
+        const decision = decideWorkflow({ workflow: wf, ref }, {
+          branch: ctx.branch,
+          baseBranch: githubContext().baseBranch,
+          mustStage: mustStage(ctx),
+          protectedBranches: [ctx.s.baseBranch, ctx.s.devBranch, ctx.s.stagingBranch, ctx.s.prodBranch],
+        });
         if (decision.kind === "refuse") {
           result = `NON AVVIATO: ${decision.reason} Non riprovare con un altro ref; se servono i test, scrivilo nel riassunto.`;
           emit({ agentId, agentName, progress, level: "WARN", message: `Workflow "${wf}" non avviato: ${decision.reason}` });

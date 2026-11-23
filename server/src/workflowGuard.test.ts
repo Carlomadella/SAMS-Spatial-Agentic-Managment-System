@@ -24,6 +24,16 @@ describe("decideWorkflow", () => {
     expect(d.kind).toBe("refuse");
   });
 
+  it("base reale diverso da quello delle impostazioni: il task su quel base è rifiutato", () => {
+    const d = decideWorkflow({ workflow: "ci.yml", ref: "develop" }, { branch: "develop", baseBranch: "develop", mustStage: false, protectedBranches: ["main"] }, {});
+    expect(d.kind).toBe("refuse");
+  });
+
+  it("mai sui branch degli ambienti, anche se fossero il branch del task", () => {
+    const d = decideWorkflow({ workflow: "ci.yml", ref: "staging" }, { branch: "staging", baseBranch: "main", mustStage: false, protectedBranches: ["main", "develop", "staging", ""] }, {});
+    expect(d.kind).toBe("refuse");
+  });
+
   it("con l'approvazione obbligatoria resta in attesa", () => {
     expect(decideWorkflow({ workflow: "ci.yml", ref: "sams/blue/fix" }, { ...task, mustStage: true }, {})).toEqual({ kind: "defer" });
   });

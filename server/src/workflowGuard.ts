@@ -28,7 +28,14 @@ function sameWorkflow(a: string, b: string): boolean {
 
 export function decideWorkflow(
   req: { workflow: string; ref: string },
-  task: { branch: string; baseBranch: string; mustStage: boolean },
+  task: {
+    branch: string;
+    /** branch base REALE del task (repo dell'utente o ambiente), non solo quello delle impostazioni */
+    baseBranch: string;
+    mustStage: boolean;
+    /** altri branch mai consentiti: base delle impostazioni e branch degli ambienti Dev/Staging/Prod */
+    protectedBranches?: string[];
+  },
   env: NodeJS.ProcessEnv = process.env,
 ): WorkflowDecision {
   const allowed = allowedWorkflows(env);
@@ -38,12 +45,13 @@ export function decideWorkflow(
       reason: `il workflow "${req.workflow}" non è tra quelli consentiti dall'owner (${allowed.join(", ")}).`,
     };
   }
-  if (!task.branch || req.ref === task.baseBranch || req.ref !== task.branch) {
+  const guarded = new Set([task.baseBranch, ...(task.protectedBranches ?? [])].filter(Boolean));
+  if (!task.branch || guarded.has(task.branch) || guarded.has(req.ref) || req.ref !== task.branch) {
     return {
       kind: "refuse",
-      reason: task.branch && task.branch !== task.baseBranch
+      reason: task.branch && !guarded.has(task.branch)
         ? `un agente può avviare un workflow solo sul branch del suo task ("${task.branch}"), non su "${req.ref}".`
-        : `questo task lavora sul branch principale ("${task.baseBranch}"): un agente non avvia workflow lì.`,
+        : `questo task lavora su un branch protetto ("${task.branch || task.baseBranch}"): un agente non avvia workflow lì.`,
     };
   }
   return task.mustStage ? { kind: "defer" } : { kind: "run" };
