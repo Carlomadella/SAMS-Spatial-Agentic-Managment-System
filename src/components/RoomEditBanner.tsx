@@ -1,4 +1,5 @@
 import { useStore } from "../store/useStore";
+import { knownPlacements } from "../scene/roomSigns";
 import { placedCount } from "../lib/furnitureLayout";
 
 /**
@@ -10,7 +11,7 @@ export function RoomEditBanner() {
   const editMode = useStore((s) => s.roomEditMode);
   const setRoomEditMode = useStore((s) => s.setRoomEditMode);
   const resetFurniture = useStore((s) => s.resetFurniture);
-  const placed = useStore((s) => placedCount(s.furniturePlacements));
+  const placed = useStore((s) => placedCount(knownPlacements(s.furniturePlacements)));
   if (!editMode) return null;
   return (
     <div className="pointer-events-auto absolute left-1/2 top-3 z-[3] flex -translate-x-1/2 items-center gap-3 rounded-full border border-brand/50 bg-ink-800/90 px-4 py-1.5 text-[12px] text-slate-200 shadow-panel backdrop-blur">

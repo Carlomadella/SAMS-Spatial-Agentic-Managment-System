@@ -10,45 +10,22 @@ import {
   Sparkles,
 } from "@react-three/drei";
 import * as THREE from "three";
-import {
-  Armchair,
-  Bed,
-  Bookshelf,
-  CoffeeTable,
-  Desk,
-  FloorLamp,
-  Fridge,
-  FrontDoor,
-  KitchenCounter,
-  KitchenIsland,
-  Plant,
-  Rug,
-  SideTable,
-  Sideboard,
-  Sofa,
-  TableLamp,
-  TVUnit,
-  WallArt,
-  WallClock,
-  WallSconce,
-  Window,
-} from "./Furniture";
+import { Rooms } from "./Rooms";
 import { woodFloorTexture } from "./textures";
 import { Agent3D } from "./Agent3D";
-import { monitorView, queueBoard } from "../lib/sceneDisplays";
+import { queueBoard } from "../lib/sceneDisplays";
 import { getWeather, type Precipitation as PrecipKind } from "../lib/weather";
 import { daylight } from "../lib/daylight";
 import { cursorColor, cursorOpacity, type LiveCursor } from "../lib/cursors";
 import { getViewerId, sendCursor } from "../lib/backend";
 import { coffeeBreak, officeClockChime } from "../lib/interactions";
 import { getRoomTheme } from "../lib/roomThemes";
-import { getArrangement } from "../lib/officeLayout";
 import { clampPlacement } from "../lib/furnitureLayout";
 import { AGENT_HEX } from "../types";
 import { useStore } from "../store/useStore";
-import { REVIEW_WING, ROOM, house, type Wing } from "../data/world";
+import { ROOM, house } from "../data/world";
 import { useHouse } from "../store/useStore";
-import type { Vec2, Zone } from "../types";
+import type { Vec2 } from "../types";
 import { configureRenderer } from "./glSetup";
 import { CameraNav } from "./CameraNav";
 import { NAV_MOUSE_PROPS, followTransition, roomShortcuts } from "./viewNav";
@@ -208,47 +185,13 @@ function Floor() {
   );
 }
 
-function ZoneMarker({ zone }: { zone: Zone }) {
-  const [x, z] = zone.position;
-
-  function onClick(e: ThreeEvent<MouseEvent>) {
-    e.stopPropagation();
-    const { selectedAgentId, sendToZone } = useStore.getState();
-    if (selectedAgentId) sendToZone(selectedAgentId, zone.id);
-  }
-
-  return (
-    <group position={[x, 0, z]}>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.012, 0]}
-        onClick={onClick}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => (document.body.style.cursor = "default")}
-      >
-        <ringGeometry args={[0.62, 0.78, 40]} />
-        <meshBasicMaterial color="#5b7da8" transparent opacity={0.45} />
-      </mesh>
-      <Html position={[0, 0.04, -1.2]} center distanceFactor={10} pointerEvents="none" zIndexRange={[15, 0]}>
-        <div className="pointer-events-none select-none whitespace-nowrap rounded-md border border-slate-300/60 bg-white/75 px-1.5 py-0.5 text-center shadow-sm">
-          <div className="text-[11px] font-semibold leading-tight text-slate-700">{zone.label}</div>
-          <div className="text-[9px] leading-tight text-slate-500">{zone.sublabel}</div>
-        </div>
-      </Html>
-    </group>
-  );
-}
-
 function GardenDoor() {
   const onOpen = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     useStore.getState().setGardenOpen(true);
   };
   return (
-    <group position={[-6, 0, ROOM.minZ + 0.16]}>
+    <group position={[-18, 0, ROOM.minZ + 0.16]}>
       <mesh position={[0, 1.2, 0]} castShadow>
         <boxGeometry args={[1.5, 2.4, 0.18]} />
         <meshStandardMaterial color="#2f6d45" roughness={0.6} />
@@ -625,9 +568,6 @@ function PresenceCursors() {
   );
 }
 
-/** Centro del cluster salotto (per ruotarlo attorno a sé stesso). */
-const LOUNGE_CENTER: [number, number, number] = [-7.4, 0, 3.2];
-
 /**
  * Maniglia di trascinamento di un mobile (visibile solo in "modalità riordino").
  * Un anello a terra sotto il mobile: al pointer-down disabilita l'orbita e cattura il
@@ -735,208 +675,11 @@ function Movable({
   );
 }
 
-const WING_BED_COLORS = ["#6b8f8a", "#b07a5e", "#8a6f9e", "#5a8fb0", "#b0975a", "#8aae6a"];
-
-/** Una sedia semplice (sala riunioni): seduta + schienale, rivolta verso `ry`. */
-function MeetingChair({ position, ry }: { position: [number, number, number]; ry: number }) {
-  return (
-    <group position={position} rotation={[0, ry, 0]}>
-      <RoundedBox args={[0.55, 0.08, 0.55]} radius={0.03} smoothness={3} position={[0, 0.46, 0]} castShadow>
-        <meshStandardMaterial color="#3a3f4b" roughness={0.7} />
-      </RoundedBox>
-      <RoundedBox args={[0.55, 0.5, 0.07]} radius={0.03} smoothness={3} position={[0, 0.74, -0.25]} castShadow>
-        <meshStandardMaterial color="#3a3f4b" roughness={0.7} />
-      </RoundedBox>
-      <mesh position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[0.035, 0.035, 0.44, 10]} />
-        <meshStandardMaterial color="#8a8f99" metalness={0.5} roughness={0.4} />
-      </mesh>
-    </group>
-  );
-}
-
-/**
- * Reparto revisioni (ala fissa a sinistra, 21/11): qui aspettano gli agenti che chiedono
- * un push o un merge sul branch principale. Banco con lo schermo in fondo, panche contro
- * la parete, tappeto rosso; cliccando banco o cartello si apre la schermata del reparto.
- * Gli ingombri stanno in `world.ts` (`REVIEW_FURNITURE`).
- */
-function ReviewWingRoom() {
-  const waiting = useStore((s) => s.agents.filter((a) => a.status === "awaiting_approval" && (a.mainGate || a.pendingMerge)).length);
-  const openReview = useStore((s) => s.openReview);
-  const cx = (REVIEW_WING.minX + REVIEW_WING.maxX) / 2;
-  const benchX = REVIEW_WING.minX + 0.9;
-  const open = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-    openReview(null);
-  };
-  const hover = {
-    onPointerOver: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); document.body.style.cursor = "pointer"; },
-    onPointerOut: () => { document.body.style.cursor = "default"; },
-  };
-  return (
-    <group>
-      {/* tappeto rosso: si capisce subito che è una stanza a parte */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.012, 0]} receiveShadow>
-        <planeGeometry args={[REVIEW_WING.maxX - REVIEW_WING.minX - 1.2, 16.4]} />
-        <meshStandardMaterial color="#8c1d24" roughness={0.95} />
-      </mesh>
-
-      {/* banco delle revisioni con lo schermo grande (cliccabile) */}
-      <group position={[cx, 0, -7.95]} onClick={open} {...hover}>
-        <RoundedBox args={[3.2, 0.12, 1.2]} radius={0.04} smoothness={4} position={[0, 0.92, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color="#1c1c1e" roughness={0.5} />
-        </RoundedBox>
-        {[-1.4, 1.4].map((dx) => (
-          <mesh key={dx} position={[dx, 0.45, 0]} castShadow>
-            <boxGeometry args={[0.12, 0.9, 1.0]} />
-            <meshStandardMaterial color="#2a2a2d" roughness={0.6} />
-          </mesh>
-        ))}
-        <mesh position={[0, 1.75, -0.35]} castShadow>
-          <boxGeometry args={[2.4, 1.3, 0.08]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-        <mesh position={[0, 1.75, -0.3]}>
-          <planeGeometry args={[2.2, 1.1]} />
-          <meshStandardMaterial color="#f2f2f2" emissive="#c8202b" emissiveIntensity={waiting > 0 ? 0.55 : 0.12} roughness={0.4} />
-        </mesh>
-      </group>
-
-      {/* due panche contro la parete esterna */}
-      {[-2.3, 2.3].map((z) => (
-        <group key={z} position={[benchX, 0, z]}>
-          <RoundedBox args={[0.9, 0.12, 3.2]} radius={0.04} smoothness={4} position={[0, 0.48, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color="#e9e6df" roughness={0.6} />
-          </RoundedBox>
-          {[-1.3, 1.3].map((dz) => (
-            <mesh key={dz} position={[0, 0.22, dz]} castShadow>
-              <boxGeometry args={[0.7, 0.44, 0.12]} />
-              <meshStandardMaterial color="#1c1c1e" roughness={0.6} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-
-      <Plant position={[REVIEW_WING.maxX - 0.9, 0, 7.8]} />
-      <WallSconce position={[cx, 2.15, ROOM.minZ + 0.16]} />
-
-      {/* cartello: nome della stanza e quanti aspettano (cliccabile) */}
-      <Html position={[cx, 2.6, -6.4]} center distanceFactor={10} zIndexRange={[16, 0]}>
-        <button
-          type="button"
-          onClick={() => openReview(null)}
-          className="select-none whitespace-nowrap rounded-md border border-red-700/70 bg-black/85 px-2 py-1 text-center shadow-md"
-        >
-          <div className="text-[12px] font-semibold leading-tight text-white">Reparto revisioni</div>
-          <div className="text-[10px] leading-tight text-red-300">
-            {waiting > 0 ? `${waiting} in attesa di conferma` : "Nessuno in attesa"}
-          </div>
-        </button>
-      </Html>
-    </group>
-  );
-}
-
-/**
- * Un'ala della casa (ROADMAP5 «la casa cresce»): dietro la stanza di attività del
- * catalogo, davanti una camera da 6 letti. Gli ingombri dei mobili ingombranti stanno
- * in `world.ts` (`wingFurniture`), così ciò che si vede è ciò che il pathfinder evita.
- */
-function WingRooms({ wing, last }: { wing: Wing; last: boolean }) {
-  const { cx, minX, maxX, kind } = wing;
-  return (
-    <group>
-      {/* ── stanza di attività (dietro) ── */}
-      {kind === "meeting" && (
-        <>
-          <RoundedBox args={[4.4, 0.1, 1.8]} radius={0.05} smoothness={4} position={[cx, 0.78, -4.5]} castShadow receiveShadow>
-            <meshStandardMaterial color="#7a5a3c" roughness={0.6} />
-          </RoundedBox>
-          {[-1.6, 1.6].map((dx) => (
-            <mesh key={dx} position={[cx + dx, 0.38, -4.5]} castShadow>
-              <boxGeometry args={[0.12, 0.76, 1.4]} />
-              <meshStandardMaterial color="#5c432d" roughness={0.7} />
-            </mesh>
-          ))}
-          {[-1.4, 0, 1.4].map((dx) => (
-            <MeetingChair key={`b${dx}`} position={[cx + dx, 0, -5.75]} ry={0} />
-          ))}
-          {[-1.4, 0, 1.4].map((dx) => (
-            <MeetingChair key={`f${dx}`} position={[cx + dx, 0, -3.25]} ry={Math.PI} />
-          ))}
-          {/* lavagna sulla parete di fondo */}
-          <mesh position={[cx, 1.7, ROOM.minZ + 0.05]}>
-            <boxGeometry args={[3.2, 1.5, 0.06]} />
-            <meshStandardMaterial color="#f4f4f2" roughness={0.4} />
-          </mesh>
-        </>
-      )}
-      {kind === "library" && (
-        <>
-          {[-4, 0, 4].map((dx) => (
-            <Bookshelf key={dx} position={[cx + dx, 0, -8.55]} />
-          ))}
-          <Rug position={[cx, 0, -4.6]} size={[4.6, 3.0]} />
-          <FloorLamp position={[maxX - 1.1, 0, -1.6]} />
-        </>
-      )}
-      {kind === "lab" && (
-        <>
-          <Desk position={[cx - 3, 0, -7.85]} />
-          <Desk position={[cx + 3, 0, -7.85]} />
-          <WallArt position={[cx, 1.9, ROOM.minZ + 0.06]} color="#5a8fb0" />
-          <Plant position={[maxX - 1.0, 0, -1.4]} />
-        </>
-      )}
-      {kind === "terrace" && (
-        <>
-          {/* pavimento a prato: la terrazza è la stanza "all'aperto" */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.01, -4.6]} receiveShadow>
-            <planeGeometry args={[maxX - minX - 0.4, 8.6]} />
-            <meshStandardMaterial color="#8fae6a" roughness={0.95} />
-          </mesh>
-          <Armchair position={[cx - 2, 0, -4.5]} rotation={[0, Math.PI / 2, 0]} />
-          <Armchair position={[cx + 2, 0, -4.5]} rotation={[0, -Math.PI / 2, 0]} />
-          <SideTable position={[cx, 0, -4.5]} />
-          <Plant position={[minX + 1.0, 0, -8.2]} />
-          <Plant position={[maxX - 1.0, 0, -8.2]} />
-          <Plant position={[maxX - 1.0, 0, -1.4]} />
-        </>
-      )}
-      <WallSconce position={[minX + 2.5, 2.15, ROOM.minZ + 0.16]} />
-
-      {/* ── camera (davanti): sei letti come quelli della casa base ── */}
-      {wing.beds.map(([x, z], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <Bed color={WING_BED_COLORS[(i + wing.index) % WING_BED_COLORS.length]} />
-        </group>
-      ))}
-      <Plant position={[minX + 1.3, 0, 8.2]} />
-
-      {/* l'ultima ala ha le finestre sulla parete esterna */}
-      {last && (
-        <>
-          <Window position={[maxX - 0.16, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
-          <Window position={[maxX - 0.16, 1.5, -4.5]} rotation={[0, -Math.PI / 2, 0]} />
-          <WallSconce position={[maxX - 0.18, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
-        </>
-      )}
-    </group>
-  );
-}
-
 function SceneContents() {
   const agents = useStore((s) => s.agents);
   const selectedAgentId = useStore((s) => s.selectedAgentId);
-  const workingAgent = agents.find((a) => a.status === "working" && a.task) ?? null;
-  const monitor = monitorView(workingAgent);
   const queue = queueBoard(agents);
-  // Personalizzazione dell'ufficio: il cluster salotto si sposta/ruota in blocco
-  // secondo la disposizione scelta (persistita), senza toccare le pose base.
-  const lounge = getArrangement(useStore((s) => s.officeLayout));
   const layout = useHouse();
-  const hasWings = layout.wings.length > 0;
 
   return (
     <>
@@ -958,132 +701,44 @@ function SceneContents() {
 
       <Floor />
 
-      {/* ── Studio — back-left quadrant ── */}
-      <Desk position={[-9, 0, -7.85]} />
-      <Desk position={[-4.5, 0, -7.85]} />
-      {/* live desk monitor — the file the working agent is writing right now */}
-      <Html position={[-9, 1.62, -8.04]} center distanceFactor={6} zIndexRange={[9, 0]} pointerEvents="none">
-        <div className="pointer-events-none w-[230px] select-none overflow-hidden rounded-[3px] bg-[#0b0f17] p-1.5 font-mono shadow-inner ring-1 ring-inset ring-sky-900/50">
-          {monitor ? (
-            <>
-              <div className="mb-1 flex items-center gap-1 text-[8px] uppercase tracking-wider text-sky-600">
-                <span className={monitor.status === "writing" ? "text-emerald-400" : "text-amber-400"}>
-                  {monitor.status === "writing" ? "✎ scrive" : "✷ pianifica"}
-                </span>
-                <span className="truncate text-slate-500">{monitor.path}</span>
+      {/* Stanze iconiche (23/11): sei stanze, ognuna con il suo oggetto simbolo. */}
+      <Rooms
+        movable={(id, position, child, rotation) => (
+          <Movable key={id} id={id} position={position} rotation={rotation}>
+            {child}
+          </Movable>
+        )}
+        queue={
+          /* TV del Salotto — la lavagna "in coda": i task in attesa di tutti gli agenti */
+          <Html position={[-18.9, 1.55, 6.6]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
+            <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
+              <div className="mb-1 flex items-center justify-between text-[8px] uppercase tracking-widest text-green-700">
+                <span>◉ in coda</span>
+                <span>{queue.length}</span>
               </div>
-              {monitor.lines.map((l, i) => (
-                <div key={i} className="flex gap-1 text-[9px] leading-[1.35]">
-                  <span className="w-3 shrink-0 text-right text-slate-700">{i + 1}</span>
-                  <span className="truncate text-sky-200/90">
-                    {l}
-                    {i === monitor.lines.length - 1 && <span className="ml-0.5 animate-pulse text-emerald-300">█</span>}
-                  </span>
+              {queue.length ? (
+                <div className="flex flex-col gap-0.5">
+                  {queue.map((q, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: AGENT_HEX[q.color] }} />
+                      <span className="truncate text-[9px] leading-tight text-green-300/90">{q.title}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="mt-1 text-[7px] text-slate-600">— {monitor.agentName} · {monitor.branch}</div>
-            </>
-          ) : (
-            <div className="py-3 text-center text-[9px] text-slate-700">// nessun agente al lavoro</div>
-          )}
-        </div>
-      </Html>
-      <Movable id="bookshelf" position={[-12, 0, -8.55]}>
-        <Bookshelf />
-      </Movable>
-      <Movable id="floor-lamp" position={[-11, 0, -1.6]}>
-        <FloorLamp />
-      </Movable>
-      <Movable id="plant-studio" position={[-1.6, 0, -7.5]}>
-        <Plant />
-      </Movable>
-      <WallArt position={[-7, 1.9, -8.84]} color="#6b8f8a" />
-      <WallSconce position={[-12.82, 2.15, -4]} rotation={[0, Math.PI / 2, 0]} />
-
-      {/* ── Cucina — back-right quadrant ── */}
-      <KitchenCounter position={[6.5, 0, -8.2]} length={10} />
-      <Fridge position={[12.2, 0, -7.6]} rotation={[0, -Math.PI / 2, 0]} />
-      <Movable id="kitchen-island" position={[6.5, 0, -3.8]}>
-        <KitchenIsland />
-      </Movable>
-      <WallSconce position={[3, 2.15, -8.84]} />
-      <WallSconce position={[10, 2.15, -8.84]} />
-
-      {/* ── Salotto — front-left quadrant ── */}
-      {/* Cluster salotto riposizionabile: il gruppo esterno ruota attorno al centro
-          del cluster (LOUNGE_CENTER) e applica l'offset della disposizione; quello
-          interno riporta i figli, che mantengono le pose assolute. */}
-      <group
-        position={[LOUNGE_CENTER[0] + lounge.loungeOffset[0], lounge.loungeOffset[1], LOUNGE_CENTER[2] + lounge.loungeOffset[2]]}
-        rotation={[0, lounge.loungeSpin, 0]}
-      >
-        <group position={[-LOUNGE_CENTER[0], 0, -LOUNGE_CENTER[2]]}>
-          <Rug position={[-7.5, 0, 3.8]} />
-          <Sofa position={[-7.5, 0, 2.3]} />
-          <CoffeeTable position={[-7.5, 0, 4.2]} />
-          <Armchair position={[-4, 0, 4.3]} rotation={[0, 0.8, 0]} />
-          <SideTable position={[-9.4, 0, 2]} />
-          <TableLamp position={[-9.4, 0.59, 2]} />
-        </group>
-      </group>
-      <TVUnit position={[-12.5, 0, 4.5]} rotation={[0, Math.PI / 2, 0]} />
-      {/* media wall — the "up next" board: tasks queued across all agents */}
-      <Html position={[-12.0, 1.55, 4.5]} center distanceFactor={7} zIndexRange={[8, 0]} pointerEvents="none">
-        <div className="pointer-events-none w-[200px] select-none overflow-hidden rounded-sm bg-[#080d14] p-1.5 font-mono text-green-400 shadow-inner ring-1 ring-inset ring-green-900/40">
-          <div className="mb-1 flex items-center justify-between text-[8px] uppercase tracking-widest text-green-700">
-            <span>◉ in coda</span>
-            <span>{queue.length}</span>
-          </div>
-          {queue.length ? (
-            <div className="flex flex-col gap-0.5">
-              {queue.map((q, i) => (
-                <div key={i} className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: AGENT_HEX[q.color] }} />
-                  <span className="truncate text-[9px] leading-tight text-green-300/90">{q.title}</span>
-                </div>
-              ))}
+              ) : (
+                <div className="py-2 text-[9px] text-green-800">nessun task in coda_</div>
+              )}
             </div>
-          ) : (
-            <div className="py-2 text-[9px] text-green-800">nessun task in coda_</div>
-          )}
-        </div>
-      </Html>
-      <WallArt position={[-9, 1.9, 0.25]} />
-      <WallClock position={[-12.84, 2.1, 6.5]} rotation={[0, Math.PI / 2, 0]} />
-      <FrontDoor position={[-11, 0, 8.6]} />
-
-      {/* ── Camera — front-right quadrant (six beds, one per agent) ── */}
-      {([
-        [3.0, 2.4, "#6b8f8a"], [6.5, 2.4, "#b07a5e"], [10.0, 2.4, "#8a6f9e"],
-        [3.0, 6.0, "#5a8fb0"], [6.5, 6.0, "#b0975a"], [10.0, 6.0, "#8aae6a"],
-      ] as [number, number, string][]).map(([x, z, c], i) => (
-        <Movable key={i} id={`bed-${i}`} position={[x, 0, z]}>
-          <Bed color={c} />
-        </Movable>
-      ))}
-      {/* Con un'ala la parete destra diventa interna, con una porta a z=5: la credenza
-          si sposta accanto alla porta e la finestra passa sulla parete esterna dell'ultima ala. */}
-      <Movable id="sideboard" position={[12.4, 0, hasWings ? 7.7 : 5]} rotation={[0, -Math.PI / 2, 0]}>
-        <Sideboard />
-      </Movable>
-      {!hasWings && <Window position={[12.84, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]} />}
-      <WallSconce position={[12.82, 2.15, 7.5]} rotation={[0, -Math.PI / 2, 0]} />
-      <Movable id="plant-bedroom" position={[1.3, 0, 8.2]}>
-        <Plant />
-      </Movable>
+          </Html>
+        }
+      />
 
       <GardenDoor />
-
-      <ReviewWingRoom />
-
-      {layout.wings.map((w) => (
-        <WingRooms key={w.index} wing={w} last={w.index === layout.wings.length - 1} />
-      ))}
 
       {/* ── Oggetti interagibili dell'utente (micro-interazioni) ── */}
       {/* Tazza sul piano cucina → pausa caffè: sazia tutti gli agenti affamati */}
       <Interactable
-        position={[6.5, 1.06, -3.8]}
+        position={[-18.56, 1.0, 1.3]}
         title="☕ Pausa caffè per tutti"
         onActivate={() => {
           const { agents, feedAgent, pushToast } = useStore.getState();
@@ -1107,7 +762,7 @@ function SceneContents() {
       </Interactable>
       {/* Lavagna della coda (media wall) → apre il tab Task */}
       <Interactable
-        position={[-11.9, 1.55, 4.5]}
+        position={[-18.85, 1.55, 6.6]}
         rotation={[0, Math.PI / 2, 0]}
         title="📋 Apri i task in coda"
         onActivate={() => useStore.getState().setBottomTab("tasks")}
@@ -1119,7 +774,7 @@ function SceneContents() {
       </Interactable>
       {/* Orologio a muro → rintocca l'ora e la fase della giornata */}
       <Interactable
-        position={[-12.7, 2.1, 6.5]}
+        position={[-19.2, 2.1, 3.6]}
         rotation={[0, Math.PI / 2, 0]}
         title="🕰️ Che ore sono?"
         onActivate={() => useStore.getState().pushToast("INFO", officeClockChime())}
@@ -1129,10 +784,6 @@ function SceneContents() {
           <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
       </Interactable>
-
-      {layout.zones.map((z) => (
-        <ZoneMarker key={z.id} zone={z} />
-      ))}
 
       {agents.map((a) => (
         <Agent3D key={a.id} agent={a} selected={a.id === selectedAgentId} />

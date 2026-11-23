@@ -960,3 +960,150 @@ export function LoungeSofa({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropP
     </group>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Stanze iconiche (23/11): i pezzi delle stanze di lavoro. Geometrie semplici; gli
+// ingombri corrispondono a `house().furniture` in world.ts.
+// ---------------------------------------------------------------------------
+
+/** Tavolo da lettura lungo (Biblioteca) con due lampade che si accendono quando qualcuno legge. */
+export function ReadingTable({ position = [0, 0, 0], rotation = [0, 0, 0], lit = false }: PropProps & { lit?: boolean }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[4, 0.1, 1.2]} radius={0.04} smoothness={4} position={[0, 0.82, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={WALNUT} roughness={0.5} />
+      </RoundedBox>
+      {[[-1.85, -0.5], [1.85, -0.5], [-1.85, 0.5], [1.85, 0.5]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.4, z]} castShadow>
+          <boxGeometry args={[0.09, 0.8, 0.09]} />
+          <meshStandardMaterial color={WALNUT} roughness={0.5} />
+        </mesh>
+      ))}
+      {/* libri aperti sul tavolo */}
+      {[-0.9, 0.9].map((x) => (
+        <mesh key={x} position={[x, 0.885, 0.15]} rotation={[-Math.PI / 2, 0, 0.15]}>
+          <planeGeometry args={[0.5, 0.36]} />
+          <meshStandardMaterial color={LINEN} roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {/* lampade da tavolo: brillano quando qualcuno legge */}
+      {[-1.5, 1.5].map((x) => (
+        <group key={x} position={[x, 0.87, -0.35]}>
+          <mesh position={[0, 0.22, 0]}>
+            <cylinderGeometry args={[0.02, 0.02, 0.44, 8]} />
+            <meshStandardMaterial color={BRASS} metalness={0.6} roughness={0.35} />
+          </mesh>
+          <mesh position={[0, 0.48, 0]}>
+            <coneGeometry args={[0.2, 0.22, 16, 1, true]} />
+            <meshStandardMaterial color="#2f6d45" emissive="#ffcf7a" emissiveIntensity={lit ? 0.9 : 0} side={THREE.DoubleSide} />
+          </mesh>
+          {lit && <pointLight position={[0, 0.35, 0]} color="#ffcf7a" intensity={2.2} distance={4} decay={2} />}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Bancone da laboratorio (piano chiaro, provette, un piccolo strumento). */
+export function LabBench({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[2.4, 0.08, 1.2]} radius={0.03} smoothness={3} position={[0, 0.94, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={PANEL} roughness={0.35} />
+      </RoundedBox>
+      <mesh position={[0, 0.45, 0]} castShadow>
+        <boxGeometry args={[2.3, 0.9, 1.1]} />
+        <meshStandardMaterial color="#c9d1db" roughness={0.6} />
+      </mesh>
+      {/* provette colorate */}
+      {["#4fb3a9", "#e0a23b", "#7d6bd1", "#4f9d69"].map((c, i) => (
+        <mesh key={c} position={[-0.8 + i * 0.16, 1.08, -0.3]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, 0.22, 10]} />
+          <meshStandardMaterial color={c} transparent opacity={0.85} roughness={0.2} />
+        </mesh>
+      ))}
+      {/* strumento con un piccolo schermo */}
+      <mesh position={[0.6, 1.15, -0.25]} castShadow>
+        <boxGeometry args={[0.6, 0.36, 0.4]} />
+        <meshStandardMaterial color="#2a2f3a" roughness={0.5} />
+      </mesh>
+      <mesh position={[0.6, 1.17, -0.04]}>
+        <planeGeometry args={[0.44, 0.22]} />
+        <meshStandardMaterial color={SCREEN} emissive="#34d399" emissiveIntensity={0.35} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Rack dei server (Laboratorio): armadio scuro con led. */
+export function ServerRack({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.7, 2.2, 3]} />
+        <meshStandardMaterial color="#1b1f27" roughness={0.45} metalness={0.3} />
+      </mesh>
+      {[0.5, 0.85, 1.2, 1.55, 1.9].map((y) => (
+        <mesh key={y} position={[-0.36, y, 0]}>
+          <boxGeometry args={[0.02, 0.22, 2.7]} />
+          <meshStandardMaterial color="#2c3340" emissive="#38bdf8" emissiveIntensity={0.25} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Macchinetta del caffè (Salotto) su un mobiletto. */
+export function CoffeeMachine({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.8, 0.9, 1]} />
+        <meshStandardMaterial color={OAK} roughness={0.6} />
+      </mesh>
+      <RoundedBox args={[0.45, 0.55, 0.4]} radius={0.05} smoothness={3} position={[0, 1.18, 0]} castShadow>
+        <meshStandardMaterial color="#b5544e" roughness={0.4} metalness={0.2} />
+      </RoundedBox>
+      <mesh position={[0.24, 1.0, 0]}>
+        <cylinderGeometry args={[0.06, 0.05, 0.1, 12]} />
+        <meshStandardMaterial color="#f2efe9" roughness={0.5} />
+      </mesh>
+    </group>
+  );
+}
+
+const LAMP_HEX = { off: "#3a3f4b", amber: "#f59e0b", green: "#22c55e", red: "#ef4444" } as const;
+
+/** La grande lampada-semaforo del Laboratorio: spenta, ambra (test in corso), verde o rossa (esito). */
+export function TrafficLamp({ position = [0, 0, 0], rotation = [0, 0, 0], color }: PropProps & { color: keyof typeof LAMP_HEX }) {
+  const on = color !== "off";
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[1.1, 1.1, 0.25]} radius={0.08} smoothness={4} castShadow>
+        <meshStandardMaterial color="#1c1c1e" roughness={0.5} />
+      </RoundedBox>
+      <mesh position={[0, 0, 0.14]}>
+        <circleGeometry args={[0.4, 32]} />
+        <meshStandardMaterial color={LAMP_HEX[color]} emissive={LAMP_HEX[color]} emissiveIntensity={on ? 1.6 : 0} toneMapped={!on} />
+      </mesh>
+      {on && <pointLight position={[0, 0, 0.8]} color={LAMP_HEX[color]} intensity={4} distance={7} decay={2} />}
+    </group>
+  );
+}
+
+/** Panca semplice (Reparto revisioni). */
+export function Bench({ position = [0, 0, 0], rotation = [0, 0, 0] }: PropProps) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RoundedBox args={[3, 0.1, 0.7]} radius={0.04} smoothness={3} position={[0, 0.48, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={OAK} roughness={0.55} />
+      </RoundedBox>
+      {[-1.3, 1.3].map((x) => (
+        <mesh key={x} position={[x, 0.22, 0]} castShadow>
+          <boxGeometry args={[0.1, 0.44, 0.6]} />
+          <meshStandardMaterial color={WALNUT} roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
