@@ -694,7 +694,7 @@ export function AgentInspector() {
             return (
               <div
                 className="mt-1.5 flex items-center gap-2"
-                title={`Affinità ${bf.score} — costruita collaborando (relay_task, chiacchiere)`}
+                title={`Affinità ${bf.score} — costruita collaborando (relay_task)`}
               >
                 <span className="text-[10px] text-mut w-12 shrink-0">Legame</span>
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: AGENT_HEX[friend.color] }} />

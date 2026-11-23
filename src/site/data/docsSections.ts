@@ -22,7 +22,7 @@ export const DOCS_SECTIONS: DocSection[] = [
     intro:
       "SAMS (Spatial Agentic Management System) è una workspace 3D dove i tuoi agenti AI vivono in una stanza: ricevono task, lavorano, collaborano e producono risultati concreti (Pull Request su GitHub, note su Notion). È insieme un cruscotto operativo per orchestrare il lavoro e un mondo simulato in stile Sims, dove ogni agente ha una sua vita.",
     items: [
-      { term: "La stanza", desc: "La scena 3D centrale: una casa a quattro stanze (studio, cucina, salotto, camera) dove gli agenti camminano, lavorano alle scrivanie, chiacchierano e di notte dormono." },
+      { term: "La stanza", desc: "La scena 3D centrale: una casa a quattro stanze (studio, cucina, salotto, camera) dove gli agenti camminano, lavorano alle scrivanie e di notte dormono. Un fumetto sopra l'agente compare solo nei momenti che contano: inizio del lavoro, attesa di approvazione, blocco e fine." },
       { term: "Guscio IDE", desc: "Attorno alla scena, un'interfaccia da editor di codice: barra del titolo, barra attività, pannelli laterali e inferiore, barra di stato." },
       { term: "Runtime opzionale", desc: "Un backend (managed-agents runtime) fa lavorare davvero gli agenti su GitHub. Senza runtime la stanza gira comunque in locale come simulazione." },
       { term: "Mondo condiviso", desc: "Più persone possono guardare e comandare la stessa stanza in tempo reale, con presenza, cursori e movimento sincronizzato." },
@@ -104,7 +104,7 @@ export const DOCS_SECTIONS: DocSection[] = [
     title: "Pannello inferiore",
     intro: "L'area a schede sotto la scena, nascondibile e riapribile con un pulsante flottante.",
     items: [
-      { term: "Log eventi", desc: "Il flusso in tempo reale di tutto ciò che accade: assegnazioni, completamenti, handoff, errori, chiacchiere degli agenti." },
+      { term: "Log eventi", desc: "Il flusso in tempo reale di tutto ciò che accade: assegnazioni, completamenti, handoff, errori e ogni passo del lavoro degli agenti." },
       { term: "Terminale", desc: "L'output testuale delle operazioni del runtime." },
       { term: "Output", desc: "Il risultato prodotto da un task (es. il link alla Pull Request o alla nota Notion)." },
     ],
@@ -129,7 +129,7 @@ export const DOCS_SECTIONS: DocSection[] = [
       { term: "Relay", desc: "Passaggio punto-a-punto di un task a un altro agente, scelto per nome o per ruolo. Se il destinatario è occupato, il task si accoda." },
       { term: "Reazioni a catena", desc: "Regole dichiarative: al completamento di un task che soddisfa una regola, ne parte automaticamente un altro verso un agente target. Un cooldown evita cascate infinite." },
       { term: "Playbook / tavoli", desc: "Pipeline ordinate a stadi, ognuno con un ruolo: il lavoro passa di stadio in stadio fino alla fine, con una retrospettiva (durata e contributori) al termine." },
-      { term: "Affinità", desc: "Collaborare ripetutamente costruisce affinità tra due agenti: gli amici si cercano, chiacchierano più spesso e tendono a lavorare insieme." },
+      { term: "Affinità", desc: "Collaborare ripetutamente costruisce affinità tra due agenti: gli amici si cercano e tendono a lavorare insieme." },
     ],
   },
   {
