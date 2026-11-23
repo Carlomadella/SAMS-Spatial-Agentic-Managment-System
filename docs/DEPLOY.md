@@ -30,6 +30,9 @@ This repo ships a [`render.yaml`](../render.yaml) Blueprint.
    pick in `SAMS_PROVIDER`), `SAMS_PUBLIC_URL` (the service's `https://…onrender.com`
    address, used in reset/verification links), and `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`
    so every user works on their own GitHub (see [Sign in with GitHub](#sign-in-with-github)).
+   Recommended: also set `GEMINI_API_KEY` (or `GROQ_API_KEY`). The `:free` OpenRouter models
+   have a small daily quota; with a second key the same request moves on to that provider
+   instead of stopping the agent (`SAMS_PROVIDER_FALLBACK`, default `openrouter,gemini,groq`).
 4. **Open the app and register right away.** The first account becomes the owner, and
    from that moment roles are enforced (see [Roles](#roles-and-access)).
 
@@ -79,14 +82,19 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `SAMS_PROVIDER` | no | `gemini` (`openrouter` in the Render Blueprint) | `gemini` (free) · `groq` (free) · `openrouter` (free) · `claude` (paid) |
-| `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` | ≥1 | — | key for the chosen provider |
+| `SAMS_PROVIDER` | no | `gemini` (`openrouter` in the Render Blueprint) | `gemini` (free) · `groq` (free) · `openrouter` (free) · `openai` (paid) · `claude` (paid) |
+| `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | ≥1 | — | key for the chosen provider |
 | `SAMS_MODEL` | no | `gemini-2.5-flash` | model id for the provider (OpenRouter: a `:free` tool-capable id, e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`) |
+| `SAMS_PROVIDER_FALLBACK` | no | `openrouter,gemini,groq` | with `SAMS_PROVIDER=openrouter`: when OpenRouter runs out of daily quota, rejects the key or is down, the same request moves to the next provider in this list that has a key (`gemini`, `groq`, `openai`) |
+| `SAMS_LLM_TIMEOUT_MS` | no | `180000` | longest wait for a single model reply, in ms (minimum `1000`); large free models can need the full 3 minutes |
+| `SAMS_MAX_STEPS` | no | `24` | turns of the agent loop per task, `4`–`60`; out-of-range values fall back to `24` |
+| `SAMS_AGENT_ID` / `SAMS_ENVIRONMENT_ID` | with `claude` Managed Agents | — | filled in by `npm run setup` (in `server/`); only used by the `claude` provider |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for per-user GitHub | — | GitHub OAuth App: each user connects their own GitHub and picks their repo (see [Sign in with GitHub](#sign-in-with-github)) |
 | `SAMS_SECRET_KEY` | with the OAuth App | — | long random string; encrypts the users' GitHub tokens in the database. **Never change it** once users have connected |
 | `GITHUB_TOKEN` | fallback | — | the server's own token (fine-grained, **Contents: read & write**). With the OAuth App set it is used only by static-token scripts and server-side jobs (routines, sim, webhooks) |
 | `GITHUB_REPO` | fallback | — | `owner/repo` of the server's token. Setting it locks the field in ⚙ |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
+| `SAMS_BRANCH_DEV` / `SAMS_BRANCH_STAGING` / `SAMS_BRANCH_PROD` | no | `GITHUB_BASE_BRANCH` | base branch of each environment (Dev/Staging/Prod). Can also be set in ⚙ → server GitHub; setting them here locks them |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
 | `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC). With `NODE_ENV=production` and no secret, the webhook answers 503 to every request |
@@ -102,10 +110,11 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `SAMS_DB_URL` | on hosts without a disk | SQLite in `SAMS_DATA_DIR` | `mysql://user:password@host:3306/db` — keep accounts, chat, world, routines and history in MySQL 8 instead of the SQLite file. Set but unreachable → the runtime does not start. Append `?ssl-mode=REQUIRED` for TLS. Move existing data with `npm run db:to-mysql` (in `server/`, target empty). The non-secret settings from ⚙ live in the same database; keys and tokens do not (see `SAMS_EPHEMERAL_DISK`) |
 | `SAMS_EPHEMERAL_DISK` | on hosts without a disk | off | `1` = the server's disk is wiped on restart (e.g. Render free). Keys and tokens can then only come from environment variables: ⚙ shows them read-only and the runtime rejects them with `409`. The other settings are still saved, in the database |
 | `SAMS_DB_SSL_CA` | no | — | CA certificate (PEM text or file path) for providers with their own CA, e.g. Aiven |
-| `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | — | Legacy only: a separate MySQL for Commit Garden. Leave empty: gardens are stored in the main SAMS database |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | no | — | Legacy only: a separate MySQL for Commit Garden. Leave empty: gardens are stored in the main SAMS database |
 | `SAMS_DATA_DIR` | on hosts | server working dir | folder for the SQLite database (`.sams-data.db`) and the keys saved from ⚙ (`.sams-runtime.json`); point it at a persistent disk/volume, or both are lost on every redeploy. With `SAMS_DB_URL` + `SAMS_EPHEMERAL_DISK=1` it is not needed |
 | `SAMS_TRUST_PROXY` | behind a proxy | off | how many proxies sit in front (Render: `1`, already in `render.yaml`), or a list of their IPs/CIDRs; lets per-IP limits see the real client. Never more hops than there really are, and `true` is refused: the client could choose its own IP. Check with `GET /api/admin/client-ip` as owner |
 | `PORT` | no | `3000` | injected by most managed hosts |
+| `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error` |
 
 ### Roles and access
 
