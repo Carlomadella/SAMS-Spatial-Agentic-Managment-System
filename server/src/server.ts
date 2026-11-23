@@ -39,6 +39,7 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { decideTaskRepo } from "./repoOverride";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
@@ -1235,6 +1236,18 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // Repo indicata per il task (meta-agente): col token del server solo quelle consentite
+  // (collaudo 21/11, punto 4b). Chi lavora col proprio GitHub e l'owner restano liberi.
+  const repoDecision = decideTaskRepo(body.repo, {
+    usesOwnGithub: ug.kind === "user",
+    isOwner: (await roleOf(req)) === "owner",
+    serverRepo: getSettings().githubRepo,
+  });
+  if (!repoDecision.ok) {
+    res.status(403).json({ error: repoDecision.error });
+    return;
+  }
+
   // In sala d'attesa (push o merge sul branch principale): niente nuovi task finché una
   // persona non conferma o rifiuta (scelta dell'utente del 21/11).
   if (isMainGate(getPending(body.agentId))) {
@@ -1287,7 +1300,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // A meta-agente task carries a repo override (owner/repo). Run the whole task
   // inside that repo context so every GitHub call targets it instead of the
   // global repository. Invalid overrides are ignored (fall back to global).
-  const repo = typeof body.repo === "string" && /^[\w.-]+\/[\w.-]+$/.test(body.repo) ? body.repo : null;
+  const repo = repoDecision.repo;
   // L'ambiente del task (Dev/Staging/Prod) sceglie il branch base, se l'owner l'ha impostato.
   // Sta più dentro del GitHub dell'utente: vale anche per chi lavora sulla sua repo. Non vale
   // per un task indirizzato a un'altra repo (es. il meta-agente su SAMS): lì quei branch non c'entrano.

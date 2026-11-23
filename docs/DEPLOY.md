@@ -85,6 +85,7 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `GITHUB_TOKEN` | fallback | — | the server's own token (fine-grained, **Contents: read & write**). With the OAuth App set it is used only by static-token scripts and server-side jobs (routines, sim, webhooks) |
 | `GITHUB_REPO` | fallback | — | `owner/repo` of the server's token. Setting it locks the field in ⚙ |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
+| `SAMS_TASK_REPOS` | no | — | comma-separated `owner/repo` list an **editor** may point a single task at (the meta-agent's repo field) while working with the server's `GITHUB_TOKEN`. Always allowed: `GITHUB_REPO` and SAMS itself. Users on their own GitHub and the owner are not limited |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
 | `GITHUB_WEBHOOK_SECRET` | if exposed | — | **set it** when the runtime is on the internet (verifies webhook HMAC). With `NODE_ENV=production` and no secret, the webhook answers 503 to every request |
