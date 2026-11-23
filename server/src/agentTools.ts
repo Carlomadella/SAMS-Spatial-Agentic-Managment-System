@@ -70,6 +70,8 @@ export const WEB_FETCH_LIMIT = 6000;
 export const WEB_FETCH_TIMEOUT_MS = 8000;
 export const WEB_FETCH_MAX_BYTES = 2_000_000;
 export const THOUGHT_LIMIT = 200;
+/** Il risultato completo mandato alla UI: lo stesso tetto del riassunto nello storico. */
+export const RESULT_LIMIT = 4000;
 export const COMMIT_MSG_LIMIT = 60;
 
 // --- small string helpers ---------------------------------------------------
@@ -1110,6 +1112,11 @@ export async function finalizeTask(
     emit({ agentId, agentName, level: "INFO", message: truncate(withReads.slice(withReads.lastIndexOf("Nota di SAMS: file letti")), THOUGHT_LIMIT) });
     ctx.doneSummary = withReads;
     ctx.readsNoted = true;
+  }
+  // Collaudo 21/11, punto 1: il registro mostra il riassunto tagliato a una riga; il
+  // risultato intero (la parte utile di un task di sola lettura) va alla UI a parte.
+  if (ctx.doneSummary.trim()) {
+    emit({ agentId, agentName, result: { title: ctx.title, summary: ctx.doneSummary.slice(0, RESULT_LIMIT) } });
   }
 
   // File in attesa (approvazione o branch principale): l'agente si ferma qui, con

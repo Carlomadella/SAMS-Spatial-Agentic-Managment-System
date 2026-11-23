@@ -47,6 +47,8 @@ export interface RemoteUpdate {
   mainGate?: boolean;
   relayTo?: { target: string; title: string; branch: string; context: string };
   plan?: string[];
+  /** Risultato completo del task (riassunto finale), per l'Inspector. */
+  result?: { title: string; summary: string };
   /** Branch su cui il runtime lavora davvero (annunciato all'avvio del task). */
   branch?: string;
   wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
@@ -145,6 +147,8 @@ export interface TaskHistoryRow {
   status: string;
   tokens: number;
   ts: number;
+  /** riassunto finale del task (vuoto se l'agente non ne ha lasciato uno) */
+  summary?: string;
 }
 
 /** Current repo content of a file (the "before" of a staged diff); "" if new/unreachable. */

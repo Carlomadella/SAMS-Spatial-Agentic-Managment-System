@@ -412,3 +412,25 @@ describe("finalizeTask — sala d'attesa per il branch principale (scelta del 21
     expect(isMainGate(getPending("a"))).toBe(false);
   });
 });
+
+// Collaudo 21/11, punto 1: la proposta di un task di sola lettura arrivava alla UI solo
+// tagliata a una riga. Ora il riassunto completo viaggia in un evento `result` a parte.
+describe("finalizeTask — risultato completo alla UI", () => {
+  const opts = { totalTokens: 0, repoEnabled: false, notionEnabled: false, prProviderLabel: "t" };
+
+  it("manda il riassunto intero, non tagliato, con il titolo del task", async () => {
+    const long = "Proposta per il README:\n" + "riga lunga ".repeat(60);
+    const { ctx, events } = mkCtx({ doneSummary: long, finished: true });
+    await finalizeTask(ctx, opts);
+    const ev = events.find((e) => e.result);
+    expect(ev?.result?.summary.startsWith(long)).toBe(true);
+    expect(ev?.result?.title).toBe(ctx.title);
+    expect(ev?.message).toBeUndefined();
+  });
+
+  it("senza riassunto non manda niente", async () => {
+    const { ctx, events } = mkCtx({ doneSummary: "", finished: true });
+    await finalizeTask(ctx, opts);
+    expect(events.some((e) => e.result)).toBe(false);
+  });
+});
