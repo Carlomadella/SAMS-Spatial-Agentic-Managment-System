@@ -61,7 +61,7 @@ export function Navbar() {
         <div className="hidden items-center gap-2.5 md:flex">
           <ThemeToggle />
           <CTAButton to="/app" variant="primary">
-            Apri la stanza
+            Entra nella stanza
           </CTAButton>
           {authControl}
         </div>
@@ -92,7 +92,7 @@ export function Navbar() {
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t border-line/60 pt-3">
               <CTAButton to="/app" variant="primary">
-                Apri la stanza
+                Entra nella stanza
               </CTAButton>
               {authControl}
             </div>
