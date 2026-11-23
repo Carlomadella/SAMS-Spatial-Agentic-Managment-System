@@ -22,7 +22,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteTaskRun, saveTaskRun, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -39,6 +39,7 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { recoverInterruptedRuns } from "./interruptedRuns";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
@@ -1273,6 +1274,10 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
 
   res.json({ ok: true });
   noteTaskStarted(body.agentId, body.title, now);
+  // Anche nel database: se il server si riavvia a metà, all'avvio risulta interrotto.
+  const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now })
+    .catch((err) => log.warn("Task in corso non salvato", { err: String(err) }));
+  // Lo si toglie solo dopo averlo salvato: con MySQL le due query potrebbero incrociarsi.
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
   log.info("Task assegnato", { by: actorLabel(await roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
@@ -1298,7 +1303,13 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
   // A task finito (bene, male o annullato) l'agente torna libero. then a due rami: un
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
-  work.then(() => endRun(body.agentId), () => endRun(body.agentId));
+  const finished = () => {
+    endRun(body.agentId);
+    void runSaved
+      .then(() => deleteTaskRun(db(), body.agentId))
+      .catch((err) => log.warn("Task in corso non tolto", { err: String(err) }));
+  };
+  work.then(finished, finished);
   work.catch((err: unknown) => {
     lastAssign.delete(body.agentId); // release on error so the user can retry
     const agentName = body.agentName || body.agentId;
@@ -2101,6 +2112,9 @@ try {
   const { imported } = await initSettings(db());
   if (imported.length > 0) log.info("Impostazioni importate dal file nel database", { fields: imported });
   if (ephemeralDisk()) log.info("Disco effimero: le chiavi si leggono solo dalle variabili d'ambiente");
+  // Task rimasti a metà da un riavvio: nello storico come interrotti (simulazione 23/11).
+  const interrupted = await recoverInterruptedRuns(db());
+  if (interrupted > 0) log.info("Task interrotti dal riavvio segnati come bloccati", { tasks: interrupted });
 } catch (err) {
   log.error("Database non raggiungibile: il runtime non parte", { backend: dbBackend(), err: String(err) });
   process.exit(1);

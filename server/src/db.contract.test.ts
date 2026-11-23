@@ -3,6 +3,9 @@ import { config as loadEnv } from "dotenv";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  deleteTaskRun,
+  listTaskRuns,
+  saveTaskRun,
   consumeInvite,
   consumeToken,
   countOwners,
@@ -61,7 +64,7 @@ import type { WorldAgentSnapshot } from "./worldState";
  */
 const TABLES = [
   "task_log", "agent_memory", "routines", "world_snapshot", "world_agents", "chat_messages",
-  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings", "github_links", "gardens",
+  "users", "auth_sessions", "password_resets", "email_verifications", "invites", "settings", "github_links", "gardens", "task_runs",
 ];
 
 // L'URL di test può stare in server/.env (così la password non finisce sulla riga di comando).
@@ -224,6 +227,17 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     expect(await taskStats(db)).toEqual({ total: 2, completed: 1, tokens: 15 });
     expect((await recentTasks(db, 1)).map((t) => t.title)).toEqual(["y"]);
     expect((await latestTaskPerAgent(db)).get("a")).toEqual({ status: "error", title: "y", ts: 2 });
+  });
+
+  it("task in corso: upsert per agente e rimozione (riavvio, 23/11)", async () => {
+    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t", branch: "b", startedAt: 1 });
+    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2 });
+    await saveTaskRun(db, { agentId: "z", agentName: "Z", title: "x".repeat(5000), branch: "", startedAt: 3 });
+    const runs = await listTaskRuns(db);
+    expect(runs.find((r) => r.agentId === "a")).toEqual({ agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2 });
+    expect(runs.find((r) => r.agentId === "z")?.title.length).toBe(4000);
+    await deleteTaskRun(db, "a");
+    expect((await listTaskRuns(db)).map((r) => r.agentId)).toEqual(["z"]);
   });
 
   it("impostazioni: upsert, rimozione e valori lunghi", async () => {

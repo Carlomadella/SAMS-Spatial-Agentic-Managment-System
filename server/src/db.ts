@@ -171,6 +171,16 @@ const SQLITE_SCHEMA = `
 
     -- Impostazioni scelte da ⚙ che non sono segreti (provider, modello, repo…), una riga
     -- per campo, valore in JSON. Le chiavi e i token non ci finiscono mai (opzione C).
+    -- Task in corso (simulazione 23/11): se il server si riavvia a metà, all'avvio questi
+    -- diventano "interrotto" nello storico invece di sparire senza traccia.
+    CREATE TABLE IF NOT EXISTS task_runs (
+      agent_id   TEXT    PRIMARY KEY,
+      agent_name TEXT    NOT NULL,
+      title      TEXT    NOT NULL,
+      branch     TEXT    NOT NULL,
+      started_at INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       name       TEXT    PRIMARY KEY,
       value      TEXT    NOT NULL,
@@ -338,6 +348,14 @@ const MYSQL_SCHEMA = `
       INDEX idx_invites_email (email)
     ) ${MYSQL_TABLE_OPTS};
 
+    CREATE TABLE IF NOT EXISTS task_runs (
+      agent_id   VARCHAR(191) NOT NULL PRIMARY KEY,
+      agent_name VARCHAR(255) NOT NULL,
+      title      TEXT         NOT NULL,
+      branch     VARCHAR(255) NOT NULL,
+      started_at BIGINT       NOT NULL
+    ) ${MYSQL_TABLE_OPTS};
+
     CREATE TABLE IF NOT EXISTS settings (
       name       VARCHAR(64)  NOT NULL PRIMARY KEY,
       value      TEXT         NOT NULL,
@@ -479,6 +497,37 @@ function onConflictUpdate(dialect: Dialect, keys: string[], set: string[], extra
     return `ON DUPLICATE KEY UPDATE ${[...set.map((c) => `${c} = VALUES(${c})`), ...extra].join(", ")}`;
   }
   return `ON CONFLICT (${keys.join(", ")}) DO UPDATE SET ${[...set.map((c) => `${c} = excluded.${c}`), ...extra].join(", ")}`;
+}
+
+// --- task in corso ---------------------------------------------------------------
+
+export interface TaskRunRow {
+  agentId: string;
+  agentName: string;
+  title: string;
+  branch: string;
+  startedAt: number;
+}
+
+/** Un task è partito (uno per agente: un nuovo inizio sostituisce il precedente). */
+export async function saveTaskRun(db: SqlRunner, r: TaskRunRow): Promise<void> {
+  await db.run(
+    `INSERT INTO task_runs (agent_id, agent_name, title, branch, started_at) VALUES (?, ?, ?, ?, ?)
+     ${onConflictUpdate(db.dialect, ["agent_id"], ["agent_name", "title", "branch", "started_at"])}`,
+    [r.agentId, r.agentName, r.title.slice(0, 4000), r.branch, r.startedAt],
+  );
+}
+
+/** Il task dell'agente è finito (bene, male o annullato). */
+export async function deleteTaskRun(db: SqlRunner, agentId: string): Promise<void> {
+  await db.run(`DELETE FROM task_runs WHERE agent_id = ?`, [agentId]);
+}
+
+export async function listTaskRuns(db: SqlRunner): Promise<TaskRunRow[]> {
+  const rows = await db.all<TaskRunRow>(
+    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, started_at AS startedAt FROM task_runs`,
+  );
+  return rows.map((r) => ({ ...r, agentId: String(r.agentId), startedAt: Number(r.startedAt) }));
 }
 
 // --- impostazioni non segrete -------------------------------------------------
