@@ -14,6 +14,7 @@ import { selectorsOf } from "../lib/selections";
 import { cursorColor } from "../lib/cursors";
 import { iAmSimulator, liveAgentPositions, movingAgents, separationPush, resolveSeparation } from "../lib/worldsim";
 import { getViewerId } from "../lib/backend";
+import { bubbleText } from "../lib/bubble";
 import { RadialMenu, type RadialItem } from "./RadialMenu";
 
 // Colori-stato centralizzati in STATUS_META (lib/meta): unica fonte per scena e pannelli.
@@ -187,11 +188,10 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   useEffect(() => {
     // il più recente tra l'ultimo evento di lavoro e l'ultima frase detta
     const latest = lastSpeech && (!lastEvent || lastSpeech.ts >= lastEvent.ts)
-      ? { ts: lastSpeech.ts, text: lastSpeech.text }
-      : lastEvent && { ts: lastEvent.ts, text: lastEvent.message };
+      ? { ts: lastSpeech.ts, text: lastSpeech.text, level: undefined }
+      : lastEvent && { ts: lastEvent.ts, text: lastEvent.message, level: lastEvent.level };
     if (!latest || Date.now() - latest.ts > 8000) return;
-    const msg = latest.text;
-    setBubble(msg.length > 90 ? msg.slice(0, 89) + "…" : msg);
+    setBubble(bubbleText(latest.text, latest.level));
     const t = setTimeout(() => setBubble(null), 6000);
     return () => clearTimeout(t);
   }, [lastEvent?.id, lastSpeech?.id]); // eslint-disable-line react-hooks/exhaustive-deps

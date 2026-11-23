@@ -38,6 +38,8 @@ export interface RemoteUpdate {
   progress?: number;
   level?: LogLevel;
   message?: string;
+  /** testo tecnico dietro a un errore tradotto dal server («Dettagli» nel Log eventi) */
+  detail?: string;
   /** cumulative Gemini tokens for the task (sent once on completion) */
   tokens?: number;
   pendingFiles?: PendingFile[];

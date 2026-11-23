@@ -350,6 +350,8 @@ interface State {
     progress?: number;
     level?: LogLevel;
     message?: string;
+    /** testo tecnico dietro a un errore tradotto dal server */
+    detail?: string;
     tokens?: number;
     pendingFiles?: PendingFile[];
     pendingMerge?: PendingMerge;
@@ -1118,6 +1120,7 @@ export const useStore = create<State>()(
               color: agent?.color ?? null,
               level: e.level ?? "INFO",
               message: e.message,
+              ...(e.detail ? { detail: e.detail } : {}),
             },
           ].slice(-300)
         : s.events;

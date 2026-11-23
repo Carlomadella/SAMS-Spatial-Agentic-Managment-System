@@ -64,7 +64,16 @@ export function EventLog() {
             </span>
             {/* Sul telefono il messaggio va a capo sotto ora/agente/livello, a tutta larghezza:
                 accanto restava una colonna di una parola per riga (revisione mobile 15/11). */}
-            <span className="w-full min-w-0 break-words text-slate-300 sm:w-auto sm:flex-1">{e.message}</span>
+            <span className="w-full min-w-0 break-words text-slate-300 sm:w-auto sm:flex-1">
+              {e.message}
+              {/* Collaudo 21/11: il testo tecnico dell'errore resta consultabile, ma chiuso. */}
+              {e.detail && (
+                <details className="mt-0.5 text-mut">
+                  <summary className="cursor-pointer select-none text-[11px] hover:text-slate-300">Dettagli</summary>
+                  <span className="block break-all font-mono text-[11px]">{e.detail}</span>
+                </details>
+              )}
+            </span>
           </div>
         );
       })}
