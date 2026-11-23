@@ -13,7 +13,7 @@ import { approveChanges, assignRemote, backendEnabled, cancelRemote, clearMemory
 import { SAMS_REPO, META_IDEAS, isValidRepo, metaRepo, resolveTaskRepo, buildMetaTask } from "../lib/metaAgent";
 import { AGENT_TEMPLATES, findTemplate, parseTemplate, serializeTemplate, templateFromAgent } from "../lib/agentTemplates";
 import { hasUnfilledPlaceholders } from "../lib/validation";
-import { canAssign } from "../lib/roleUi";
+import { canAssign, canDeleteAgents } from "../lib/roleUi";
 import { useAssignBlock } from "../lib/assignGate";
 import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
@@ -59,7 +59,7 @@ export function AgentInspector() {
   const updateProgress = useStore((s) => s.updateProgress);
   const clearTask = useStore((s) => s.clearTask);
   const sendToZone = useStore((s) => s.sendToZone);
-  const removeAgent = useStore((s) => s.removeAgent);
+  const askRemoveAgent = useStore((s) => s.askRemoveAgent);
   const setRole = useStore((s) => s.setRole);
   const setInstructions = useStore((s) => s.setInstructions);
   const setRepo = useStore((s) => s.setRepo);
@@ -174,13 +174,15 @@ export function AgentInspector() {
             </option>
           ))}
         </select>
-        <button
-          title="Rimuovi agente"
-          onClick={() => removeAgent(agent.id)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-rose-300/80 hover:bg-rose-500/15 hover:text-rose-300"
-        >
-          <Trash2 size={15} />
-        </button>
+        {canDeleteAgents(viewerRole) && (
+          <button
+            title="Rimuovi agente"
+            onClick={() => askRemoveAgent(agent.id)}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-rose-300/80 hover:bg-rose-500/15 hover:text-rose-300"
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -56,7 +56,8 @@ export interface HouseLayout {
   zoneById: Record<string, RoomZone>;
   /** Posti fissi di ogni stanza: dove si siede chi ci lavora, aspetta o fa pausa. */
   seats: Record<RoomId, Vec2[]>;
-  /** Ingombri dei mobili di ogni stanza (ostacoli e posizioni per il disegno). */
+  /** Ingombri dei mobili di ogni stanza (ostacoli e posizioni per il disegno).
+   *  Biblioteca: [scaffale, scaffale, ...tavoli]; Laboratorio: [...banconi, rack]. */
   furniture: Record<RoomId, Rect[]>;
   /** I sei letti della Camera. */
   beds: Vec2[];
@@ -108,16 +109,70 @@ const BEDS: Vec2[] = [
 ];
 const bedRect = ([x, z]: Vec2): Rect => box(x, z, 1.5, 2.6);
 
-// I mobili principali di ogni stanza (gli ingombri: decorazioni piccole come piante o
+// --- postazioni (24/11) -----------------------------------------------------------
+// In Biblioteca, Officina e Laboratorio c'è una postazione per agente: con 3 agenti
+// tre scrivanie, con 9 agenti nove. Due file per stanza; più agenti ci sono, più i
+// mobili si stringono (fino a MAX_STATIONS, oltre non ci stanno più nella stanza).
+
+/** Quante postazioni entrano al massimo in una stanza (2 file da 6). */
+export const MAX_STATIONS = 12;
+/** Postazioni della pianta quando non si sa quanti agenti ci sono (test, default). */
+export const DEFAULT_STATIONS = 4;
+/** Larghezza utile in x su cui si distribuiscono le postazioni di una fila. */
+const STATION_SPAN = 9.6;
+/** Spazio minimo tra due mobili vicini della stessa fila. */
+const STATION_GAP = 0.6;
+/** Dal mobile al posto a sedere, verso il davanti della stanza. */
+const SEAT_OFFSET = 1.55;
+
+/** Una postazione: il mobile e il posto a sedere davanti. */
+interface Station {
+  rect: Rect;
+  seat: Vec2;
+}
+
+/**
+ * `n` postazioni in due file (z = `rows`), centrate in `cx`. La prima fila prende la
+ * metà arrotondata per eccesso; ogni fila è centrata. `fullW` è la larghezza piena del
+ * mobile, che si stringe quando la fila è affollata.
+ */
+function stations(n: number, cx: number, rows: [number, number], fullW: number, depth: number): Station[] {
+  const perRow = [Math.ceil(n / 2), Math.floor(n / 2)];
+  const cols = perRow[0];
+  if (cols === 0) return [];
+  const pitch = STATION_SPAN / cols;
+  const w = Math.min(fullW, pitch - STATION_GAP);
+  const out: Station[] = [];
+  perRow.forEach((count, r) => {
+    const z = rows[r];
+    for (let i = 0; i < count; i++) {
+      const x = cx + (i - (count - 1) / 2) * pitch;
+      out.push({ rect: box(x, z, w, depth), seat: [x, z + SEAT_OFFSET] });
+    }
+  });
+  return out;
+}
+
+/** Le postazioni delle tre stanze di lavoro per `n` agenti (vedi `house`). */
+function workStations(n: number): Record<"biblioteca" | "officina" | "laboratorio", Station[]> {
+  return {
+    // tavoli da lettura: la prima fila lascia spazio agli scaffali contro il fondo
+    biblioteca: stations(n, COLUMN_X[0], [-6.3, -2.9], 4, 1.2),
+    // scrivanie con monitor
+    officina: stations(n, COLUMN_X[1], [-7.85, -3.95], 2.4, 1.3),
+    // banconi; il rack dei server resta a destra
+    laboratorio: stations(n, COLUMN_X[2], [-7.85, -3.95], 2.4, 1.3),
+  };
+}
+
+/** Le due librerie della Biblioteca, contro la parete di fondo (fisse). */
+export const SHELVES: Rect[] = [box(-14.5, -8.55, 2.4, 0.7), box(-10.5, -8.55, 2.4, 0.7)];
+/** Il rack dei server del Laboratorio (fisso). */
+export const SERVER_RACK: Rect = box(18.95, -4.5, 0.7, 3);
+
+// I mobili fissi delle altre stanze (gli ingombri: decorazioni piccole come piante o
 // cartelli non bloccano). Il disegno in Rooms.tsx li legge da qui, nello stesso ordine.
-const FURNITURE: Record<RoomId, Rect[]> = {
-  // due scaffali alti contro la parete di fondo (la porta del giardino resta a sinistra)
-  // e un tavolo da lettura lungo al centro
-  biblioteca: [box(-14.5, -8.55, 2.4, 0.7), box(-10.5, -8.55, 2.4, 0.7), box(-13, -4.8, 4, 1.2)],
-  // quattro scrivanie con monitor: due contro il fondo, due a metà stanza
-  officina: [box(-3, -7.85, 2.4, 1.3), box(3, -7.85, 2.4, 1.3), box(-3, -3.95, 2.4, 1.3), box(3, -3.95, 2.4, 1.3)],
-  // due banconi contro il fondo, un bancone al centro e il rack dei server a destra
-  laboratorio: [box(10, -7.85, 2.4, 1.3), box(16, -7.85, 2.4, 1.3), box(13, -4.4, 2.4, 1.2), box(18.95, -4.5, 0.7, 3)],
+const FIXED_FURNITURE = {
   // divano, tavolino, poltrona e macchinetta del caffè nell'angolo
   salotto: [box(-16.5, 3.7, 3, 1.4), box(-16.5, 5.6, 1.6, 1), box(-11.8, 5.7, 1.4, 1.4), box(-18.8, 1.3, 0.8, 1)],
   // banco con lo schermo grande contro la parete davanti, due panche per chi aspetta
@@ -125,50 +180,80 @@ const FURNITURE: Record<RoomId, Rect[]> = {
   camera: BEDS.map(bedRect),
 };
 
-const SEATS: Record<RoomId, Vec2[]> = {
-  biblioteca: [[-14.5, -6.2], [-11.5, -6.2], [-14.5, -3.4], [-11.5, -3.4]],
-  officina: [[-3, -6.3], [3, -6.3], [-3, -2.4], [3, -2.4]],
-  laboratorio: [[10, -6.3], [16, -6.3], [11.2, -2.6], [14.8, -2.6]],
+const FIXED_SEATS = {
   // il primo posto è davanti alla macchinetta del caffè (animazione «caffè»)
-  salotto: [[-17.6, 1.6], [-14.2, 2.2], [-16.5, 7.3], [-13.5, 7.3], [-10, 7.3], [-10, 2.2]],
+  salotto: [[-17.6, 1.6], [-14.2, 2.2], [-16.5, 7.3], [-13.5, 7.3], [-10, 7.3], [-10, 2.2]] as Vec2[],
   // davanti alle panche, verso il banco: due file da quattro
-  revisioni: [[-4, 4.2], [-2, 4.2], [2, 4.2], [4, 4.2], [-4, 5.6], [-2, 5.6], [2, 5.6], [4, 5.6]],
+  revisioni: [[-4, 4.2], [-2, 4.2], [2, 4.2], [4, 4.2], [-4, 5.6], [-2, 5.6], [2, 5.6], [4, 5.6]] as Vec2[],
   camera: BEDS,
 };
 
-const ZONES: RoomZone[] = [
-  { id: "biblioteca", label: "Biblioteca", sublabel: "Lettura e ricerca", position: SEATS.biblioteca[0] },
-  { id: "officina", label: "Officina", sublabel: "Scrittura del codice", position: SEATS.officina[0] },
-  { id: "laboratorio", label: "Laboratorio", sublabel: "Test e CI", position: SEATS.laboratorio[0] },
-  { id: "salotto", label: "Salotto", sublabel: "Pausa", position: SEATS.salotto[1] },
-  { id: "revisioni", label: "Reparto revisioni", sublabel: "Push, merge e file da confermare", position: SEATS.revisioni[0] },
-  { id: "camera", label: "Camera", sublabel: "Riposo", position: [13, 2] },
-];
-
 const BOUNDS: Rect = { minX: ROOM.minX, maxX: ROOM.maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ };
 
-const LAYOUT: HouseLayout = {
-  bounds: BOUNDS,
-  width: ROOM_WIDTH,
-  depth: ROOM_DEPTH,
-  centerX: (ROOM.minX + ROOM.maxX) / 2,
-  walls: WALLS,
-  rooms: ROOMS,
-  zones: ZONES,
-  zoneById: Object.fromEntries(ZONES.map((z) => [z.id, z])),
-  seats: SEATS,
-  furniture: FURNITURE,
-  beds: BEDS,
-  obstacles: [...WALLS, ...Object.values(FURNITURE).flat()],
-};
+function buildHouse(n: number): HouseLayout {
+  const work = workStations(n);
+  const seatsOf = (st: Station[]) => st.map((s) => s.seat);
+  const rectsOf = (st: Station[]) => st.map((s) => s.rect);
+  const seats: Record<RoomId, Vec2[]> = {
+    biblioteca: seatsOf(work.biblioteca),
+    officina: seatsOf(work.officina),
+    laboratorio: seatsOf(work.laboratorio),
+    ...FIXED_SEATS,
+  };
+  const furniture: Record<RoomId, Rect[]> = {
+    biblioteca: [...SHELVES, ...rectsOf(work.biblioteca)],
+    officina: rectsOf(work.officina),
+    laboratorio: [...rectsOf(work.laboratorio), SERVER_RACK],
+    ...FIXED_FURNITURE,
+  };
+  const zones: RoomZone[] = [
+    { id: "biblioteca", label: "Biblioteca", sublabel: "Lettura e ricerca", position: seats.biblioteca[0] },
+    { id: "officina", label: "Officina", sublabel: "Scrittura del codice", position: seats.officina[0] },
+    { id: "laboratorio", label: "Laboratorio", sublabel: "Test e CI", position: seats.laboratorio[0] },
+    { id: "salotto", label: "Salotto", sublabel: "Pausa", position: seats.salotto[1] },
+    { id: "revisioni", label: "Reparto revisioni", sublabel: "Push, merge e file da confermare", position: seats.revisioni[0] },
+    { id: "camera", label: "Camera", sublabel: "Riposo", position: [13, 2] },
+  ];
+  return {
+    bounds: BOUNDS,
+    width: ROOM_WIDTH,
+    depth: ROOM_DEPTH,
+    centerX: (ROOM.minX + ROOM.maxX) / 2,
+    walls: WALLS,
+    rooms: ROOMS,
+    zones,
+    zoneById: Object.fromEntries(zones.map((z) => [z.id, z])),
+    seats,
+    furniture,
+    beds: BEDS,
+    obstacles: [...WALLS, ...Object.values(furniture).flat()],
+  };
+}
 
-/** La pianta della casa (sempre la stessa). */
-export function house(): HouseLayout {
-  return LAYOUT;
+/** Postazioni per `agents` agenti: almeno una (così ogni stanza ha un posto), al massimo MAX_STATIONS. */
+export function stationCount(agents: number): number {
+  return Math.min(MAX_STATIONS, Math.max(1, Math.floor(agents)));
+}
+
+const LAYOUTS = new Map<number, HouseLayout>();
+
+/**
+ * La pianta della casa con una postazione per agente in Biblioteca, Officina e
+ * Laboratorio. Stanze e muri non cambiano; la stessa `n` dà sempre lo stesso oggetto
+ * (niente ricalcoli a ogni render).
+ */
+export function house(agents: number = DEFAULT_STATIONS): HouseLayout {
+  const n = stationCount(agents);
+  let layout = LAYOUTS.get(n);
+  if (!layout) {
+    layout = buildHouse(n);
+    LAYOUTS.set(n, layout);
+  }
+  return layout;
 }
 
 /** Ostacoli della casa (per i test del pathfinder). */
-export const OBSTACLES: Rect[] = LAYOUT.obstacles;
+export const OBSTACLES: Rect[] = house().obstacles;
 
 /** Dove compaiono gli agenti nuovi: nel Salotto, vicino alla porta d'ingresso. */
 export const SPAWN_POINT: Vec2 = [-13, 7.5];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findPath, isPointClear } from "../lib/pathfind";
 import type { RoomId } from "../lib/roomFor";
-import { OBSTACLES, ROOM, SPAWN_POINT, clampToRoom, house } from "./world";
+import { MAX_STATIONS, OBSTACLES, ROOM, SPAWN_POINT, clampToRoom, house } from "./world";
 
 // Stanze iconiche (23/11): una casa fissa di 6 stanze, niente ali.
 //   Biblioteca | Officina          | Laboratorio   (dietro, z < 0)
@@ -91,6 +91,56 @@ describe("la pianta di sei stanze", () => {
   it("sempre la stessa pianta (niente ricalcoli a ogni render)", () => {
     expect(house()).toBe(house());
     expect(OBSTACLES).toBe(L.obstacles);
+  });
+});
+
+describe("una postazione per agente (Biblioteca, Officina, Laboratorio)", () => {
+  const WORK: RoomId[] = ["biblioteca", "officina", "laboratorio"];
+  const inRoom = (id: RoomId, [x, z]: [number, number]) => {
+    const r = L.rooms[id];
+    return x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
+  };
+
+  it("tanti posti e tanti mobili quanti gli agenti", () => {
+    for (const n of [1, 2, 3, 5, 7, 12]) {
+      const H = house(n);
+      for (const id of WORK) expect(H.seats[id]).toHaveLength(n);
+      expect(H.furniture.officina).toHaveLength(n);
+      expect(H.furniture.biblioteca).toHaveLength(n + 2); // + i due scaffali
+      expect(H.furniture.laboratorio).toHaveLength(n + 1); // + il rack
+    }
+  });
+
+  it("zero agenti: resta una postazione; oltre il massimo non si cresce", () => {
+    expect(house(0).seats.officina).toHaveLength(1);
+    expect(house(MAX_STATIONS + 5).seats.officina).toHaveLength(MAX_STATIONS);
+  });
+
+  it("per ogni numero di agenti i posti sono nella stanza, liberi e raggiungibili dal Salotto", () => {
+    for (let n = 1; n <= MAX_STATIONS; n++) {
+      const H = house(n);
+      const start = centre("salotto");
+      for (const id of WORK) {
+        for (const s of H.seats[id]) {
+          expect(inRoom(id, s)).toBe(true);
+          expect(isPointClear(s, H.obstacles)).toBe(true);
+          const path = findPath(start, s, H.obstacles, { bounds: H.bounds });
+          expect(path.length, `${id} n=${n} posto ${s}`).toBeGreaterThan(0);
+          const last = path[path.length - 1];
+          expect(Math.hypot(last[0] - s[0], last[1] - s[1])).toBeLessThan(0.8);
+        }
+        // i mobili non escono dalla stanza
+        for (const r of H.furniture[id]) {
+          expect(r.minX).toBeGreaterThanOrEqual(L.rooms[id].minX - 0.6);
+          expect(r.maxX).toBeLessThanOrEqual(L.rooms[id].maxX + 0.6);
+        }
+      }
+    }
+  });
+
+  it("stesso numero di agenti → stessa pianta", () => {
+    expect(house(7)).toBe(house(7));
+    expect(house(7)).not.toBe(house(8));
   });
 });
 

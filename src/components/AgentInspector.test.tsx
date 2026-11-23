@@ -64,3 +64,30 @@ describe("<AgentInspector /> — pulsanti Stato", () => {
     expect(screen.getByTestId("status-quick-set")).toBeTruthy();
   });
 });
+
+// 24/11: solo l'owner elimina agenti; il cestino apre la conferma, non elimina subito.
+describe("<AgentInspector /> — il cestino", () => {
+  beforeEach(() => {
+    const first = useStore.getState().agents[0];
+    useStore.setState({ selectedAgentId: first.id, agentToRemove: null });
+  });
+  afterEach(() => useStore.setState({ selectedAgentId: null, viewerRole: "owner", agentToRemove: null }));
+
+  it("l'owner lo vede e chiede conferma senza eliminare", () => {
+    useStore.setState({ viewerRole: "owner" });
+    const id = useStore.getState().selectedAgentId;
+    render(<AgentInspector />);
+    screen.getByTitle("Rimuovi agente").click();
+    expect(useStore.getState().agentToRemove).toBe(id);
+    expect(useStore.getState().agents.some((a) => a.id === id)).toBe(true);
+  });
+
+  it("editor e viewer non lo vedono", () => {
+    for (const role of ["editor", "viewer"] as const) {
+      useStore.setState({ viewerRole: role });
+      const { unmount } = render(<AgentInspector />);
+      expect(screen.queryByTitle("Rimuovi agente")).toBeNull();
+      unmount();
+    }
+  });
+});

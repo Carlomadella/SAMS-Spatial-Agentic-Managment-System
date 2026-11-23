@@ -22,7 +22,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteTaskRun, saveTaskRun, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteTaskRun, saveTaskRun, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, tombstoneWorldAgent, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -1741,14 +1741,43 @@ app.post("/api/world", requireRole("editor"), async (req: Request, res: Response
   const body = (req.body ?? {}) as { agents?: unknown; baseVersion?: unknown };
   const agents = sanitizeWorldAgents(body.agents);
   const baseVersion = typeof body.baseVersion === "number" ? body.baseVersion : undefined;
+  // Solo l'owner cancella: il push di un editor non toglie gli agenti che gli mancano.
+  const allowDelete = (await roleOf(req)) === "owner";
   try {
-    await worldLock.run(() => saveWorldCas(res, agents, baseVersion));
+    await worldLock.run(() => saveWorldCas(res, agents, baseVersion, allowDelete));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
-async function saveWorldCas(res: Response, agents: ReturnType<typeof sanitizeWorldAgents>, baseVersion: number | undefined): Promise<void> {
+// Cancellazione immediata di un agente (24/11): prima arrivava al server solo col push
+// del mondo (fino a 20 s dopo) e un refresh nel frattempo lo faceva ricomparire.
+// Solo l'owner cancella agenti: gli altri membri del team no (scelta dell'utente 24/11).
+app.delete("/api/world/agents/:id", requireRole("owner"), async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? "").slice(0, 120);
+  if (!id) {
+    res.status(400).json({ error: "Id agente mancante" });
+    return;
+  }
+  try {
+    await worldLock.run(async () => {
+      const snapshot = await tombstoneWorldAgent(db(), id);
+      if (snapshot.changed) {
+        broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
+      }
+      res.json({ ok: true, deleted: snapshot.changed, version: snapshot.version });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+async function saveWorldCas(
+  res: Response,
+  agents: ReturnType<typeof sanitizeWorldAgents>,
+  baseVersion: number | undefined,
+  allowDelete: boolean,
+): Promise<void> {
   // Concorrenza ottimistica (compare-and-swap): con più scrittori, rifiuta una
   // scrittura la cui `baseVersion` non è più quella corrente e restituisce lo
   // snapshot autorevole, così il client concilia (adotta la versione remota) e
@@ -1768,7 +1797,7 @@ async function saveWorldCas(res: Response, agents: ReturnType<typeof sanitizeWor
   // Merge per-riga (non sostituzione del blob): create/update + tombstone per
   // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
   // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
-  const snapshot = await saveWorldAgents(db(), agents);
+  const snapshot = await saveWorldAgents(db(), agents, { allowDelete });
   // Propaga live lo snapshot autorevole a tutte le viste (presence realtime) —
   // **solo se qualcosa è cambiato**: un push no-op (vista che ha appena adottato e
   // rispinge il roster identico) non genera echo → niente ping-pong tra le viste.
@@ -2169,7 +2198,8 @@ try {
   const interrupted = await recoverInterruptedRuns(db());
   if (interrupted > 0) log.info("Task interrotti dal riavvio segnati come bloccati", { tasks: interrupted });
   // XP inventati dei sei agenti di partenza rimasti nel mondo salvato (collaudo 21/11).
-  // Si salva l'elenco intero (saveWorldAgents toglie gli assenti), solo se c'è da cambiare.
+  // Si salva l'elenco intero (saveWorldAgents toglie gli assenti e non resuscita i
+  // cancellati, 24/11), solo se c'è da cambiare.
   const world = await loadWorldSnapshot(db());
   const cleaned = dropFakeSeedXp(world.agents);
   if (cleaned.changed > 0) {

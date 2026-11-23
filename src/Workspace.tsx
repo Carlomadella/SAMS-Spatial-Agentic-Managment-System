@@ -12,6 +12,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
 import { ReviewDepartment } from "./components/ReviewDepartment";
 import { NewAgentDialog } from "./components/NewAgentDialog";
+import { RemoveAgentDialog } from "./components/RemoveAgentDialog";
 import { FileViewer } from "./components/FileViewer";
 import { GardenView } from "./components/GardenView";
 import { RuntimeBanner } from "./components/RuntimeBanner";
@@ -33,7 +34,7 @@ import { activeGoal } from "./lib/goals";
 import { coinsForCompletion } from "./lib/economy";
 import { isMobileWidth } from "./lib/layout";
 import { canAssign } from "./lib/roleUi";
-import { isNightNow, randomRoomPoint } from "./data/world";
+import { house, isNightNow, randomRoomPoint } from "./data/world";
 import { planMoves, type RoomMemo } from "./lib/roomMoves";
 import * as audio from "./lib/audio";
 import { narrationLine, narrator } from "./lib/narration";
@@ -923,7 +924,7 @@ function LifeBridge() {
       // (opzione B3), non ne genera uno proprio → niente due mondi diversi.
       if (!iAmSimulator(st.worldDriver, self)) return;
       const night = isNightNow();
-      for (const m of planMoves(st.agents, st.agentActivity, memo.current, night, Date.now())) st.moveAgent(m.id, m.to);
+      for (const m of planMoves(st.agents, st.agentActivity, memo.current, night, Date.now(), house(st.agents.length))) st.moveAgent(m.id, m.to);
       // di giorno chi è libero ogni tanto cambia posto dentro il Salotto
       if (!night) {
         for (const a of st.agents.filter((x) => isFreeAgent(x) && x.status !== "blocked")) {
@@ -1140,6 +1141,7 @@ export default function Workspace() {
       <CommandPalette />
       <SettingsModal />
       <NewAgentDialog />
+      <RemoveAgentDialog />
       <FileViewer />
       <ReviewDepartment />
       <GardenView />
