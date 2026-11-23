@@ -39,6 +39,7 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
+import { friendlyError } from "./friendlyError";
 import { heartbeatTick } from "./streamHeartbeat";
 import { INVITE_TTL_MS, inviteRejection, isInvitableRole, registrationRole, type InvitableRole } from "./invites";
 import type { AssignBody, WireEvent } from "./types";
@@ -1312,9 +1313,11 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
       record("idle", message);
       return;
     }
-    const message = `Errore: ${err instanceof Error ? err.message : String(err)}`;
-    broadcast({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message });
-    record("blocked", message);
+    // Collaudo 21/11: gli errori noti (quote, chiavi, permessi GitHub) diventano una frase
+    // in italiano con cosa fare; il testo tecnico resta in `detail` («Dettagli» nella UI).
+    const { message, detail } = friendlyError(err instanceof Error ? err.message : String(err));
+    broadcast({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message, ...(detail ? { detail } : {}) });
+    record("blocked", detail ? `${message}\n\nDettagli: ${detail}` : message);
   });
 });
 

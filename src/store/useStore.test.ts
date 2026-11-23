@@ -312,6 +312,14 @@ describe("applyRemote", () => {
     expect(a.task!.progress).toBe(80);
   });
 
+  // Collaudo 21/11, punto 2A: l'errore tradotto dal server porta con sé il testo tecnico.
+  it("keeps the technical detail of a translated error in the log event", () => {
+    const id = firstId();
+    useStore.getState().applyRemote({ agentId: id, status: "blocked", level: "ERROR", message: "Quote finite", detail: "OpenRouter 429: {…}" });
+    const ev = useStore.getState().events.at(-1)!;
+    expect(ev).toMatchObject({ message: "Quote finite", detail: "OpenRouter 429: {…}" });
+  });
+
   it("synthesizes a task from progress when the agent has none", () => {
     const id = firstId();
     useStore.getState().applyRemote({ agentId: id, progress: 25, message: "Booting" });

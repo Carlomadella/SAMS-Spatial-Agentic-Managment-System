@@ -164,6 +164,8 @@ export interface LogEvent {
   color: AgentColor | null;
   level: LogLevel;
   message: string;
+  /** testo tecnico dietro a un errore tradotto (mostrato in «Dettagli» richiudibile) */
+  detail?: string;
 }
 
 /** A short-lived task handoff between two agents, drawn as a 3D arc. */

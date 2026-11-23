@@ -12,6 +12,8 @@ export interface WireEvent {
   agentName: string;
   level?: "INFO" | "SUCCESS" | "WARN" | "ERROR" | "IDLE";
   message?: string;
+  /** testo tecnico dietro a un messaggio d'errore tradotto («Dettagli» richiudibile nella UI) */
+  detail?: string;
   status?: "idle" | "working" | "review" | "blocked" | "done" | "awaiting_approval";
   /** 0..100 */
   progress?: number;
