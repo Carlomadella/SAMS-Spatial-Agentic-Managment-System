@@ -47,3 +47,20 @@ describe("<AgentInspector /> — workflow in attesa", () => {
     expect(screen.getByTestId("pending-workflow").textContent).toContain("ci.yml su sams/x/fix");
   });
 });
+
+// Collaudo 21/11, punto 6.3: i pulsanti «Stato» manuali solo con la Live Sim attiva.
+describe("<AgentInspector /> — pulsanti Stato", () => {
+  afterEach(() => useStore.setState({ selectedAgentId: null, simMode: false }));
+
+  it("fuori dalla simulazione non ci sono", () => {
+    useStore.setState({ selectedAgentId: useStore.getState().agents[0].id, simMode: false });
+    render(<AgentInspector />);
+    expect(screen.queryByTestId("status-quick-set")).toBeNull();
+  });
+
+  it("con la Live Sim attiva ci sono", () => {
+    useStore.setState({ selectedAgentId: useStore.getState().agents[0].id, simMode: true });
+    render(<AgentInspector />);
+    expect(screen.getByTestId("status-quick-set")).toBeTruthy();
+  });
+});
