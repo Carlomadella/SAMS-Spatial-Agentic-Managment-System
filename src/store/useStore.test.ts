@@ -639,3 +639,37 @@ describe("say (chiacchiere solo come fumetto)", () => {
   });
 });
 
+
+// Stanze iconiche (23/11): la pagina ricorda che azione sta facendo ogni agente.
+describe("applyRemote — fase dell'agente", () => {
+  it("un evento activity aggiorna la fase senza scrivere nel Log", () => {
+    const id = useStore.getState().agents[0].id;
+    useStore.getState().applyRemote({ agentId: id, activity: "write" });
+    expect(useStore.getState().agentActivity[id].kind).toBe("write");
+    expect(useStore.getState().events).toHaveLength(0);
+  });
+
+  it("un evento activity per un agente che non c'è non crea niente", () => {
+    const before = useStore.getState().agents.length;
+    useStore.getState().applyRemote({ agentId: "inesistente", activity: "read" });
+    expect(useStore.getState().agentActivity.inesistente).toBeUndefined();
+    expect(useStore.getState().agents).toHaveLength(before);
+    expect(useStore.getState().events).toHaveLength(0);
+  });
+
+  it("l'esito della CI accende la lampada del Laboratorio", () => {
+    const id = useStore.getState().agents[0].id;
+    useStore.getState().applyRemote({ agentId: id, ci: "failure" });
+    expect(useStore.getState().labResult?.result).toBe("failure");
+  });
+
+  it("ricorda il nome breve dell'ultimo file scritto", () => {
+    const id = useStore.getState().agents[0].id;
+    useStore.getState().applyRemote({ agentId: id, message: "write src/app.ts" });
+    expect(useStore.getState().lastWrite[id]).toBe("app.ts");
+    useStore.getState().applyRemote({ agentId: id, message: "write atomico: a/uno.ts, b/due.ts" });
+    expect(useStore.getState().lastWrite[id]).toBe("due.ts");
+    useStore.getState().applyRemote({ agentId: id, message: "staged 3 file (atomic)" });
+    expect(useStore.getState().lastWrite[id]).toBe("due.ts");
+  });
+});

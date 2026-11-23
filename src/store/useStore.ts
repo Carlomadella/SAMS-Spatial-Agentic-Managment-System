@@ -290,6 +290,12 @@ interface State {
   /** Ultimo risultato completo di ogni agente (riassunto finale del task), per l'Inspector.
    *  Collaudo 21/11, punto 1: resta anche quando il task si chiude o la pagina si ricarica. */
   results: Record<string, TaskResult>;
+  /** Stanze iconiche: che azione sta facendo ogni agente (dal runtime) e da quando. */
+  agentActivity: Record<string, { kind: ActivityKind; at: number }>;
+  /** Nome breve dell'ultimo file scritto da ogni agente (monitor dell'Officina). */
+  lastWrite: Record<string, string>;
+  /** Ultimo esito dei test letto dalla CI (lampada del Laboratorio). */
+  labResult: { result: "success" | "failure"; at: number } | null;
   clearEvents: () => void;
   clearTasks: () => void;
   setEnvironment: (env: EnvironmentName) => void;
@@ -365,6 +371,10 @@ interface State {
     detail?: string;
     /** risultato completo del task (riassunto finale) */
     result?: { title: string; summary: string };
+    /** Stanze iconiche: che azione sta facendo l'agente */
+    activity?: ActivityKind;
+    /** esito dei test letto dalla CI */
+    ci?: "success" | "failure";
     tokens?: number;
     pendingFiles?: PendingFile[];
     pendingMerge?: PendingMerge;
@@ -472,6 +482,19 @@ function patchLatestTask(
   return tasks;
 }
 
+export type ActivityKind = "read" | "write" | "test";
+
+/**
+ * Nome breve dell'ultimo file scritto, dai messaggi del runtime («write src/a.ts»,
+ * «staged src/a.ts», «write atomico: a.ts, b.ts»). `null` se il messaggio non è una scrittura.
+ */
+export function writtenFileName(message: string): string | null {
+  const m = message.match(/^(?:write|staged) (?:atomico: )?(.+)$/);
+  if (!m || /^\d+ file\b/.test(m[1])) return null;
+  const last = m[1].split(",").pop()!.trim();
+  return last.split("/").pop() || null;
+}
+
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
@@ -556,6 +579,9 @@ export const useStore = create<State>()(
 
   speech: {},
   results: {},
+  agentActivity: {},
+  lastWrite: {},
+  labResult: null,
   say: (agentId, text) =>
     set((s) => ({ speech: { ...s.speech, [agentId]: { id: uid("say"), text, ts: Date.now() } } })),
 
@@ -1111,6 +1137,20 @@ export const useStore = create<State>()(
       }
       return;
     }
+    // Stanze iconiche: fase dell'agente ed esito dei test. Non sono passi da mostrare nel
+    // Log eventi; una fase per un agente che non c'è si ignora.
+    if (e.activity || e.ci) {
+      const now = Date.now();
+      set((s) => ({
+        agentActivity: e.activity && s.agents.some((a) => a.id === e.agentId)
+          ? { ...s.agentActivity, [e.agentId]: { kind: e.activity, at: now } }
+          : s.agentActivity,
+        labResult: e.ci ? { result: e.ci, at: now } : s.labResult,
+      }));
+      return;
+    }
+    const written = e.message ? writtenFileName(e.message) : null;
+    if (written) set((s) => ({ lastWrite: { ...s.lastWrite, [e.agentId]: written } }));
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
