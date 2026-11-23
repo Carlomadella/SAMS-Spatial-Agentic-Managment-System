@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { RoomId } from "../lib/roomFor";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
   AGENT_COLORS,
@@ -212,7 +213,8 @@ interface State {
   removeAgentPreset: (id: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
-  sendToZone: (id: string, zoneId: string) => void;
+  /** Manda un agente in una stanza (il tipo impedisce nomi di stanze che non esistono). */
+  sendToZone: (id: string, zoneId: RoomId) => void;
   setStatus: (id: string, status: AgentStatus) => void;
   assignTask: (id: string, title: string, branch: string) => void;
   updateProgress: (id: string, progress: number) => void;

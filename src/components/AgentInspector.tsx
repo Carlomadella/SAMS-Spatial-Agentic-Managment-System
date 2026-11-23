@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { RoomId } from "../lib/roomFor";
 import { Check, Download, FileText, GitMerge, Play, ShieldCheck, ListOrdered, MousePointerClick, Plus, Send, Target, Trash2, X as XIcon } from "lucide-react";
 import { useHouse, useSelectedAgent, useStore } from "../store/useStore";
 import { AGENT_HEX, type AgentStatus } from "../types";
@@ -582,7 +583,7 @@ export function AgentInspector() {
         <select
           value=""
           onChange={(e) => {
-            if (e.target.value) sendToZone(agent.id, e.target.value);
+            if (e.target.value) sendToZone(agent.id, e.target.value as RoomId);
             e.currentTarget.value = "";
           }}
           className="w-full rounded-md border border-line bg-ink-850 px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-brand/50"

@@ -441,7 +441,7 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
       label: "Manda nel salotto",
       icon: Moon,
       onClick: () => {
-        sendToZone(agent.id, "lounge");
+        sendToZone(agent.id, "salotto");
         setStatus(agent.id, "idle");
       },
     },

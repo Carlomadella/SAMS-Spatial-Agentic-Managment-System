@@ -37,6 +37,9 @@ export const COLUMN_X = [-13, 0, 13] as const;
 const DOOR_HALF = 1.3;
 const SIDE_DOOR_Z = 4.5;
 
+/** Una zona della casa: il suo id è quello della stanza. */
+export type RoomZone = Zone & { id: RoomId };
+
 export interface HouseLayout {
   /** Confini calpestabili dell'intera casa. */
   bounds: Rect;
@@ -49,8 +52,8 @@ export interface HouseLayout {
   /** Interno calpestabile di ogni stanza. */
   rooms: Record<RoomId, Rect>;
   /** Una zona per stanza (menu «Vai in…», palette dei comandi, panoramica). */
-  zones: Zone[];
-  zoneById: Record<string, Zone>;
+  zones: RoomZone[];
+  zoneById: Record<string, RoomZone>;
   /** Posti fissi di ogni stanza: dove si siede chi ci lavora, aspetta o fa pausa. */
   seats: Record<RoomId, Vec2[]>;
   /** Ingombri dei mobili di ogni stanza (ostacoli e posizioni per il disegno). */
@@ -133,7 +136,7 @@ const SEATS: Record<RoomId, Vec2[]> = {
   camera: BEDS,
 };
 
-const ZONES: Zone[] = [
+const ZONES: RoomZone[] = [
   { id: "biblioteca", label: "Biblioteca", sublabel: "Lettura e ricerca", position: SEATS.biblioteca[0] },
   { id: "officina", label: "Officina", sublabel: "Scrittura del codice", position: SEATS.officina[0] },
   { id: "laboratorio", label: "Laboratorio", sublabel: "Test e CI", position: SEATS.laboratorio[0] },
