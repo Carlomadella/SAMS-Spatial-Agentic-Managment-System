@@ -22,7 +22,7 @@ export const DOCS_SECTIONS: DocSection[] = [
     intro:
       "SAMS (Spatial Agentic Management System) è una workspace 3D dove i tuoi agenti AI vivono in una stanza: ricevono task, lavorano, collaborano e producono risultati concreti (Pull Request su GitHub, note su Notion). È insieme un cruscotto operativo per orchestrare il lavoro e un mondo simulato in stile Sims, dove ogni agente ha una sua vita.",
     items: [
-      { term: "La stanza", desc: "La scena 3D centrale: una casa a quattro stanze (studio, cucina, salotto, camera) dove gli agenti camminano, lavorano alle scrivanie e di notte dormono. Un fumetto sopra l'agente compare solo nei momenti che contano: inizio del lavoro, attesa di approvazione, blocco e fine." },
+      { term: "La stanza", desc: "La scena 3D centrale: una casa di sei stanze in cui ogni agente sta nella stanza di quello che sta facendo: legge in Biblioteca, scrive in Officina, fa girare i test in Laboratorio, aspetta una conferma nel Reparto revisioni; da libero sta in Salotto e di notte dorme in Camera. Un fumetto sopra l'agente compare solo nei momenti che contano: inizio del lavoro, attesa di approvazione, blocco e fine." },
       { term: "Guscio IDE", desc: "Attorno alla scena, un'interfaccia da editor di codice: barra del titolo, barra attività, pannelli laterali e inferiore, barra di stato." },
       { term: "Runtime opzionale", desc: "Un backend (managed-agents runtime) fa lavorare davvero gli agenti su GitHub. Senza runtime la stanza gira comunque in locale come simulazione." },
       { term: "Mondo condiviso", desc: "Più persone possono guardare e comandare la stessa stanza in tempo reale, con presenza, cursori e movimento sincronizzato." },
@@ -46,10 +46,10 @@ export const DOCS_SECTIONS: DocSection[] = [
     intro: "La scena è interattiva e vive di un ciclo giorno/notte: di giorno gli agenti lavorano e vagano, di notte dormono.",
     items: [
       { term: "Telecamera", desc: "Trascina per orbitare, scorri per lo zoom. Una vignettatura scurisce gli angoli e mette a fuoco il diorama al centro." },
-      { term: "Le stanze", desc: "Studio (scrivanie), cucina (bancone e isola), salotto (divano) e camera (sei letti), collegate da porte e da un atrio centrale." },
-      { term: "Zone", desc: "Punti di interesse dove mandare un agente: scrivania, angolo lettura, cucina, salotto, camera. Un task sceglie da solo la zona adatta dal titolo." },
+      { term: "Le stanze", desc: "Dietro: 📚 Biblioteca (le lampade del tavolo si accendono quando qualcuno legge), 🛠️ Officina (il monitor di chi scrive mostra il file), 🧪 Laboratorio (la lampada-semaforo è ambra durante i test, poi verde o rossa). Davanti: 🛋️ Salotto (pausa e caffè), 🔍 Reparto revisioni (lo schermo dice quante conferme aspettano; cliccalo per aprirle) e 🛏️ Camera (sei letti)." },
+      { term: "Zone", desc: "Ogni stanza è una zona: con un agente selezionato, clicca il cartello di una stanza (o usa «Invia a una zona») per mandarcelo. Durante un task la stanza la sceglie il lavoro: l'agente la cambia quando cambia azione, restandoci almeno 20 secondi." },
       { term: "Giorno e notte", desc: "Dalle 23:00 alle 07:00 è notte: gli agenti liberi vanno a letto e dormono; l'ambiente sonoro si fa più caldo." },
-      { term: "Micro-attività", desc: "Un agente libero prende un caffè in cucina, schizza idee all'angolo lettura o fa stretching altrove — puramente visivo." },
+      { term: "Micro-attività", desc: "Un agente libero prende un caffè alla macchinetta del Salotto o fa stretching — puramente visivo." },
     ],
   },
   {

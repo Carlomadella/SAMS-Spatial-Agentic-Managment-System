@@ -442,6 +442,7 @@ Più agenti ci sono, più la casa diventa grande: si aggiungono **letti** e **ca
         fascia del margine chi entra dopo vede la casa senza l'ala che chi c'era ha ancora (es. 5 agenti dopo
         averne avuti 7). Si chiude salvando le ali sul server col mondo, se serve.
 - **Doc di decisione** (20/11/2026, Drive): "SAMS · La casa cresce con gli agenti — Decisioni (ROADMAP5)".
+- **Superata il 23/11/2026** dalle **stanze iconiche** (branch `feat/stanze-iconiche`, spec `docs/superpowers/specs/2026-11-23-stanze-iconiche-design.md`): l'utente ha scelto una casa **fissa di sei stanze** senza ali (Biblioteca · Officina · Laboratorio / Salotto · Reparto revisioni · Camera da 6 letti, condivisi oltre il sesto agente). Gli agenti stanno nella stanza dell'azione che fanno davvero.
 
 ### 🧑‍💼 Agenti preimpostati, ognuno con descrizione e regole
 
