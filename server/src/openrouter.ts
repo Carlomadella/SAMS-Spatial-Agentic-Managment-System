@@ -1,3 +1,4 @@
+import { parseTextToolCalls, stripTextToolCalls } from "./textToolCalls";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -148,13 +149,23 @@ export async function openrouterChat(
   const { data, endpoint } = outcome;
   noteEngineSuccess(primary, endpoint.label);
   const msg = (data as OpenRouterResponse).choices[0]?.message;
-  const toolCalls = (msg?.tool_calls ?? []).map((tc) => {
+  let toolCalls = (msg?.tool_calls ?? []).map((tc) => {
     let args: Record<string, unknown> = {};
     try { args = JSON.parse(tc.function.arguments) as Record<string, unknown>; } catch { /* keep empty */ }
     return { id: tc.id, name: tc.function.name, args };
   });
+  let text = msg?.content ?? "";
+  // Chiamate scritte nel testo (simulazione 24/11): se il turno prevede strumenti e il
+  // modello non ha usato quelle strutturate, si eseguono quelle del testo.
+  if (toolCalls.length === 0 && tools.length > 0) {
+    const fromText = parseTextToolCalls(text);
+    if (fromText.length > 0) {
+      toolCalls = fromText.map((c, i) => ({ id: `text-call-${i}`, ...c }));
+      text = stripTextToolCalls(text);
+    }
+  }
   return {
-    text: msg?.content ?? "",
+    text,
     toolCalls,
     tokens: data.usage?.total_tokens ?? 0,
     provider: `${endpoint.label} · ${endpoint.model}`,

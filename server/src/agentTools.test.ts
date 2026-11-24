@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Settings } from "./config";
-import { buildToolSpecs, makeBranch, slugify, str, toGeminiDecls, toGroqTools, truncate } from "./agentTools";
+import { buildToolSpecs, makeBranch, recordPartial, slugify, str, toGeminiDecls, toGroqTools, truncate } from "./agentTools";
 
 const baseSettings = { baseBranch: "main" } as Settings;
 
@@ -88,5 +88,20 @@ describe("provider adapters keep the spec set in sync", () => {
     expect(tools).toHaveLength(specs.length);
     expect(tools.every((t) => t.type === "function" && "parameters" in t.function)).toBe(true);
     expect(tools.map((t) => t.function.name)).toEqual(specs.map((s) => s.name));
+  });
+});
+
+// Simulazione 24/11: nel turno di chiusura il modello ha scritto `done` come testo XML.
+describe("recordPartial", () => {
+  it("testo normale → risultato parziale", () => {
+    const ctx = { doneSummary: "" };
+    recordPartial(ctx, "  ho letto metà dei file  ");
+    expect(ctx.doneSummary).toBe("Risultato parziale (passi esauriti): ho letto metà dei file");
+  });
+
+  it("un done scritto nel testo → si usa il suo riassunto, senza XML", () => {
+    const ctx = { doneSummary: "" };
+    recordPartial(ctx, "<tool_call>\n<function=done>\n<parameter=summary>\n## Revisione\nDue errori.\n</parameter>\n</function>\n</tool_call>");
+    expect(ctx.doneSummary).toBe("Risultato parziale (passi esauriti): ## Revisione\nDue errori.");
   });
 });
