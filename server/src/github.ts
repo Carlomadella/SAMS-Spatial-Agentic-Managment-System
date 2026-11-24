@@ -139,6 +139,31 @@ export interface RepoTreeEntry {
   type: "blob" | "tree";
 }
 
+/** Quanti file al massimo restituisce un elenco ricorsivo (oltre, si chiede una sottocartella). */
+export const RECURSIVE_LIST_MAX = 300;
+
+/**
+ * I file (non le cartelle) sotto `dir`, col percorso completo; `dir` vuota o "/" = tutto
+ * il repo. Oltre `max` l'ultima riga dice quanti ne restano. Pura: la usa `listFilesRecursive`.
+ */
+export function filesUnder(tree: RepoTreeEntry[], dir: string, max: number): string[] {
+  const prefix = pathParts(dir).join("/");
+  const files = tree
+    .filter((e) => e.type === "blob" && (!prefix || e.path.startsWith(`${prefix}/`)))
+    .map((e) => e.path);
+  if (files.length <= max) return files;
+  return [...files.slice(0, max), `… e altri ${files.length - max} file: elenca una sottocartella`];
+}
+
+/**
+ * Elenco ricorsivo per gh_list_files (simulazione 24/11: un `ls` per cartella consumava
+ * metà dei passi di una revisione). Un passo solo, via Git Trees API.
+ */
+export async function listFilesRecursive(dirPath: string, ref: string): Promise<string[]> {
+  const { entries } = await treeOf(ref, Number.MAX_SAFE_INTEGER);
+  return filesUnder(entries, dirPath, RECURSIVE_LIST_MAX);
+}
+
 async function treeOf(branch: string, max: number): Promise<{ entries: RepoTreeEntry[]; truncated: boolean }> {
   const data = (await gh(`/git/trees/${encodeURIComponent(branch)}?recursive=1`)) as {
     tree?: Array<{ path: string; type: string }>;

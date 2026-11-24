@@ -9,9 +9,10 @@ import type { WireEvent } from "./types";
 // vuoto fino al limite di passi. Le letture devono vedere il branch del task.
 const readFile = vi.fn();
 const listFiles = vi.fn();
+const listFilesRecursive = vi.fn();
 vi.mock("./github", async (importOriginal) => {
   const orig = await importOriginal<typeof import("./github")>();
-  return { ...orig, readFile, listFiles };
+  return { ...orig, readFile, listFiles, listFilesRecursive };
 });
 
 const { PROGRESS_START, executeTool } = await import("./agentTools");
@@ -41,6 +42,21 @@ const notFound = () => new HttpError(404, 'GitHub 404: {"message":"Not Found"}')
 beforeEach(() => {
   readFile.mockReset();
   listFiles.mockReset();
+  listFilesRecursive.mockReset();
+});
+
+// Simulazione 24/11: Sim-Revisore ha speso 10 dei 24 passi con un `ls` per cartella e non
+// è arrivato a lasciare la revisione. Con `recursive` l'albero arriva in un passo solo.
+describe("gh_list_files con recursive", () => {
+  it("elenca tutti i file sotto la cartella, dal branch del task", async () => {
+    listFilesRecursive.mockImplementation(async (_p: string, ref: string) =>
+      ref === "docs/architettura" ? ["src/a.ts", "src/b/c.ts"] : [],
+    );
+    const res = await executeTool("gh_list_files", { path: "client", recursive: true }, mkCtx());
+    expect(listFilesRecursive).toHaveBeenCalledWith("client", "docs/architettura");
+    expect(listFiles).not.toHaveBeenCalled();
+    expect(res.split("\n")).toEqual(["src/a.ts", "src/b/c.ts"]);
+  });
 });
 
 describe("gh_read_file / gh_list_files leggono il branch del task", () => {
