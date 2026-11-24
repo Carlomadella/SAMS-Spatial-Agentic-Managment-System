@@ -5,6 +5,7 @@
  * This module owns the single source of truth for: tool specs, the per-provider
  * spec adapters, the tool dispatcher (executeTool) and the post-loop finalize.
  */
+import { parseTextToolCalls } from "./textToolCalls";
 import { activityForTool, ciOutcome } from "./activity";
 import type { Settings } from "./config";
 import { callMcpTool, describeMcpServers, parseMcpServers } from "./mcp";
@@ -1079,7 +1080,10 @@ export const CLOSING_PROMPT =
 /** Il testo del turno di chiusura diventa il riassunto del task, marcato come parziale:
  *  il task resta interrotto (non completato), ma non si chiude più a mani vuote. */
 export function recordPartial(ctx: Pick<ToolContext, "doneSummary">, text: string | undefined): void {
-  const t = text?.trim();
+  // Il modello può scrivere la chiamata a `done` nel testo (simulazione 24/11): se c'è,
+  // il risultato è il suo riassunto, non l'XML grezzo.
+  const textDone = parseTextToolCalls(text).find((c) => c.name === "done");
+  const t = (typeof textDone?.args.summary === "string" ? textDone.args.summary : text)?.trim();
   if (t) ctx.doneSummary = `Risultato parziale (passi esauriti): ${t}`;
 }
 

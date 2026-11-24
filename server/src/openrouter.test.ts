@@ -129,3 +129,29 @@ describe("openrouterChat — stato del motore", () => {
     expect(engineState()).toMatchObject({ mode: "exhausted" });
   });
 });
+
+// Simulazione 24/11: Nemotron ha scritto la chiamata a `done` nel testo; SAMS la ignorava.
+describe("openrouterChat — chiamate scritte nel testo", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetEngineState();
+  });
+  const tool = { type: "function" as const, function: { name: "done", description: "fine", parameters: { type: "object", properties: {} } } };
+  const reply = (content: string) =>
+    vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: "stop" }] }), { status: 200 }));
+  const textCall = "Concludo.\n<tool_call><function=done><parameter=summary>tutto ok</parameter></function></tool_call>";
+
+  it("con strumenti disponibili diventano chiamate vere e il testo resta pulito", async () => {
+    vi.stubGlobal("fetch", reply(textCall));
+    const r = await openrouterChat([], [tool], "sys");
+    expect(r.toolCalls).toEqual([{ id: "text-call-0", name: "done", args: { summary: "tutto ok" } }]);
+    expect(r.text).toBe("Concludo.");
+  });
+
+  it("senza strumenti (turno di chiusura) il testo resta com'è", async () => {
+    vi.stubGlobal("fetch", reply(textCall));
+    const r = await openrouterChat([], [], "sys");
+    expect(r.toolCalls).toEqual([]);
+    expect(r.text).toBe(textCall);
+  });
+});
