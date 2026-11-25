@@ -78,7 +78,7 @@ export async function ensureQueueColumns(db: SqlDriver): Promise<void> {
   await add("payload", "payload TEXT NULL", "payload TEXT NULL");
 }
 
-const Q_COLS = `id, agent_id AS agentId, agent_name AS agentName, title, branch, status, attempts, created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt, after_task_id AS afterTaskId, urgent, wait_note AS waitNote, payload`;
+const Q_COLS = `id, agent_id AS agentId, agent_name AS agentName, title, branch, status, attempts, created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt, creator_user_id AS creatorUserId, after_task_id AS afterTaskId, urgent, wait_note AS waitNote, payload`;
 
 interface QRow extends TaskRecord {
   afterTaskId: string;
@@ -105,6 +105,7 @@ function toQueued(r: QRow): QueuedTask {
     createdBy: String(r.createdBy ?? ""),
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
+    creatorUserId: String(r.creatorUserId ?? ""),
     afterTaskId: String(r.afterTaskId ?? ""),
     urgent: Number(r.urgent) === 1,
     waitNote: String(r.waitNote ?? ""),
@@ -114,7 +115,7 @@ function toQueued(r: QRow): QueuedTask {
 
 export async function enqueueTask(
   db: SqlRunner,
-  t: { agentId: string; agentName: string; title: string; branch: string; createdBy: string; afterTaskId?: string; urgent?: boolean; payload: QueuePayload },
+  t: { agentId: string; agentName: string; title: string; branch: string; createdBy: string; creatorUserId?: string; afterTaskId?: string; urgent?: boolean; payload: QueuePayload },
   now = Date.now(),
 ): Promise<QueuedTask> {
   const task = await createTask(db, t, now);
