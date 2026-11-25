@@ -1363,8 +1363,14 @@ interface Launch {
  * Avvia il task (l'agente è già stato prenotato con beginRun). Usato da /api/assign e dalla
  * coda sul server (idea 4), che fa partire i task anche senza una pagina aperta.
  */
+/** Account SAMS di chi ha avviato il task in corso di ogni agente (decide sui suoi permessi). */
+const runOwners = new Map<string, { userId: string; run: symbol }>();
+
 async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{ taskId: string | null; attempt: number | null }> {
   const { ug } = who;
+  // Legato a QUESTO task: la fine di un task non cancella mai il proprietario del successivo.
+  const runToken = Symbol("run");
+  runOwners.set(body.agentId, { userId: who.userId, run: runToken });
   // Il task sul server (idea 3): uno nuovo, o un nuovo tentativo di quello indicato.
   let recorder: AttemptRecorder | null = null;
   try {
@@ -1438,6 +1444,7 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
   const finished = () => {
     endRun(body.agentId);
+    if (runOwners.get(body.agentId)?.run === runToken) runOwners.delete(body.agentId);
     endCheckpoint(body.agentId);
     recorder?.note("end", "INFO", `Fine del tentativo ${recorder.attempt}`);
     // Coda (idea 4): parte il prossimo task dell'agente e chi aspettava questo.
@@ -1821,7 +1828,15 @@ app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: 
   }
   // Chi decide prima di tutto (l'await va qui): poi controllo e sblocco nello stesso passo,
   // legati alla richiesta che la persona ha visto (requestId), non a quella che c'è adesso.
-  const by = actorLabel(await roleOf(req), actor);
+  const role = await roleOf(req);
+  const me = await sessionUser(req);
+  const by = actorLabel(role, actor);
+  // L'agente lavora col GitHub di chi ha avviato il task: con il GitHub per utente decide
+  // solo quella persona (o l'owner), come per i commenti e la coda.
+  if (!canComment({ perUserGithub: Boolean(githubOAuthConfig()), isOwner: role === "owner", creatorUserId: runOwners.get(agentId)?.userId ?? "", me: me?.id ?? null })) {
+    res.status(403).json({ error: "Solo chi ha avviato il task (o l'owner) può decidere: l'agente lavora col suo GitHub." });
+    return;
+  }
   const answered = answerPermission(agentId, typeof requestId === "string" ? requestId : "", decision);
   if (!answered) {
     res.status(409).json({ error: "Questa richiesta di permesso non è più in attesa (già decisa, scaduta o sostituita da un'altra)." });
