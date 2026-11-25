@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { openDb } from "./db";
 import { addComment, createTask, setTaskStatus } from "./tasks";
 import { startAttempt } from "./taskRecorder";
-import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, readiness, removeQueued, waitMessage } from "./taskQueue";
+import { sameGithubKind, clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, readiness, removeQueued, waitMessage } from "./taskQueue";
 
 const q = (over: Partial<Parameters<typeof enqueueTask>[1]> = {}) => ({
   agentId: "b",
@@ -83,5 +83,16 @@ describe("coda sul server", () => {
     const rec = await startAttempt(db, t.id, "");
     expect(rec.comments).toContain("Anna: usa vitest");
     expect(await listQueue(db, "b")).toEqual([]);
+  });
+
+  it("parte solo con lo stesso tipo di GitHub di quando è stato messo in coda", () => {
+    expect(sameGithubKind({ github: "user", userId: "u1" }, "user")).toEqual({ ok: true });
+    expect(sameGithubKind({ github: "server" }, "server")).toEqual({ ok: true });
+    // l'utente ha scollegato il suo GitHub: niente ripiego sul token del server
+    expect(sameGithubKind({ github: "user", userId: "u1" }, "server")).toMatchObject({ ok: false });
+    expect(sameGithubKind({ github: "user", userId: "u1" }, "missing")).toMatchObject({ ok: false });
+    expect(sameGithubKind({ github: "server" }, "user")).toMatchObject({ ok: false });
+    // code vecchie senza il campo: si deduce da userId
+    expect(sameGithubKind({ userId: "u1" }, "server")).toMatchObject({ ok: false });
   });
 });

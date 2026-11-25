@@ -24,6 +24,26 @@ export interface QueuePayload {
   actor?: string;
   /** account SAMS di chi l'ha messo in coda (per usare il suo GitHub); "" = GitHub del server */
   userId?: string;
+  /** con quale GitHub è stato messo in coda: alla partenza deve essere lo stesso tipo,
+   *  mai un ripiego sul token del server */
+  github?: "user" | "server";
+  /** ruolo di chi l'ha messo in coda (owner non ha limiti di repo) */
+  viewerRole?: string;
+}
+
+/** Task in coda al massimo per agente. */
+export const MAX_QUEUE_PER_AGENT = 30;
+
+/**
+ * Con quale GitHub può partire adesso un task in coda: deve essere lo stesso tipo di quando
+ * è stato messo in coda. Se chi l'ha messo in coda lavorava col suo GitHub e ora non c'è più
+ * (account cancellato, GitHub scollegato), il task resta fermo: niente ripiego sul server.
+ */
+export function sameGithubKind(payload: QueuePayload, now: "user" | "server" | "missing"): { ok: true } | { ok: false; why: string } {
+  const was = payload.github ?? (payload.userId ? "user" : "server");
+  if (now === was) return { ok: true };
+  if (was === "user") return { ok: false, why: "Chi l'ha messo in coda non ha più il suo GitHub collegato: il task resta fermo finché non lo ricollega (o rimuovilo dalla coda)." };
+  return { ok: false, why: "Il GitHub con cui lavora il server è cambiato da quando il task è stato messo in coda: rimettilo in coda." };
 }
 
 export interface QueuedTask extends TaskRecord {

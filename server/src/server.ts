@@ -58,7 +58,7 @@ import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 import { addComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
-import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, readiness, removeQueued, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
+import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
 
 const app = express();
 
@@ -1452,6 +1452,8 @@ async function pumpQueue(agentId: string): Promise<void> {
   pumping.add(agentId);
   try {
     if (!isReady() || currentRun(agentId) || isMainGate(getPending(agentId))) return;
+    // Stesso intervallo minimo tra due avvii dello stesso agente di /api/assign (il giro dopo riprova).
+    if (Date.now() - (lastAssign.get(agentId) ?? 0) < ASSIGN_COOLDOWN_MS) return;
     // Agente cancellato: la sua coda se ne va con lui.
     const world = await loadWorldSnapshot(db());
     const agent = world.agents.find((a) => a.id === agentId);
@@ -1473,11 +1475,20 @@ async function pumpQueue(agentId: string): Promise<void> {
         }
         continue;
       }
+      // Lo stesso GitHub di quando è stato messo in coda, e la repo ricontrollata con quello.
       const user = q.payload.userId ? await getUserById(db(), q.payload.userId) : null;
-      const ug = await githubFor(user);
-      if (ug.kind === "missing") {
-        if (q.waitNote !== ug.error) await setWaitNote(db(), q.id, ug.error);
-        changed = true;
+      const ug = q.payload.userId && !user ? ({ kind: "missing", error: "" } as const) : await githubFor(user);
+      const same = sameGithubKind(q.payload, ug.kind);
+      const repoCheck =
+        ug.kind === "missing"
+          ? null
+          : decideTaskRepo(q.payload.repo ?? undefined, { usesOwnGithub: ug.kind === "user", isOwner: q.payload.viewerRole === "owner", serverRepo: getSettings().githubRepo });
+      const stop = !same.ok ? same.why : ug.kind === "missing" ? ug.error : repoCheck && !repoCheck.ok ? repoCheck.error : "";
+      if (stop || ug.kind === "missing" || !repoCheck?.ok) {
+        if (q.waitNote !== stop) {
+          await setWaitNote(db(), q.id, stop);
+          changed = true;
+        }
         continue;
       }
       if (!beginRun(agentId, q.title)) break;
@@ -1497,7 +1508,7 @@ async function pumpQueue(agentId: string): Promise<void> {
       };
       // La UI sa che l'agente è partito anche se nessuno ha premuto niente.
       broadcast({ agentId, agentName: q.agentName, taskTitle: q.title, level: "INFO", message: `Parte dalla coda: ${q.title.slice(0, 120)}` });
-      await launchTask(body, { ug, repo: q.payload.repo ?? null, actor: q.createdBy }, Date.now());
+      await launchTask(body, { ug, repo: repoCheck.repo, actor: q.createdBy }, Date.now());
       await broadcastQueue();
       return;
     }
@@ -1539,6 +1550,18 @@ app.post("/api/queue", requireRole("editor"), async (req: Request, res: Response
     res.status(409).json({ error: ug.error, needsGithub: true });
     return;
   }
+  // Stessi limiti di /api/assign: assegnazioni per utente e una coda non infinita.
+  const now = Date.now();
+  const userKey = identityKey(bearerToken(req.headers.authorization), req.ip);
+  if (!assignQuota.hit(userKey, now)) {
+    const qWait = Math.ceil(assignQuota.retryAfterMs(userKey, now) / 1000);
+    res.status(429).json({ error: `Troppe assegnazioni — riprova tra ${qWait}s`, retryAfterSec: qWait });
+    return;
+  }
+  if ((await listQueue(db(), String(body.agentId))).length >= MAX_QUEUE_PER_AGENT) {
+    res.status(409).json({ error: `La coda di questo agente è piena (${MAX_QUEUE_PER_AGENT} task): aspetta che ne parta qualcuno.` });
+    return;
+  }
   const role = await roleOf(req);
   const repoDecision = decideTaskRepo(body.repo, { usesOwnGithub: ug.kind === "user", isOwner: role === "owner", serverRepo: getSettings().githubRepo });
   if (!repoDecision.ok) {
@@ -1557,7 +1580,9 @@ app.post("/api/queue", requireRole("editor"), async (req: Request, res: Response
     repo: repoDecision.repo,
     environment: typeof body.environment === "string" ? body.environment.slice(0, 16) : undefined,
     actor,
-    userId: user?.id ?? "",
+    userId: ug.kind === "user" ? (user?.id ?? "") : "",
+    github: ug.kind,
+    viewerRole: role,
   };
   const task = await enqueueTask(db(), {
     agentId: String(body.agentId).slice(0, 191),
