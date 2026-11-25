@@ -1,3 +1,6 @@
+import { permissionsForTask } from "./permissionsLive";
+import { filterOffTools } from "./permissions";
+import { noteRequest } from "./usageLive";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -150,7 +153,9 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     return;
   }
 
-  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  // Permessi (idea 2): i gruppi spenti non vengono nemmeno offerti all'agente.
+  const perms = await permissionsForTask(agentId);
+  const specs = filterOffTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }), perms);
   const tools = toGroqTools(specs);
   // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
   const finalTools = toGroqTools(finalStepSpecs(specs));
@@ -165,7 +170,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,
     wroteFiles: false, notionWrote: false, branchReady: false,
-    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [],
+    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [], perms,
   };
   let totalTokens = 0;
 
@@ -183,6 +188,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
         emit({ agentId, agentName, level: "WARN", message: `OpenAI occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, "openai", resp.tokens);
 
     if (resp.toolCalls.length === 0) {
       concludeWithAnswer(ctx, resp.text);
@@ -223,6 +229,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     try {
       const closing = await openaiChat(messages, [], system);
       totalTokens += closing.tokens;
+      noteRequest(agentId, "openai", closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */

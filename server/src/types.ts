@@ -33,6 +33,8 @@ export interface WireEvent {
   /** l'attesa riguarda il branch principale (push o merge): l'agente è bloccato nella
    *  sala d'attesa finché una persona non conferma o rifiuta. */
   mainGate?: boolean;
+  /** permesso chiesto a una persona ("Chiedi prima", idea 2): l'agente è fermo finché non si decide; null = richiesta chiusa */
+  permissionRequest?: { id: string; group: string; groupLabel: string; tool: string; detail: string; since: number } | null;
   /** agent-to-agent handoff: ask a peer to continue the work */
   relayTo?: { target: string; title: string; branch: string; context: string };
   /** risultato completo del task (riassunto finale), mostrato nell'Inspector */

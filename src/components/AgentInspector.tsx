@@ -20,6 +20,8 @@ import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
 import { AgentVersionsBox } from "./AgentVersions";
+import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
+import { AgentUsageBox, QuotaHint } from "./AgentUsage";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -245,6 +247,9 @@ export function AgentInspector() {
           </select>
         </div>
       )}
+
+      {/* permesso chiesto dall'agente ("Chiedi prima", idea 2) */}
+      {backendEnabled && <PermissionPrompt agentId={agent.id} />}
 
       {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
       {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge || agent.pendingWorkflow) && (
@@ -516,6 +521,7 @@ export function AgentInspector() {
               <span>⚡ Urgente — salta la coda</span>
             </label>
           )}
+          {backendEnabled && <QuotaHint agentId={agent.id} />}
           {!canAssign(viewerRole) && (
             <p className="text-[11px] leading-snug text-slate-400">
               👁 Sei in <strong>sola lettura</strong>: puoi osservare il mondo ma non avviare lavoro.
@@ -957,6 +963,10 @@ export function AgentInspector() {
 
           {/* versioni della configurazione con ripristino (idea 6) */}
           {backendEnabled && <AgentVersionsBox agentId={agent.id} />}
+          {/* permessi per gruppo di strumenti (idea 2) */}
+          {backendEnabled && <AgentPermissionsBox agentId={agent.id} />}
+          {/* richieste di oggi e tetto giornaliero (idea 1) */}
+          {backendEnabled && <AgentUsageBox agentId={agent.id} />}
 
           {/* squadra: il relay preferisce i compagni di squadra del mittente */}
           <label className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-ink-850/60 px-2.5 py-2">
