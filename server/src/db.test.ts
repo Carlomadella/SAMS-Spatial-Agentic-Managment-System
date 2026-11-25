@@ -55,6 +55,7 @@ import {
   tasksOnBranches,
   TOMBSTONE_TTL_MS,
   type TaskLogEntry,
+  listTaskRuns,
 } from "./db";
 import type { RoutineInput } from "./routines";
 import type { WorldAgentSnapshot } from "./worldState";
@@ -135,6 +136,21 @@ describe("db task_log — riassunti e storia di un branch (Reparto revisioni)", 
     const rows = await tasksOnBranches(db, ["feat", "main", ""]);
     expect(rows.map((r) => [r.title, r.summary])).toEqual([["tre", "fatto C"], ["uno", "fatto A"]]);
     expect(await tasksOnBranches(db, [])).toEqual([]);
+  });
+
+  it("aggiunge la colonna server a un task_runs creato prima (25/11)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sams-db-"));
+    tmpDirs.push(dir);
+    const file = join(dir, "legacy-taskruns.db");
+    const legacy = await openDb(file);
+    await legacy.exec(`DROP TABLE task_runs`);
+    await legacy.exec(`CREATE TABLE task_runs (agent_id TEXT PRIMARY KEY, agent_name TEXT NOT NULL,
+      title TEXT NOT NULL, branch TEXT NOT NULL, started_at INTEGER NOT NULL)`);
+    await legacy.run(`INSERT INTO task_runs VALUES ('a','A','vecchio','feat',1)`);
+    await legacy.close();
+    const db = await openDb(file);
+    expect(await listTaskRuns(db)).toEqual([{ agentId: "a", agentName: "A", title: "vecchio", branch: "feat", startedAt: 1, server: "" }]);
+    await db.close();
   });
 
   it("aggiunge la colonna summary a un task_log creato prima", async () => {

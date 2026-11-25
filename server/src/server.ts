@@ -39,7 +39,10 @@ import { actorLabel } from "./attribution";
 import { bearerToken, isAnonymousWhenEnforced, resolveRole, roleAtLeast, rolesEnforced, type Role, type RoleTokens } from "./roles";
 import { randomUUID } from "node:crypto";
 import { StreamTickets } from "./streamTickets";
-import { recoverInterruptedRuns } from "./interruptedRuns";
+import { recoverInterruptedRuns, serverName } from "./interruptedRuns";
+
+/** Chi fa girare i task in questo processo (Render o il PC): vedi interruptedRuns.ts. */
+const THIS_SERVER = serverName();
 import { createKeepAwake, keepAwakeUrl } from "./keepAwake";
 import { decideTaskRepo } from "./repoOverride";
 import { friendlyError } from "./friendlyError";
@@ -1313,7 +1316,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   res.json({ ok: true });
   noteTaskStarted(body.agentId, body.title, now);
   // Anche nel database: se il server si riavvia a metà, all'avvio risulta interrotto.
-  const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now })
+  const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now, server: THIS_SERVER })
     .catch((err) => log.warn("Task in corso non salvato", { err: String(err) }));
   keepAwake.update(runningCount(now));
   // Lo si toglie solo dopo averlo salvato: con MySQL le due query potrebbero incrociarsi.
@@ -2195,8 +2198,9 @@ try {
   if (imported.length > 0) log.info("Impostazioni importate dal file nel database", { fields: imported });
   if (ephemeralDisk()) log.info("Disco effimero: le chiavi si leggono solo dalle variabili d'ambiente");
   // Task rimasti a metà da un riavvio: nello storico come interrotti (simulazione 23/11).
-  const interrupted = await recoverInterruptedRuns(db());
-  if (interrupted > 0) log.info("Task interrotti dal riavvio segnati come bloccati", { tasks: interrupted });
+  // Solo quelli di questo server: Render e il PC condividono il database (25/11).
+  const interrupted = await recoverInterruptedRuns(db(), THIS_SERVER);
+  if (interrupted > 0) log.info("Task interrotti dal riavvio segnati come bloccati", { tasks: interrupted, server: THIS_SERVER });
   // XP inventati dei sei agenti di partenza rimasti nel mondo salvato (collaudo 21/11).
   // Si salva l'elenco intero (saveWorldAgents toglie gli assenti e non resuscita i
   // cancellati, 24/11), solo se c'è da cambiare.
