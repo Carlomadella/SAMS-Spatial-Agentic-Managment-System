@@ -641,7 +641,7 @@ export async function insertChatMessage(db: SqlRunner, msg: ChatMessage): Promis
 // come **contatore di versione globale** per il CAS. Il merge server-side è ciò
 // che rende sicura la cancellazione (Roadmap 4, frontiera #1 — opzione 1).
 
-/** Tempo di vita dei tombstone: dopo tanto vengono potati (GC del roster). */
+/** Età oltre la quale `pruneWorldTombstones` può potare un tombstone (non lo chiama più nessuno in automatico, 25/11). */
 export const TOMBSTONE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
 
 interface WorldAgentRow {
@@ -749,8 +749,8 @@ export interface WorldMergeResult extends WorldSnapshot {
  * Fonde il roster completo in arrivo riga per riga; bumpa la versione globale
  * **solo se qualcosa è cambiato**.
  *
- * - upsert di ogni agente in arrivo (rev++ se cambiato; **resuscita** un tombstone
- *   con lo stesso id → `deleted_at = NULL`);
+ * - upsert di ogni agente in arrivo (rev++ se cambiato); un id già cancellato si
+ *   **ignora**: la cancellazione è definitiva (25/11);
  * - **tombstone-by-absence**: ogni riga *viva* assente dal roster in arrivo viene
  *   marcata cancellata. È sicuro **solo** perché il gestore ammette questa scrittura
  *   unicamente se CAS-fresca (`baseVersion === current`): il client aveva adottato
@@ -797,6 +797,9 @@ export async function saveWorldAgents(
     let changed = false;
     for (const a of incoming) {
       const prev = existing.get(a.id);
+      // Cancellare è definitivo (25/11): una pagina che ha ancora l'agente in memoria non lo
+      // fa tornare. Gli agenti nuovi hanno sempre un id nuovo.
+      if (prev && prev.deleted_at != null) continue;
       if (prev && agentUnchanged(prev, a)) continue; // nessun cambiamento → niente scrittura né rev
       const rev = prev ? Number(prev.rev) + 1 : 1;
       await tx.run(upsertSql, [
@@ -815,9 +818,9 @@ export async function saveWorldAgents(
       }
     }
 
-    // GC dei tombstone scaduti: indipendente dal `changed` (rimuove solo voci già
-    // morte che i client hanno da tempo processato → non deve forzare un broadcast).
-    await pruneWorldTombstones(tx, TOMBSTONE_TTL_MS, now);
+    // I tombstone NON si potano più qui (25/11): senza la riga, una pagina nuova che parte
+    // coi sei agenti di default li ricreava dopo 7 giorni. Una riga per agente cancellato
+    // pesa pochissimo.
 
     const { version, updatedAt } = changed ? await bumpWorldVersion(tx) : await loadWorldVersion(tx);
     return { agents: await loadWorldAgents(tx), version, updatedAt, changed };

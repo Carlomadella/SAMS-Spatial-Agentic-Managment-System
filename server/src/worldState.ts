@@ -94,6 +94,8 @@ export function sanitizeWorldAgent(raw: unknown): WorldAgentSnapshot | null {
     xp: nonNegInt(r.xp),
     assignedBy: str(r.assignedBy, 40).trim(),
     squad: str(r.squad, 60).trim().slice(0, 40),
+    // Una voce cancellata riletta da GET e rimandata resta cancellata (25/11).
+    ...(r.deleted === true ? { deleted: true } : {}),
   };
 }
 
