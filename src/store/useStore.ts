@@ -1323,6 +1323,8 @@ export const useStore = create<State>()(
           if (!state.furniturePlacements) state.furniturePlacements = {};
           if (!state.roomTheme) state.roomTheme = DEFAULT_ROOM_THEME;
           if (!state.officeLayout) state.officeLayout = DEFAULT_OFFICE_ARRANGEMENT;
+          // «Estensioni» tolta dalla sidebar (25/11): chi l'aveva aperta torna su Esplora risorse
+          if ((state.activity as string) === "extensions") state.activity = "explorer";
           for (const a of state.agents) {
             // don't resume stale walk targets after a reload
             a.target = null;

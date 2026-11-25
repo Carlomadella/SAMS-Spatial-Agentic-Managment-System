@@ -42,12 +42,11 @@ test("sidebar sinistra: la barra attività commuta tutte e 5 le viste", async ({
   await activity("CAD spaziale");
   await expect(page.getByText("CAD spaziale · Zone")).toBeVisible();
 
-  await activity("Estensioni");
-  await expect(page.getByText("Runtime agenti")).toBeVisible();
-
   // Ri-cliccando la voce attiva il pannello si chiude (toggle).
-  await activity("Estensioni");
-  await expect(page.getByText("Runtime agenti")).toBeHidden();
+  await activity("CAD spaziale");
+  await expect(page.getByText("CAD spaziale · Zone")).toBeHidden();
+  // «Estensioni» è stata tolta (25/11)
+  await expect(page.getByRole("button", { name: "Estensioni", exact: true })).toHaveCount(0);
 });
 
 test("sidebar sinistra: la vista Controllo sorgente cambia ambiente", async ({ page }) => {
