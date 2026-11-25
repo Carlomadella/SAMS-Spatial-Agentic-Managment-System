@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Eye, GitBranch, Radio, Send, Users, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, GitBranch, Radio, Send, ShieldQuestion, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
@@ -6,6 +6,8 @@ import { roleMeta } from "../lib/roleUi";
 import { Link } from "../site/router";
 import { effectiveBranch } from "../lib/environments";
 import { engineLabel } from "../lib/engine";
+import { usePermissionRequests } from "../lib/permissions";
+import { usePendingPermissionsSync } from "./AgentPermissions";
 import { usageBadge, useUsage } from "../lib/usage";
 import { useUsagePolling } from "./AgentUsage";
 
@@ -30,6 +32,9 @@ export function StatusBar() {
   const { branch, dedicated } = effectiveBranch(environment, envBranches, runtimeBranch);
   const engine = useStore((s) => s.engine);
   const blocked = useStore((s) => s.agents.filter((a) => a.status === "blocked").length);
+  const permRequests = Object.values(usePermissionRequests((s) => s.pending));
+  const selectAgent = useStore((s) => s.selectAgent);
+  usePendingPermissionsSync();
   const usage = useUsage((s) => s.usage);
   useUsagePolling();
 
@@ -97,6 +102,16 @@ export function StatusBar() {
             </span>
           );
         })()}
+        {permRequests.length > 0 && (
+          <button
+            onClick={() => selectAgent(permRequests[0].agentId)}
+            className="flex items-center gap-1 text-amber-200 hover:text-white"
+            title={permRequests.map((r) => `${r.agentName}: ${r.groupLabel}`).join("\n")}
+            data-testid="permission-badge"
+          >
+            <ShieldQuestion size={12} /> {permRequests.length === 1 ? "1 permesso" : `${permRequests.length} permessi`}
+          </button>
+        )}
         {backendEnabled && backendOnline && usage && (() => {
           const u = usageBadge(usage);
           return (

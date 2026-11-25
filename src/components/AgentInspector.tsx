@@ -19,6 +19,7 @@ import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
+import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
 import { AgentUsageBox, QuotaHint } from "./AgentUsage";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
@@ -245,6 +246,9 @@ export function AgentInspector() {
           </select>
         </div>
       )}
+
+      {/* permesso chiesto dall'agente ("Chiedi prima", idea 2) */}
+      {backendEnabled && <PermissionPrompt agentId={agent.id} />}
 
       {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
       {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge || agent.pendingWorkflow) && (
@@ -956,6 +960,8 @@ export function AgentInspector() {
             </div>
           </details>
 
+          {/* permessi per gruppo di strumenti (idea 2) */}
+          {backendEnabled && <AgentPermissionsBox agentId={agent.id} />}
           {/* richieste di oggi e tetto giornaliero (idea 1) */}
           {backendEnabled && <AgentUsageBox agentId={agent.id} />}
 
