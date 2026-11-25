@@ -325,6 +325,11 @@ async function githubFor(user: User | null): Promise<UserGithub> {
   return { kind: "user", login: link.login, ctx: { repo: link.repo, token, baseBranch: link.baseBranch || "main" } };
 }
 
+/** La repo selezionata da chi lavora: quella scelta col proprio GitHub, o quella del server in ⚙. */
+function selectedRepoOf(ug: UserGithub): string {
+  return ug.kind === "user" ? ug.ctx.repo ?? "" : getSettings().githubRepo;
+}
+
 /** Il token GitHub (in chiaro) dell'utente collegato, o null. */
 async function linkedToken(req: Request): Promise<{ user: User; token: string } | null> {
   const cfg = githubOAuthConfig();
@@ -1280,13 +1285,8 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
-  // Repo indicata per il task (meta-agente): col token del server solo quelle consentite
-  // (collaudo 21/11, punto 4b). Chi lavora col proprio GitHub e l'owner restano liberi.
-  const repoDecision = decideTaskRepo(body.repo, {
-    usesOwnGithub: ug.kind === "user",
-    isOwner: (await roleOf(req)) === "owner",
-    serverRepo: getSettings().githubRepo,
-  });
+  // Solo la repo selezionata, più SAMS per il meta-agente (scelta dell'utente del 25/11).
+  const repoDecision = decideTaskRepo(body.repo, selectedRepoOf(ug));
   if (!repoDecision.ok) {
     res.status(403).json({ error: repoDecision.error });
     return;
@@ -1531,7 +1531,7 @@ async function pumpQueue(agentId: string): Promise<void> {
       const repoCheck =
         ug.kind === "missing"
           ? null
-          : decideTaskRepo(q.payload.repo ?? undefined, { usesOwnGithub: ug.kind === "user", isOwner: q.payload.viewerRole === "owner", serverRepo: getSettings().githubRepo });
+          : decideTaskRepo(q.payload.repo ?? undefined, selectedRepoOf(ug));
       const stop = !same.ok ? same.why : ug.kind === "missing" ? ug.error : repoCheck && !repoCheck.ok ? repoCheck.error : "";
       if (stop || ug.kind === "missing" || !repoCheck?.ok) {
         if (q.waitNote !== stop) {
@@ -1622,7 +1622,7 @@ app.post("/api/queue", requireRole("editor"), async (req: Request, res: Response
     return;
   }
   const role = await roleOf(req);
-  const repoDecision = decideTaskRepo(body.repo, { usesOwnGithub: ug.kind === "user", isOwner: role === "owner", serverRepo: getSettings().githubRepo });
+  const repoDecision = decideTaskRepo(body.repo, selectedRepoOf(ug));
   if (!repoDecision.ok) {
     res.status(403).json({ error: repoDecision.error });
     return;

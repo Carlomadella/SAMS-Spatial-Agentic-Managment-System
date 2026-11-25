@@ -506,7 +506,7 @@ export function AgentInspector() {
             value={taskRepo}
             onChange={(e) => setTaskRepo(e.target.value)}
             placeholder={`repo del task (opzionale) — vuoto = ${metaRepo(agent) ?? "repo globale"}`}
-            title="Indirizza SOLO questo task a un repository diverso (owner/repo). Vuoto = usa il repo dell'agente."
+            title="Gli agenti lavorano solo sulla repo selezionata in ⚙; l'unica altra consentita è quella di SAMS (meta-agente). Vuoto = repo dell'agente."
             className={cn(
               "w-full rounded-md border bg-ink-800 px-2 py-1.5 font-mono text-[12px] text-slate-200 outline-none placeholder:text-mut/70 focus:border-brand/50",
               taskRepo.trim() && !isValidRepo(taskRepo) ? "border-rose-500/60" : "border-line",
@@ -1028,6 +1028,9 @@ export function AgentInspector() {
                   : agent.meta
                     ? "Vuoto: i task meta lavorano sul repo di SAMS."
                     : "Vuoto: usa il repository globale del runtime."}
+              </p>
+              <p className="mt-1 text-[10px] text-mut">
+                Gli agenti lavorano solo sulla repo selezionata in ⚙; l'unica altra consentita è quella di SAMS, per il meta-agente.
               </p>
             </div>
           </details>
