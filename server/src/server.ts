@@ -59,6 +59,10 @@ import { Mutex } from "./sql";
 import { addComment, canComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
 import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
+import { configDiff, getVersion, listVersions } from "./agentVersions";
+import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, noteLiveMode, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
+import { agentRequestsToday, capBlockMessage, getAgentCap, providerDailyCap, sanitizeCap, setAgentCap, usageReport } from "./usage";
+import { noteTaskEnd } from "./usageLive";
 
 const app = express();
 
@@ -1299,6 +1303,19 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // Tetto giornaliero dell'agente (idea 1, scelta C): raggiunto il tetto l'agente non parte.
+  // Vuoto = nessun tetto. La quota del provider quasi finita invece è solo un avviso (nella UI).
+  try {
+    const cap = await getAgentCap(db(), body.agentId);
+    const blocked = cap > 0 ? capBlockMessage(body.agentName || "L'agente", await agentRequestsToday(db(), body.agentId), cap) : null;
+    if (blocked) {
+      res.status(409).json({ error: blocked, capReached: true });
+      return;
+    }
+  } catch (err) {
+    log.warn("Tetto dell'agente non letto", { err: String(err) }); // il conteggio non deve fermare il lavoro
+  }
+
   const now = Date.now();
   const prev = lastAssign.get(body.agentId) ?? 0;
   const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
@@ -1405,6 +1422,7 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
     recorder?.note("end", "INFO", `Fine del tentativo ${recorder.attempt}`);
     // Coda (idea 4): parte il prossimo task dell'agente e chi aspettava questo.
     void afterTaskEnds(body.agentId, recorder);
+    noteTaskEnd(body.agentId);
     void runSaved
       .then(() => deleteTaskRun(db(), body.agentId))
       .catch((err) => log.warn("Task in corso non tolto", { err: String(err) }));
@@ -1494,6 +1512,16 @@ async function pumpQueue(agentId: string): Promise<void> {
           changed = true;
         }
         continue;
+      }
+      // Tetto giornaliero dell'agente (idea 1): raggiunto, il task resta in coda con l'avviso.
+      const cap = await getAgentCap(db(), agentId);
+      const capped = cap > 0 ? capBlockMessage(q.agentName, await agentRequestsToday(db(), agentId), cap) : null;
+      if (capped) {
+        if (q.waitNote !== capped) {
+          await setWaitNote(db(), q.id, capped);
+          changed = true;
+        }
+        break; // stesso agente: nessun altro suo task può partire oggi
       }
       if (!beginRun(agentId, q.title)) break;
       if (q.waitNote) await setWaitNote(db(), q.id, "");
@@ -1732,6 +1760,78 @@ app.post("/api/tasks/:id/comments", requireRole("editor"), async (req: Request, 
   res.json(comment);
 });
 
+/** Permessi per gruppo di strumenti di un agente (idea 2), con chi li ha cambiati e l'eventuale richiesta in attesa. */
+app.get("/api/permissions/:agentId", requireRole("viewer"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "");
+  res.json({
+    groups: PERM_GROUPS.map((g) => ({ id: g.id, label: g.label })),
+    perms: await loadPermissions(db(), agentId),
+    changes: await permissionRows(db(), agentId),
+    pending: pendingPermission(agentId),
+  });
+});
+
+/** Le richieste di permesso in attesa (una pagina appena aperta le ritrova). */
+app.get("/api/permissions-pending", requireRole("viewer"), (_req: Request, res: Response) => {
+  res.json(allPendingPermissions());
+});
+
+/** Cambia un gruppo: owner ed editor, registrando chi. */
+app.post("/api/permissions/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "").slice(0, 191);
+  const { group, mode, actor } = (req.body ?? {}) as { group?: unknown; mode?: unknown; actor?: unknown };
+  if (!isPermGroup(group) || !isPermMode(mode)) {
+    res.status(400).json({ error: "Gruppo o posizione non validi" });
+    return;
+  }
+  const by = actorLabel(await roleOf(req), actor);
+  await setPermission(db(), agentId, group, mode, by);
+  noteLiveMode(agentId, group, mode); // vale subito anche per il task in corso
+  log.info("Permesso cambiato", { agent: agentId, group, mode, by });
+  res.json({ ok: true, perms: await loadPermissions(db(), agentId) });
+});
+
+/** Risposta a una richiesta "Chiedi prima": una volta, sempre (il gruppo diventa Consentito) o no. */
+app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "");
+  const { decision, actor, requestId } = (req.body ?? {}) as { decision?: unknown; actor?: unknown; requestId?: unknown };
+  if (decision !== "once" && decision !== "always" && decision !== "deny") {
+    res.status(400).json({ error: "Decisione non valida" });
+    return;
+  }
+  // Chi decide prima di tutto (l'await va qui): poi controllo e sblocco nello stesso passo,
+  // legati alla richiesta che la persona ha visto (requestId), non a quella che c'è adesso.
+  const by = actorLabel(await roleOf(req), actor);
+  const answered = answerPermission(agentId, typeof requestId === "string" ? requestId : "", decision);
+  if (!answered) {
+    res.status(409).json({ error: "Questa richiesta di permesso non è più in attesa (già decisa, scaduta o sostituita da un'altra)." });
+    return;
+  }
+  if (decision === "always") {
+    await setPermission(db(), agentId, answered.group, "allow", by);
+    noteLiveMode(agentId, answered.group, "allow"); // dopo il salvataggio: lo stato dal vivo non anticipa il DB
+  }
+  log.info("Permesso deciso", { agent: agentId, group: answered.group, tool: answered.tool, decision, by });
+  res.json({ ok: true });
+});
+
+/** Richieste e token di oggi per agente e provider, con il tetto ricavato dal provider (idea 1). */
+app.get("/api/usage", requireRole("viewer"), async (_req: Request, res: Response) => {
+  const { provider } = getSettings();
+  const report = await usageReport(db());
+  res.json({ ...report, provider, cap: providerDailyCap(provider, activeModel()), used: report.byProvider[provider] ?? 0 });
+});
+
+/** Tetto giornaliero di richieste di un agente (0 = nessun tetto). Si registra chi lo cambia. */
+app.post("/api/usage/cap/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "").slice(0, 191);
+  const cap = sanitizeCap((req.body ?? {}).cap);
+  const by = actorLabel(await roleOf(req), (req.body ?? {}).actor);
+  await setAgentCap(db(), agentId, cap, by);
+  log.info("Tetto richieste cambiato", { agent: agentId, cap, by });
+  res.json({ ok: true, cap });
+});
+
 /** Agent memory — read all memories for an agent (may hold repo context → "viewer"). */
 app.get("/api/memory/:agentId", requireRole("viewer"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
@@ -1965,6 +2065,7 @@ app.post("/api/cancel/:agentId", requireRole("editor"), async (req: Request, res
     res.status(404).json({ error: "Questo agente non ha un task in corso sul server." });
     return;
   }
+  cancelPermission(agentId); // se aspettava un permesso, si sblocca e si ferma
   log.info("Task annullato", { by, agent: agentId });
   res.json({ ok: true });
 });
@@ -2099,13 +2200,15 @@ app.get("/api/world", requireRole("viewer"), async (_req: Request, res: Response
 });
 
 app.post("/api/world", requireRole("editor"), async (req: Request, res: Response) => {
-  const body = (req.body ?? {}) as { agents?: unknown; baseVersion?: unknown };
+  const body = (req.body ?? {}) as { agents?: unknown; baseVersion?: unknown; actor?: unknown };
   const agents = sanitizeWorldAgents(body.agents);
   const baseVersion = typeof body.baseVersion === "number" ? body.baseVersion : undefined;
   // Solo l'owner cancella: il push di un editor non toglie gli agenti che gli mancano.
   const allowDelete = (await roleOf(req)) === "owner";
   try {
-    await worldLock.run(() => saveWorldCas(res, agents, baseVersion, allowDelete));
+    // Chi scrive: finisce nelle versioni della configurazione degli agenti (idea 6).
+    const by = actorLabel(await roleOf(req), body.actor);
+    await worldLock.run(() => saveWorldCas(res, agents, baseVersion, allowDelete, by));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -2138,6 +2241,7 @@ async function saveWorldCas(
   agents: ReturnType<typeof sanitizeWorldAgents>,
   baseVersion: number | undefined,
   allowDelete: boolean,
+  by = "",
 ): Promise<void> {
   // Concorrenza ottimistica (compare-and-swap): con più scrittori, rifiuta una
   // scrittura la cui `baseVersion` non è più quella corrente e restituisce lo
@@ -2158,7 +2262,7 @@ async function saveWorldCas(
   // Merge per-riga (non sostituzione del blob): create/update + tombstone per
   // gli agenti spariti da questo push CAS-fresco. Lo snapshot restituito porta i
   // tombstone, così le altre viste rimuovono in sicurezza gli agenti cancellati.
-  const snapshot = await saveWorldAgents(db(), agents, { allowDelete });
+  const snapshot = await saveWorldAgents(db(), agents, { allowDelete, by });
   // Propaga live lo snapshot autorevole a tutte le viste (presence realtime) —
   // **solo se qualcosa è cambiato**: un push no-op (vista che ha appena adottato e
   // rispinge il roster identico) non genera echo → niente ping-pong tra le viste.
@@ -2167,6 +2271,43 @@ async function saveWorldCas(
   }
   res.json({ ok: true, version: snapshot.version, updatedAt: snapshot.updatedAt, ...summarizeWorld(snapshot) });
 }
+
+/** Versioni della configurazione di un agente (idea 6), dalla più recente, con cosa cambia da quella prima. */
+app.get("/api/agents/:id/versions", requireRole("viewer"), async (req: Request, res: Response) => {
+  const list = await listVersions(db(), String(req.params.id ?? ""));
+  res.json(list.map((v, i) => ({ ...v, changes: configDiff(list[i + 1]?.config ?? null, v.config) })));
+});
+
+/** Ripristina una versione: ne crea una nuova (le altre restano). Owner ed editor, registrando chi. */
+app.post("/api/agents/:id/versions/:n/restore", requireRole("editor"), async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? "");
+  const n = Math.floor(Number(req.params.n));
+  const version = Number.isFinite(n) ? await getVersion(db(), id, n) : null;
+  if (!version) {
+    res.status(404).json({ error: "Versione non trovata" });
+    return;
+  }
+  const by = actorLabel(await roleOf(req), (req.body ?? {}).actor);
+  try {
+    const result = await worldLock.run(async () => {
+      const all = (await loadWorldSnapshot(db())).agents;
+      const target = all.find((a) => a.id === id && !a.deleted);
+      if (!target) return null;
+      Object.assign(target, version.config);
+      const snapshot = await saveWorldAgents(db(), all, { allowDelete: false, by, note: `ripristino della versione ${n}` });
+      if (snapshot.changed) broadcastWorld({ agents: snapshot.agents, version: snapshot.version, updatedAt: snapshot.updatedAt });
+      return snapshot;
+    });
+    if (!result) {
+      res.status(404).json({ error: "Agente non trovato (forse è stato cancellato)" });
+      return;
+    }
+    log.info("Configurazione dell'agente ripristinata", { agent: id, version: n, by });
+    res.json({ ok: true, version: result.version });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
 
 // --- Chat di workspace (Roadmap 4, frontiera #2) -------------------------
 // A human-to-human channel next to the scene, separate from the runtime event
