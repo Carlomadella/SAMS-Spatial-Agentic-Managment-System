@@ -43,7 +43,7 @@ import {
   listRoutines,
   loadWorldAgents,
   loadWorldSnapshot,
-  markRoutineRun,
+  claimRoutineRun,
   openDb,
   pruneWorldTombstones,
   recentTasks,
@@ -255,10 +255,20 @@ describe("db routines", () => {
     const db = await openDb(":memory:");
     await insertRoutine(db, "r1", input());
     await setRoutineEnabled(db, "r1", false);
-    await markRoutineRun(db, "r1", 12345);
+    expect(await claimRoutineRun(db, "r1", 0, 12345)).toBe(true);
     const r = (await listRoutines(db))[0];
     expect(r.enabled).toBe(false);
     expect(r.lastRun).toBe(12345);
+  });
+
+  it("una routine la prenota un server solo: il secondo che ci prova la salta (25/11)", async () => {
+    const db = await openDb(":memory:");
+    await insertRoutine(db, "r1", input());
+    // Render e il PC leggono entrambi lastRun = 0 e provano a prenotarla.
+    const [a, b] = await Promise.all([claimRoutineRun(db, "r1", 0, 100), claimRoutineRun(db, "r1", 0, 101)]);
+    expect([a, b].filter(Boolean)).toHaveLength(1);
+    expect(await claimRoutineRun(db, "r1", 0, 200)).toBe(false);
+    expect(await claimRoutineRun(db, "manca", 0, 200)).toBe(false);
   });
 
   it("deletes a routine", async () => {

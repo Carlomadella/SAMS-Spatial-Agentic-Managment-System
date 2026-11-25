@@ -22,7 +22,7 @@ import { registerGardenRoutes } from "./garden/routes";
 import { getStore, initGardenStore } from "./garden/store";
 import { buildPublicSnapshot, readonlyAuthorized } from "./publicView";
 import { metricsSnapshot, recordChatMessage, recordClients, recordEvent } from "./metrics";
-import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteTaskRun, saveTaskRun, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, markRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, tombstoneWorldAgent, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
+import { clearMemory, consumeInvite, consumeToken, createInvite, getInviteByHash, listPendingInvites, pruneInvites, revokeInvite, countOwners, countUsers, createAuthSession, createToken, createUser, db, dbBackend, deleteAllUserSessions, deleteTaskRun, saveTaskRun, deleteAuthSession, deleteRoutine, deleteUserSessionsExcept, getSessionUser, getToken, getUserByEmail, getUserById, getGithubLink, saveGithubLink, setGithubRepo, deleteGithubLink, deleteUserAccount, initDb, insertChatMessage, insertRoutine, listChatMessages, listMemory, listRoutines, listUsers, latestTaskPerAgent, loadWorldSnapshot, logTask, claimRoutineRun, pruneAuthSessions, pruneTokens, recentTasks, tasksOnBranches, saveWorldAgents, tombstoneWorldAgent, setEmailVerified, setRoutineEnabled, setUserRole, taskStats, updateUserPassword } from "./db";
 import { accountDeletionBlocked, hashPassword, isValidEmail, newSessionToken, normalizeEmail, publicUser, sanitizeName, SESSION_TTL_MS, validatePassword, verifyPassword, type User } from "./auth";
 import { createMailer, inviteLink, mailerCanDeliver, normalizeBaseUrl, renderInviteEmail, renderResetEmail, renderVerifyEmail, resetLink, resolveMailerConfig, verifyLink } from "./mailer";
 import { hashToken, isTokenUsable, newToken, RESET_TTL_MS, tokenExpiry, tokenRejection, VERIFY_TTL_MS } from "./tokens";
@@ -2052,7 +2052,8 @@ app.delete("/api/routines/:id", requireRole("editor"), async (req: Request, res:
  * when the runtime is ready (otherwise the assignment would 503 on the client)
  * and when at least one UI is connected to receive it — leaving `lastRun`
  * untouched so the routine fires as soon as those conditions hold, without a
- * burst. `markRoutineRun` stamps the time so a routine runs once per due window.
+ * burst. `claimRoutineRun` stamps the time only if nobody else did, so a routine runs once
+ * per due window even with two servers on the same database.
  */
 const ROUTINE_TICK_MS = 30_000;
 async function routineTick(): Promise<void> {
@@ -2065,7 +2066,8 @@ async function routineTick(): Promise<void> {
   }
   for (const r of due) {
     try {
-      await markRoutineRun(db(), r.id, Date.now());
+      // Se l'altro server (Render o il PC, stesso database) l'ha già presa, la si salta.
+      if (!(await claimRoutineRun(db(), r.id, r.lastRun, Date.now()))) continue;
     } catch {
       return; // senza timbro la routine ripartirebbe a ogni giro: meglio riprovare dopo
     }

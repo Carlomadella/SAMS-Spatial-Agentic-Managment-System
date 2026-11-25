@@ -900,9 +900,15 @@ export async function setRoutineEnabled(db: SqlRunner, id: string, enabled: bool
   await db.run(`UPDATE routines SET enabled = ? WHERE id = ?`, [enabled ? 1 : 0, id]);
 }
 
-/** Stamp the last-run time (called by the scheduler when a routine fires). */
-export async function markRoutineRun(db: SqlRunner, id: string, ts: number): Promise<void> {
-  await db.run(`UPDATE routines SET last_run = ? WHERE id = ?`, [ts, id]);
+/**
+ * Prenota l'esecuzione di una routine dovuta (25/11): Render e il PC usano lo stesso
+ * database e vedrebbero entrambi la routine "dovuta". Il timbro si scrive solo se
+ * `last_run` è ancora quello letto: il database lo lascia fare al primo che ci prova,
+ * per l'altro non cambia nessuna riga e la routine la salta. true = tocca a te.
+ */
+export async function claimRoutineRun(db: SqlRunner, id: string, seenLastRun: number, ts: number): Promise<boolean> {
+  const { changes } = await db.run(`UPDATE routines SET last_run = ? WHERE id = ? AND last_run = ?`, [ts, id, seenLastRun]);
+  return changes > 0;
 }
 
 // --- agent memory helpers ---------------------------------------------------

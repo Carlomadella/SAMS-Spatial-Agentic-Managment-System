@@ -32,7 +32,7 @@ import {
   listRoutines,
   loadWorldAgents,
   loadWorldSnapshot,
-  markRoutineRun,
+  claimRoutineRun,
   migrate,
   pruneAuthSessions,
   pruneWorldTombstones,
@@ -219,7 +219,8 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
 
   it("routine e log dei task", async () => {
     await insertRoutine(db, "r1", { name: "n", title: "t", branch: "", kind: "daily", intervalMin: 60, atHour: 9, atMin: 0, enabled: true });
-    await markRoutineRun(db, "r1", 123);
+    expect(await claimRoutineRun(db, "r1", 0, 123)).toBe(true);
+    expect(await claimRoutineRun(db, "r1", 0, 124)).toBe(false);
     expect((await listRoutines(db))[0]).toMatchObject({ id: "r1", kind: "daily", enabled: true, lastRun: 123 });
 
     await insertTask(db, { agentId: "a", agentName: "A", title: "x", branch: "b", status: "review", tokens: 10, ts: 1 });
