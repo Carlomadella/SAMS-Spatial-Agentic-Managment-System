@@ -230,11 +230,11 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
   });
 
   it("task in corso: upsert per agente e rimozione (riavvio, 23/11)", async () => {
-    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t", branch: "b", startedAt: 1 });
-    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2 });
-    await saveTaskRun(db, { agentId: "z", agentName: "Z", title: "x".repeat(5000), branch: "", startedAt: 3 });
+    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t", branch: "b", startedAt: 1, server: "pc:x" });
+    await saveTaskRun(db, { agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2, server: "render:sams" });
+    await saveTaskRun(db, { agentId: "z", agentName: "Z", title: "x".repeat(5000), branch: "", startedAt: 3, server: "" });
     const runs = await listTaskRuns(db);
-    expect(runs.find((r) => r.agentId === "a")).toEqual({ agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2 });
+    expect(runs.find((r) => r.agentId === "a")).toEqual({ agentId: "a", agentName: "A", title: "t2", branch: "b", startedAt: 2, server: "render:sams" });
     expect(runs.find((r) => r.agentId === "z")?.title.length).toBe(4000);
     await deleteTaskRun(db, "a");
     expect((await listTaskRuns(db)).map((r) => r.agentId)).toEqual(["z"]);

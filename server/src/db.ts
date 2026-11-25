@@ -178,7 +178,8 @@ const SQLITE_SCHEMA = `
       agent_name TEXT    NOT NULL,
       title      TEXT    NOT NULL,
       branch     TEXT    NOT NULL,
-      started_at INTEGER NOT NULL
+      started_at INTEGER NOT NULL,
+      server     TEXT    NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -353,7 +354,8 @@ const MYSQL_SCHEMA = `
       agent_name VARCHAR(255) NOT NULL,
       title      TEXT         NOT NULL,
       branch     VARCHAR(255) NOT NULL,
-      started_at BIGINT       NOT NULL
+      started_at BIGINT       NOT NULL,
+      server     VARCHAR(255) NOT NULL DEFAULT ''
     ) ${MYSQL_TABLE_OPTS};
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -385,6 +387,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await db.exec(db.dialect === "mysql" ? MYSQL_SCHEMA : SQLITE_SCHEMA);
   await ensureWorldAgentColumns(db);
   await ensureTaskLogColumns(db);
+  await ensureTaskRunColumns(db);
   await ensureUserColumns(db);
   await migrateWorldAgents(db);
   return db;
@@ -438,6 +441,14 @@ async function ensureTaskLogColumns(db: SqlDriver): Promise<void> {
   } else {
     await db.exec(`ALTER TABLE task_log ADD COLUMN summary TEXT NOT NULL DEFAULT ''`);
   }
+}
+
+/** `task_runs.server` (25/11): quale server fa girare il task. Idempotente. */
+async function ensureTaskRunColumns(db: SqlDriver): Promise<void> {
+  const cols = await columnNames(db, "task_runs");
+  if (cols.has("server")) return;
+  const type = db.dialect === "mysql" ? "VARCHAR(255)" : "TEXT";
+  await db.exec(`ALTER TABLE task_runs ADD COLUMN server ${type} NOT NULL DEFAULT ''`);
 }
 
 async function ensureWorldAgentColumns(db: SqlDriver): Promise<void> {
@@ -507,14 +518,16 @@ export interface TaskRunRow {
   title: string;
   branch: string;
   startedAt: number;
+  /** Il server che lo fa girare (vedi serverName in interruptedRuns.ts); "" = riga vecchia. */
+  server: string;
 }
 
 /** Un task è partito (uno per agente: un nuovo inizio sostituisce il precedente). */
 export async function saveTaskRun(db: SqlRunner, r: TaskRunRow): Promise<void> {
   await db.run(
-    `INSERT INTO task_runs (agent_id, agent_name, title, branch, started_at) VALUES (?, ?, ?, ?, ?)
-     ${onConflictUpdate(db.dialect, ["agent_id"], ["agent_name", "title", "branch", "started_at"])}`,
-    [r.agentId, r.agentName, r.title.slice(0, 4000), r.branch, r.startedAt],
+    `INSERT INTO task_runs (agent_id, agent_name, title, branch, started_at, server) VALUES (?, ?, ?, ?, ?, ?)
+     ${onConflictUpdate(db.dialect, ["agent_id"], ["agent_name", "title", "branch", "started_at", "server"])}`,
+    [r.agentId, r.agentName, r.title.slice(0, 4000), r.branch, r.startedAt, r.server.slice(0, 255)],
   );
 }
 
@@ -525,9 +538,9 @@ export async function deleteTaskRun(db: SqlRunner, agentId: string): Promise<voi
 
 export async function listTaskRuns(db: SqlRunner): Promise<TaskRunRow[]> {
   const rows = await db.all<TaskRunRow>(
-    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, started_at AS startedAt FROM task_runs`,
+    `SELECT agent_id AS agentId, agent_name AS agentName, title, branch, started_at AS startedAt, server FROM task_runs`,
   );
-  return rows.map((r) => ({ ...r, agentId: String(r.agentId), startedAt: Number(r.startedAt) }));
+  return rows.map((r) => ({ ...r, agentId: String(r.agentId), startedAt: Number(r.startedAt), server: String(r.server ?? "") }));
 }
 
 // --- impostazioni non segrete -------------------------------------------------
