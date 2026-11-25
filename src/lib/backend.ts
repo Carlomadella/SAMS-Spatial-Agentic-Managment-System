@@ -875,7 +875,8 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
     const res = await fetch(`${BASE}/api/world`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ agents, baseVersion }),
+      // actor: chi scrive, per le versioni della configurazione degli agenti (idea 6)
+      body: JSON.stringify({ agents, baseVersion, actor: viewerName() }),
     });
     const data = (await res.json().catch(() => ({}))) as { version?: number; agents?: unknown };
     const conflict = res.status === 409;
@@ -1039,7 +1040,7 @@ export function getViewerId(): string {
   }
 }
 
-function viewerName(): string {
+export function viewerName(): string {
   const s = useStore.getState();
   // Precedenza: nome scelto a mano in chat → nome dell'account loggato → "Ospite".
   // Così due utenti loggati compaiono col loro vero nome (presence/cursori/selezioni/

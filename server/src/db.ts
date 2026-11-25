@@ -9,6 +9,7 @@ import type { GardenState } from "./garden/model";
 import { dataFile } from "./dataDir";
 import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
+import { configOf, ensureAgentVersionTables, recordConfigVersion, sameConfig } from "./agentVersions";
 
 /**
  * Storage durevole del runtime. Le funzioni di dominio sono scritte **una volta** sopra
@@ -388,6 +389,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await ensureWorldAgentColumns(db);
   await ensureTaskLogColumns(db);
   await ensureTaskRunColumns(db);
+  await ensureAgentVersionTables(db);
   await ensureUserColumns(db);
   await migrateWorldAgents(db);
   return db;
@@ -770,7 +772,7 @@ export interface WorldMergeResult extends WorldSnapshot {
 export async function saveWorldAgents(
   db: SqlDriver,
   all: WorldAgentSnapshot[],
-  { allowDelete = true }: { allowDelete?: boolean } = {},
+  { allowDelete = true, by = "", note = "" }: { allowDelete?: boolean; by?: string; note?: string } = {},
 ): Promise<WorldMergeResult> {
   const now = Date.now();
   const incoming = all.filter((a) => !a.deleted);
@@ -806,6 +808,14 @@ export async function saveWorldAgents(
         a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "",
         a.xp ?? 0, a.assignedBy ?? "", a.squad ?? "", rev, now,
       ]);
+      // Versioni della configurazione (idea 6): se è cambiato nome, modello, istruzioni…
+      const after = configOf(a);
+      const before = prev ? configOf(prev) : null;
+      if (!before || !sameConfig(before, after)) {
+        // Com'era prima, se non è già l'ultima versione salvata (agenti nati prima delle versioni).
+        if (before) await recordConfigVersion(tx, a.id, before, "", now - 1, "com'era prima");
+        await recordConfigVersion(tx, a.id, after, by, now, note);
+      }
       changed = true;
     }
     for (const [id, r] of existing) {
