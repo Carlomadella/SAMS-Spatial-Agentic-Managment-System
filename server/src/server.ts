@@ -58,6 +58,7 @@ import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 import { addComment, canComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
+import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
 import { configDiff, getVersion, listVersions } from "./agentVersions";
 import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, noteLiveMode, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
 import { agentRequestsToday, capBlockMessage, getAgentCap, providerDailyCap, sanitizeCap, setAgentCap, usageReport } from "./usage";
@@ -306,9 +307,13 @@ async function sessionUser(req: Request): Promise<User | null> {
  * - `user`: repo, token e branch base dell'utente.
  */
 async function userGithub(req: Request): Promise<UserGithub> {
+  return githubFor(await sessionUser(req));
+}
+
+/** Il GitHub con cui lavora un utente (o quello del server). Serve anche alla coda (idea 4). */
+async function githubFor(user: User | null): Promise<UserGithub> {
   const cfg = githubOAuthConfig();
   if (!cfg) return { kind: "server" };
-  const user = await sessionUser(req);
   if (!user) return { kind: "server" };
   const link = await getGithubLink(db(), user.id);
   if (!link) return { kind: "missing", error: "Collega il tuo account GitHub in ⚙ Impostazioni per far lavorare gli agenti sulle tue repo." };
@@ -1333,6 +1338,30 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  const started = await launchTask(body, {
+    ug,
+    repo: repoDecision.repo,
+    actor: actorLabel(await roleOf(req), body.actor),
+    userId: (await sessionUser(req))?.id ?? "",
+  }, now);
+  res.json({ ok: true, ...started });
+});
+
+/** Chi avvia il task e su quale GitHub e repo (già controllati da chi chiama). */
+interface Launch {
+  ug: Exclude<UserGithub, { kind: "missing" }>;
+  repo: string | null;
+  actor: string;
+  /** account SAMS di chi avvia ("" = nessuno): decide chi può commentare il task */
+  userId: string;
+}
+
+/**
+ * Avvia il task (l'agente è già stato prenotato con beginRun). Usato da /api/assign e dalla
+ * coda sul server (idea 4), che fa partire i task anche senza una pagina aperta.
+ */
+async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{ taskId: string | null; attempt: number | null }> {
+  const { ug } = who;
   // Il task sul server (idea 3): uno nuovo, o un nuovo tentativo di quello indicato.
   let recorder: AttemptRecorder | null = null;
   try {
@@ -1345,16 +1374,16 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
             agentName: body.agentName || body.agentId,
             title: body.title,
             branch: body.branch ?? "",
-            createdBy: actorLabel(await roleOf(req), body.actor),
-            creatorUserId: (await sessionUser(req))?.id ?? "",
+            createdBy: who.actor,
+            creatorUserId: who.userId,
           });
     recorder = await startAttempt(db(), task.id, body.branch ?? "");
-    if (recorder.comments) body.extraContext = recorder.comments;
+    // Contesto del primo messaggio: il riassunto del task atteso (coda) e i commenti.
+    body.extraContext = [body.extraContext, recorder.comments].filter((x) => x && x.trim()).join("\n\n") || undefined;
   } catch (err) {
     log.warn("Storia del task non disponibile: il task parte lo stesso", { err: String(err) });
   }
 
-  res.json({ ok: true, taskId: recorder?.taskId ?? null, attempt: recorder?.attempt ?? null });
   noteTaskStarted(body.agentId, body.title, now);
   // Anche nel database: se il server si riavvia a metà, all'avvio risulta interrotto.
   const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now, server: THIS_SERVER })
@@ -1363,7 +1392,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // Lo si toglie solo dopo averlo salvato: con MySQL le due query potrebbero incrociarsi.
 
   // Attribuzione: chi ha avviato il lavoro (nome della vista + ruolo).
-  log.info("Task assegnato", { by: actorLabel(await roleOf(req), body.actor), agent: body.agentName || body.agentId, title: body.title });
+  log.info("Task assegnato", { by: who.actor, agent: body.agentName || body.agentId, title: body.title });
 
   const { provider } = getSettings();
   const runner =
@@ -1375,7 +1404,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // A meta-agente task carries a repo override (owner/repo). Run the whole task
   // inside that repo context so every GitHub call targets it instead of the
   // global repository. Invalid overrides are ignored (fall back to global).
-  const repo = repoDecision.repo;
+  const repo = who.repo;
   // L'ambiente del task (Dev/Staging/Prod) sceglie il branch base, se l'owner l'ha impostato.
   // Sta più dentro del GitHub dell'utente: vale anche per chi lavora sulla sua repo. Non vale
   // per un task indirizzato a un'altra repo (es. il meta-agente su SAMS): lì quei branch non c'entrano.
@@ -1391,6 +1420,8 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   const finished = () => {
     endRun(body.agentId);
     recorder?.note("end", "INFO", `Fine del tentativo ${recorder.attempt}`);
+    // Coda (idea 4): parte il prossimo task dell'agente e chi aspettava questo.
+    void afterTaskEnds(body.agentId, recorder);
     noteTaskEnd(body.agentId);
     void runSaved
       .then(() => deleteTaskRun(db(), body.agentId))
@@ -1417,6 +1448,247 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     emit({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message, ...(detail ? { detail } : {}) });
     record("blocked", detail ? `${message}\n\nDettagli: ${detail}` : message);
   });
+  return { taskId: recorder?.taskId ?? null, attempt: recorder?.attempt ?? null };
+}
+
+// --- Coda dei task sul server (idea 4) ------------------------------------------------
+
+/** Manda a tutte le viste la coda aggiornata. */
+async function broadcastQueue(): Promise<void> {
+  try {
+    broadcast({ agentId: "queue", agentName: "", queue: await listQueue(db()) });
+  } catch (err) {
+    log.warn("Coda non inviata", { err: String(err) });
+  }
+}
+
+const pumping = new Set<string>();
+
+/**
+ * Se l'agente è libero, avvia il primo task della sua coda che può partire (prima gli
+ * urgenti). Quelli che aspettano un task finito male restano lì con un avviso, e se non
+ * c'è altro da fare l'agente va in sala d'attesa (scelta dell'utente).
+ */
+async function pumpQueue(agentId: string): Promise<void> {
+  if (pumping.has(agentId)) return;
+  pumping.add(agentId);
+  try {
+    if (!isReady() || currentRun(agentId) || isMainGate(getPending(agentId))) return;
+    // Stesso intervallo minimo tra due avvii dello stesso agente di /api/assign (il giro dopo riprova).
+    if (Date.now() - (lastAssign.get(agentId) ?? 0) < ASSIGN_COOLDOWN_MS) return;
+    // Agente cancellato: la sua coda se ne va con lui.
+    const world = await loadWorldSnapshot(db());
+    const agent = world.agents.find((a) => a.id === agentId);
+    if (world.version > 0 && (!agent || agent.deleted)) {
+      for (const q of await listQueue(db(), agentId)) await removeQueued(db(), q.id);
+      await broadcastQueue();
+      return;
+    }
+    let changed = false;
+    let stuck: { name: string; message: string } | null = null;
+    for (const q of await listQueue(db(), agentId)) {
+      const r = await readiness(db(), q);
+      if (!r.ready) {
+        const msg = waitMessage(r, q);
+        if (msg !== q.waitNote) {
+          await setWaitNote(db(), q.id, msg);
+          changed = true;
+          if (r.why !== "waiting") stuck ??= { name: q.agentName, message: msg };
+        }
+        continue;
+      }
+      // Lo stesso GitHub di quando è stato messo in coda, e la repo ricontrollata con quello.
+      const user = q.payload.userId ? await getUserById(db(), q.payload.userId) : null;
+      const ug = q.payload.userId && !user ? ({ kind: "missing", error: "" } as const) : await githubFor(user);
+      const same = sameGithubKind(q.payload, ug.kind);
+      const repoCheck =
+        ug.kind === "missing"
+          ? null
+          : decideTaskRepo(q.payload.repo ?? undefined, { usesOwnGithub: ug.kind === "user", isOwner: q.payload.viewerRole === "owner", serverRepo: getSettings().githubRepo });
+      const stop = !same.ok ? same.why : ug.kind === "missing" ? ug.error : repoCheck && !repoCheck.ok ? repoCheck.error : "";
+      if (stop || ug.kind === "missing" || !repoCheck?.ok) {
+        if (q.waitNote !== stop) {
+          await setWaitNote(db(), q.id, stop);
+          changed = true;
+        }
+        continue;
+      }
+      // Tetto giornaliero dell'agente (idea 1): raggiunto, il task resta in coda con l'avviso.
+      const cap = await getAgentCap(db(), agentId);
+      const capped = cap > 0 ? capBlockMessage(q.agentName, await agentRequestsToday(db(), agentId), cap) : null;
+      if (capped) {
+        if (q.waitNote !== capped) {
+          await setWaitNote(db(), q.id, capped);
+          changed = true;
+        }
+        break; // stesso agente: nessun altro suo task può partire oggi
+      }
+      if (!beginRun(agentId, q.title)) break;
+      if (q.waitNote) await setWaitNote(db(), q.id, "");
+      lastAssign.set(agentId, Date.now());
+      const body: AssignBody = {
+        agentId,
+        agentName: q.agentName,
+        title: q.title,
+        branch: q.branch || undefined,
+        role: q.payload.role,
+        instructions: q.payload.instructions,
+        environment: q.payload.environment,
+        actor: q.payload.actor,
+        taskId: q.id,
+        extraContext: r.after ? await handoffContext(db(), r.after) : undefined,
+      };
+      // La UI sa che l'agente è partito anche se nessuno ha premuto niente.
+      broadcast({ agentId, agentName: q.agentName, taskTitle: q.title, level: "INFO", message: `Parte dalla coda: ${q.title.slice(0, 120)}` });
+      await launchTask(body, { ug, repo: repoCheck.repo, actor: q.createdBy, userId: q.payload.userId ?? "" }, Date.now());
+      await broadcastQueue();
+      return;
+    }
+    if (changed) await broadcastQueue();
+    if (stuck) broadcast({ agentId, agentName: stuck.name, status: "awaiting_approval", level: "WARN", message: stuck.message });
+  } catch (err) {
+    log.warn("Coda: avvio non riuscito", { agent: agentId, err: String(err) });
+  } finally {
+    pumping.delete(agentId);
+  }
+}
+
+/** Un task è finito: parte il prossimo dell'agente e chi aspettava proprio questo. */
+async function afterTaskEnds(agentId: string, recorder: AttemptRecorder | null): Promise<void> {
+  // Lo stato finale arriva con gli ultimi eventi: si aspetta che siano scritti.
+  await new Promise((r) => setTimeout(r, 500));
+  await recorder?.flush();
+  await pumpQueue(agentId);
+  if (!recorder) return;
+  try {
+    const others = new Set((await dependentsOf(db(), recorder.taskId)).map((q) => q.agentId));
+    others.delete(agentId);
+    for (const id of others) await pumpQueue(id);
+  } catch (err) {
+    log.warn("Coda: dipendenti non controllati", { err: String(err) });
+  }
+}
+
+/** Mette un task in coda; parte subito se l'agente è libero e non aspetta nessuno. */
+app.post("/api/queue", requireRole("editor"), async (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as AssignBody & { afterTaskId?: unknown; urgent?: unknown };
+  if (!body.agentId || !body.title || typeof body.title !== "string") {
+    res.status(400).json({ error: "agentId e title sono obbligatori" });
+    return;
+  }
+  const user = await sessionUser(req);
+  const ug = await githubFor(user);
+  if (ug.kind === "missing") {
+    res.status(409).json({ error: ug.error, needsGithub: true });
+    return;
+  }
+  // Stessi limiti di /api/assign: assegnazioni per utente e una coda non infinita.
+  const now = Date.now();
+  const userKey = identityKey(bearerToken(req.headers.authorization), req.ip);
+  if (!assignQuota.hit(userKey, now)) {
+    const qWait = Math.ceil(assignQuota.retryAfterMs(userKey, now) / 1000);
+    res.status(429).json({ error: `Troppe assegnazioni — riprova tra ${qWait}s`, retryAfterSec: qWait });
+    return;
+  }
+  if ((await listQueue(db(), String(body.agentId))).length >= MAX_QUEUE_PER_AGENT) {
+    res.status(409).json({ error: `La coda di questo agente è piena (${MAX_QUEUE_PER_AGENT} task): aspetta che ne parta qualcuno.` });
+    return;
+  }
+  const role = await roleOf(req);
+  const repoDecision = decideTaskRepo(body.repo, { usesOwnGithub: ug.kind === "user", isOwner: role === "owner", serverRepo: getSettings().githubRepo });
+  if (!repoDecision.ok) {
+    res.status(403).json({ error: repoDecision.error });
+    return;
+  }
+  const afterTaskId = isTaskId(body.afterTaskId) ? body.afterTaskId : "";
+  if (afterTaskId && !(await getTask(db(), afterTaskId))) {
+    res.status(404).json({ error: "Il task da aspettare non esiste (la storia si tiene 30 giorni)." });
+    return;
+  }
+  const actor = actorLabel(role, body.actor);
+  const payload: QueuePayload = {
+    role: typeof body.role === "string" ? body.role.slice(0, 64) : undefined,
+    instructions: typeof body.instructions === "string" ? body.instructions.slice(0, 4000) : undefined,
+    repo: repoDecision.repo,
+    environment: typeof body.environment === "string" ? body.environment.slice(0, 16) : undefined,
+    actor,
+    userId: ug.kind === "user" ? (user?.id ?? "") : "",
+    github: ug.kind,
+    viewerRole: role,
+  };
+  const task = await enqueueTask(db(), {
+    agentId: String(body.agentId).slice(0, 191),
+    agentName: String(body.agentName || body.agentId).slice(0, 255),
+    title: body.title.slice(0, 4000),
+    branch: typeof body.branch === "string" ? body.branch.slice(0, 255) : "",
+    createdBy: actor,
+    creatorUserId: payload.userId,
+    afterTaskId,
+    urgent: body.urgent === true,
+    payload,
+  });
+  log.info("Task in coda", { by: actor, agent: task.agentName, title: task.title, after: afterTaskId || undefined });
+  res.json({ ok: true, task });
+  await broadcastQueue();
+  void pumpQueue(task.agentId);
+});
+
+app.get("/api/queue", requireRole("viewer"), async (req: Request, res: Response) => {
+  const agentId = typeof req.query.agentId === "string" ? req.query.agentId : undefined;
+  res.json(await listQueue(db(), agentId));
+});
+
+const QUEUE_FORBIDDEN = "Solo chi ha messo in coda il task (o l'owner) può toglierlo o farlo partire: lavorerà col suo GitHub.";
+
+/** Con il GitHub per utente, un task in coda lo toccano solo chi l'ha messo in coda e l'owner. */
+async function mayTouchQueued(req: Request, q: { creatorUserId: string; payload: QueuePayload }): Promise<boolean> {
+  return canComment({
+    perUserGithub: Boolean(githubOAuthConfig()),
+    isOwner: (await roleOf(req)) === "owner",
+    creatorUserId: q.creatorUserId || (q.payload.userId ?? ""),
+    me: (await sessionUser(req))?.id ?? null,
+  });
+}
+
+/** Toglie un task dalla coda (se non è ancora partito). */
+app.delete("/api/queue/:id", requireRole("editor"), async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? "");
+  const q = await getQueued(db(), id);
+  if (!q) {
+    res.status(404).json({ error: "Il task non è più in coda." });
+    return;
+  }
+  if (!(await mayTouchQueued(req, q))) {
+    res.status(403).json({ error: QUEUE_FORBIDDEN });
+    return;
+  }
+  if (!(await removeQueued(db(), id))) {
+    res.status(404).json({ error: "Il task non è più in coda." });
+    return;
+  }
+  log.info("Task tolto dalla coda", { by: actorLabel(await roleOf(req), (req.body ?? {}).actor), task: id });
+  res.json({ ok: true });
+  await broadcastQueue();
+  void pumpQueue(q.agentId);
+});
+
+/** Toglie l'attesa: il task parte appena l'agente è libero. */
+app.post("/api/queue/:id/start-anyway", requireRole("editor"), async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? "");
+  const q = await getQueued(db(), id);
+  if (!q) {
+    res.status(404).json({ error: "Il task non è più in coda." });
+    return;
+  }
+  if (!(await mayTouchQueued(req, q))) {
+    res.status(403).json({ error: QUEUE_FORBIDDEN });
+    return;
+  }
+  await clearAfter(db(), id);
+  log.info("Attesa tolta", { by: actorLabel(await roleOf(req), (req.body ?? {}).actor), task: id });
+  res.json({ ok: true });
+  await broadcastQueue();
+  void pumpQueue(q.agentId);
 });
 
 // --- Scheda del task (idea 3) ------------------------------------------------------
@@ -2474,4 +2746,14 @@ app.listen(port, () => {
   };
   void pruneTasks();
   setInterval(() => void pruneTasks(), 6 * 60 * 60 * 1000);
+  // Coda sul server (idea 4): ogni 30 secondi si controlla chi può partire (anche dopo un riavvio).
+  const queueTick = async () => {
+    try {
+      for (const id of new Set((await listQueue(db())).map((q) => q.agentId))) await pumpQueue(id);
+    } catch {
+      /* DB non disponibile → riprova al prossimo giro */
+    }
+  };
+  setInterval(() => void queueTick(), 30_000);
+  void queueTick();
 });

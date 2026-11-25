@@ -20,6 +20,8 @@ import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
 import { RecentTasksBox, TaskSheet } from "./TaskSheet";
+import { AfterTaskSelect, ServerQueueList } from "./ServerQueue";
+import { queueTask } from "../lib/serverQueue";
 import { AgentVersionsBox } from "./AgentVersions";
 import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
 import { AgentUsageBox, QuotaHint } from "./AgentUsage";
@@ -88,6 +90,8 @@ export function AgentInspector() {
   const [branch, setBranch] = useState("");
   const [taskRepo, setTaskRepo] = useState("");
   const [urgent, setUrgent] = useState(false);
+  /** «parte quando finisce…» (idea 4): id del task da aspettare, "" = nessuno */
+  const [afterTaskId, setAfterTaskId] = useState("");
   const [goalTitle, setGoalTitle] = useState("");
   const [goalMilestone, setGoalMilestone] = useState(3);
   const [importJson, setImportJson] = useState("");
@@ -418,7 +422,10 @@ export function AgentInspector() {
           </div>
         )}
 
-        {/* queue list */}
+        {/* coda sul server (idea 4): parte da sola, anche a pagina chiusa */}
+        {backendEnabled && <ServerQueueList agentId={agent.id} spaced={!!agent.task} />}
+
+        {/* vecchia coda nel browser: resta solo per svuotare quella di prima (non si riempie più) */}
         {(agent.taskQueue?.length ?? 0) > 0 && (
           <div className={cn("space-y-1", agent.task && "mt-3 border-t border-line pt-2.5")}>
             <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-mut">
@@ -508,13 +515,14 @@ export function AgentInspector() {
           {taskRepo.trim() && !isValidRepo(taskRepo) && (
             <p className="text-[11px] leading-snug text-rose-400">Formato repo non valido: usa <code className="rounded bg-ink-700 px-1">owner/repo</code>.</p>
           )}
+          {backendEnabled && <AfterTaskSelect value={afterTaskId} onChange={setAfterTaskId} />}
           {(hasUnfilledPlaceholders(title) || hasUnfilledPlaceholders(branch)) && (
             <p className="text-[11px] leading-snug text-slate-400">
               Compila i segnaposto tra parentesi graffe (es. <code className="rounded bg-ink-700 px-1">{"{argomento}"}</code>,{" "}
               <code className="rounded bg-ink-700 px-1">{"{pagina}"}</code>) prima di assegnare il task.
             </p>
           )}
-          {agent.task && (
+          {(agent.task || afterTaskId) && (
             <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-300">
               <input
                 type="checkbox"
@@ -537,8 +545,11 @@ export function AgentInspector() {
               const t = title.trim();
               const b = branch.trim();
               const repoOverride = taskRepo.trim() || undefined;
-              if (agent.task) {
-                // agent busy → queue it (carrying the per-task repo + urgency)
+              if (backendEnabled && (agent.task || afterTaskId)) {
+                // Agente occupato o «aspetta che finisca» → coda sul server (idea 4): parte da sola.
+                void queueTask(agent, { title: t, branch: b, repo: repoOverride, urgent, afterTaskId }).catch(() => {});
+              } else if (agent.task) {
+                // senza runtime: la coda nel browser di prima
                 enqueueTask(agent.id, { title: t, branch: b, repo: repoOverride, urgent, environment: useStore.getState().environment });
                 log({ agentId: agent.id, agentName: agent.name, color: agent.color, level: "INFO", message: `In coda${urgent ? " (urgente)" : ""}: ${t}` });
               } else {
@@ -554,10 +565,11 @@ export function AgentInspector() {
               setBranch("");
               setTaskRepo("");
               setUrgent(false);
+              setAfterTaskId("");
             }}
             className="btn btn-primary w-full"
           >
-            {agent.task
+            {agent.task || afterTaskId
               ? <><Plus size={13} /> Aggiungi alla coda</>
               : <><Send size={13} /> {backendEnabled ? "Assegna task (live)" : "Assegna task"}</>
             }

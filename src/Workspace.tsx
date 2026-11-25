@@ -1,3 +1,4 @@
+import { queueTask } from "./lib/serverQueue";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Hand, HelpCircle, Keyboard, Loader2, LocateFixed, Megaphone, MicOff, Move3d, MousePointerClick, PanelBottom, Volume2, VolumeX, X } from "lucide-react";
 import { TitleBar } from "./components/TitleBar";
@@ -204,7 +205,7 @@ function RelayBridge() {
         audio.playWhoosh();
         const title = composeRelayTitle(relay);
         if (target.task) {
-          useStore.getState().enqueueTask(target.id, { title, branch: relay.branch });
+          void queueTask(target, { title, branch: relay.branch }).catch(() => {});
         } else {
           useStore.getState().assignTask(target.id, title, relay.branch);
           if (backendEnabled) {
@@ -248,7 +249,7 @@ function WakeBridge() {
       if (!target) return;
       const branch = wake.branch || `fix/ci-${Date.now().toString(36)}`;
       if (target.task) {
-        useStore.getState().enqueueTask(target.id, { title: wake.title, branch });
+        void queueTask(target, { title: wake.title, branch }).catch(() => {});
       } else {
         useStore.getState().assignTask(target.id, wake.title, branch);
         if (backendEnabled) {
@@ -545,7 +546,7 @@ function ChainBridge() {
           audio.playWhoosh();
 
           if (target.task) {
-            useStore.getState().enqueueTask(target.id, { title, branch });
+            void queueTask(target, { title, branch }).catch(() => {});
           } else {
             useStore.getState().assignTask(target.id, title, branch);
             if (backendEnabled) {
@@ -638,7 +639,7 @@ function PlaybookBridge() {
         audio.playWhoosh();
 
         if (target.task) {
-          useStore.getState().enqueueTask(target.id, { title, branch });
+          void queueTask(target, { title, branch }).catch(() => {});
         } else {
           useStore.getState().assignTask(target.id, title, branch);
           if (backendEnabled) {

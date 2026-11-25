@@ -393,6 +393,8 @@ interface State {
     wake?: { title: string; branch?: string; reason: string; source?: "webhook" | "routine" };
     presence?: number;
     engine?: EngineStatus;
+    /** titolo del task partito dal server (coda, idea 4) */
+    taskTitle?: string;
     people?: string[];
     chat?: { id: string; author: string; text: string; ts: number };
     world?: { agents: RemoteWorldAgent[]; version: number; updatedAt: number };
@@ -1153,16 +1155,18 @@ export const useStore = create<State>()(
     set((s) => {
       const agent = s.agents.find((a) => a.id === e.agentId);
       const agents =
-        agent && (e.status || e.progress != null || e.pendingFiles || e.pendingMerge || e.pendingWorkflow || e.plan != null || e.branch)
+        agent && (e.status || e.progress != null || e.pendingFiles || e.pendingMerge || e.pendingWorkflow || e.plan != null || e.branch || e.taskTitle)
           ? s.agents.map((a) => {
               if (a.id !== e.agentId) return a;
               const progress = e.progress != null ? clamp(Math.round(e.progress), 0, 100) : undefined;
+              // Task partito dal server (coda): il titolo vero, non il primo messaggio.
+              const base = e.taskTitle && a.task?.title !== e.taskTitle ? { title: e.taskTitle, branch: "", progress: 0 } : a.task;
               const task =
                 progress != null
-                  ? a.task
-                    ? { ...a.task, progress }
+                  ? base
+                    ? { ...base, progress }
                     : { title: e.message ?? "Runtime task", branch: "", progress }
-                  : a.task;
+                  : base;
               const withBranch = e.branch && task ? { ...task, branch: e.branch } : task;
               const taskWithPlan = e.plan != null && withBranch ? { ...withBranch, plan: e.plan } : withBranch;
               const leaving = !!e.status && e.status !== "awaiting_approval";

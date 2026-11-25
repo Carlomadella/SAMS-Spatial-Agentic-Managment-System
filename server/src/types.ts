@@ -33,6 +33,10 @@ export interface WireEvent {
   /** l'attesa riguarda il branch principale (push o merge): l'agente è bloccato nella
    *  sala d'attesa finché una persona non conferma o rifiuta. */
   mainGate?: boolean;
+  /** titolo del task partito dal server (coda, idea 4): la UI lo mostra anche se nessuno l'ha assegnato da lì */
+  taskTitle?: string;
+  /** "queue": la coda dei task sul server, intera (idea 4) */
+  queue?: unknown[];
   /** id del task sul server (idea 3): la UI apre la sua scheda */
   taskId?: string;
   /** permesso chiesto a una persona ("Chiedi prima", idea 2): l'agente è fermo finché non si decide; null = richiesta chiusa */

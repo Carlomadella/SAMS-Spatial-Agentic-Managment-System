@@ -3,6 +3,7 @@ import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
+import { noteQueueEvent } from "./serverQueue";
 import { notePermissionEvent } from "./permissions";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
@@ -1260,6 +1261,7 @@ export function connectBackend(): () => void {
       try {
         const data = JSON.parse(ev.data) as RemoteUpdate;
         useStore.getState().applyRemote(data);
+        noteQueueEvent(data as { agentId?: string; queue?: unknown });
         notePermissionEvent(data as Parameters<typeof notePermissionEvent>[0]);
       } catch {
         /* ignore malformed payloads */
