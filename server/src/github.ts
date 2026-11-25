@@ -641,7 +641,7 @@ export async function getWorkflowJobs(runId: number): Promise<string> {
   };
   const jobs = data.jobs ?? [];
   if (!jobs.length) return "Nessun job trovato per questo run";
-  return jobs
+  const summary = jobs
     .map((j) => {
       const icon =
         j.conclusion === "success" ? "✅" : j.conclusion === "failure" ? "❌" : j.status === "in_progress" ? "🔄" : "⏳";
@@ -655,6 +655,64 @@ export async function getWorkflowJobs(runId: number): Promise<string> {
       return `${icon} ${j.name} (${j.conclusion ?? j.status})${steps ? "\n" + steps : ""}`;
     })
     .join("\n");
+  // Per i job falliti (al massimo 3) anche le righe del log intorno all'errore: senza il
+  // messaggio l'agente sapeva solo che un passo era fallito e non poteva correggere (25/11).
+  const logs: string[] = [];
+  for (const j of jobs.filter((x) => x.conclusion === "failure").slice(0, 3)) {
+    let text: string;
+    try {
+      text = errorExcerpt(await jobLog(j.id)) || "(log vuoto)";
+    } catch {
+      text = "(log non disponibile: riprova più tardi con gh_ci_jobs)";
+    }
+    logs.push(`--- Log dell'errore (${j.name}) ---\n${text}`);
+  }
+  return logs.length ? `${summary}\n\n${logs.join("\n\n")}` : summary;
+}
+
+/** Righe e caratteri massimi del log mandato all'agente per ogni job fallito. */
+const LOG_LINES = 60;
+const LOG_CHARS = 4000;
+
+/**
+ * Il pezzo utile del log di un job fallito: senza orari né colori, fino al primo
+ * `##[error]` (dopo ci sono solo le pulizie di fine job) o, se manca, la coda.
+ */
+export function errorExcerpt(raw: string): string {
+  const lines = raw
+    .replace(/\r/g, "")
+    .split("\n")
+    // eslint-disable-next-line no-control-regex
+    .map((l) => l.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, "").replace(/\u001b\[[0-9;]*m/g, ""));
+  let end = lines.length;
+  const first = lines.findIndex((l) => l.includes("##[error]"));
+  if (first >= 0) {
+    end = first + 1;
+    while (end < lines.length && lines[end].includes("##[error]")) end++;
+  }
+  while (end > 0 && !lines[end - 1].trim()) end--;
+  let out = lines.slice(Math.max(0, end - LOG_LINES), end).join("\n");
+  if (out.length > LOG_CHARS) out = "…" + out.slice(out.length - LOG_CHARS + 1);
+  return out;
+}
+
+/**
+ * Il log di un job. GitHub risponde con un rinvio a un indirizzo firmato: lo si segue a
+ * mano per non mandare il token GitHub anche a quel server.
+ */
+async function jobLog(jobId: number): Promise<string> {
+  const first = await fetch(`${repoBase()}/actions/jobs/${jobId}/logs`, {
+    headers: headers(),
+    redirect: "manual",
+    signal: AbortSignal.timeout(20_000),
+  });
+  let res = first;
+  const location = first.headers.get("location");
+  if (first.status >= 300 && first.status < 400 && location?.startsWith("https://")) {
+    res = await fetch(location, { signal: AbortSignal.timeout(20_000) });
+  }
+  if (!res.ok) throw new HttpError(res.status, `GitHub ${res.status}: log del job non disponibile`);
+  return res.text();
 }
 
 /**
