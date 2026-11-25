@@ -37,7 +37,7 @@ export function PermissionPrompt({ agentId }: { agentId: string }) {
   const answer = (d: PermDecision) => {
     setBusy(true);
     setErr("");
-    answerPermissionRemote(agentId, d)
+    answerPermissionRemote(agentId, req.id, d)
       .catch((e: Error) => setErr(e.message))
       .finally(() => setBusy(false));
   };

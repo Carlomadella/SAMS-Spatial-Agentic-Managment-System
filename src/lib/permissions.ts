@@ -11,6 +11,7 @@ export type PermDecision = "once" | "always" | "deny";
 export const MODE_LABEL: Record<PermMode, string> = { allow: "Consentito", ask: "Chiedi prima", off: "Spento" };
 
 export interface PermissionRequest {
+  id: string;
   agentId: string;
   agentName: string;
   group: string;
@@ -80,12 +81,12 @@ export async function setPermissionRemote(agentId: string, group: string, mode: 
   );
 }
 
-export async function answerPermissionRemote(agentId: string, decision: PermDecision): Promise<void> {
+export async function answerPermissionRemote(agentId: string, requestId: string, decision: PermDecision): Promise<void> {
   await asJson(
     await fetch(`${BASE}/api/permissions/${encodeURIComponent(agentId)}/answer`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ decision, actor: viewerName() }),
+      body: JSON.stringify({ decision, requestId, actor: viewerName() }),
     }),
   );
   notePermissionEvent({ agentId, permissionRequest: null });

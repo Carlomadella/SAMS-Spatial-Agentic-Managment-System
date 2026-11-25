@@ -9,7 +9,9 @@ import {
   filterOffTools,
   groupOfTool,
   loadPermissions,
+  noteLiveMode,
   pendingPermission,
+  resetLiveModes,
   permissionRows,
   setPermission,
   type PermissionRequest,
@@ -17,10 +19,11 @@ import {
 import { permissionGate, type ToolContext } from "./agentTools";
 import { beginRun, endRun, requestCancel, TaskCancelledError } from "./taskRuns";
 
-const req = (agentId = "a"): PermissionRequest => ({ agentId, agentName: "Blue", group: "read", groupLabel: "Leggere", tool: "gh_read_file", detail: "gh_read_file: x.ts", since: 1 });
+const req = (agentId = "a", id = "r1"): PermissionRequest => ({ id, agentId, agentName: "Blue", group: "read", groupLabel: "Leggere", tool: "gh_read_file", detail: "gh_read_file: x.ts", since: 1 });
 
 afterEach(() => {
   cancelPermission("a");
+  resetLiveModes();
   vi.useRealTimers();
 });
 
@@ -49,10 +52,13 @@ describe("permessi — regole", () => {
     expect(filterOffTools(specs, undefined)).toHaveLength(3);
   });
 
-  it("descrive l'azione chiesta", () => {
-    expect(describeCall("gh_read_file", { path: "src/a.ts" })).toBe("gh_read_file: src/a.ts");
-    expect(describeCall("gh_merge_pr", { pr_number: 7 })).toBe("gh_merge_pr: PR #7");
-    expect(describeCall("gh_read_files", { paths: ["a", "b"] })).toBe("gh_read_files: a, b");
+  it("mostra lo strumento con tutti gli argomenti, accorciati", () => {
+    expect(describeCall("gh_read_file", { path: "src/a.ts" })).toBe('gh_read_file {"path":"src/a.ts"}');
+    // un campo "innocuo" non può nascondere quello che conta davvero
+    expect(describeCall("mcp_call", { title: "leggi il README", server: "s", tool: "delete_all" })).toContain('"tool":"delete_all"');
+    const long = describeCall("gh_write_file", { path: "a.ts", content: "x".repeat(5000) });
+    expect(long.length).toBeLessThanOrEqual(800);
+    expect(long).toContain('"path":"a.ts"');
   });
 });
 
@@ -76,10 +82,19 @@ describe("permessi — richieste in attesa", () => {
   it("la risposta di una persona sblocca l'agente", async () => {
     const p = askPermission(req());
     expect(pendingPermission("a")?.tool).toBe("gh_read_file");
-    expect(answerPermission("a", "once")).toBe(true);
+    expect(answerPermission("a", "r1", "once")?.group).toBe("read");
     await expect(p).resolves.toBe("once");
     expect(pendingPermission("a")).toBeNull();
-    expect(answerPermission("a", "once")).toBe(false);
+    expect(answerPermission("a", "r1", "once")).toBeNull();
+  });
+
+  it("la risposta vale solo per la richiesta vista, non per una arrivata dopo", async () => {
+    void askPermission(req("a", "vecchia"));
+    const p = askPermission({ ...req("a", "nuova"), group: "pr", tool: "gh_merge_pr" });
+    expect(answerPermission("a", "vecchia", "always")).toBeNull();
+    expect(pendingPermission("a")?.id).toBe("nuova");
+    expect(answerPermission("a", "nuova", "deny")?.tool).toBe("gh_merge_pr");
+    await expect(p).resolves.toBe("deny");
   });
 
   it("senza risposta scade", async () => {
@@ -106,6 +121,11 @@ describe("permissionGate", () => {
     expect(await permissionGate("done", {}, ctx(defaultPermissions()))).toBeNull();
   });
 
+  it("un gruppo spento a task in corso vale subito", async () => {
+    noteLiveMode("a", "read", "off");
+    expect(await permissionGate("gh_read_file", {}, ctx({ ...defaultPermissions(), read: "allow" }))).toMatch(/spento/);
+  });
+
   it("spento: rifiutato senza chiedere", async () => {
     const r = await permissionGate("web_fetch", { url: "x" }, ctx({ ...defaultPermissions(), web: "off" }));
     expect(r).toMatch(/spento/);
@@ -116,9 +136,9 @@ describe("permissionGate", () => {
     const c = ctx(defaultPermissions());
     const p = permissionGate("gh_read_file", { path: "x.ts" }, c);
     await Promise.resolve();
-    expect(pendingPermission("a")?.detail).toBe("gh_read_file: x.ts");
+    expect(pendingPermission("a")?.detail).toBe('gh_read_file {"path":"x.ts"}');
     expect(c.events).toContainEqual(expect.objectContaining({ permissionRequest: expect.objectContaining({ group: "read" }) }));
-    answerPermission("a", "always");
+    answerPermission("a", pendingPermission("a")!.id, "always");
     expect(await p).toBeNull();
     expect(c.perms?.read).toBe("allow");
     expect(c.events).toContainEqual(expect.objectContaining({ permissionRequest: null }));
@@ -128,7 +148,7 @@ describe("permissionGate", () => {
     const c = ctx(defaultPermissions());
     const p = permissionGate("gh_merge_pr", { pr_number: 3 }, c);
     await Promise.resolve();
-    answerPermission("a", "deny");
+    answerPermission("a", pendingPermission("a")!.id, "deny");
     expect(await p).toMatch(/non concesso/);
     expect(c.perms?.pr).toBe("ask");
   });

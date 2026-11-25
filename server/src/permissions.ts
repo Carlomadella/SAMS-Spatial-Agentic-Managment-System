@@ -7,6 +7,7 @@
 // il server lo rifiuta). "Chiedi prima": l'agente si ferma finché una persona decide.
 // Gli strumenti interni (piano, memoria, passaggio di lavoro, done) non hanno gruppo.
 
+import { randomUUID } from "node:crypto";
 import type { SqlDriver, SqlRunner } from "./sql";
 
 export type PermGroup = "read" | "write" | "pr" | "workflow" | "web" | "notion" | "mcp";
@@ -102,13 +103,14 @@ export async function loadPermissions(db: SqlRunner, agentId: string): Promise<P
 
 /** Le scelte salvate, con chi le ha fatte e quando. */
 export async function permissionRows(db: SqlRunner, agentId: string): Promise<PermissionRow[]> {
-  const rows = await db.all<{ grp: string; mode: string; by: string; at: number }>(
-    `SELECT grp, mode, updated_by AS by, updated_at AS at FROM agent_permissions WHERE agent_id = ?`,
+  // "by" è una parola riservata in MySQL: l'alias è "who".
+  const rows = await db.all<{ grp: string; mode: string; who: string; at: number }>(
+    `SELECT grp, mode, updated_by AS who, updated_at AS at FROM agent_permissions WHERE agent_id = ?`,
     [agentId],
   );
   return rows
     .filter((r) => isPermGroup(r.grp) && isPermMode(r.mode))
-    .map((r) => ({ group: r.grp as PermGroup, mode: r.mode as PermMode, updatedBy: String(r.by ?? ""), updatedAt: Number(r.at) }));
+    .map((r) => ({ group: r.grp as PermGroup, mode: r.mode as PermMode, updatedBy: String(r.who ?? ""), updatedAt: Number(r.at) }));
 }
 
 export async function setPermission(db: SqlRunner, agentId: string, group: PermGroup, mode: PermMode, by: string, now = Date.now()): Promise<void> {
@@ -128,6 +130,8 @@ export type PermDecision = "once" | "always" | "deny";
 export type PermOutcome = PermDecision | "cancel" | "timeout";
 
 export interface PermissionRequest {
+  /** id della singola richiesta: la risposta vale solo per questa (non per una arrivata dopo) */
+  id: string;
   agentId: string;
   agentName: string;
   group: PermGroup;
@@ -142,6 +146,10 @@ export interface PermissionRequest {
 export const PERMISSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 const waiting = new Map<string, { req: PermissionRequest; resolve: (o: PermOutcome) => void; timer: ReturnType<typeof setTimeout> }>();
+
+export function newRequestId(): string {
+  return randomUUID();
+}
 
 /** L'agente chiede il permesso e aspetta. Una richiesta alla volta per agente. */
 export function askPermission(req: PermissionRequest, timeoutMs = PERMISSION_TIMEOUT_MS): Promise<PermOutcome> {
@@ -162,9 +170,16 @@ function settle(agentId: string, outcome: PermOutcome): boolean {
   return true;
 }
 
-/** Una persona ha deciso. false se l'agente non aspettava nulla. */
-export function answerPermission(agentId: string, decision: PermDecision): boolean {
-  return settle(agentId, decision);
+/**
+ * Una persona ha deciso sulla richiesta `requestId`. Controllo e sblocco nello stesso passo
+ * (niente await in mezzo): se nel frattempo l'agente ha chiesto altro, la risposta non vale
+ * per la richiesta nuova. Ritorna la richiesta decisa, o null.
+ */
+export function answerPermission(agentId: string, requestId: string, decision: PermDecision): PermissionRequest | null {
+  const w = waiting.get(agentId);
+  if (!w || w.req.id !== requestId) return null;
+  settle(agentId, decision);
+  return w.req;
 }
 
 /** Task annullato: chi aspettava si sblocca e il ciclo dell'agente si ferma. */
@@ -180,14 +195,48 @@ export function allPendingPermissions(): PermissionRequest[] {
   return [...waiting.values()].map((w) => w.req);
 }
 
-/** Breve descrizione dell'azione chiesta, per la persona che decide. */
+/** Oltre questa lunghezza gli argomenti mostrati si accorciano (i contenuti dei file sono lunghi). */
+export const DETAIL_MAX = 800;
+
+/**
+ * Cosa vuole fare l'agente, per la persona che decide: lo strumento e **tutti** gli argomenti
+ * così come arrivano all'esecuzione (non un campo scelto da noi, che il modello potrebbe
+ * riempire per far sembrare innocua un'altra azione). I testi lunghi si accorciano.
+ */
 export function describeCall(tool: string, args: Record<string, unknown>): string {
-  const s = (v: unknown) => (typeof v === "string" ? v : "");
-  if (tool === "gh_read_files" && Array.isArray(args.paths)) return `${tool}: ${args.paths.slice(0, 5).map(String).join(", ")}${args.paths.length > 5 ? "…" : ""}`;
-  if (tool === "gh_write_files" && Array.isArray(args.files)) {
-    const paths = (args.files as Array<{ path?: unknown }>).map((f) => s(f?.path)).filter(Boolean);
-    return `${tool}: ${paths.slice(0, 5).join(", ")}${paths.length > 5 ? "…" : ""}`;
+  const clip = (v: unknown): unknown =>
+    typeof v === "string" ? (v.length > 200 ? `${v.slice(0, 199)}…` : v)
+    : Array.isArray(v) ? v.map(clip)
+    : v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, clip(x)]))
+    : v;
+  let json: string;
+  try {
+    json = JSON.stringify(clip(args));
+  } catch {
+    json = "(argomenti non leggibili)";
   }
-  const key = s(args.path) || s(args.url) || s(args.workflow) || s(args.title) || (args.pr_number != null ? `PR #${String(args.pr_number)}` : "") || s(args.query) || s(args.tool);
-  return key ? `${tool}: ${key.slice(0, 160)}` : tool;
+  const text = `${tool} ${json}`;
+  return text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX - 1)}…` : text;
+}
+
+// --- cambi a task in corso ----------------------------------------------------------
+
+/**
+ * Ultima scelta per gruppo cambiata mentre il server gira: vale anche per i task già
+ * partiti (spegnere un gruppo a metà task lo spegne subito, non dal task dopo).
+ */
+const liveModes = new Map<string, Partial<Permissions>>();
+
+export function noteLiveMode(agentId: string, group: PermGroup, mode: PermMode): void {
+  liveModes.set(agentId, { ...(liveModes.get(agentId) ?? {}), [group]: mode });
+}
+
+/** La posizione da usare adesso: quella cambiata dal vivo, altrimenti quella letta all'avvio del task. */
+export function currentMode(agentId: string, group: PermGroup, atStart: Permissions): PermMode {
+  return liveModes.get(agentId)?.[group] ?? atStart[group];
+}
+
+/** Solo per i test. */
+export function resetLiveModes(): void {
+  liveModes.clear();
 }

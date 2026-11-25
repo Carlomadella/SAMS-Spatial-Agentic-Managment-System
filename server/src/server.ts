@@ -56,7 +56,7 @@ import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } f
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
-import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
+import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, noteLiveMode, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
 
 const app = express();
 
@@ -1401,6 +1401,7 @@ app.post("/api/permissions/:agentId", requireRole("editor"), async (req: Request
   }
   const by = actorLabel(await roleOf(req), actor);
   await setPermission(db(), agentId, group, mode, by);
+  noteLiveMode(agentId, group, mode); // vale subito anche per il task in corso
   log.info("Permesso cambiato", { agent: agentId, group, mode, by });
   res.json({ ok: true, perms: await loadPermissions(db(), agentId) });
 });
@@ -1408,20 +1409,24 @@ app.post("/api/permissions/:agentId", requireRole("editor"), async (req: Request
 /** Risposta a una richiesta "Chiedi prima": una volta, sempre (il gruppo diventa Consentito) o no. */
 app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: Request, res: Response) => {
   const agentId = String(req.params.agentId ?? "");
-  const { decision, actor } = (req.body ?? {}) as { decision?: unknown; actor?: unknown };
+  const { decision, actor, requestId } = (req.body ?? {}) as { decision?: unknown; actor?: unknown; requestId?: unknown };
   if (decision !== "once" && decision !== "always" && decision !== "deny") {
     res.status(400).json({ error: "Decisione non valida" });
     return;
   }
-  const pending = pendingPermission(agentId);
-  if (!pending) {
-    res.status(404).json({ error: "Questo agente non sta aspettando un permesso." });
+  // Chi decide prima di tutto (l'await va qui): poi controllo e sblocco nello stesso passo,
+  // legati alla richiesta che la persona ha visto (requestId), non a quella che c'è adesso.
+  const by = actorLabel(await roleOf(req), actor);
+  const answered = answerPermission(agentId, typeof requestId === "string" ? requestId : "", decision);
+  if (!answered) {
+    res.status(409).json({ error: "Questa richiesta di permesso non è più in attesa (già decisa, scaduta o sostituita da un'altra)." });
     return;
   }
-  const by = actorLabel(await roleOf(req), actor);
-  if (decision === "always") await setPermission(db(), agentId, pending.group, "allow", by);
-  answerPermission(agentId, decision);
-  log.info("Permesso deciso", { agent: agentId, group: pending.group, tool: pending.tool, decision, by });
+  if (decision === "always") {
+    noteLiveMode(agentId, answered.group, "allow");
+    await setPermission(db(), agentId, answered.group, "allow", by);
+  }
+  log.info("Permesso deciso", { agent: agentId, group: answered.group, tool: answered.tool, decision, by });
   res.json({ ok: true });
 });
 

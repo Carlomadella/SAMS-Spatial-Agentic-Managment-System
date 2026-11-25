@@ -47,7 +47,7 @@ import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
-import { askPermission, describeCall, groupLabel, groupOfTool, type Permissions } from "./permissions";
+import { askPermission, currentMode, describeCall, groupLabel, groupOfTool, newRequestId, type Permissions } from "./permissions";
 import { checkFile } from "./fileChecks";
 import { decideWorkflow } from "./workflowGuard";
 
@@ -765,7 +765,7 @@ export async function permissionGate(name: string, args: Record<string, unknown>
   const group = groupOfTool(name);
   if (!group || !ctx.perms) return null;
   const { agentId, agentName, emit } = ctx;
-  const mode = ctx.perms[group];
+  const mode = currentMode(agentId, group, ctx.perms);
   if (mode === "allow") return null;
   const label = groupLabel(group);
   if (mode === "off") {
@@ -774,12 +774,13 @@ export async function permissionGate(name: string, args: Record<string, unknown>
   }
   const detail = describeCall(name, args);
   const since = Date.now();
+  const id = newRequestId();
   emit({
     agentId, agentName, level: "WARN",
     message: `Chiede il permesso (${label}): ${truncate(detail, THOUGHT_LIMIT)}`,
-    permissionRequest: { group, groupLabel: label, tool: name, detail, since },
+    permissionRequest: { id, group, groupLabel: label, tool: name, detail, since },
   });
-  const outcome = await askPermission({ agentId, agentName, group, groupLabel: label, tool: name, detail, since });
+  const outcome = await askPermission({ id, agentId, agentName, group, groupLabel: label, tool: name, detail, since });
   emit({ agentId, agentName, permissionRequest: null });
   if (outcome === "cancel") {
     throwIfCancelled(agentId);
