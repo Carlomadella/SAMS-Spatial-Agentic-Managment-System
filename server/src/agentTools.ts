@@ -21,6 +21,7 @@ import {
   pullRequestHead,
   triggerWorkflow,
   listFiles,
+  listFilesRecursive,
   listIssuesForAgent,
   listPullRequests,
   pullRequestStatus,
@@ -111,8 +112,14 @@ export function buildToolSpecs(
     specs.push(
       {
         name: "gh_list_files",
-        description: `Elenca i file in una cartella del repository (prima dal branch del task, poi da '${s.baseBranch}').`,
-        schema: { type: "object", properties: { path: { type: "string", description: "cartella, vuoto = root" } } },
+        description: `Elenca i file in una cartella del repository (prima dal branch del task, poi da '${s.baseBranch}'). Con recursive=true elenca in un passo solo TUTTI i file delle sottocartelle: usalo per avere la struttura di un progetto invece di un elenco per cartella.`,
+        schema: {
+          type: "object",
+          properties: {
+            path: { type: "string", description: "cartella, vuoto = root" },
+            recursive: { type: "boolean", description: "true = tutti i file delle sottocartelle, col percorso completo" },
+          },
+        },
       },
       {
         name: "gh_read_file",
@@ -767,8 +774,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   let result = "ok";
   try {
     if (name === "gh_list_files") {
-      result = (await onTaskBranch(ctx, (ref) => listFiles(str(args.path), ref))).join("\n") || "(vuoto)";
-      emit({ agentId, agentName, progress, level: "INFO", message: `ls ${str(args.path) || "/"}` });
+      const recursive = args.recursive === true || args.recursive === "true";
+      const list = recursive ? listFilesRecursive : listFiles;
+      result = (await onTaskBranch(ctx, (ref) => list(str(args.path), ref))).join("\n") || "(vuoto)";
+      emit({ agentId, agentName, progress, level: "INFO", message: `ls ${recursive ? "-R " : ""}${str(args.path) || "/"}` });
     } else if (name === "gh_read_files") {
       result = await readManyFiles(Array.isArray(args.paths) ? args.paths.map(str).filter(Boolean) : [], ctx);
       emit({ agentId, agentName, progress, level: "INFO", message: `read ${Array.isArray(args.paths) ? args.paths.length : 0} file` });
