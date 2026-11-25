@@ -1,32 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { SAMS_REPO, decideTaskRepo, taskRepoList } from "./repoOverride";
+import { SAMS_REPO, decideTaskRepo } from "./repoOverride";
 
-const editor = { usesOwnGithub: false, isOwner: false, serverRepo: "acme/app" };
-
-describe("decideTaskRepo", () => {
-  it("senza override (o malformato) usa la repo normale", () => {
-    expect(decideTaskRepo(undefined, editor, {})).toEqual({ ok: true, repo: null });
-    expect(decideTaskRepo("non valida", editor, {})).toEqual({ ok: true, repo: null });
+describe("decideTaskRepo — solo la repo selezionata (25/11)", () => {
+  it("senza override (o malformato) usa la repo selezionata", () => {
+    expect(decideTaskRepo(undefined, "acme/app")).toEqual({ ok: true, repo: null });
+    expect(decideTaskRepo("non valida", "acme/app")).toEqual({ ok: true, repo: null });
   });
 
-  it("editor col token del server: SAMS e la repo del server sì, altre no", () => {
-    expect(decideTaskRepo(SAMS_REPO, editor, {})).toEqual({ ok: true, repo: SAMS_REPO });
-    expect(decideTaskRepo("acme/app", editor, {})).toEqual({ ok: true, repo: "acme/app" });
-    const d = decideTaskRepo("acme/segreta", editor, {});
+  it("la repo selezionata va bene (maiuscole indifferenti)", () => {
+    expect(decideTaskRepo("Acme/App", "acme/app")).toEqual({ ok: true, repo: null });
+  });
+
+  it("il meta-agente può lavorare sulla repo di SAMS", () => {
+    expect(decideTaskRepo(SAMS_REPO, "acme/app")).toEqual({ ok: true, repo: SAMS_REPO });
+    expect(decideTaskRepo(SAMS_REPO.toLowerCase(), "acme/app")).toEqual({ ok: true, repo: SAMS_REPO });
+  });
+
+  it("qualsiasi altra repo no, per tutti (anche owner e chi usa il proprio GitHub)", () => {
+    const d = decideTaskRepo("acme/segreta", "acme/app");
     expect(d.ok).toBe(false);
-    if (!d.ok) expect(d.error).toContain("SAMS_TASK_REPOS");
-  });
-
-  it("le repo in SAMS_TASK_REPOS sono consentite (maiuscole indifferenti)", () => {
-    expect(decideTaskRepo("Acme/Lib", editor, { SAMS_TASK_REPOS: "acme/lib, x/y" }).ok).toBe(true);
-  });
-
-  it("chi usa il proprio GitHub e l'owner non hanno limiti", () => {
-    expect(decideTaskRepo("acme/segreta", { ...editor, usesOwnGithub: true }, {}).ok).toBe(true);
-    expect(decideTaskRepo("acme/segreta", { ...editor, isOwner: true }, {}).ok).toBe(true);
-  });
-
-  it("taskRepoList toglie doppioni e voci non valide", () => {
-    expect(taskRepoList("acme/app", { SAMS_TASK_REPOS: "acme/app, ,bad" })).toEqual(["acme/app", SAMS_REPO]);
+    if (!d.ok) {
+      expect(d.error).toContain("solo sulla repo selezionata (acme/app)");
+      expect(d.error).toContain("meta-agente");
+    }
+    expect(decideTaskRepo("acme/segreta", "").ok).toBe(false);
   });
 });

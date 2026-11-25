@@ -1,33 +1,28 @@
-// Repo indicata per il singolo task (campo `repo` di /api/assign, usato dal meta-agente).
+// Repo indicata per il singolo task (campo `repo` di /api/assign e della coda).
 //
-// Collaudo 21/11, punto 4b (limite deciso dall'utente il 20/11; opzione B): un editor senza
-// GitHub collegato poteva far lavorare un agente su qualsiasi repo raggiungibile dal token
-// del server. Con il token del server ora valgono solo: la repo del server, SAMS stessa
-// (meta-agente) e quelle che l'owner elenca in SAMS_TASK_REPOS. Chi lavora col proprio
-// GitHub resta libero: il suo token vede solo le sue repo. L'owner non ha limiti.
+// Scelta dell'utente del 25/11 (idea 2 da Paperclip, «solo sulla repo selezionata»): gli
+// agenti lavorano SOLO sulla repo selezionata — quella del server in ⚙, o quella scelta da
+// chi lavora col proprio GitHub. L'unica eccezione è la repo di SAMS, su cui lavora il
+// meta-agente. Non valgono più eccezioni per l'owner né l'elenco SAMS_TASK_REPOS
+// (prima: collaudo 21/11, punto 4b).
 
 export const SAMS_REPO = "Carlomadella/SAMS-Spatial-Agentic-Managment-System";
 const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
 
-export function taskRepoList(serverRepo: string, env: NodeJS.ProcessEnv = process.env): string[] {
-  const extra = (env.SAMS_TASK_REPOS ?? "").split(",").map((x) => x.trim()).filter((x) => REPO_RE.test(x));
-  return [...new Set([serverRepo, SAMS_REPO, ...extra].filter((x) => REPO_RE.test(x)))];
-}
-
 export type RepoDecision = { ok: true; repo: string | null } | { ok: false; error: string };
 
-export function decideTaskRepo(
-  repo: unknown,
-  who: { usesOwnGithub: boolean; isOwner: boolean; serverRepo: string },
-  env: NodeJS.ProcessEnv = process.env,
-): RepoDecision {
-  // Override assente o malformato: si usa la repo normale (come prima).
+/**
+ * `selectedRepo`: la repo su cui lavora chi avvia il task (server o proprio GitHub).
+ * Ritorna la repo da usare per il task (null = quella selezionata, senza override).
+ */
+export function decideTaskRepo(repo: unknown, selectedRepo: string): RepoDecision {
+  // Override assente o malformato: si usa la repo selezionata.
   if (typeof repo !== "string" || !REPO_RE.test(repo)) return { ok: true, repo: null };
-  if (who.usesOwnGithub || who.isOwner) return { ok: true, repo };
-  const list = taskRepoList(who.serverRepo, env);
-  if (list.some((r) => r.toLowerCase() === repo.toLowerCase())) return { ok: true, repo };
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  if (selectedRepo && same(repo, selectedRepo)) return { ok: true, repo: null };
+  if (same(repo, SAMS_REPO)) return { ok: true, repo: SAMS_REPO }; // il meta-agente
   return {
     ok: false,
-    error: `La repo ${repo} non è tra quelle consentite per i task con il GitHub del server (${list.join(", ")}). Collega il tuo GitHub o chiedi all'owner di aggiungerla a SAMS_TASK_REPOS.`,
+    error: `Gli agenti lavorano solo sulla repo selezionata${selectedRepo ? ` (${selectedRepo})` : ""}: ${repo} non è consentita. L'unica eccezione è il meta-agente sulla repo di SAMS. Per lavorare su un'altra repo, cambia quella selezionata in ⚙.`,
   };
 }

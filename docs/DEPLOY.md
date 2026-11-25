@@ -95,7 +95,6 @@ Any other Docker host (Railway, Koyeb, a VPS…) works the same way: build the
 | `GITHUB_REPO` | fallback | — | `owner/repo` of the server's token. Setting it locks the field in ⚙ |
 | `GITHUB_BASE_BRANCH` | no | `main` | base branch for PRs |
 | `SAMS_BRANCH_DEV` / `SAMS_BRANCH_STAGING` / `SAMS_BRANCH_PROD` | no | `GITHUB_BASE_BRANCH` | base branch of each environment (Dev/Staging/Prod). Can also be set in ⚙ → server GitHub; setting them here locks them |
-| `SAMS_TASK_REPOS` | no | — | comma-separated `owner/repo` list an **editor** may point a single task at (the meta-agent's repo field) while working with the server's `GITHUB_TOKEN`. Always allowed: `GITHUB_REPO` and SAMS itself. Users on their own GitHub and the owner are not limited |
 | `SAMS_WORKFLOWS` | no | — (all) | comma-separated GitHub Actions workflows an agent may start (`ci.yml,test.yml`). Agents can start a workflow only on their task branch, never on the base branch; with `SAMS_REQUIRE_APPROVAL` it waits for the person who approves |
 | `SAMS_OPEN_PRS` | no | `true` | open a PR automatically after a commit |
 | `SAMS_REQUIRE_APPROVAL` | no | `false` | stage a diff for approval before committing |
