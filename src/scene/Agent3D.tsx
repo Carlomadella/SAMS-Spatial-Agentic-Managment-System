@@ -5,9 +5,9 @@ import * as THREE from "three";
 import { CheckCheck, Coffee, Dumbbell, Eye, Moon, Pencil, Play, Trash2, Utensils, type LucideIcon } from "lucide-react";
 import { AGENT_HEX, type Agent, type AgentStatus, type Vec2 } from "../types";
 import { useStore } from "../store/useStore";
-import { findPath, isPointClear } from "../lib/pathfind";
+import { isPointClear } from "../lib/pathfind";
 import { hasEarnedXp, levelFromXp } from "../lib/skill";
-import { house, isNightNow, clampToRoom } from "../data/world";
+import { house, isNightNow, clampToRoom, freeFromWalls, insideWall, walkPath } from "../data/world";
 import { useHouse } from "../store/useStore";
 import { STATUS_META } from "../lib/meta";
 import { selectorsOf } from "../lib/selections";
@@ -133,7 +133,8 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
   // Waypoints that steer around furniture; last entry is always the destination.
   // Recomputed only when a new target is set (position is committed, not per-frame).
   const path = useMemo(
-    () => (agent.target ? findPath(agent.position, agent.target, layout.obstacles, { bounds: layout.bounds }) : []),
+    // walkPath: se la partenza è dentro un muro, prima esce (25/11, mai più agenti nel muro)
+    () => (agent.target ? walkPath(agent.position, agent.target, layout) : []),
     [agent.target, agent.position, layout],
   );
   useEffect(() => {
@@ -284,6 +285,16 @@ export function Agent3D({ agent, selected }: { agent: Agent; selected: boolean }
         cur.current.x = rx;
         cur.current.z = rz;
       }
+    }
+
+    // Mai fermo dentro un muro (25/11): posizione salvata da una pianta vecchia, una vista
+    // che seguiva il driver e si è fermata a metà, qualsiasi altra strada. Da fermo e quando
+    // questa vista simula l'agente, lo si porta al punto libero più vicino e lo si salva.
+    if (!follow && !traveling && insideWall([cur.current.x, cur.current.z], layout.walls)) {
+      const [fx, fz] = freeFromWalls([cur.current.x, cur.current.z], layout);
+      cur.current.x = fx;
+      cur.current.z = fz;
+      useStore.getState().placeAgent(agent.id, [fx, fz]);
     }
 
     g.position.x = cur.current.x;

@@ -25,7 +25,7 @@ import {
   type Vec2,
 } from "../types";
 import { SEED_AGENTS } from "../data/seed";
-import { clampToRoom, house, SPAWN_POINT, type HouseLayout } from "../data/world";
+import { clampToRoom, freeFromWalls, house, SPAWN_POINT, type HouseLayout } from "../data/world";
 
 /**
  * La pianta della casa, da usare nei componenti: stanze fisse (23/11), con una
@@ -221,6 +221,8 @@ interface State {
   removeAgentPreset: (id: string) => void;
   moveAgent: (id: string, target: Vec2) => void;
   arriveAgent: (id: string) => void;
+  /** Rimette a posto un agente fermo (es. fuori da un muro); non tocca chi sta camminando. */
+  placeAgent: (id: string, position: Vec2) => void;
   /** Manda un agente in una stanza (il tipo impedisce nomi di stanze che non esistono). */
   sendToZone: (id: string, zoneId: RoomId) => void;
   setStatus: (id: string, status: AgentStatus) => void;
@@ -671,8 +673,14 @@ export const useStore = create<State>()(
   moveAgent: (id, target) =>
     set((s) => ({
       agents: s.agents.map((a) =>
-        a.id === id ? { ...a, target: clampToRoom(target) } : a,
+        // mai una meta dentro un muro (25/11: un clic sul muro lasciava l'agente lì dentro)
+        a.id === id ? { ...a, target: freeFromWalls(clampToRoom(target)) } : a,
       ),
+    })),
+
+  placeAgent: (id, position) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === id && !a.target ? { ...a, position } : a)),
     })),
 
   arriveAgent: (id) =>

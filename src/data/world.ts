@@ -1,5 +1,5 @@
 import type { Zone, Vec2 } from "../types";
-import { isPointClear, type Rect } from "../lib/pathfind";
+import { findPath, isPointClear, type Rect } from "../lib/pathfind";
 import type { RoomId } from "../lib/roomFor";
 
 // ---------------------------------------------------------------------------
@@ -266,6 +266,58 @@ export function clampToRoom([x, z]: Vec2, layout: HouseLayout = house()): Vec2 {
     Math.min(b.maxX - pad, Math.max(b.minX + pad, x)),
     Math.min(b.maxZ - pad, Math.max(b.minZ + pad, z)),
   ];
+}
+
+// --- mai dentro un muro (25/11) ---------------------------------------------------
+// Un agente era rimasto fermo in mezzo a un muro. Le strade per finirci: una meta cliccata
+// sul muro (il pathfinder accetta apposta una meta dentro un ostacolo, per i letti), una
+// posizione salvata nel browser da prima di un cambio di pianta, il movimento in linea
+// retta di una vista che segue il driver, una partenza da dentro un muro. La regola che le
+// chiude tutte: nessuna meta, nessuna partenza e nessun agente fermo sta dentro un muro.
+// I mobili non c'entrano: sul letto ci si sdraia apposta.
+
+/** Mezza larghezza del corpo di un agente: più vicino di così al muro, ci sta dentro. */
+export const AGENT_BODY = 0.3;
+/** Distanza dal muro di un punto "libero" (la stessa che usa il pathfinder). */
+const WALL_CLEARANCE = 0.55;
+
+/** Il punto (col corpo dell'agente) tocca un muro? */
+export function insideWall([x, z]: Vec2, walls: Rect[], pad = AGENT_BODY): boolean {
+  return walls.some((r) => x >= r.minX - pad && x <= r.maxX + pad && z >= r.minZ - pad && z <= r.maxZ + pad);
+}
+
+/**
+ * Il punto se non è in un muro; altrimenti il punto libero più vicino (a WALL_CLEARANCE dai
+ * muri, dentro la casa). Cerca su anelli sempre più larghi, 32 direzioni per anello.
+ */
+export function freeFromWalls(p: Vec2, layout: HouseLayout = house()): Vec2 {
+  if (!insideWall(p, layout.walls)) return p;
+  for (let r = 0.1; r <= 6; r += 0.1) {
+    let best: Vec2 | null = null;
+    let bestD = Infinity;
+    for (let k = 0; k < 32; k++) {
+      const a = (k / 32) * Math.PI * 2;
+      const q = clampToRoom([p[0] + Math.cos(a) * r, p[1] + Math.sin(a) * r], layout);
+      if (insideWall(q, layout.walls, WALL_CLEARANCE)) continue;
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (d < bestD) {
+        best = q;
+        bestD = d;
+      }
+    }
+    if (best) return best;
+  }
+  return SPAWN_POINT;
+}
+
+/**
+ * Il cammino che fa davvero l'agente: se parte da dentro un muro, prima esce dal punto
+ * libero più vicino; poi il pathfinder (che da lì non attraversa muri).
+ */
+export function walkPath(start: Vec2, goal: Vec2, layout: HouseLayout = house()): Vec2[] {
+  const s = freeFromWalls(start, layout);
+  const wps = findPath(s, goal, layout.obstacles, { bounds: layout.bounds });
+  return s === start ? wps : [s, ...wps];
 }
 
 /** A random walkable point inside the given room (avoids furniture/walls). */
