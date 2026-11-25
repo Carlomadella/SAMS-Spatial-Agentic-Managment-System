@@ -1,5 +1,6 @@
 import { permissionsForTask } from "./permissionsLive";
 import { filterOffTools } from "./permissions";
+import { noteRequest } from "./usageLive";
 import { parseTextToolCalls, stripTextToolCalls } from "./textToolCalls";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
@@ -121,7 +122,7 @@ export async function openrouterChat(
   systemPrompt: string,
   onRetry?: (attempt: number, waitMs: number, reason: RetryReason) => void,
   onFallback?: (from: string, to: string, why: FallbackWhy) => void,
-): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number; provider: string }> {
+): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number; provider: string; providerId: string }> {
   const s = getSettings();
   const allMessages: OpenRouterMessage[] = [{ role: "system", content: systemPrompt }, ...messages];
   const endpoints = buildEndpoints(s, "openrouter", openrouterModel());
@@ -171,6 +172,7 @@ export async function openrouterChat(
     toolCalls,
     tokens: data.usage?.total_tokens ?? 0,
     provider: `${endpoint.label} · ${endpoint.model}`,
+    providerId: endpoint.id,
   };
 }
 
@@ -231,6 +233,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
       (from, to, why) => emit({ agentId, agentName, level: "WARN", message: fallbackMessage(from, to, why) }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, resp.providerId, resp.tokens);
 
     if (resp.toolCalls.length === 0) {
       concludeWithAnswer(ctx, resp.text);
@@ -271,6 +274,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
     try {
       const closing = await openrouterChat(messages, [], system);
       totalTokens += closing.tokens;
+      noteRequest(agentId, closing.providerId, closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */

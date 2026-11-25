@@ -1,5 +1,6 @@
 import { permissionsForTask } from "./permissionsLive";
 import { filterOffTools } from "./permissions";
+import { noteRequest } from "./usageLive";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -181,6 +182,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
         emit({ agentId, agentName, level: "WARN", message: `Groq occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, "groq", resp.tokens);
 
     if (resp.toolCalls.length === 0) {
       concludeWithAnswer(ctx, resp.text);
@@ -221,6 +223,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
     try {
       const closing = await groqChat(messages, [], system);
       totalTokens += closing.tokens;
+      noteRequest(agentId, "groq", closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */

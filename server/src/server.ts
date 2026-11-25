@@ -57,6 +57,8 @@ import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, noteLiveMode, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
+import { agentRequestsToday, capBlockMessage, getAgentCap, providerDailyCap, sanitizeCap, setAgentCap, usageReport } from "./usage";
+import { noteTaskEnd } from "./usageLive";
 
 const app = express();
 
@@ -1292,6 +1294,19 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
+  // Tetto giornaliero dell'agente (idea 1, scelta C): raggiunto il tetto l'agente non parte.
+  // Vuoto = nessun tetto. La quota del provider quasi finita invece è solo un avviso (nella UI).
+  try {
+    const cap = await getAgentCap(db(), body.agentId);
+    const blocked = cap > 0 ? capBlockMessage(body.agentName || "L'agente", await agentRequestsToday(db(), body.agentId), cap) : null;
+    if (blocked) {
+      res.status(409).json({ error: blocked, capReached: true });
+      return;
+    }
+  } catch (err) {
+    log.warn("Tetto dell'agente non letto", { err: String(err) }); // il conteggio non deve fermare il lavoro
+  }
+
   const now = Date.now();
   const prev = lastAssign.get(body.agentId) ?? 0;
   const wait = Math.ceil((ASSIGN_COOLDOWN_MS - (now - prev)) / 1000);
@@ -1348,6 +1363,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
   const finished = () => {
     endRun(body.agentId);
+    noteTaskEnd(body.agentId);
     void runSaved
       .then(() => deleteTaskRun(db(), body.agentId))
       .catch((err) => log.warn("Task in corso non tolto", { err: String(err) }));
@@ -1428,6 +1444,23 @@ app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: 
   }
   log.info("Permesso deciso", { agent: agentId, group: answered.group, tool: answered.tool, decision, by });
   res.json({ ok: true });
+});
+
+/** Richieste e token di oggi per agente e provider, con il tetto ricavato dal provider (idea 1). */
+app.get("/api/usage", requireRole("viewer"), async (_req: Request, res: Response) => {
+  const { provider } = getSettings();
+  const report = await usageReport(db());
+  res.json({ ...report, provider, cap: providerDailyCap(provider, activeModel()), used: report.byProvider[provider] ?? 0 });
+});
+
+/** Tetto giornaliero di richieste di un agente (0 = nessun tetto). Si registra chi lo cambia. */
+app.post("/api/usage/cap/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "").slice(0, 191);
+  const cap = sanitizeCap((req.body ?? {}).cap);
+  const by = actorLabel(await roleOf(req), (req.body ?? {}).actor);
+  await setAgentCap(db(), agentId, cap, by);
+  log.info("Tetto richieste cambiato", { agent: agentId, cap, by });
+  res.json({ ok: true, cap });
 });
 
 /** Agent memory — read all memories for an agent (may hold repo context → "viewer"). */

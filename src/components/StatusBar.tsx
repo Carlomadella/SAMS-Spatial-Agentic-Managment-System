@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Eye, GitBranch, Radio, ShieldQuestion, Users, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, GitBranch, Radio, Send, ShieldQuestion, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
@@ -8,6 +8,8 @@ import { effectiveBranch } from "../lib/environments";
 import { engineLabel } from "../lib/engine";
 import { usePermissionRequests } from "../lib/permissions";
 import { usePendingPermissionsSync } from "./AgentPermissions";
+import { usageBadge, useUsage } from "../lib/usage";
+import { useUsagePolling } from "./AgentUsage";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -33,6 +35,8 @@ export function StatusBar() {
   const permRequests = Object.values(usePermissionRequests((s) => s.pending));
   const selectAgent = useStore((s) => s.selectAgent);
   usePendingPermissionsSync();
+  const usage = useUsage((s) => s.usage);
+  useUsagePolling();
 
   const runtime = !backendEnabled
     ? "Runtime: sandbox"
@@ -108,6 +112,18 @@ export function StatusBar() {
             <ShieldQuestion size={12} /> {permRequests.length === 1 ? "1 permesso" : `${permRequests.length} permessi`}
           </button>
         )}
+        {backendEnabled && backendOnline && usage && (() => {
+          const u = usageBadge(usage);
+          return (
+            <span
+              className={`hidden items-center gap-1 sm:flex ${u.tone === "bad" ? "text-rose-200" : u.tone === "warn" ? "text-amber-200" : ""}`}
+              title={u.title}
+              data-testid="usage-badge"
+            >
+              <Send size={12} /> {u.text}
+            </span>
+          );
+        })()}
         {roleEnforced && (
           <span className="flex items-center gap-1" title={roleMeta(viewerRole).title}>
             <span>{roleMeta(viewerRole).icon}</span> {roleMeta(viewerRole).label}
