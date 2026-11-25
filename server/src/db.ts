@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
 import { ensureTaskTables } from "./tasks";
 import { ensureQueueColumns } from "./taskQueue";
+import { ensureCheckpointTables } from "./checkpoints";
 import { configOf, deleteVersions, ensureAgentVersionTables, recordConfigVersion, sameConfig } from "./agentVersions";
 import { ensurePermissionTables } from "./permissions";
 import { ensureUsageTables } from "./usage";
@@ -395,6 +396,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await ensureTaskRunColumns(db);
   await ensureTaskTables(db);
   await ensureQueueColumns(db);
+  await ensureCheckpointTables(db);
   await ensureAgentVersionTables(db);
   await ensurePermissionTables(db);
   await ensureUsageTables(db);

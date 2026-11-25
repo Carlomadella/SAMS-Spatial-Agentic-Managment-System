@@ -170,11 +170,11 @@ describe("variabili d'ambiente con spazi", () => {
 });
 
 describe("opzione C — scelte nel database, segreti fuori", () => {
-  it("segreti e scelte coprono tutti i 24 campi salvabili, senza sovrapporsi", () => {
+  it("segreti e scelte coprono tutti i 25 campi salvabili, senza sovrapporsi", () => {
     const all = Object.keys(resolveSettings({}, null)).filter((k) => k !== "port").sort();
     expect([...SECRET_KEYS, ...CHOICE_KEYS].sort()).toEqual(all);
     expect(SECRET_KEYS).toHaveLength(12);
-    expect(CHOICE_KEYS).toHaveLength(12);
+    expect(CHOICE_KEYS).toHaveLength(13); // + resumeTasks (idea 5)
   });
 
   it("i branch degli ambienti sono scelte (nel database), non segreti", () => {

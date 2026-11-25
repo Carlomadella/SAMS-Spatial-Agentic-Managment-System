@@ -41,6 +41,8 @@ export interface Settings {
   model: string;
   openPRs: boolean;
   requireApproval: boolean;
+  /** ripresa automatica dal punto di lavoro quando si riassegna lo stesso task (idea 5) */
+  resumeTasks: boolean;
   notionToken: string;
   notionPageId: string;
   runtimeToken: string;
@@ -102,6 +104,7 @@ function defaults(env: NodeJS.ProcessEnv): Settings {
     model: "gemini-2.5-flash",
     openPRs: true,
     requireApproval: false,
+    resumeTasks: true,
     notionToken: "",
     notionPageId: "",
     runtimeToken: "",
@@ -123,6 +126,7 @@ function envOverrides(env: NodeJS.ProcessEnv): Partial<Settings> {
   }
   if (val("SAMS_OPEN_PRS") !== "") out.openPRs = val("SAMS_OPEN_PRS") !== "false";
   if (val("SAMS_REQUIRE_APPROVAL") !== "") out.requireApproval = val("SAMS_REQUIRE_APPROVAL") !== "false";
+  if (val("SAMS_RESUME_TASKS") !== "") out.resumeTasks = val("SAMS_RESUME_TASKS") !== "false";
   return out as Partial<Settings>;
 }
 
@@ -224,6 +228,7 @@ export function settingsToPersist(
     model: s.model,
     openPRs: s.openPRs,
     requireApproval: s.requireApproval,
+    resumeTasks: s.resumeTasks,
     notionToken: s.notionToken,
     notionPageId: s.notionPageId,
     runtimeToken: s.runtimeToken,
@@ -290,6 +295,7 @@ export const CHOICE_KEYS = [
   "prodBranch",
   "openPRs",
   "requireApproval",
+  "resumeTasks",
   "notionPageId",
   "agentId",
   "environmentId",
@@ -359,7 +365,7 @@ export function decodeChoices(rows: Record<string, string>): Partial<Settings> {
     } catch {
       continue;
     }
-    if (k === "openPRs" || k === "requireApproval") {
+    if (k === "openPRs" || k === "requireApproval" || k === "resumeTasks") {
       if (typeof v === "boolean") out[k] = v;
     } else if (k === "provider") {
       if (typeof v === "string" && PROVIDERS.includes(v as Provider)) out[k] = v;
@@ -476,6 +482,7 @@ export type SettingsPatch = Partial<
     | "model"
     | "openPRs"
     | "requireApproval"
+    | "resumeTasks"
     | "notionToken"
     | "notionPageId"
     | "runtimeToken"
@@ -554,6 +561,7 @@ export function publicStatus() {
     model: s.model,
     openPRs: s.openPRs,
     requireApproval: s.requireApproval,
+    resumeTasks: s.resumeTasks,
     hasNotionToken: s.notionToken.length > 0,
     notionPageId: s.notionPageId,
     notionReady: s.notionToken.length > 0,
@@ -581,6 +589,7 @@ const UI_EDITABLE_KEYS: ReadonlyArray<keyof Settings> = [
   "model",
   "openPRs",
   "requireApproval",
+  "resumeTasks",
   "notionToken",
   "notionPageId",
   "agentId",

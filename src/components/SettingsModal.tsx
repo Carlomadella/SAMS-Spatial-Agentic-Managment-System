@@ -162,6 +162,7 @@ export function SettingsModal() {
   const [model, setModel] = useState(MODELS.gemini[0]);
   const [openPRs, setOpenPRs] = useState(true);
   const [requireApproval, setRequireApproval] = useState(false);
+  const [resumeTasks, setResumeTasks] = useState(true);
   const [notionToken, setNotionToken] = useState("");
   const [notionPageId, setNotionPageId] = useState("");
   // Branch base di ogni ambiente ("" = branch base solito).
@@ -205,6 +206,7 @@ export function SettingsModal() {
       setModel(st.model);
       setOpenPRs(st.openPRs);
       setRequireApproval(st.requireApproval);
+      setResumeTasks(st.resumeTasks ?? true);
       setNotionPageId(st.notionPageId);
       setEnvBranchInput(st.envBranches ?? { dev: "", staging: "", prod: "" });
     })();
@@ -255,7 +257,7 @@ export function SettingsModal() {
     setBusy("save");
     setMsg(null);
     try {
-      const patch: SettingsInput = { provider, model, openPRs, requireApproval, notionPageId };
+      const patch: SettingsInput = { provider, model, openPRs, requireApproval, resumeTasks, notionPageId };
       // I branch degli ambienti si mandano solo se il runtime li conosce (runtime vecchi: no).
       if (status?.envBranches) {
         patch.devBranch = envBranchInput.dev.trim();
@@ -544,6 +546,14 @@ export function SettingsModal() {
               checked={requireApproval}
               onChange={setRequireApproval}
               locked={envLocked.has("requireApproval")}
+              lockedHint={lockedHint}
+            />
+            <ToggleRow
+              label="Riprendi i task da dove si erano fermati"
+              hint="Riassegnando lo stesso task (entro 24 ore), l'agente parte dal punto di lavoro salvato invece di rileggere tutto."
+              checked={resumeTasks}
+              onChange={setResumeTasks}
+              locked={envLocked.has("resumeTasks")}
               lockedHint={lockedHint}
             />
           </div>

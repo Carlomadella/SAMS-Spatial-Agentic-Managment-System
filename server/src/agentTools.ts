@@ -47,6 +47,7 @@ import { emptyGarden, water } from "./garden/model";
 import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
+import { noteToolStep } from "./checkpointLive";
 import { askPermission, currentMode, describeCall, groupLabel, groupOfTool, newRequestId, type Permissions } from "./permissions";
 import { checkFile } from "./fileChecks";
 import { decideWorkflow } from "./workflowGuard";
@@ -1099,6 +1100,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     result = `ERRORE: ${msg}`;
     emit({ agentId, agentName, level: "WARN", message: `${name}: ${msg}` });
   }
+  // Punto di lavoro (idea 5): cosa ha fatto, per riprendere al tentativo dopo.
+  noteToolStep(agentId, name, args, result);
   const note = name === "done" ? "" : stepBudgetNote(ctx.stepsLeft);
   return note ? `${result}\n\n${note}` : result;
 }
