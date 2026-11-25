@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { openDb } from "./db";
 import {
   addComment,
+  canComment,
   commentsPrompt,
   createTask,
   eventFromWire,
@@ -47,6 +48,28 @@ describe("task — regole", () => {
     expect(firstUserMessage("T")).toBe("Task: T");
     expect(firstUserMessage("T", "  ")).toBe("Task: T");
     expect(firstUserMessage("T", "Commenti: x")).toBe("Task: T\n\nCommenti: x");
+  });
+});
+
+describe("task — chi può commentare", () => {
+  it("con il GitHub per utente: solo chi l'ha avviato o l'owner", () => {
+    const base2 = { perUserGithub: true, isOwner: false, creatorUserId: "u1" };
+    expect(canComment({ ...base2, me: "u1" })).toBe(true);
+    expect(canComment({ ...base2, me: "u2" })).toBe(false);
+    expect(canComment({ ...base2, me: null })).toBe(false);
+    expect(canComment({ ...base2, me: "u2", isOwner: true })).toBe(true);
+    expect(canComment({ ...base2, creatorUserId: "", me: "u2" })).toBe(false);
+  });
+
+  it("senza GitHub per utente (tutti usano quello del server): ogni editor", () => {
+    expect(canComment({ perUserGithub: false, isOwner: false, creatorUserId: "u1", me: "u2" })).toBe(true);
+  });
+
+  it("il task ricorda l'account di chi l'ha avviato", async () => {
+    const db = await openDb(":memory:");
+    const t = await createTask(db, { ...base, creatorUserId: "u1" });
+    expect(t.creatorUserId).toBe("u1");
+    expect((await createTask(db, base)).creatorUserId).toBe("");
   });
 });
 

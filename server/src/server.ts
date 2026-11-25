@@ -56,7 +56,7 @@ import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } f
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
-import { addComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
+import { addComment, canComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
 
 const app = express();
@@ -1329,6 +1329,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
             title: body.title,
             branch: body.branch ?? "",
             createdBy: actorLabel(await roleOf(req), body.actor),
+            creatorUserId: (await sessionUser(req))?.id ?? "",
           });
     recorder = await startAttempt(db(), task.id, body.branch ?? "");
     if (recorder.comments) body.extraContext = recorder.comments;
@@ -1452,11 +1453,18 @@ app.post("/api/tasks/:id/comments", requireRole("editor"), async (req: Request, 
     res.status(400).json({ error: `Il commento è troppo lungo (max ${MAX_COMMENT} caratteri)` });
     return;
   }
-  if (!(await getTask(db(), id))) {
+  const task = await getTask(db(), id);
+  if (!task) {
     res.status(404).json({ error: "Task non trovato" });
     return;
   }
-  const by = actorLabel(await roleOf(req), (req.body ?? {}).actor);
+  const role = await roleOf(req);
+  const me = await sessionUser(req);
+  if (!canComment({ perUserGithub: Boolean(githubOAuthConfig()), isOwner: role === "owner", creatorUserId: task.creatorUserId, me: me?.id ?? null })) {
+    res.status(403).json({ error: "Solo chi ha avviato il task (o l'owner) può commentarlo: il commento arriva all'agente che lavora col suo GitHub." });
+    return;
+  }
+  const by = actorLabel(role, (req.body ?? {}).actor);
   const comment = await addComment(db(), id, by, text);
   log.info("Commento su un task", { task: id, by });
   res.json(comment);

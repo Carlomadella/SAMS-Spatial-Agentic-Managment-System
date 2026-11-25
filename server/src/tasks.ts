@@ -27,6 +27,8 @@ export interface TaskRecord {
   createdBy: string;
   createdAt: number;
   updatedAt: number;
+  /** account SAMS di chi l'ha avviato ("" = sconosciuto o senza account) */
+  creatorUserId: string;
 }
 
 export interface TaskEvent {
@@ -136,11 +138,31 @@ const MYSQL_DDL = `
 
 export async function ensureTaskTables(db: SqlDriver): Promise<void> {
   await db.exec(db.dialect === "mysql" ? MYSQL_DDL : SQLITE_DDL);
+  // Account di chi ha avviato il task (per sapere chi può commentarlo). Idempotente.
+  const cols =
+    db.dialect === "mysql"
+      ? await db.all<{ name: string }>(`SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks'`)
+      : await db.all<{ name: string }>(`PRAGMA table_info(tasks)`);
+  if (!cols.some((c) => String(c.name) === "creator_user_id")) {
+    await db.exec(`ALTER TABLE tasks ADD COLUMN creator_user_id ${db.dialect === "mysql" ? "VARCHAR(64)" : "TEXT"} NOT NULL DEFAULT ''`);
+  }
+}
+
+/**
+ * Chi può commentare un task. Il commento finisce nel prompt dell'agente, che lavora col
+ * GitHub di chi ha avviato il task: con "Accedi con GitHub" attivo solo quella persona
+ * (o l'owner) può scrivergli. Senza GitHub per utente tutti usano quello del server: basta
+ * essere editor.
+ */
+export function canComment(o: { perUserGithub: boolean; isOwner: boolean; creatorUserId: string; me: string | null }): boolean {
+  if (!o.perUserGithub || o.isOwner) return true;
+  if (!o.creatorUserId) return false;
+  return o.me === o.creatorUserId;
 }
 
 // --- task ------------------------------------------------------------------------------
 
-const TASK_COLS = `id, agent_id AS agentId, agent_name AS agentName, title, branch, status, attempts, created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt`;
+const TASK_COLS = `id, agent_id AS agentId, agent_name AS agentName, title, branch, status, attempts, created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt, creator_user_id AS creatorUserId`;
 
 function toTask(r: TaskRecord): TaskRecord {
   return {
@@ -154,18 +176,19 @@ function toTask(r: TaskRecord): TaskRecord {
     createdBy: String(r.createdBy ?? ""),
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
+    creatorUserId: String(r.creatorUserId ?? ""),
   };
 }
 
 export async function createTask(
   db: SqlRunner,
-  t: { id?: string; agentId: string; agentName: string; title: string; branch: string; createdBy: string },
+  t: { id?: string; agentId: string; agentName: string; title: string; branch: string; createdBy: string; creatorUserId?: string },
   now = Date.now(),
 ): Promise<TaskRecord> {
   const id = t.id ?? newTaskId();
   await db.run(
-    `INSERT INTO tasks (id, agent_id, agent_name, title, branch, status, attempts, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?, ?)`,
-    [id, t.agentId, t.agentName.slice(0, 255), t.title.slice(0, 4000), t.branch.slice(0, 255), t.createdBy.slice(0, 255), now, now],
+    `INSERT INTO tasks (id, agent_id, agent_name, title, branch, status, attempts, created_by, created_at, updated_at, creator_user_id) VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?, ?, ?)`,
+    [id, t.agentId, t.agentName.slice(0, 255), t.title.slice(0, 4000), t.branch.slice(0, 255), t.createdBy.slice(0, 255), now, now, (t.creatorUserId ?? "").slice(0, 64)],
   );
   return (await getTask(db, id))!;
 }
