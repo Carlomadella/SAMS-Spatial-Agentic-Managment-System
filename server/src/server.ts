@@ -56,7 +56,7 @@ import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } f
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
-import { addComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
+import { addComment, canComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
 import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
 
@@ -1325,6 +1325,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     ug,
     repo: repoDecision.repo,
     actor: actorLabel(await roleOf(req), body.actor),
+    userId: (await sessionUser(req))?.id ?? "",
   }, now);
   res.json({ ok: true, ...started });
 });
@@ -1334,6 +1335,8 @@ interface Launch {
   ug: Exclude<UserGithub, { kind: "missing" }>;
   repo: string | null;
   actor: string;
+  /** account SAMS di chi avvia ("" = nessuno): decide chi può commentare il task */
+  userId: string;
 }
 
 /**
@@ -1355,6 +1358,7 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
             title: body.title,
             branch: body.branch ?? "",
             createdBy: who.actor,
+            creatorUserId: who.userId,
           });
     recorder = await startAttempt(db(), task.id, body.branch ?? "");
     // Contesto del primo messaggio: il riassunto del task atteso (coda) e i commenti.
@@ -1508,7 +1512,7 @@ async function pumpQueue(agentId: string): Promise<void> {
       };
       // La UI sa che l'agente è partito anche se nessuno ha premuto niente.
       broadcast({ agentId, agentName: q.agentName, taskTitle: q.title, level: "INFO", message: `Parte dalla coda: ${q.title.slice(0, 120)}` });
-      await launchTask(body, { ug, repo: repoCheck.repo, actor: q.createdBy }, Date.now());
+      await launchTask(body, { ug, repo: repoCheck.repo, actor: q.createdBy, userId: q.payload.userId ?? "" }, Date.now());
       await broadcastQueue();
       return;
     }
@@ -1590,6 +1594,7 @@ app.post("/api/queue", requireRole("editor"), async (req: Request, res: Response
     title: body.title.slice(0, 4000),
     branch: typeof body.branch === "string" ? body.branch.slice(0, 255) : "",
     createdBy: actor,
+    creatorUserId: payload.userId,
     afterTaskId,
     urgent: body.urgent === true,
     payload,
@@ -1605,11 +1610,31 @@ app.get("/api/queue", requireRole("viewer"), async (req: Request, res: Response)
   res.json(await listQueue(db(), agentId));
 });
 
+const QUEUE_FORBIDDEN = "Solo chi ha messo in coda il task (o l'owner) può toglierlo o farlo partire: lavorerà col suo GitHub.";
+
+/** Con il GitHub per utente, un task in coda lo toccano solo chi l'ha messo in coda e l'owner. */
+async function mayTouchQueued(req: Request, q: { creatorUserId: string; payload: QueuePayload }): Promise<boolean> {
+  return canComment({
+    perUserGithub: Boolean(githubOAuthConfig()),
+    isOwner: (await roleOf(req)) === "owner",
+    creatorUserId: q.creatorUserId || (q.payload.userId ?? ""),
+    me: (await sessionUser(req))?.id ?? null,
+  });
+}
+
 /** Toglie un task dalla coda (se non è ancora partito). */
 app.delete("/api/queue/:id", requireRole("editor"), async (req: Request, res: Response) => {
   const id = String(req.params.id ?? "");
   const q = await getQueued(db(), id);
-  if (!q || !(await removeQueued(db(), id))) {
+  if (!q) {
+    res.status(404).json({ error: "Il task non è più in coda." });
+    return;
+  }
+  if (!(await mayTouchQueued(req, q))) {
+    res.status(403).json({ error: QUEUE_FORBIDDEN });
+    return;
+  }
+  if (!(await removeQueued(db(), id))) {
     res.status(404).json({ error: "Il task non è più in coda." });
     return;
   }
@@ -1625,6 +1650,10 @@ app.post("/api/queue/:id/start-anyway", requireRole("editor"), async (req: Reque
   const q = await getQueued(db(), id);
   if (!q) {
     res.status(404).json({ error: "Il task non è più in coda." });
+    return;
+  }
+  if (!(await mayTouchQueued(req, q))) {
+    res.status(403).json({ error: QUEUE_FORBIDDEN });
     return;
   }
   await clearAfter(db(), id);
@@ -1686,11 +1715,18 @@ app.post("/api/tasks/:id/comments", requireRole("editor"), async (req: Request, 
     res.status(400).json({ error: `Il commento è troppo lungo (max ${MAX_COMMENT} caratteri)` });
     return;
   }
-  if (!(await getTask(db(), id))) {
+  const task = await getTask(db(), id);
+  if (!task) {
     res.status(404).json({ error: "Task non trovato" });
     return;
   }
-  const by = actorLabel(await roleOf(req), (req.body ?? {}).actor);
+  const role = await roleOf(req);
+  const me = await sessionUser(req);
+  if (!canComment({ perUserGithub: Boolean(githubOAuthConfig()), isOwner: role === "owner", creatorUserId: task.creatorUserId, me: me?.id ?? null })) {
+    res.status(403).json({ error: "Solo chi ha avviato il task (o l'owner) può commentarlo: il commento arriva all'agente che lavora col suo GitHub." });
+    return;
+  }
+  const by = actorLabel(role, (req.body ?? {}).actor);
   const comment = await addComment(db(), id, by, text);
   log.info("Commento su un task", { task: id, by });
   res.json(comment);
