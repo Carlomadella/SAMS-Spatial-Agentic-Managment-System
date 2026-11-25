@@ -70,6 +70,9 @@ describe("permessi — regole", () => {
     expect(d).not.toContain("sk-123");
     expect(d).toContain("[nascosto: 6 caratteri]");
     expect(d).toContain('"note":"ok"');
+    const n = describeCall("mcp_call", { server: "s", tool: "t", args: { credentials: { user: "u", pass: "p1", pin: 1234 } } });
+    expect(n).not.toContain("1234");
+    expect(n).toContain('"user":"[nascosto: 1 caratteri]"');
     const u = describeCall("web_fetch", { url: "https://user:pw@example.com/x?q=gatti&token=abc&page=2" });
     expect(u).not.toContain(":pw@");
     expect(u).not.toContain("token=abc");

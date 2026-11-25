@@ -223,23 +223,24 @@ function redactUrl(v: string): string {
  * dicendo cosa manca. Le credenziali non si mostrano (la richiesta passa anche nel registro).
  */
 export function describeCall(tool: string, args: Record<string, unknown>): string {
-  const show = (key: string, v: unknown, depth: number): unknown => {
+  // `secret`: siamo sotto un nome da credenziale (anche più in giù, in liste e oggetti).
+  const show = (key: string, v: unknown, depth: number, under = false): unknown => {
+    const secret = under || (SECRET_KEY.test(key) && !KEY_FIELDS.includes(key));
     if (typeof v === "string") {
-      // Solo il valore testuale sotto un nome da credenziale, mai i campi che decidono l'azione;
-      // si dice che c'era e quanto era lungo.
-      if (SECRET_KEY.test(key) && !KEY_FIELDS.includes(key)) return hidden(v);
+      // Dei valori da credenziale si dice solo che c'erano e quanto erano lunghi.
+      if (secret) return hidden(v);
       const r = /^https?:\/\//i.test(v) ? redactUrl(v) : v;
       return KEY_FIELDS.includes(key) || r.length <= TEXT_MAX ? r : `${r.slice(0, TEXT_MAX - 1)}… (+${r.length - TEXT_MAX + 1} caratteri)`;
     }
     if (depth > 4) return "…";
     if (Array.isArray(v)) {
-      const items = v.slice(0, ARRAY_MAX).map((x) => show(key, x, depth + 1));
+      const items = v.slice(0, ARRAY_MAX).map((x) => show(key, x, depth + 1, secret));
       return v.length > ARRAY_MAX ? [...items, `… (+${v.length - ARRAY_MAX} voci)`] : items;
     }
     if (v && typeof v === "object") {
-      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, show(k, x, depth + 1)]));
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, show(k, x, depth + 1, secret)]));
     }
-    return v;
+    return secret && v != null ? "[nascosto]" : v;
   };
   const keys = Object.keys(args).sort((a, b) => {
     const ia = KEY_FIELDS.indexOf(a), ib = KEY_FIELDS.indexOf(b);
