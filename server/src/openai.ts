@@ -1,3 +1,4 @@
+import { firstUserMessage } from "./agentTools";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -169,7 +170,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
   };
   let totalTokens = 0;
 
-  const messages: OpenAIMessage[] = [{ role: "user", content: `Task: ${title}` }];
+  const messages: OpenAIMessage[] = [{ role: "user", content: firstUserMessage(title, body.extraContext) }];
 
   let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {

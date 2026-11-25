@@ -1,3 +1,4 @@
+import { firstUserMessage } from "./agentTools";
 import { parseTextToolCalls, stripTextToolCalls } from "./textToolCalls";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
@@ -212,7 +213,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
   };
   let totalTokens = 0;
 
-  const messages: OpenRouterMessage[] = [{ role: "user", content: `Task: ${title}` }];
+  const messages: OpenRouterMessage[] = [{ role: "user", content: firstUserMessage(title, body.extraContext) }];
 
   let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {

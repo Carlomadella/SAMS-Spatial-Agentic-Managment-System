@@ -608,12 +608,14 @@ export async function assignRemote(
   instructions?: string,
   repo?: string,
   environment: EnvironmentName = useStore.getState().environment,
+  /** task già esistente da riprendere (nuovo tentativo, idea 3); assente = task nuovo */
+  taskId?: string,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/assign`, {
     method: "POST",
     headers: authHeaders(),
     // L'ambiente scelto (Dev/Staging/Prod) viaggia col task: il server lo traduce nel branch base.
-    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, environment, actor: viewerName() }),
+    body: JSON.stringify({ agentId, agentName, title, branch, role, instructions, repo, environment, actor: viewerName(), ...(taskId ? { taskId } : {}) }),
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
@@ -1039,7 +1041,7 @@ export function getViewerId(): string {
   }
 }
 
-function viewerName(): string {
+export function viewerName(): string {
   const s = useStore.getState();
   // Precedenza: nome scelto a mano in chat → nome dell'account loggato → "Ospite".
   // Così due utenti loggati compaiono col loro vero nome (presence/cursori/selezioni/

@@ -19,6 +19,7 @@ import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
+import { RecentTasksBox, TaskSheet } from "./TaskSheet";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -244,6 +245,10 @@ export function AgentInspector() {
           </select>
         </div>
       )}
+
+      {/* storia dei task con la scheda completa (idea 3) */}
+      {backendEnabled && <RecentTasksBox agentId={agent.id} />}
+      {backendEnabled && <TaskSheet />}
 
       {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
       {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge || agent.pendingWorkflow) && (
