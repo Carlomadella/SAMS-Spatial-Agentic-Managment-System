@@ -202,9 +202,17 @@ const TEXT_MAX = 200;
 const ARRAY_MAX = 20;
 const SECRET_KEY = /token|secret|password|passwd|api[_-]?key|authorization|cookie|credential/i;
 
-/** Toglie le credenziali da una URL (utente:password@ e parametri della query). */
+const hidden = (v: string) => `[nascosto: ${v.length} caratteri]`;
+
+/**
+ * Nasconde in una URL solo le credenziali: la password di utente:password@ e i *valori*
+ * dei parametri con un nome da credenziale. Tutto il resto (host, percorso, altri
+ * parametri) resta visibile a chi decide.
+ */
 function redactUrl(v: string): string {
-  return v.replace(/(\w+:\/\/)[^/@\s]+@/g, "$1[nascosto]@").replace(/\?[^\s#]*/g, (q) => (q.length > 1 ? "?[parametri nascosti]" : q));
+  return v
+    .replace(/(\w+:\/\/[^/:@\s]*):([^/@\s]+)@/g, (_m, pre: string, pw: string) => `${pre}:${hidden(pw)}@`)
+    .replace(/([?&])([^=&#\s]+)=([^&#\s]*)/g, (m, sep: string, name: string, val: string) => (SECRET_KEY.test(name) && val ? `${sep}${name}=${hidden(val)}` : m));
 }
 
 /**
@@ -216,8 +224,10 @@ function redactUrl(v: string): string {
  */
 export function describeCall(tool: string, args: Record<string, unknown>): string {
   const show = (key: string, v: unknown, depth: number): unknown => {
-    if (SECRET_KEY.test(key)) return "[nascosto]";
     if (typeof v === "string") {
+      // Solo il valore testuale sotto un nome da credenziale, mai i campi che decidono l'azione;
+      // si dice che c'era e quanto era lungo.
+      if (SECRET_KEY.test(key) && !KEY_FIELDS.includes(key)) return hidden(v);
       const r = /^https?:\/\//i.test(v) ? redactUrl(v) : v;
       return KEY_FIELDS.includes(key) || r.length <= TEXT_MAX ? r : `${r.slice(0, TEXT_MAX - 1)}… (+${r.length - TEXT_MAX + 1} caratteri)`;
     }

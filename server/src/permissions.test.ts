@@ -66,13 +66,14 @@ describe("permessi — regole", () => {
   });
 
   it("non mostra credenziali", () => {
-    const d = describeCall("mcp_call", { server: "s", tool: "t", args: { api_key: "sk-123", note: "ok" } });
+    const d = describeCall("mcp_call", { server: "s", tool: "t", args: { api_key: "sk-123", note: "ok", tokens: ["a", "b"] } });
     expect(d).not.toContain("sk-123");
-    expect(d).toContain("[nascosto]");
-    const u = describeCall("web_fetch", { url: "https://user:pw@example.com/x?token=abc" });
-    expect(u).not.toContain("pw@");
-    expect(u).not.toContain("abc");
-    expect(u).toContain("example.com/x");
+    expect(d).toContain("[nascosto: 6 caratteri]");
+    expect(d).toContain('"note":"ok"');
+    const u = describeCall("web_fetch", { url: "https://user:pw@example.com/x?q=gatti&token=abc&page=2" });
+    expect(u).not.toContain(":pw@");
+    expect(u).not.toContain("token=abc");
+    expect(u).toContain("example.com/x?q=gatti&token=[nascosto: 3 caratteri]&page=2"); // il resto si vede
   });
 });
 
