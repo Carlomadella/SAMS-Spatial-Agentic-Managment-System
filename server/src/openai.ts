@@ -1,3 +1,4 @@
+import { noteRequest } from "./usageLive";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -183,6 +184,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
         emit({ agentId, agentName, level: "WARN", message: `OpenAI occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, "openai", resp.tokens);
 
     if (resp.toolCalls.length === 0) {
       concludeWithAnswer(ctx, resp.text);
@@ -223,6 +225,7 @@ export async function runOpenaiTask(body: AssignBody, emit: (e: WireEvent) => vo
     try {
       const closing = await openaiChat(messages, [], system);
       totalTokens += closing.tokens;
+      noteRequest(agentId, "openai", closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */

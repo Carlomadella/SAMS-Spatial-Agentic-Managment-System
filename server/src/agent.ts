@@ -1,3 +1,4 @@
+import { noteRequest } from "./usageLive";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
 import { readFile, effectiveSettings } from "./github";
@@ -168,6 +169,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
         emit({ agentId, agentName, level: "WARN", message: `Gemini occupato, riprovo (${n}) tra ${Math.round(waitMs / 1000)}s…` }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, "gemini", resp.tokens);
 
     const calls = resp.functionCalls;
     if (calls.length === 0) {
@@ -208,6 +210,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
         () => {},
       );
       totalTokens += closing.tokens;
+      noteRequest(agentId, "gemini", closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */
