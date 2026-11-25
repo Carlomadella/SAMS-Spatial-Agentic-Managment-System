@@ -237,8 +237,7 @@ export type ActivityView =
   | "explorer"
   | "search"
   | "scm"
-  | "cad"
-  | "extensions";
+  | "cad";
 
 export type BottomTab = "terminal" | "output" | "eventlog" | "problems" | "tasks" | "history" | "livesim" | "diario" | "replay" | "chat";
 

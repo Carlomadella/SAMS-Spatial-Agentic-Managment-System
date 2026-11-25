@@ -1,4 +1,4 @@
-import { Boxes, Files, GitBranch, Puzzle, Search } from "lucide-react";
+import { Boxes, Files, GitBranch, Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import type { ActivityView } from "../types";
@@ -9,7 +9,6 @@ const ITEMS: { id: ActivityView; icon: LucideIcon; label: string }[] = [
   { id: "search", icon: Search, label: "Cerca" },
   { id: "scm", icon: GitBranch, label: "Controllo sorgente" },
   { id: "cad", icon: Boxes, label: "CAD spaziale" },
-  { id: "extensions", icon: Puzzle, label: "Estensioni" },
 ];
 
 export function ActivityBar() {

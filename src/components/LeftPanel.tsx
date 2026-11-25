@@ -1,4 +1,4 @@
-import { MapPin, Package } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Explorer } from "./Explorer";
 import { ResizeHandle } from "./ResizeHandle";
 import { ScmView } from "./ScmView";
@@ -44,53 +44,6 @@ function CadView() {
   );
 }
 
-
-function ExtensionsView() {
-  const backendOnline = useStore((s) => s.backendOnline);
-  const runtimeReady = useStore((s) => s.runtimeReady);
-  const simMode = useStore((s) => s.simMode);
-
-  // Each "extension" reflects a real capability and its live state, instead of
-  // a hardcoded on/off flag.
-  const exts: { name: string; desc: string; state: "on" | "live" | "off" }[] = [
-    { name: "CAD spaziale", desc: "Layout 3D dell'ufficio e zone", state: "on" },
-    { name: "Runtime agenti", desc: "Ciclo di vita e scheduling dei task", state: runtimeReady ? "on" : "off" },
-    { name: "Gate di sicurezza", desc: "Approvazione del diff prima del commit", state: "on" },
-    { name: "Stream eventi", desc: "Telemetria live dell'area di lavoro (SSE)", state: backendOnline ? "live" : "off" },
-    { name: "Simulazione live", desc: "Gli agenti prendono le issue GitHub in autonomia", state: simMode ? "live" : "off" },
-  ];
-
-  const chip: Record<string, string> = {
-    on: "bg-emerald-500/15 text-emerald-300",
-    live: "bg-brand/15 text-brand-soft",
-    off: "bg-ink-700 text-mut",
-  };
-  const label: Record<string, string> = { on: "Attiva", live: "Live", off: "Off" };
-
-  return (
-    <div className="flex h-full flex-col">
-      <PanelHeader title="Estensioni" />
-      <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-3">
-        {exts.map((e) => (
-          <div key={e.name} className="flex items-start gap-2 rounded-md border border-line bg-ink-850 p-2">
-            <Package size={16} className="mt-0.5 text-brand-soft" />
-            <div className="flex-1">
-              <div className="text-[13px] text-slate-200">{e.name}</div>
-              <div className="text-[11px] text-mut">{e.desc}</div>
-            </div>
-            <span className={`chip ${chip[e.state]}`}>
-              {e.state === "live" && (
-                <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse-soft" />
-              )}
-              {label[e.state]}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function LeftPanel() {
   const activity = useStore((s) => s.activity);
   const leftWidth = useStore((s) => s.leftWidth);
@@ -104,7 +57,6 @@ export function LeftPanel() {
       {activity === "search" && <SearchView />}
       {activity === "scm" && <ScmView />}
       {activity === "cad" && <CadView />}
-      {activity === "extensions" && <ExtensionsView />}
       <ResizeHandle side="right" onDelta={(d) => setLeftWidth(useStore.getState().leftWidth + d)} />
     </aside>
   );
