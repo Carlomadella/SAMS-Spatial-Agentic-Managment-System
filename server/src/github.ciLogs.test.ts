@@ -76,6 +76,22 @@ describe("getWorkflowJobs", () => {
     expect(calls.some((c) => c.url.endsWith("/actions/jobs/1/logs"))).toBe(false);
   });
 
+  it("di un log enorme tiene solo la coda (l'errore è in fondo)", async () => {
+    const big = "rumore ".repeat(600_000) + "\n2026-11-25T01:00:00Z error TS2451: in fondo\n2026-11-25T01:00:01Z ##[error]exit 2\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/jobs?per_page=15")) {
+          return json(200, { jobs: [{ id: 2, name: "build", status: "completed", conclusion: "failure", steps: [] }] });
+        }
+        return new Response(big, { status: 200 });
+      }),
+    );
+    const out = await getWorkflowJobs(7);
+    expect(out).toContain("error TS2451: in fondo");
+    expect(out.length).toBeLessThan(5000);
+  });
+
   it("se il log non si legge, il riepilogo arriva lo stesso", async () => {
     vi.stubGlobal(
       "fetch",

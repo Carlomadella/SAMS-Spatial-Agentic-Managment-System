@@ -712,7 +712,28 @@ async function jobLog(jobId: number): Promise<string> {
     res = await fetch(location, { signal: AbortSignal.timeout(20_000) });
   }
   if (!res.ok) throw new HttpError(res.status, `GitHub ${res.status}: log del job non disponibile`);
-  return res.text();
+  return tailText(res, LOG_MAX_BYTES);
+}
+
+/** Byte massimi tenuti in memoria di un log (l'errore sta in fondo: si tiene la coda). */
+const LOG_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Legge il corpo a pezzi tenendo solo gli ultimi `max` byte: un log enorme non riempie la memoria. */
+async function tailText(res: Response, max: number): Promise<string> {
+  if (!res.body) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    size += value.byteLength;
+    while (size - chunks[0].byteLength >= max) size -= chunks.shift()!.byteLength;
+  }
+  let buf = Buffer.concat(chunks);
+  if (buf.byteLength > max) buf = buf.subarray(buf.byteLength - max);
+  return buf.toString("utf8");
 }
 
 /**
