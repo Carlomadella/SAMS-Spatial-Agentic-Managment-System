@@ -58,7 +58,7 @@ import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 import { addComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
-import { checkpointPrompt, isUsable, loadCheckpoint, pruneCheckpoints, type Checkpoint } from "./checkpoints";
+import { checkpointPrompt, isUsable, loadCheckpoint, pruneCheckpoints, workScope, type Checkpoint } from "./checkpoints";
 import { beginCheckpoint, endCheckpoint } from "./checkpointLive";
 import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
 
@@ -1362,13 +1362,20 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
     recorder = await startAttempt(db(), task.id, body.branch ?? "");
     // Ripresa (idea 5): stesso task riassegnato → si riparte dal punto di lavoro (24 ore),
     // se in ⚙ la ripresa automatica è accesa.
+    // Solo con lo stesso GitHub e la stessa repo del lavoro salvato: gli estratti dei file
+    // non passano a chi lavora altrove.
+    const scope = workScope(
+      ug.kind,
+      ug.kind === "user" ? ug.login : "",
+      who.repo ?? (ug.kind === "user" ? ug.ctx.repo ?? "" : getSettings().githubRepo),
+    );
     let resume: Checkpoint | null = null;
     if (recorder.attempt > 1 && getSettings().resumeTasks) {
       const cp = await loadCheckpoint(db(), task.id);
-      if (isUsable(cp)) resume = cp;
+      if (isUsable(cp, scope)) resume = cp;
     }
     if (resume) recorder.note("log", "INFO", `Riprende dal punto di lavoro del tentativo ${resume.attempt} (${resume.steps.length} passi già fatti)`);
-    beginCheckpoint(body.agentId, task.id, recorder.attempt, resume);
+    beginCheckpoint(body.agentId, task.id, recorder.attempt, resume, scope);
     // Contesto del primo messaggio: il riassunto del task atteso (coda), la ripresa e i commenti.
     body.extraContext = [body.extraContext, resume ? checkpointPrompt(resume) : "", recorder.comments].filter((x) => x && x.trim()).join("\n\n") || undefined;
   } catch (err) {

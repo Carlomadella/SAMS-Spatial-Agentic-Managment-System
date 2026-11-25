@@ -24,6 +24,14 @@ export interface Checkpoint {
   lastProblem: string;
   attempt: number;
   updatedAt: number;
+  /** con quale GitHub e su quale repo è stato fatto il lavoro: si riprende solo con gli stessi
+   *  (gli estratti dei file non devono passare a chi lavora su un'altra repo o un altro GitHub) */
+  scope?: string;
+}
+
+/** Chiave "chi e dove" di un tentativo: tipo di GitHub, login e repo. */
+export function workScope(github: "user" | "server", login: string, repo: string): string {
+  return `${github}:${login.toLowerCase()}:${repo.toLowerCase()}`;
 }
 
 export function emptyCheckpoint(attempt: number): Checkpoint {
@@ -75,9 +83,10 @@ export function applyStep(cp: Checkpoint, tool: string, args: Record<string, unk
   return next;
 }
 
-/** Il punto di lavoro vale ancora? (24 ore, e deve esserci qualcosa dentro) */
-export function isUsable(cp: Checkpoint | null, now = Date.now(), ttlMs = CHECKPOINT_TTL_MS): cp is Checkpoint {
+/** Il punto di lavoro vale ancora? (24 ore, stesso GitHub e stessa repo, e qualcosa dentro) */
+export function isUsable(cp: Checkpoint | null, scope: string, now = Date.now(), ttlMs = CHECKPOINT_TTL_MS): cp is Checkpoint {
   if (!cp || !cp.updatedAt) return false;
+  if (!cp.scope || cp.scope !== scope) return false;
   if (now - cp.updatedAt > ttlMs) return false;
   return cp.plan.length > 0 || cp.steps.length > 0;
 }

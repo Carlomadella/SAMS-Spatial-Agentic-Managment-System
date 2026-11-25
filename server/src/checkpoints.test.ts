@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { openDb } from "./db";
 import { createTask } from "./tasks";
-import { applyStep, CHECKPOINT_TTL_MS, checkpointPrompt, emptyCheckpoint, isUsable, loadCheckpoint, pruneCheckpoints, saveCheckpoint } from "./checkpoints";
+import { applyStep, CHECKPOINT_TTL_MS, checkpointPrompt, emptyCheckpoint, isUsable, loadCheckpoint, pruneCheckpoints, saveCheckpoint, workScope } from "./checkpoints";
+
+const S = workScope("user", "Carlo", "carlo/app");
 
 const T = 1_000_000;
 
@@ -29,11 +31,20 @@ describe("punto di lavoro — regole", () => {
   });
 
   it("vale 24 ore e solo se c'è qualcosa dentro", () => {
-    const cp = applyStep(emptyCheckpoint(1), "gh_read_file", { path: "a" }, "x", T);
-    expect(isUsable(cp, T + CHECKPOINT_TTL_MS - 1)).toBe(true);
-    expect(isUsable(cp, T + CHECKPOINT_TTL_MS + 1)).toBe(false);
-    expect(isUsable(emptyCheckpoint(1), T)).toBe(false);
-    expect(isUsable(null, T)).toBe(false);
+    const cp = { ...applyStep(emptyCheckpoint(1), "gh_read_file", { path: "a" }, "x", T), scope: S };
+    expect(isUsable(cp, S, T + CHECKPOINT_TTL_MS - 1)).toBe(true);
+    expect(isUsable(cp, S, T + CHECKPOINT_TTL_MS + 1)).toBe(false);
+    expect(isUsable({ ...emptyCheckpoint(1), scope: S }, S, T)).toBe(false);
+    expect(isUsable(null, S, T)).toBe(false);
+  });
+
+  it("si riprende solo con lo stesso GitHub e la stessa repo", () => {
+    const cp = { ...applyStep(emptyCheckpoint(1), "gh_read_file", { path: "a" }, "segreto", T), scope: S };
+    expect(isUsable(cp, workScope("user", "carlo", "Carlo/App"), T)).toBe(true); // maiuscole indifferenti
+    expect(isUsable(cp, workScope("user", "anna", "carlo/app"), T)).toBe(false); // un altro GitHub
+    expect(isUsable(cp, workScope("user", "carlo", "carlo/altra"), T)).toBe(false); // un'altra repo
+    expect(isUsable(cp, workScope("server", "", "carlo/app"), T)).toBe(false); // il GitHub del server
+    expect(isUsable({ ...cp, scope: undefined }, S, T)).toBe(false); // salvato senza sapere dove
   });
 
   it("il riassunto per il tentativo dopo dice di non ripetere", () => {

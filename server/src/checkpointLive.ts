@@ -14,8 +14,8 @@ interface Live {
 const live = new Map<string, Live>();
 
 /** Il task dell'agente parte: si riparte dal punto di lavoro precedente (se ripreso) o da zero. */
-export function beginCheckpoint(agentId: string, taskId: string, attempt: number, previous: Checkpoint | null): void {
-  live.set(agentId, { taskId, cp: previous ? { ...previous, attempt } : emptyCheckpoint(attempt), chain: Promise.resolve() });
+export function beginCheckpoint(agentId: string, taskId: string, attempt: number, previous: Checkpoint | null, scope: string): void {
+  live.set(agentId, { taskId, cp: { ...(previous ?? emptyCheckpoint(attempt)), attempt, scope }, chain: Promise.resolve() });
 }
 
 /** Dopo ogni strumento (lo chiama executeTool). */
