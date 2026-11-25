@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Eye, GitBranch, Radio, Users, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, GitBranch, Radio, Send, Users, Zap } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { backendEnabled, getViewerId } from "../lib/backend";
 import { isShared, observerBadge, presenceTooltip } from "../lib/presence";
@@ -6,6 +6,8 @@ import { roleMeta } from "../lib/roleUi";
 import { Link } from "../site/router";
 import { effectiveBranch } from "../lib/environments";
 import { engineLabel } from "../lib/engine";
+import { usageBadge, useUsage } from "../lib/usage";
+import { useUsagePolling } from "./AgentUsage";
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -28,6 +30,8 @@ export function StatusBar() {
   const { branch, dedicated } = effectiveBranch(environment, envBranches, runtimeBranch);
   const engine = useStore((s) => s.engine);
   const blocked = useStore((s) => s.agents.filter((a) => a.status === "blocked").length);
+  const usage = useUsage((s) => s.usage);
+  useUsagePolling();
 
   const runtime = !backendEnabled
     ? "Runtime: sandbox"
@@ -90,6 +94,18 @@ export function StatusBar() {
             >
               {e.tone === "ok" ? null : <CircleAlert size={12} />}
               <span className={e.tone === "ok" ? "hidden sm:inline" : ""}>{e.text}</span>
+            </span>
+          );
+        })()}
+        {backendEnabled && backendOnline && usage && (() => {
+          const u = usageBadge(usage);
+          return (
+            <span
+              className={`hidden items-center gap-1 sm:flex ${u.tone === "bad" ? "text-rose-200" : u.tone === "warn" ? "text-amber-200" : ""}`}
+              title={u.title}
+              data-testid="usage-badge"
+            >
+              <Send size={12} /> {u.text}
             </span>
           );
         })()}

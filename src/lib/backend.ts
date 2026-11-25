@@ -1039,7 +1039,7 @@ export function getViewerId(): string {
   }
 }
 
-function viewerName(): string {
+export function viewerName(): string {
   const s = useStore.getState();
   // Precedenza: nome scelto a mano in chat → nome dell'account loggato → "Ospite".
   // Così due utenti loggati compaiono col loro vero nome (presence/cursori/selezioni/
