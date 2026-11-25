@@ -9,6 +9,7 @@ import type { GardenState } from "./garden/model";
 import { dataFile } from "./dataDir";
 import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
+import { configOf, deleteVersions, ensureAgentVersionTables, recordConfigVersion, sameConfig } from "./agentVersions";
 import { ensurePermissionTables } from "./permissions";
 import { ensureUsageTables } from "./usage";
 
@@ -390,6 +391,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await ensureWorldAgentColumns(db);
   await ensureTaskLogColumns(db);
   await ensureTaskRunColumns(db);
+  await ensureAgentVersionTables(db);
   await ensurePermissionTables(db);
   await ensureUsageTables(db);
   await ensureUserColumns(db);
@@ -774,7 +776,7 @@ export interface WorldMergeResult extends WorldSnapshot {
 export async function saveWorldAgents(
   db: SqlDriver,
   all: WorldAgentSnapshot[],
-  { allowDelete = true }: { allowDelete?: boolean } = {},
+  { allowDelete = true, by = "", note = "" }: { allowDelete?: boolean; by?: string; note?: string } = {},
 ): Promise<WorldMergeResult> {
   const now = Date.now();
   const incoming = all.filter((a) => !a.deleted);
@@ -810,6 +812,14 @@ export async function saveWorldAgents(
         a.id, a.name, a.color, a.role, a.status, a.task, a.progress, a.model ?? "", a.instructions ?? "", a.repo ?? "",
         a.xp ?? 0, a.assignedBy ?? "", a.squad ?? "", rev, now,
       ]);
+      // Versioni della configurazione (idea 6): se è cambiato nome, modello, istruzioni…
+      const after = configOf(a);
+      const before = prev ? configOf(prev) : null;
+      if (!before || !sameConfig(before, after)) {
+        // Com'era prima, se non è già l'ultima versione salvata (agenti nati prima delle versioni).
+        if (before) await recordConfigVersion(tx, a.id, before, "", now - 1, "com'era prima");
+        await recordConfigVersion(tx, a.id, after, by, now, note);
+      }
       changed = true;
     }
     for (const [id, r] of existing) {
@@ -818,6 +828,7 @@ export async function saveWorldAgents(
           `UPDATE world_agents SET rev = rev + 1, updated_at = ?, deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
           [now, now, id],
         );
+        await deleteVersions(tx, id);
         changed = true;
       }
     }
@@ -844,6 +855,7 @@ export async function tombstoneWorldAgent(db: SqlDriver, id: string): Promise<Wo
       [now, now, id],
     );
     const changed = res.changes > 0;
+    await deleteVersions(tx, id); // un agente cancellato non lascia in giro le sue istruzioni
     const { version, updatedAt } = changed ? await bumpWorldVersion(tx) : await loadWorldVersion(tx);
     return { agents: await loadWorldAgents(tx), version, updatedAt, changed };
   });

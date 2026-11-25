@@ -876,7 +876,8 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
     const res = await fetch(`${BASE}/api/world`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ agents, baseVersion }),
+      // actor: chi scrive, per le versioni della configurazione degli agenti (idea 6)
+      body: JSON.stringify({ agents, baseVersion, actor: viewerName() }),
     });
     const data = (await res.json().catch(() => ({}))) as { version?: number; agents?: unknown };
     const conflict = res.status === 409;

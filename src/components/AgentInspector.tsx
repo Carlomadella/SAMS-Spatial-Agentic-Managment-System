@@ -19,6 +19,7 @@ import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
+import { AgentVersionsBox } from "./AgentVersions";
 import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
 import { AgentUsageBox, QuotaHint } from "./AgentUsage";
 
@@ -960,6 +961,8 @@ export function AgentInspector() {
             </div>
           </details>
 
+          {/* versioni della configurazione con ripristino (idea 6) */}
+          {backendEnabled && <AgentVersionsBox agentId={agent.id} />}
           {/* permessi per gruppo di strumenti (idea 2) */}
           {backendEnabled && <AgentPermissionsBox agentId={agent.id} />}
           {/* richieste di oggi e tetto giornaliero (idea 1) */}
