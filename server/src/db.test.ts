@@ -444,14 +444,25 @@ describe("db world_agents (roster per-riga + tombstone)", () => {
     expect(snap.agents.map((a) => a.id).sort()).toEqual(["a1", "a2"]);
   });
 
-  it("resuscita un id tombstoned se ricompare nel roster", async () => {
+  // 25/11: la cancellazione è definitiva. Una pagina rimasta con l'agente in memoria (o una
+  // pagina nuova che parte coi sei agenti di default) lo rimandava e il server lo resuscitava.
+  it("un id cancellato non torna anche se ricompare nel roster", async () => {
     const db = await openDb(":memory:");
     await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
     await saveWorldAgents(db, [agent({ id: "a1" })]); // a2 → tombstone
-    const snap = await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2", status: "idle" })]); // a2 torna
-    const a2 = snap.agents.find((a) => a.id === "a2");
-    expect(a2!.deleted).toBeUndefined();
-    expect(a2!.status).toBe("idle");
+    const snap = await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2", status: "idle" })]);
+    expect(snap.changed).toBe(false);
+    expect(snap.agents.find((a) => a.id === "a2")!.deleted).toBe(true);
+  });
+
+  it("un salvataggio non pota i tombstone vecchi: dopo 7 giorni l'agente non torna", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent({ id: "a1" }), agent({ id: "a2" })]);
+    await tombstoneWorldAgent(db, "a2");
+    await db.run(`UPDATE world_agents SET deleted_at = 1 WHERE id = 'a2'`); // cancellato tanto tempo fa
+    await saveWorldAgents(db, [agent({ id: "a1", progress: 90 })]);
+    await saveWorldAgents(db, [agent({ id: "a1", progress: 90 }), agent({ id: "a2" })]);
+    expect((await loadWorldAgents(db)).find((a) => a.id === "a2")?.deleted).toBe(true);
   });
 
   it("pota i tombstone più vecchi del TTL", async () => {

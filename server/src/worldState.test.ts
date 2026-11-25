@@ -24,6 +24,14 @@ describe("sanitizeWorldAgent", () => {
     });
   });
 
+  // 25/11: chi rileggeva GET /api/world e lo rimandava in POST perdeva il segno di
+  // cancellazione qui, e il server resuscitava i sei agenti colorati.
+  it("conserva il segno di cancellazione, e solo se è true", () => {
+    expect(sanitizeWorldAgent({ id: "a1", deleted: true })).toMatchObject({ id: "a1", deleted: true });
+    expect(sanitizeWorldAgent({ id: "a1", deleted: "sì" })).not.toHaveProperty("deleted");
+    expect(sanitizeWorldAgent({ id: "a1" })).not.toHaveProperty("deleted");
+  });
+
   it("porta la squadra dell'agente, ripulita e ritagliata", () => {
     expect(sanitizeWorldAgent({ id: "a1", squad: "  Simulazione  " })).toMatchObject({ squad: "Simulazione" });
     expect(sanitizeWorldAgent({ id: "a1", squad: "x".repeat(100) })!.squad).toHaveLength(40);

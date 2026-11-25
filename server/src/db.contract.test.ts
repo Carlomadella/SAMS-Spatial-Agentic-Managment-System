@@ -207,14 +207,16 @@ describe.each(backends)("contratto del DB — $name", ({ open }) => {
     r = await saveWorldAgents(db, [agent({ id: "zz", progress: 50 }), agent({ id: "aa" })]);
     expect(r.changed).toBe(false);
     expect(r.version).toBe(2);
-    // Assenza → tombstone; ricomparsa → resurrezione.
+    // Assenza → tombstone; ricomparsa → resta cancellato (definitivo, 25/11).
     r = await saveWorldAgents(db, [agent({ id: "aa" })]);
     expect(r.agents.find((a) => a.id === "zz")?.deleted).toBe(true);
     r = await saveWorldAgents(db, [agent({ id: "aa" }), agent({ id: "zz", instructions: "x".repeat(2000) })]);
-    expect(r.agents.find((a) => a.id === "zz")?.deleted).toBeUndefined();
-    expect((await loadWorldSnapshot(db)).version).toBe(4);
-    expect(await pruneWorldTombstones(db, 0, Date.now() + 1000)).toBe(0);
+    expect(r.changed).toBe(false);
+    expect(r.agents.find((a) => a.id === "zz")?.deleted).toBe(true);
+    expect((await loadWorldSnapshot(db)).version).toBe(3);
     expect((await loadWorldAgents(db)).map((a) => a.id)).toEqual(["zz", "aa"]);
+    expect(await pruneWorldTombstones(db, 0, Date.now() + 1000)).toBe(1);
+    expect((await loadWorldAgents(db)).map((a) => a.id)).toEqual(["aa"]);
   });
 
   it("routine e log dei task", async () => {
