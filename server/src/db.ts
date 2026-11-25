@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
 import { ensureTaskTables } from "./tasks";
 import { ensureQueueColumns } from "./taskQueue";
+import { ensureCheckpointTables } from "./checkpoints";
 
 /**
  * Storage durevole del runtime. Le funzioni di dominio sono scritte **una volta** sopra
@@ -392,6 +393,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await ensureTaskRunColumns(db);
   await ensureTaskTables(db);
   await ensureQueueColumns(db);
+  await ensureCheckpointTables(db);
   await ensureUserColumns(db);
   await migrateWorldAgents(db);
   return db;

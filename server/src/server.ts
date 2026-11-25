@@ -58,6 +58,8 @@ import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
 import { addComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
 import { startAttempt, type AttemptRecorder } from "./taskRecorder";
+import { checkpointPrompt, isUsable, loadCheckpoint, pruneCheckpoints, type Checkpoint } from "./checkpoints";
+import { beginCheckpoint, endCheckpoint } from "./checkpointLive";
 import { clearAfter, dependentsOf, enqueueTask, getQueued, handoffContext, listQueue, MAX_QUEUE_PER_AGENT, readiness, removeQueued, sameGithubKind, setWaitNote, waitMessage, type QueuePayload } from "./taskQueue";
 
 const app = express();
@@ -1052,6 +1054,7 @@ app.post("/api/settings", requireRole("owner"), async (req: Request, res: Respon
   if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
   if (typeof body.openPRs === "boolean") patch.openPRs = body.openPRs;
   if (typeof body.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
+  if (typeof body.resumeTasks === "boolean") patch.resumeTasks = body.resumeTasks;
   if (typeof body.notionToken === "string" && body.notionToken.trim()) patch.notionToken = body.notionToken.trim();
   if (typeof body.notionPageId === "string") patch.notionPageId = body.notionPageId.trim();
   // Branch degli ambienti: vuoto = torna al branch base solito; un nome non valido si rifiuta.
@@ -1357,8 +1360,17 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
             createdBy: who.actor,
           });
     recorder = await startAttempt(db(), task.id, body.branch ?? "");
-    // Contesto del primo messaggio: il riassunto del task atteso (coda) e i commenti.
-    body.extraContext = [body.extraContext, recorder.comments].filter((x) => x && x.trim()).join("\n\n") || undefined;
+    // Ripresa (idea 5): stesso task riassegnato → si riparte dal punto di lavoro (24 ore),
+    // se in ⚙ la ripresa automatica è accesa.
+    let resume: Checkpoint | null = null;
+    if (recorder.attempt > 1 && getSettings().resumeTasks) {
+      const cp = await loadCheckpoint(db(), task.id);
+      if (isUsable(cp)) resume = cp;
+    }
+    if (resume) recorder.note("log", "INFO", `Riprende dal punto di lavoro del tentativo ${resume.attempt} (${resume.steps.length} passi già fatti)`);
+    beginCheckpoint(body.agentId, task.id, recorder.attempt, resume);
+    // Contesto del primo messaggio: il riassunto del task atteso (coda), la ripresa e i commenti.
+    body.extraContext = [body.extraContext, resume ? checkpointPrompt(resume) : "", recorder.comments].filter((x) => x && x.trim()).join("\n\n") || undefined;
   } catch (err) {
     log.warn("Storia del task non disponibile: il task parte lo stesso", { err: String(err) });
   }
@@ -1398,6 +1410,7 @@ async function launchTask(body: AssignBody, who: Launch, now: number): Promise<{
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
   const finished = () => {
     endRun(body.agentId);
+    endCheckpoint(body.agentId);
     recorder?.note("end", "INFO", `Fine del tentativo ${recorder.attempt}`);
     // Coda (idea 4): parte il prossimo task dell'agente e chi aspettava questo.
     void afterTaskEnds(body.agentId, recorder);
@@ -2562,6 +2575,7 @@ app.listen(port, () => {
   const pruneTasks = async () => {
     try {
       const n = await pruneOldTasks(db());
+      await pruneCheckpoints(db());
       if (n > 0) log.info("Storie dei task scadute rimosse", { count: n });
     } catch {
       /* riprova al prossimo giro */

@@ -97,6 +97,8 @@ export interface RuntimeStatus {
   activeModel?: string;
   openPRs: boolean;
   requireApproval: boolean;
+  /** ripresa automatica dal punto di lavoro (idea 5); assente sui runtime vecchi */
+  resumeTasks?: boolean;
   hasNotionToken: boolean;
   notionPageId: string;
   notionReady: boolean;
@@ -127,6 +129,7 @@ export interface SettingsInput {
   model?: string;
   openPRs?: boolean;
   requireApproval?: boolean;
+  resumeTasks?: boolean;
   notionToken?: string;
   notionPageId?: string;
 }
