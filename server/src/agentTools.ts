@@ -92,6 +92,12 @@ export function makeBranch(agentName: string, title: string): string {
 export function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
+/** Primo messaggio del task: il titolo e, se c'è, il contesto preparato dal server. */
+export function firstUserMessage(title: string, extraContext?: string): string {
+  const extra = extraContext?.trim();
+  return extra ? `Task: ${title}\n\n${extra}` : `Task: ${title}`;
+}
+
 export function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : JSON.stringify(v);
 }

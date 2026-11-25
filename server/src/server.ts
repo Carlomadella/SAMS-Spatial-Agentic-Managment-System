@@ -56,6 +56,8 @@ import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } f
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
+import { addComment, canComment, createTask, exportTask, getTask, isTaskId, listTasks, MAX_COMMENT, pruneOldTasks, TASK_RETENTION_MS, type TaskExport } from "./tasks";
+import { startAttempt, type AttemptRecorder } from "./taskRecorder";
 import { configDiff, getVersion, listVersions } from "./agentVersions";
 import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, noteLiveMode, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
 import { agentRequestsToday, capBlockMessage, getAgentCap, providerDailyCap, sanitizeCap, setAgentCap, usageReport } from "./usage";
@@ -1256,6 +1258,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     res.status(400).json({ error: "agentId and title are required" });
     return;
   }
+  delete body.extraContext; // lo prepara solo il server (commenti, ripresa…)
   if (!isReady()) {
     res.status(503).json({ error: "Runtime non pronto — apri le Impostazioni, salva le chiavi e premi 'Provisiona agenti'." });
     return;
@@ -1330,7 +1333,28 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
     return;
   }
 
-  res.json({ ok: true });
+  // Il task sul server (idea 3): uno nuovo, o un nuovo tentativo di quello indicato.
+  let recorder: AttemptRecorder | null = null;
+  try {
+    const existing = isTaskId(body.taskId) ? await getTask(db(), body.taskId) : null;
+    const task =
+      existing && existing.agentId === body.agentId
+        ? existing
+        : await createTask(db(), {
+            agentId: body.agentId,
+            agentName: body.agentName || body.agentId,
+            title: body.title,
+            branch: body.branch ?? "",
+            createdBy: actorLabel(await roleOf(req), body.actor),
+            creatorUserId: (await sessionUser(req))?.id ?? "",
+          });
+    recorder = await startAttempt(db(), task.id, body.branch ?? "");
+    if (recorder.comments) body.extraContext = recorder.comments;
+  } catch (err) {
+    log.warn("Storia del task non disponibile: il task parte lo stesso", { err: String(err) });
+  }
+
+  res.json({ ok: true, taskId: recorder?.taskId ?? null, attempt: recorder?.attempt ?? null });
   noteTaskStarted(body.agentId, body.title, now);
   // Anche nel database: se il server si riavvia a metà, all'avvio risulta interrotto.
   const runSaved = saveTaskRun(db(), { agentId: body.agentId, agentName: body.agentName || body.agentId, title: body.title, branch: body.branch ?? "", startedAt: now, server: THIS_SERVER })
@@ -1356,7 +1380,9 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // Sta più dentro del GitHub dell'utente: vale anche per chi lavora sulla sua repo. Non vale
   // per un task indirizzato a un'altra repo (es. il meta-agente su SAMS): lì quei branch non c'entrano.
   const envBranch = repo ? null : envBaseBranch(body.environment, getSettings());
-  const run = () => runner(body, broadcast);
+  // Tutto quello che l'agente manda alla UI finisce anche nella storia del task.
+  const emit = recorder ? recorder.wrap(broadcast) : broadcast;
+  const run = () => runner(body, emit);
   const start = () => (envBranch ? runWithGithub({ baseBranch: envBranch }, run) : run());
   const inRepo = () => (repo ? runWithRepo(repo, start) : start());
   const work = ug.kind === "user" ? runWithGithub(ug.ctx, inRepo) : inRepo();
@@ -1364,6 +1390,7 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   // finally() creerebbe una seconda promessa rifiutata, non gestita.
   const finished = () => {
     endRun(body.agentId);
+    recorder?.note("end", "INFO", `Fine del tentativo ${recorder.attempt}`);
     noteTaskEnd(body.agentId);
     void runSaved
       .then(() => deleteTaskRun(db(), body.agentId))
@@ -1380,16 +1407,85 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
       void logTask({ agentId: body.agentId, agentName, title: body.title, branch: body.branch ?? "", status, tokens: 0, ts: Date.now(), summary });
     if (err instanceof TaskCancelledError) {
       const message = `${err.message}. Le modifiche già scritte sul branch restano lì.`;
-      broadcast({ agentId: body.agentId, agentName, status: "idle", level: "WARN", message });
+      emit({ agentId: body.agentId, agentName, status: "idle", level: "WARN", message });
       record("idle", message);
       return;
     }
     // Collaudo 21/11: gli errori noti (quote, chiavi, permessi GitHub) diventano una frase
     // in italiano con cosa fare; il testo tecnico resta in `detail` («Dettagli» nella UI).
     const { message, detail } = friendlyError(err instanceof Error ? err.message : String(err));
-    broadcast({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message, ...(detail ? { detail } : {}) });
+    emit({ agentId: body.agentId, agentName, status: "blocked", level: "ERROR", message, ...(detail ? { detail } : {}) });
     record("blocked", detail ? `${message}\n\nDettagli: ${detail}` : message);
   });
+});
+
+// --- Scheda del task (idea 3) ------------------------------------------------------
+
+/** Task recenti (di un agente, se indicato), dal più recente. */
+app.get("/api/tasks", requireRole("viewer"), async (req: Request, res: Response) => {
+  const agentId = typeof req.query.agentId === "string" ? req.query.agentId : undefined;
+  res.json(await listTasks(db(), { agentId, limit: Number(req.query.limit) || 20 }));
+});
+
+/** Il task con tutta la sua storia (eventi per tentativo e commenti). */
+app.get("/api/tasks/:id", requireRole("viewer"), async (req: Request, res: Response) => {
+  const data = await exportTask(db(), String(req.params.id ?? ""));
+  if (!data) {
+    res.status(404).json({ error: "Task non trovato (la storia si tiene 30 giorni)" });
+    return;
+  }
+  res.json(data);
+});
+
+/** Scarica la storia del task (JSON), prima che scada. */
+app.get("/api/tasks/:id/download", requireRole("viewer"), async (req: Request, res: Response) => {
+  const data = await exportTask(db(), String(req.params.id ?? ""));
+  if (!data) {
+    res.status(404).json({ error: "Task non trovato" });
+    return;
+  }
+  res.setHeader("Content-Disposition", `attachment; filename="task-${data.task.id.slice(2, 10)}.json"`);
+  res.json(data);
+});
+
+/** Scarica la storia di tutti i task ancora tenuti (al massimo 200, dai più recenti). */
+app.get("/api/tasks-download", requireRole("viewer"), async (_req: Request, res: Response) => {
+  const out: TaskExport[] = [];
+  for (const t of await listTasks(db(), { limit: 200 })) {
+    const d = await exportTask(db(), t.id);
+    if (d) out.push(d);
+  }
+  res.setHeader("Content-Disposition", `attachment; filename="sams-task-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json({ exportedAt: Date.now(), retentionDays: TASK_RETENTION_MS / 86_400_000, tasks: out });
+});
+
+/** Commento di una persona: arriva all'agente al tentativo dopo. */
+app.post("/api/tasks/:id/comments", requireRole("editor"), async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? "");
+  const text = typeof (req.body ?? {}).text === "string" ? String(req.body.text).trim() : "";
+  if (!text) {
+    res.status(400).json({ error: "Il commento è vuoto" });
+    return;
+  }
+  if (text.length > MAX_COMMENT) {
+    res.status(400).json({ error: `Il commento è troppo lungo (max ${MAX_COMMENT} caratteri)` });
+    return;
+  }
+  const task = await getTask(db(), id);
+  if (!task) {
+    res.status(404).json({ error: "Task non trovato" });
+    return;
+  }
+  const role = await roleOf(req);
+  const me = await sessionUser(req);
+  if (!canComment({ perUserGithub: Boolean(githubOAuthConfig()), isOwner: role === "owner", creatorUserId: task.creatorUserId, me: me?.id ?? null })) {
+    res.status(403).json({ error: "Solo chi ha avviato il task (o l'owner) può commentarlo: il commento arriva all'agente che lavora col suo GitHub." });
+    return;
+  }
+  const by = actorLabel(role, (req.body ?? {}).actor);
+  const comment = await addComment(db(), id, by, text);
+  log.info("Commento su un task", { task: id, by });
+  res.json(comment);
 });
 
 /** Permessi per gruppo di strumenti di un agente (idea 2), con chi li ha cambiati e l'eventuale richiesta in attesa. */
@@ -2367,4 +2463,15 @@ app.listen(port, () => {
   };
   void pruneSessions();
   setInterval(() => void pruneSessions(), 6 * 60 * 60 * 1000);
+  // Storia dei task (idea 3): si tiene 30 giorni, poi si cancella.
+  const pruneTasks = async () => {
+    try {
+      const n = await pruneOldTasks(db());
+      if (n > 0) log.info("Storie dei task scadute rimosse", { count: n });
+    } catch {
+      /* riprova al prossimo giro */
+    }
+  };
+  void pruneTasks();
+  setInterval(() => void pruneTasks(), 6 * 60 * 60 * 1000);
 });

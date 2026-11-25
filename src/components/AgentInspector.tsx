@@ -19,6 +19,7 @@ import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
+import { RecentTasksBox, TaskSheet } from "./TaskSheet";
 import { AgentVersionsBox } from "./AgentVersions";
 import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
 import { AgentUsageBox, QuotaHint } from "./AgentUsage";
@@ -248,6 +249,9 @@ export function AgentInspector() {
         </div>
       )}
 
+      {/* storia dei task con la scheda completa (idea 3) */}
+      {backendEnabled && <RecentTasksBox agentId={agent.id} />}
+      {backendEnabled && <TaskSheet />}
       {/* permesso chiesto dall'agente ("Chiedi prima", idea 2) */}
       {backendEnabled && <PermissionPrompt agentId={agent.id} />}
 

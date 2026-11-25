@@ -1,3 +1,4 @@
+import { firstUserMessage } from "./agentTools";
 import { permissionsForTask } from "./permissionsLive";
 import { filterOffTools } from "./permissions";
 import { noteRequest } from "./usageLive";
@@ -155,7 +156,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   };
   let totalTokens = 0;
 
-  const contents: Content[] = [{ role: "user", parts: [{ text: `Task: ${title}` }] }];
+  const contents: Content[] = [{ role: "user", parts: [{ text: firstUserMessage(title, body.extraContext) }] }];
 
   let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {

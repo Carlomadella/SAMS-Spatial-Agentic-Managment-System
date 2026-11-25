@@ -1,3 +1,4 @@
+import { firstUserMessage } from "./agentTools";
 import { permissionsForTask } from "./permissionsLive";
 import { filterOffTools } from "./permissions";
 import { noteRequest } from "./usageLive";
@@ -168,7 +169,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
   };
   let totalTokens = 0;
 
-  const messages: GroqMessage[] = [{ role: "user", content: `Task: ${title}` }];
+  const messages: GroqMessage[] = [{ role: "user", content: firstUserMessage(title, body.extraContext) }];
 
   let truncated = true; // cleared on a natural stop (done / no more tool calls)
   for (let step = 0; step < MAX_STEPS; step++) {

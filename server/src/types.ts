@@ -33,6 +33,8 @@ export interface WireEvent {
   /** l'attesa riguarda il branch principale (push o merge): l'agente è bloccato nella
    *  sala d'attesa finché una persona non conferma o rifiuta. */
   mainGate?: boolean;
+  /** id del task sul server (idea 3): la UI apre la sua scheda */
+  taskId?: string;
   /** permesso chiesto a una persona ("Chiedi prima", idea 2): l'agente è fermo finché non si decide; null = richiesta chiusa */
   permissionRequest?: { id: string; group: string; groupLabel: string; tool: string; detail: string; since: number } | null;
   /** agent-to-agent handoff: ask a peer to continue the work */
@@ -94,4 +96,9 @@ export interface AssignBody {
   environment?: string;
   /** Nome della vista che ha avviato l'azione (attribuzione nel log; non fidato). */
   actor?: string;
+  /** Task già esistente da riprendere (nuovo tentativo); assente = task nuovo (idea 3). */
+  taskId?: string;
+  /** Contesto aggiunto al primo messaggio del task (commenti delle persone…). Lo scrive
+   *  SOLO il server: quello che arriva dal client si butta. */
+  extraContext?: string;
 }
