@@ -195,28 +195,53 @@ export function allPendingPermissions(): PermissionRequest[] {
   return [...waiting.values()].map((w) => w.req);
 }
 
-/** Oltre questa lunghezza gli argomenti mostrati si accorciano (i contenuti dei file sono lunghi). */
-export const DETAIL_MAX = 800;
+/** Campi che decidono *cosa* fa l'azione: si mostrano per primi e non si accorciano mai. */
+const KEY_FIELDS = ["server", "tool", "path", "paths", "files", "url", "workflow", "ref", "pr_number", "method", "repo", "database", "page_title", "title"];
+/** Testi liberi lunghi (contenuti, messaggi): questi sì si accorciano. */
+const TEXT_MAX = 200;
+const ARRAY_MAX = 20;
+const SECRET_KEY = /token|secret|password|passwd|api[_-]?key|authorization|cookie|credential/i;
+
+/** Toglie le credenziali da una URL (utente:password@ e parametri della query). */
+function redactUrl(v: string): string {
+  return v.replace(/(\w+:\/\/)[^/@\s]+@/g, "$1[nascosto]@").replace(/\?[^\s#]*/g, (q) => (q.length > 1 ? "?[parametri nascosti]" : q));
+}
 
 /**
  * Cosa vuole fare l'agente, per la persona che decide: lo strumento e **tutti** gli argomenti
  * così come arrivano all'esecuzione (non un campo scelto da noi, che il modello potrebbe
- * riempire per far sembrare innocua un'altra azione). I testi lunghi si accorciano.
+ * riempire per far sembrare innocua un'altra azione). I campi che decidono l'azione vengono
+ * per primi e interi; si accorciano solo i testi liberi lunghi e le liste oltre 20 voci,
+ * dicendo cosa manca. Le credenziali non si mostrano (la richiesta passa anche nel registro).
  */
 export function describeCall(tool: string, args: Record<string, unknown>): string {
-  const clip = (v: unknown): unknown =>
-    typeof v === "string" ? (v.length > 200 ? `${v.slice(0, 199)}…` : v)
-    : Array.isArray(v) ? v.map(clip)
-    : v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, clip(x)]))
-    : v;
+  const show = (key: string, v: unknown, depth: number): unknown => {
+    if (SECRET_KEY.test(key)) return "[nascosto]";
+    if (typeof v === "string") {
+      const r = /^https?:\/\//i.test(v) ? redactUrl(v) : v;
+      return KEY_FIELDS.includes(key) || r.length <= TEXT_MAX ? r : `${r.slice(0, TEXT_MAX - 1)}… (+${r.length - TEXT_MAX + 1} caratteri)`;
+    }
+    if (depth > 4) return "…";
+    if (Array.isArray(v)) {
+      const items = v.slice(0, ARRAY_MAX).map((x) => show(key, x, depth + 1));
+      return v.length > ARRAY_MAX ? [...items, `… (+${v.length - ARRAY_MAX} voci)`] : items;
+    }
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, show(k, x, depth + 1)]));
+    }
+    return v;
+  };
+  const keys = Object.keys(args).sort((a, b) => {
+    const ia = KEY_FIELDS.indexOf(a), ib = KEY_FIELDS.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
   let json: string;
   try {
-    json = JSON.stringify(clip(args));
+    json = JSON.stringify(Object.fromEntries(keys.map((k) => [k, show(k, args[k], 0)])));
   } catch {
     json = "(argomenti non leggibili)";
   }
-  const text = `${tool} ${json}`;
-  return text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX - 1)}…` : text;
+  return `${tool} ${json}`;
 }
 
 // --- cambi a task in corso ----------------------------------------------------------

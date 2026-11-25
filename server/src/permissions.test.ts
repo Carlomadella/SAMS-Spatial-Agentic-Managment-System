@@ -56,9 +56,23 @@ describe("permessi — regole", () => {
     expect(describeCall("gh_read_file", { path: "src/a.ts" })).toBe('gh_read_file {"path":"src/a.ts"}');
     // un campo "innocuo" non può nascondere quello che conta davvero
     expect(describeCall("mcp_call", { title: "leggi il README", server: "s", tool: "delete_all" })).toContain('"tool":"delete_all"');
-    const long = describeCall("gh_write_file", { path: "a.ts", content: "x".repeat(5000) });
-    expect(long.length).toBeLessThanOrEqual(800);
-    expect(long).toContain('"path":"a.ts"');
+    const long = describeCall("gh_write_file", { content: "x".repeat(5000), path: "a.ts" });
+    expect(long.length).toBeLessThan(400);
+    expect(long.startsWith('gh_write_file {"path":"a.ts"')).toBe(true); // i campi che contano per primi
+    expect(long).toContain("(+4801 caratteri)");
+    const many = describeCall("gh_read_files", { paths: Array.from({ length: 25 }, (_, i) => `f${i}.ts`) });
+    expect(many).toContain("f19.ts");
+    expect(many).toContain("+5 voci");
+  });
+
+  it("non mostra credenziali", () => {
+    const d = describeCall("mcp_call", { server: "s", tool: "t", args: { api_key: "sk-123", note: "ok" } });
+    expect(d).not.toContain("sk-123");
+    expect(d).toContain("[nascosto]");
+    const u = describeCall("web_fetch", { url: "https://user:pw@example.com/x?token=abc" });
+    expect(u).not.toContain("pw@");
+    expect(u).not.toContain("abc");
+    expect(u).toContain("example.com/x");
   });
 });
 

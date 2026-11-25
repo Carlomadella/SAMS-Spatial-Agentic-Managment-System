@@ -1423,8 +1423,8 @@ app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: 
     return;
   }
   if (decision === "always") {
-    noteLiveMode(agentId, answered.group, "allow");
     await setPermission(db(), agentId, answered.group, "allow", by);
+    noteLiveMode(agentId, answered.group, "allow"); // dopo il salvataggio: lo stato dal vivo non anticipa il DB
   }
   log.info("Permesso deciso", { agent: agentId, group: answered.group, tool: answered.tool, decision, by });
   res.json({ ok: true });
