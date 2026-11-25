@@ -1,3 +1,4 @@
+import { queueTask } from "../lib/serverQueue";
 import { Clipboard, Play, Plus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { assignRemote, backendEnabled } from "../lib/backend";
@@ -118,7 +119,7 @@ export function Playbooks() {
     const title = expandStageTitle(stage, run.goal);
     const b = run.branch.trim() || "main";
     if (target.task) {
-      useStore.getState().enqueueTask(target.id, { title, branch: b });
+      void queueTask(target, { title, branch: b }).catch(() => {});
     } else {
       assignTask(target.id, title, b);
       if (backendEnabled) {

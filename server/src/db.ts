@@ -10,6 +10,7 @@ import { dataFile } from "./dataDir";
 import { readFileSync } from "node:fs";
 import { openMysql, openSqlite, type Dialect, type SqlDriver, type SqlRunner } from "./sql";
 import { ensureTaskTables } from "./tasks";
+import { ensureQueueColumns } from "./taskQueue";
 
 /**
  * Storage durevole del runtime. Le funzioni di dominio sono scritte **una volta** sopra
@@ -390,6 +391,7 @@ export async function migrate(db: SqlDriver): Promise<SqlDriver> {
   await ensureTaskLogColumns(db);
   await ensureTaskRunColumns(db);
   await ensureTaskTables(db);
+  await ensureQueueColumns(db);
   await ensureUserColumns(db);
   await migrateWorldAgents(db);
   return db;

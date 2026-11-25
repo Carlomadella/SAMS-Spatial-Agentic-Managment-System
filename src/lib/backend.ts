@@ -3,6 +3,7 @@ import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
+import { noteQueueEvent } from "./serverQueue";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
@@ -1256,7 +1257,9 @@ export function connectBackend(): () => void {
     es.onmessage = (ev) => {
       touch();
       try {
-        useStore.getState().applyRemote(JSON.parse(ev.data) as RemoteUpdate);
+        const data = JSON.parse(ev.data) as RemoteUpdate;
+        useStore.getState().applyRemote(data);
+        noteQueueEvent(data as { agentId?: string; queue?: unknown });
       } catch {
         /* ignore malformed payloads */
       }
