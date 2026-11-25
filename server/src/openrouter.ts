@@ -1,3 +1,5 @@
+import { permissionsForTask } from "./permissionsLive";
+import { filterOffTools } from "./permissions";
 import { parseTextToolCalls, stripTextToolCalls } from "./textToolCalls";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
@@ -193,7 +195,9 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
     return;
   }
 
-  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  // Permessi (idea 2): i gruppi spenti non vengono nemmeno offerti all'agente.
+  const perms = await permissionsForTask(agentId);
+  const specs = filterOffTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }), perms);
   const tools = toGroqTools(specs);
   // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
   const finalTools = toGroqTools(finalStepSpecs(specs));
@@ -208,7 +212,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,
     wroteFiles: false, notionWrote: false, branchReady: false,
-    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [],
+    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [], perms,
   };
   let totalTokens = 0;
 

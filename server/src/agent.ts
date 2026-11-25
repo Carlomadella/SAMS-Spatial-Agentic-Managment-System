@@ -1,3 +1,5 @@
+import { permissionsForTask } from "./permissionsLive";
+import { filterOffTools } from "./permissions";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { geminiModel, generateWithRetryStream } from "./gemini";
 import { readFile, effectiveSettings } from "./github";
@@ -121,7 +123,9 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
     return;
   }
 
-  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  // Permessi (idea 2): i gruppi spenti non vengono nemmeno offerti all'agente.
+  const perms = await permissionsForTask(agentId);
+  const specs = filterOffTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }), perms);
   const decls = toGeminiDecls(specs) as FunctionDeclaration[];
   // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
   const finalDecls = toGeminiDecls(finalStepSpecs(specs)) as FunctionDeclaration[];
@@ -146,7 +150,7 @@ export async function runGeminiTask(body: AssignBody, emit: (e: WireEvent) => vo
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,
     wroteFiles: false, notionWrote: false, branchReady: false,
-    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [],
+    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [], perms,
   };
   let totalTokens = 0;
 

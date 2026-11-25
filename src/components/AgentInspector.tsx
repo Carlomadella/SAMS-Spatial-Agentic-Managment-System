@@ -19,6 +19,7 @@ import { planStepsDone } from "../lib/orchestration";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "../data/taskTemplates";
 import { StagedFileDiff } from "./StagedFileDiff";
 import { TaskResultBox } from "./TaskResultBox";
+import { AgentPermissionsBox, PermissionPrompt } from "./AgentPermissions";
 
 const STATUSES: AgentStatus[] = ["idle", "working", "review", "blocked", "done"];
 
@@ -244,6 +245,9 @@ export function AgentInspector() {
           </select>
         </div>
       )}
+
+      {/* permesso chiesto dall'agente ("Chiedi prima", idea 2) */}
+      {backendEnabled && <PermissionPrompt agentId={agent.id} />}
 
       {/* diff approval panel — e sala d'attesa: push/merge sul branch principale */}
       {agent.status === "awaiting_approval" && ((agent.pendingFiles?.length ?? 0) > 0 || agent.pendingMerge || agent.pendingWorkflow) && (
@@ -953,6 +957,9 @@ export function AgentInspector() {
               </div>
             </div>
           </details>
+
+          {/* permessi per gruppo di strumenti (idea 2) */}
+          {backendEnabled && <AgentPermissionsBox agentId={agent.id} />}
 
           {/* squadra: il relay preferisce i compagni di squadra del mittente */}
           <label className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-ink-850/60 px-2.5 py-2">

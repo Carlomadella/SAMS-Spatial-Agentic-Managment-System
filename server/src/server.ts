@@ -56,6 +56,7 @@ import { noteAgentEvent, noteTaskStarted, overlayLiveStatus, type LoggedTask } f
 import { ENV_BRANCH_KEY, ENVIRONMENTS, envBaseBranch } from "./environments";
 import { parseTrustProxy } from "./trustProxy";
 import { Mutex } from "./sql";
+import { allPendingPermissions, answerPermission, cancelPermission, isPermGroup, isPermMode, loadPermissions, pendingPermission, PERM_GROUPS, permissionRows, setPermission } from "./permissions";
 
 const app = express();
 
@@ -1374,6 +1375,56 @@ app.post("/api/assign", requireRole("editor"), async (req: Request, res: Respons
   });
 });
 
+/** Permessi per gruppo di strumenti di un agente (idea 2), con chi li ha cambiati e l'eventuale richiesta in attesa. */
+app.get("/api/permissions/:agentId", requireRole("viewer"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "");
+  res.json({
+    groups: PERM_GROUPS.map((g) => ({ id: g.id, label: g.label })),
+    perms: await loadPermissions(db(), agentId),
+    changes: await permissionRows(db(), agentId),
+    pending: pendingPermission(agentId),
+  });
+});
+
+/** Le richieste di permesso in attesa (una pagina appena aperta le ritrova). */
+app.get("/api/permissions-pending", requireRole("viewer"), (_req: Request, res: Response) => {
+  res.json(allPendingPermissions());
+});
+
+/** Cambia un gruppo: owner ed editor, registrando chi. */
+app.post("/api/permissions/:agentId", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "").slice(0, 191);
+  const { group, mode, actor } = (req.body ?? {}) as { group?: unknown; mode?: unknown; actor?: unknown };
+  if (!isPermGroup(group) || !isPermMode(mode)) {
+    res.status(400).json({ error: "Gruppo o posizione non validi" });
+    return;
+  }
+  const by = actorLabel(await roleOf(req), actor);
+  await setPermission(db(), agentId, group, mode, by);
+  log.info("Permesso cambiato", { agent: agentId, group, mode, by });
+  res.json({ ok: true, perms: await loadPermissions(db(), agentId) });
+});
+
+/** Risposta a una richiesta "Chiedi prima": una volta, sempre (il gruppo diventa Consentito) o no. */
+app.post("/api/permissions/:agentId/answer", requireRole("editor"), async (req: Request, res: Response) => {
+  const agentId = String(req.params.agentId ?? "");
+  const { decision, actor } = (req.body ?? {}) as { decision?: unknown; actor?: unknown };
+  if (decision !== "once" && decision !== "always" && decision !== "deny") {
+    res.status(400).json({ error: "Decisione non valida" });
+    return;
+  }
+  const pending = pendingPermission(agentId);
+  if (!pending) {
+    res.status(404).json({ error: "Questo agente non sta aspettando un permesso." });
+    return;
+  }
+  const by = actorLabel(await roleOf(req), actor);
+  if (decision === "always") await setPermission(db(), agentId, pending.group, "allow", by);
+  answerPermission(agentId, decision);
+  log.info("Permesso deciso", { agent: agentId, group: pending.group, tool: pending.tool, decision, by });
+  res.json({ ok: true });
+});
+
 /** Agent memory — read all memories for an agent (may hold repo context → "viewer"). */
 app.get("/api/memory/:agentId", requireRole("viewer"), async (req: Request, res: Response) => {
   const agentId = req.params.agentId as string;
@@ -1607,6 +1658,7 @@ app.post("/api/cancel/:agentId", requireRole("editor"), async (req: Request, res
     res.status(404).json({ error: "Questo agente non ha un task in corso sul server." });
     return;
   }
+  cancelPermission(agentId); // se aspettava un permesso, si sblocca e si ferma
   log.info("Task annullato", { by, agent: agentId });
   res.json({ ok: true });
 });

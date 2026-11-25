@@ -1,3 +1,5 @@
+import { permissionsForTask } from "./permissionsLive";
+import { filterOffTools } from "./permissions";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
 import { composeSystem, loadProjectGuide } from "./agent";
@@ -144,7 +146,9 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
     return;
   }
 
-  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  // Permessi (idea 2): i gruppi spenti non vengono nemmeno offerti all'agente.
+  const perms = await permissionsForTask(agentId);
+  const specs = filterOffTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }), perms);
   const tools = toGroqTools(specs);
   // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
   const finalTools = toGroqTools(finalStepSpecs(specs));
@@ -159,7 +163,7 @@ export async function runGroqTask(body: AssignBody, emit: (e: WireEvent) => void
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,
     wroteFiles: false, notionWrote: false, branchReady: false,
-    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [],
+    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [], perms,
   };
   let totalTokens = 0;
 

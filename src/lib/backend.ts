@@ -3,6 +3,7 @@ import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
+import { notePermissionEvent } from "./permissions";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
@@ -1039,7 +1040,7 @@ export function getViewerId(): string {
   }
 }
 
-function viewerName(): string {
+export function viewerName(): string {
   const s = useStore.getState();
   // Precedenza: nome scelto a mano in chat → nome dell'account loggato → "Ospite".
   // Così due utenti loggati compaiono col loro vero nome (presence/cursori/selezioni/
@@ -1254,7 +1255,9 @@ export function connectBackend(): () => void {
     es.onmessage = (ev) => {
       touch();
       try {
-        useStore.getState().applyRemote(JSON.parse(ev.data) as RemoteUpdate);
+        const data = JSON.parse(ev.data) as RemoteUpdate;
+        useStore.getState().applyRemote(data);
+        notePermissionEvent(data as Parameters<typeof notePermissionEvent>[0]);
       } catch {
         /* ignore malformed payloads */
       }
