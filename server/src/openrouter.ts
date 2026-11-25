@@ -1,4 +1,7 @@
 import { firstUserMessage } from "./agentTools";
+import { permissionsForTask } from "./permissionsLive";
+import { filterOffTools } from "./permissions";
+import { noteRequest } from "./usageLive";
 import { parseTextToolCalls, stripTextToolCalls } from "./textToolCalls";
 import { getSettings } from "./config";
 import { effectiveSettings } from "./github";
@@ -120,7 +123,7 @@ export async function openrouterChat(
   systemPrompt: string,
   onRetry?: (attempt: number, waitMs: number, reason: RetryReason) => void,
   onFallback?: (from: string, to: string, why: FallbackWhy) => void,
-): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number; provider: string }> {
+): Promise<{ text: string; toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>; tokens: number; provider: string; providerId: string }> {
   const s = getSettings();
   const allMessages: OpenRouterMessage[] = [{ role: "system", content: systemPrompt }, ...messages];
   const endpoints = buildEndpoints(s, "openrouter", openrouterModel());
@@ -170,6 +173,7 @@ export async function openrouterChat(
     toolCalls,
     tokens: data.usage?.total_tokens ?? 0,
     provider: `${endpoint.label} · ${endpoint.model}`,
+    providerId: endpoint.id,
   };
 }
 
@@ -194,7 +198,9 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
     return;
   }
 
-  const specs = buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled });
+  // Permessi (idea 2): i gruppi spenti non vengono nemmeno offerti all'agente.
+  const perms = await permissionsForTask(agentId);
+  const specs = filterOffTools(buildToolSpecs(s, { repoEnabled, notionEnabled, mcpEnabled }), perms);
   const tools = toGroqTools(specs);
   // ultimo passo: solo gli strumenti che lasciano un risultato o chiudono il task
   const finalTools = toGroqTools(finalStepSpecs(specs));
@@ -209,7 +215,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
   const ctx: ToolContext = {
     s, agentId, agentName, title, branch, requireApproval, emit,
     wroteFiles: false, notionWrote: false, branchReady: false,
-    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [],
+    doneSummary: "", finished: false, progress: PROGRESS_START, stagedFiles: [], perms,
   };
   let totalTokens = 0;
 
@@ -228,6 +234,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
       (from, to, why) => emit({ agentId, agentName, level: "WARN", message: fallbackMessage(from, to, why) }),
     );
     totalTokens += resp.tokens;
+    noteRequest(agentId, resp.providerId, resp.tokens);
 
     if (resp.toolCalls.length === 0) {
       concludeWithAnswer(ctx, resp.text);
@@ -268,6 +275,7 @@ export async function runOpenrouterTask(body: AssignBody, emit: (e: WireEvent) =
     try {
       const closing = await openrouterChat(messages, [], system);
       totalTokens += closing.tokens;
+      noteRequest(agentId, closing.providerId, closing.tokens);
       recordPartial(ctx, closing.text);
     } catch {
       /* best-effort: il task resta interrotto, senza riassunto */

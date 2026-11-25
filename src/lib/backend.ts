@@ -3,6 +3,7 @@ import { readEnvBranches } from "./environments";
 import { useStore } from "../store/useStore";
 import { canAssign, normalizeRole, type ViewerRole } from "./roleUi";
 import { STREAM_WATCHDOG_MS, isStale, reconnectDelay } from "./streamHealth";
+import { notePermissionEvent } from "./permissions";
 
 // The runtime backend (SAMS ↔ agents). By default the app calls the SAME origin
 // (`/api/...`), which Vite proxies to the local runtime — so the browser never
@@ -877,7 +878,8 @@ export async function pushWorld(agents: WorldAgentSnapshot[], baseVersion?: numb
     const res = await fetch(`${BASE}/api/world`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ agents, baseVersion }),
+      // actor: chi scrive, per le versioni della configurazione degli agenti (idea 6)
+      body: JSON.stringify({ agents, baseVersion, actor: viewerName() }),
     });
     const data = (await res.json().catch(() => ({}))) as { version?: number; agents?: unknown };
     const conflict = res.status === 409;
@@ -1256,7 +1258,9 @@ export function connectBackend(): () => void {
     es.onmessage = (ev) => {
       touch();
       try {
-        useStore.getState().applyRemote(JSON.parse(ev.data) as RemoteUpdate);
+        const data = JSON.parse(ev.data) as RemoteUpdate;
+        useStore.getState().applyRemote(data);
+        notePermissionEvent(data as Parameters<typeof notePermissionEvent>[0]);
       } catch {
         /* ignore malformed payloads */
       }
