@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openDb, saveWorldAgents } from "./db";
+import { openDb, saveWorldAgents, tombstoneWorldAgent } from "./db";
 import { COALESCE_MS, configDiff, configOf, getVersion, listVersions, MAX_VERSIONS, recordConfigVersion } from "./agentVersions";
 import type { WorldAgentSnapshot } from "./worldState";
 
@@ -89,5 +89,15 @@ describe("versioni — database", () => {
     const v = await listVersions(db, "a");
     expect(v[0]).toMatchObject({ n: 3, createdBy: "Anna", note: "ripristino della versione 1", config: expect.objectContaining({ model: "m1" }) });
     expect(v).toHaveLength(3);
+  });
+
+  it("cancellare l'agente cancella anche le sue versioni", async () => {
+    const db = await openDb(":memory:");
+    await saveWorldAgents(db, [agent(), agent({ id: "b" })], { by: "Carlo" });
+    await tombstoneWorldAgent(db, "a");
+    expect(await listVersions(db, "a")).toEqual([]);
+    expect(await listVersions(db, "b")).toHaveLength(1);
+    await saveWorldAgents(db, [agent({ id: "c" })], { by: "Carlo" }); // il push dell'owner toglie anche "b"
+    expect(await listVersions(db, "b")).toEqual([]);
   });
 });

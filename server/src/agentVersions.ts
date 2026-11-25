@@ -152,3 +152,8 @@ export async function recordConfigVersion(
   );
   if (n > MAX_VERSIONS) await db.run(`DELETE FROM agent_versions WHERE agent_id = ? AND n <= ?`, [agentId, n - MAX_VERSIONS]);
 }
+
+/** Agente cancellato: via anche le sue versioni (istruzioni comprese). */
+export async function deleteVersions(db: SqlRunner, agentId: string): Promise<void> {
+  await db.run(`DELETE FROM agent_versions WHERE agent_id = ?`, [agentId]);
+}
