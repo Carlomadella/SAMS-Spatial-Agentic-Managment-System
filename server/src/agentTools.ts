@@ -48,6 +48,7 @@ import { getStore } from "./garden/store";
 import type { PendingFile, WireEvent } from "./types";
 import { throwIfCancelled } from "./taskRuns";
 import { noteToolStep } from "./checkpointLive";
+import { askPermission, currentMode, describeCall, groupLabel, groupOfTool, newRequestId, type Permissions } from "./permissions";
 import { checkFile } from "./fileChecks";
 import { decideWorkflow } from "./workflowGuard";
 
@@ -490,6 +491,8 @@ export interface ToolContext {
   ciStarted?: boolean;
   /** merge chiesto con gh_merge_pr: SAMS non lo esegue, lo mette in attesa di una persona */
   mergeRequest?: { prNumber: number; method: "merge" | "squash" | "rebase"; headSha: string; headRef: string; baseRef: string; title: string };
+  /** permessi per gruppo di strumenti (idea 2); assenti = nessun controllo (test, vecchi percorsi) */
+  perms?: Permissions;
   /** workflow chiesto con l'approvazione obbligatoria: parte solo quando una persona approva */
   workflowRequest?: { workflow: string; ref: string; inputs?: Record<string, string> };
 }
@@ -761,6 +764,49 @@ async function readManyFiles(paths: string[], ctx: ToolContext): Promise<string>
  * feed back to the model. Errors are caught and returned as `ERRORE: …` (and
  * surfaced as a WARN) so a single failing tool never aborts the whole loop.
  */
+/**
+ * Controllo dei permessi prima di eseguire uno strumento. null = si può procedere;
+ * altrimenti il testo da restituire al modello come risultato (azione non eseguita).
+ */
+export async function permissionGate(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string | null> {
+  const group = groupOfTool(name);
+  if (!group || !ctx.perms) return null;
+  const { agentId, agentName, emit } = ctx;
+  const mode = currentMode(agentId, group, ctx.perms);
+  if (mode === "allow") return null;
+  const label = groupLabel(group);
+  if (mode === "off") {
+    emit({ agentId, agentName, level: "WARN", message: `${name} rifiutato: il gruppo «${label}» è spento per questo agente` });
+    return `ERRORE: il gruppo di strumenti «${label}» è spento per questo agente: non puoi usare ${name}. Prosegui senza, o spiega nel riassunto cosa serve.`;
+  }
+  const detail = describeCall(name, args);
+  const since = Date.now();
+  const id = newRequestId();
+  emit({
+    agentId, agentName, level: "WARN",
+    message: `Chiede il permesso (${label}): ${truncate(detail, THOUGHT_LIMIT)}`,
+    permissionRequest: { id, group, groupLabel: label, tool: name, detail, since },
+  });
+  const outcome = await askPermission({ id, agentId, agentName, group, groupLabel: label, tool: name, detail, since });
+  emit({ agentId, agentName, permissionRequest: null });
+  if (outcome === "cancel") {
+    throwIfCancelled(agentId);
+    return `ERRORE: richiesta di permesso annullata. Non usare ${name}.`;
+  }
+  if (outcome === "always") {
+    ctx.perms[group] = "allow";
+    emit({ agentId, agentName, level: "INFO", message: `Permesso «${label}» concesso per sempre` });
+    return null;
+  }
+  if (outcome === "once") {
+    emit({ agentId, agentName, level: "INFO", message: `Permesso «${label}» concesso una volta` });
+    return null;
+  }
+  const why = outcome === "timeout" ? "nessuno ha risposto in tempo" : "una persona l'ha negato";
+  emit({ agentId, agentName, level: "WARN", message: `${name} non eseguito: ${why}` });
+  return `ERRORE: permesso per ${name} non concesso (${why}). Non riprovare la stessa azione: prosegui senza o spiega nel riassunto cosa ti serviva.`;
+}
+
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   const { s, agentId, agentName, emit } = ctx;
   // Task annullato da un utente: ci si ferma qui, prima di eseguire altro (fuori dal try,
@@ -772,6 +818,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     emit({ agentId, agentName, level: "WARN", message: `${name} rifiutato: ultimo passo, solo strumenti per concludere` });
     return `ERRORE: all'ultimo passo non puoi usare ${name}. Lascia il risultato (commento, file o nota) e chiama done.`;
   }
+  // Permessi per gruppo (idea 2): spento → rifiutato; chiedi prima → si aspetta una persona.
+  const denied = await permissionGate(name, args, ctx);
+  if (denied) return denied;
   // Stanze iconiche (23/11): che azione è, così la casa mette l'agente nella stanza giusta.
   // Senza messaggio: non è un passo da mostrare nel Log eventi.
   const activity = activityForTool(name);
